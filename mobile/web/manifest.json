@@ -1,0 +1,11 @@
+{
+    "name": "eminence_hris_mobile",
+    "short_name": "eminence_hris_mobile",
+    "start_url": "index.html",
+    "display": "standalone",
+    "background_color": "#1A365D",
+    "theme_color": "#1A365D",
+    "description": "Eminence HRIS Mobile App for Teaching & Non-Teaching Personnel",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false
+}

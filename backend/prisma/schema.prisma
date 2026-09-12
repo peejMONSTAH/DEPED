@@ -1,0 +1,426 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        UserRole @unique
+  description String?
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                       Int                      @id @default(autoincrement())
+  email                    String                   @unique
+  passwordHash             String                   @map("password_hash")
+  roleId                   Int                      @map("role_id")
+  personnelId              Int?                     @unique @map("personnel_id")
+  accountStatus            AccountStatus            @default(PENDING) @map("account_status")
+  createdAt                DateTime                 @default(now()) @map("created_at")
+  updatedAt                DateTime                 @updatedAt @map("updated_at")
+  lastLogin                DateTime?                @map("last_login")
+  failedLoginAttempts      Int                      @default(0) @map("failed_login_attempts")
+  lockedUntil              DateTime?                @map("locked_until")
+  accountRequestsCreated   AccountCreationRequest[] @relation("AccountRequestCreatedUser")
+  accountRequestsSubmitted AccountCreationRequest[] @relation("AccountRequestsSubmitted")
+  complianceChecks         ComplianceCheck[]
+  notifications            Notification[]
+  personnelProfileBack     Personnel?               @relation("PersonnelBelongsToUser")
+  refreshTokens            RefreshToken[]
+  assignedTransactions     Transaction[]            @relation("CurrentAssignee")
+  uploadedDocuments        UploadedDocument[]       @relation("Uploader")
+  validatedDocuments       UploadedDocument[]       @relation("Validator")
+  personnel                Personnel?               @relation("UserHasPersonnel", fields: [personnelId], references: [id])
+  role                     Role                     @relation(fields: [roleId], references: [id])
+  validationLogs           ValidationLog[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revoked   Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("refresh_tokens")
+}
+
+model UsedMagicToken {
+  id        Int      @id @default(autoincrement())
+  jti       String   @unique
+  userId    Int      @map("user_id")
+  usedAt    DateTime @default(now()) @map("used_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@map("used_magic_tokens")
+}
+
+model Personnel {
+  id                    Int                    @id @default(autoincrement())
+  userId                Int                    @unique @map("user_id")
+  employeeId            String                 @unique @map("employee_id")
+  firstName             String                 @map("first_name")
+  lastName              String                 @map("last_name")
+  middleName            String?                @map("middle_name")
+  suffix                String?
+  birthDate             DateTime               @map("birth_date")
+  gender                Gender
+  civilStatus           CivilStatus            @map("civil_status")
+  contactNumber         String?                @map("contact_number")
+  address               String?
+  designation           String
+  dateHired             DateTime               @map("date_hired")
+  status                PersonnelStatus
+  plantillaItemId       Int?                   @unique @map("plantilla_item_id")
+  profileComplete       Boolean                @default(false) @map("profile_complete")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  careerHistoryEntries  CareerHistoryEntry[]
+  plantillaItem         PlantillaItem?         @relation(fields: [plantillaItemId], references: [id])
+  user                  User                   @relation("PersonnelBelongsToUser", fields: [userId], references: [id])
+  promotionApplications PromotionApplication[]
+  transactions          Transaction[]
+  userProfileBack       User?                  @relation("UserHasPersonnel")
+
+  @@map("personnel")
+}
+
+model PlantillaItem {
+  id                  Int        @id @default(autoincrement())
+  itemNumber          String     @unique @map("item_number")
+  positionTitle       String     @map("position_title")
+  salaryGrade         Int        @map("salary_grade")
+  department          String
+  division            String
+  isOccupied          Boolean    @default(false) @map("is_occupied")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+  occupiedByPersonnel Personnel?
+
+  @@map("plantilla_items")
+}
+
+model TransactionType {
+  id                   Int                   @id @default(autoincrement())
+  name                 String                @unique
+  description          String?
+  requirementTemplates RequirementTemplate[]
+  transactions         Transaction[]
+
+  @@map("transaction_types")
+}
+
+model Transaction {
+  id                 Int                @id @default(autoincrement())
+  personnelId        Int                @map("personnel_id")
+  transactionTypeId  Int                @map("transaction_type_id")
+  status             TransactionStatus
+  submissionDate     DateTime?          @map("submission_date")
+  validationDate     DateTime?          @map("validation_date")
+  approvalDate       DateTime?          @map("approval_date")
+  remarks            String?
+  currentAssigneeId  Int?               @map("current_assignee_id")
+  resubmissionCount  Int                @default(0) @map("resubmission_count")
+  deficiencyDeadline DateTime?          @map("deficiency_deadline")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  currentAssignee    User?              @relation("CurrentAssignee", fields: [currentAssigneeId], references: [id])
+  personnel          Personnel          @relation(fields: [personnelId], references: [id])
+  transactionType    TransactionType    @relation(fields: [transactionTypeId], references: [id])
+  uploadedDocuments  UploadedDocument[]
+
+  @@map("transactions")
+}
+
+model RequirementTemplate {
+  id                Int                @id @default(autoincrement())
+  transactionTypeId Int                @map("transaction_type_id")
+  name              String
+  description       String?
+  isMandatory       Boolean            @default(true) @map("is_mandatory")
+  expectedDataType  String             @map("expected_data_type")
+  ocrFieldsJson     Json?              @map("ocr_fields_json")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  transactionType   TransactionType    @relation(fields: [transactionTypeId], references: [id])
+  uploadedDocuments UploadedDocument[]
+
+  @@map("requirement_templates")
+}
+
+model UploadedDocument {
+  id                    Int                 @id @default(autoincrement())
+  transactionId         Int                 @map("transaction_id")
+  requirementTemplateId Int                 @map("requirement_template_id")
+  storagePath           String              @map("storage_path")
+  fileName              String              @map("file_name")
+  fileSize              Int?                @map("file_size")
+  mimeType              String?             @map("mime_type")
+  fileHash              String?             @map("file_hash")
+  uploadedByUserId      Int                 @map("uploaded_by_user_id")
+  uploadDate            DateTime            @default(now()) @map("upload_date")
+  status                DocumentStatus
+  ocrExtractedDataJson  Json?               @map("ocr_extracted_data_json")
+  ocrConfidenceScore    Float?              @map("ocr_confidence_score")
+  correctedOcrDataJson  Json?               @map("corrected_ocr_data_json")
+  validationNotes       String?             @map("validation_notes")
+  validatedByUserId     Int?                @map("validated_by_user_id")
+  validationDate        DateTime?           @map("validation_date")
+  isDuplicate           Boolean             @default(false) @map("is_duplicate")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  careerHistoryEntry    CareerHistoryEntry?
+  complianceCheck       ComplianceCheck?
+  requirementTemplate   RequirementTemplate @relation(fields: [requirementTemplateId], references: [id])
+  transaction           Transaction         @relation(fields: [transactionId], references: [id])
+  uploadedBy            User                @relation("Uploader", fields: [uploadedByUserId], references: [id])
+  validatedBy           User?               @relation("Validator", fields: [validatedByUserId], references: [id])
+
+  @@map("uploaded_documents")
+}
+
+model ComplianceCheck {
+  id                 Int              @id @default(autoincrement())
+  uploadedDocumentId Int              @unique @map("uploaded_document_id")
+  isCompliant        Boolean          @map("is_compliant")
+  deficiencyDetails  String?          @map("deficiency_details")
+  checkedByUserId    Int              @map("checked_by_user_id")
+  checkDate          DateTime         @default(now()) @map("check_date")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  checkedBy          User             @relation(fields: [checkedByUserId], references: [id])
+  uploadedDocument   UploadedDocument @relation(fields: [uploadedDocumentId], references: [id])
+
+  @@map("compliance_checks")
+}
+
+model ValidationLog {
+  id          Int      @id @default(autoincrement())
+  entityType  String   @map("entity_type")
+  entityId    Int      @map("entity_id")
+  action      String
+  detailsJson Json?    @map("details_json")
+  userId      Int      @map("user_id")
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  status      String   @default("SUCCESS")
+  timestamp   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("validation_logs")
+}
+
+model Notification {
+  id                Int              @id @default(autoincrement())
+  userId            Int              @map("user_id")
+  message           String
+  type              NotificationType
+  isRead            Boolean          @default(false) @map("is_read")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  relatedEntityId   Int?             @map("related_entity_id")
+  relatedEntityType String?          @map("related_entity_type")
+  user              User             @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model PromotionCycle {
+  id                     Int                    @id @default(autoincrement())
+  name                   String
+  type                   PromotionCycleType
+  startDate              DateTime               @map("start_date")
+  endDate                DateTime               @map("end_date")
+  status                 PromotionCycleStatus
+  rulesConfigurationJson Json?                  @map("rules_configuration_json")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  promotionApplications  PromotionApplication[]
+
+  @@map("promotion_cycles")
+}
+
+model PromotionApplication {
+  id               Int                        @id @default(autoincrement())
+  personnelId      Int                        @map("personnel_id")
+  promotionCycleId Int                        @map("promotion_cycle_id")
+  status           PromotionApplicationStatus
+  applicationDate  DateTime                   @default(now()) @map("application_date")
+  finalRank        Int?                       @map("final_rank")
+  scoreDetailsJson Json?                      @map("score_details_json")
+  createdAt        DateTime                   @default(now()) @map("created_at")
+  updatedAt        DateTime                   @updatedAt @map("updated_at")
+  personnel        Personnel                  @relation(fields: [personnelId], references: [id])
+  promotionCycle   PromotionCycle             @relation(fields: [promotionCycleId], references: [id])
+
+  @@unique([personnelId, promotionCycleId])
+  @@map("promotion_applications")
+}
+
+model CareerHistoryEntry {
+  id                 Int               @id @default(autoincrement())
+  personnelId        Int               @map("personnel_id")
+  eventType          CareerEventType   @map("event_type")
+  eventDate          DateTime          @map("event_date")
+  detailsJson        Json?             @map("details_json")
+  documentId         Int?              @unique @map("document_id")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  supportingDocument UploadedDocument? @relation(fields: [documentId], references: [id])
+  personnel          Personnel         @relation(fields: [personnelId], references: [id])
+
+  @@map("career_history_entries")
+}
+
+model AccountCreationRequest {
+  id                Int                  @id @default(autoincrement())
+  requestedByUserId Int                  @map("requested_by_user_id")
+  firstName         String               @map("first_name")
+  lastName          String               @map("last_name")
+  middleName        String?              @map("middle_name")
+  suffix            String?
+  email             String
+  birthDate         DateTime?            @map("birth_date")
+  gender            Gender?
+  civilStatus       CivilStatus?         @map("civil_status")
+  contactNumber     String?              @map("contact_number")
+  address           String?
+  role              UserRole
+  designation       String
+  school            String?
+  initialPassword   String               @map("initial_password")
+  status            AccountRequestStatus @default(PENDING)
+  rejectionReason   String?              @map("rejection_reason")
+  createdUserId     Int?                 @map("created_user_id")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  createdUser       User?                @relation("AccountRequestCreatedUser", fields: [createdUserId], references: [id])
+  requestedByUser   User                 @relation("AccountRequestsSubmitted", fields: [requestedByUserId], references: [id])
+
+  @@map("account_creation_requests")
+}
+
+enum UserRole {
+  SYSTEM_ADMIN
+  AO_II
+  HRMO
+  TEACHING_PERSONNEL
+  NON_TEACHING_PERSONNEL
+  // Deprecated: RECORDS_PERSONNEL was decommissioned (per migration 20260812120000); retained only for DB enum compatibility
+  RECORDS_PERSONNEL
+}
+
+enum TransactionStatus {
+  DRAFT
+  PENDING_VALIDATION
+  FOR_APPROVAL
+  APPROVED
+  REJECTED
+  DEFICIENCY
+  ESCALATED
+  ABANDONED
+  COMPLETED
+  ARCHIVED
+}
+
+enum DocumentStatus {
+  PENDING_UPLOAD
+  PENDING_OCR
+  OCR_PROCESSED
+  OCR_REVIEWED
+  VALIDATED
+  REJECTED
+  REQUIRES_MANUAL_REVIEW
+}
+
+enum PromotionApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  RANKED
+  APPROVED
+  REJECTED
+}
+
+enum PromotionCycleType {
+  RECLASSIFICATION
+  NATURAL_VACANCY
+  ECP
+}
+
+enum PromotionCycleStatus {
+  PLANNING
+  CONFIGURED
+  ACTIVE
+  CLOSED
+  RESULTS_READY
+  PUBLISHED
+  FINALIZED
+  EVALUATION
+  COMPARATIVE_ASSESSMENT
+  RESOLVED
+  CANCELLED
+}
+
+enum CareerEventType {
+  PROMOTION
+  TRAINING
+  AWARD
+  DESIGNATION_CHANGE
+  RECLASSIFICATION
+  OTHER
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum CivilStatus {
+  SINGLE
+  MARRIED
+  WIDOWED
+  SEPARATED
+}
+
+enum PersonnelStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  RETIRED
+  ARCHIVED
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  LOCKED
+  INACTIVE
+}
+
+enum AccountRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

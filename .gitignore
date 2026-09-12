@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+**/dist/
+build/
+**/build/
+*.tsbuildinfo
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+.env.keys
+.env.local
+.env.*.local
+
+# Logs and crash dumps
+logs
+*.log
+*.hprof
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# Backend uploads / User files
+backend/uploads/**
+!backend/uploads/.gitkeep
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+**/.dart_tool/
+
+# Android Studio / IntelliJ / VS Code
+.idea/
+.vscode/
+*.iml
+.gradle/
+local.properties
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

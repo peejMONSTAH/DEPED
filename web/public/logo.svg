@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 65" width="100%" height="100%">
+  <defs>
+    <linearGradient id="em-text-grad-svg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#E0F2FE" />
+      <stop offset="100%" stop-color="#388BFD" />
+    </linearGradient>
+
+    <linearGradient id="em-line-grad-svg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#388BFD" stop-opacity="0" />
+      <stop offset="20%" stop-color="#388BFD" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#60A5FA" stop-opacity="1" />
+      <stop offset="80%" stop-color="#388BFD" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#388BFD" stop-opacity="0" />
+    </linearGradient>
+
+    <filter id="em-glow-svg" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <g>
+    <!-- Text-Only Wordmark -->
+    <text 
+      x="190" 
+      y="38" 
+      text-anchor="middle" 
+      font-family="'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif" 
+      font-size="38" 
+      font-weight="900" 
+      letter-spacing="9" 
+      fill="url(#em-text-grad-svg)"
+      filter="url(#em-glow-svg)"
+    >EMINENCE</text>
+
+    <!-- Gradient Line Accent -->
+    <rect x="55" y="50" width="270" height="2" rx="1" fill="url(#em-line-grad-svg)" />
+  </g>
+</svg>
