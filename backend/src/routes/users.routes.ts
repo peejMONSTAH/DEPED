@@ -16,11 +16,11 @@ router.post('/requests/:id/approve', authorize('SYSTEM_ADMIN', 'HRMO'), approveA
 router.post('/requests/:id/reject', authorize('SYSTEM_ADMIN', 'HRMO'), rejectAccountRequest);
 
 router.get('/', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getUsers);
-router.post('/', authorize('SYSTEM_ADMIN', 'HRMO', 'AO_II'), createUser);
+router.post('/', authorize('SYSTEM_ADMIN', 'HRMO'), createUser);
 router.get('/:id', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getUserById);
-router.put('/:id', authorize('SYSTEM_ADMIN', 'HRMO', 'AO_II'), updateUser);
+router.put('/:id', authorize('SYSTEM_ADMIN', 'HRMO'), updateUser);
 router.delete('/:id', authorize('SYSTEM_ADMIN', 'HRMO'), deleteUser);
 router.post('/:id/distribute-credentials', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), distributeCredentials);
-router.post('/:id/reset-password', authorize('SYSTEM_ADMIN', 'HRMO', 'AO_II'), resetUserPassword);
+router.post('/:id/reset-password', authorize('SYSTEM_ADMIN', 'HRMO'), resetUserPassword);
 
 export default router;

@@ -1,0 +1,16 @@
+const csc = 'https://csc.gov.ph/downloads/2025-oraohra';
+export const formTemplates = [
+  { id: 'pds-2025', title: 'Personal Data Sheet', edition: 'CS Form 212, Revised 2025', pages: 4, source: csc, pattern: /personal data sheet|\bpds\b|form.*212(?!.*attachment)/i, notice: 'This bundled form is the 2025 edition, not a claim of the latest edition. Confirm the edition accepted by HRMO. Complete all four pages, photograph, required signatures and declarations. Use Upload file if another edition is required.' },
+  { id: 'wes', title: 'Work Experience Sheet', edition: 'Blank adaptation of CS Form 212 attachment, 2025 Annex H-2', pages: 1, source: csc, pattern: /work experience/i, notice: 'The official annex contains sample employment; this blank adaptation removes those sample answers. List your experience in descending order, consistent with your PDS. Add continuation pages for more entries. Confirm format acceptance and complete the signature/date before final submission.' },
+  { id: 'omnibus-2023', title: 'Omnibus Sworn Statement', edition: 'DepEd Order 007, s. 2023, Annex C', pages: 1, source: 'https://www.deped.gov.ph/wp-content/uploads/DO_s2023_007.pdf', pattern: /omnibus/i, notice: 'Complete applicant fields only. Leave verification and HRMO attestation to the responsible officers. Required signing and oath administration are not replaced by typing your name. Confirm this Annex C edition with HRMO.' },
+  { id: 'saln-2025', title: 'Statement of Assets, Liabilities and Net Worth', edition: '2025 SALN Annexes (original published edition)', pages: 4, source: 'https://www.csc.gov.ph/phocadownload/userupload/irmo/policy%20resolutions/2025/saln/SALN%20Annexes%202025.pdf', pattern: /saln|statement of assets/i, notice: 'This is the original 2025 annex, not the February 2026 update. Confirm the accepted edition with HRMO; use Upload file if the update is required. Include relevant additional sheets, signatures and sworn declaration. Do not fill the oath officer’s section yourself.' },
+  { id: 'oath-2025', title: 'Oath of Office', edition: 'SS Porma Blg. 32, Narebisa 2025', pages: 1, source: csc, pattern: /oath of office|panunumpa/i, notice: 'Prepare your personal and appointment details only. The oath must be administered and completed by an authorized officer. Typing a name is not an administered oath.' },
+  { id: 'medical-2025', title: 'Medical Certificate', edition: 'CS Form 211, Revised 2025', pages: 1, source: csc, pattern: /medical certificate/i, notice: 'Fill only personal details. A licensed physician must complete the medical findings, certification and signature. Download your draft for the physician, then upload the completed certificate.' },
+  { id: 'position-2017', title: 'Position Description', edition: 'DBM-CSC Form 1, Revised 2017', pages: 2, source: csc, pattern: /position description/i, notice: 'Use HR-approved position details. Duties, item number, salary and supervisor details require HR confirmation. Do not invent position information; complete the required employee/supervisor acknowledgement.' },
+];
+
+export function matchForm(name: string) {
+  // A justification letter is not the SALN declaration itself.
+  if (/justification|request|verification/i.test(name)) return undefined;
+  return formTemplates.find(t => t.pattern.test(name));
+}

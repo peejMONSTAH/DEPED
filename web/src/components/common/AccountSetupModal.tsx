@@ -1,8 +1,11 @@
+import { ModalOverlay } from './ModalOverlay';
 import React, { useState, useEffect } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AppIcon } from './AppIcon';
+import { ModalPortal } from './ModalPortal';
+import apiClient from '../../api/client';
 
 interface AccountSetupModalProps {
   isOpen: boolean;
@@ -10,7 +13,7 @@ interface AccountSetupModalProps {
 }
 
 export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, onClose }) => {
-  const { user, updateUser } = useAuthContext();
+  const { user, logout } = useAuthContext();
   const { addToast } = useToast();
   const { theme } = useTheme();
 
@@ -39,13 +42,23 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
       setFirstName(user.firstName || '');
       setLastName(user.lastName || '');
       setEmail(user.email || '');
-      setPhone('0917-555-' + Math.floor(1000 + Math.random() * 9000));
+      setPhone('');
       setDesignation(
         user.role === 'SYSTEM_ADMIN' ? 'System Administrator' :
         user.role === 'AO_II' ? 'Administrative Officer II' :
         user.role === 'HRMO' ? 'Human Resource Management Officer' :
         user.role === 'TEACHING_PERSONNEL' ? 'Master Teacher I' : 'Administrative Assistant II'
       );
+    }
+    if (isOpen && user?.personnelId) {
+      apiClient.get('/personnel/me').then(response => {
+        const profile = response.data?.data;
+        if (!profile) return;
+        setFirstName(profile.firstName || '');
+        setLastName(profile.lastName || '');
+        setPhone(profile.contactNumber || '');
+        setDesignation(profile.designation || '');
+      }).catch(() => undefined);
     }
   }, [user, isOpen]);
 
@@ -60,24 +73,24 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
   const passwordsMatch = newPassword === confirmPassword && confirmPassword.length > 0;
   const isPasswordValid = isMinLength && hasUpper && hasLower && hasNumber && hasSpecial && passwordsMatch;
 
-  const handleSaveInfo = (e: React.FormEvent) => {
+  const handleSaveInfo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
       addToast('First name, last name, and email are required.', 'ERROR');
       return;
     }
 
-    updateUser({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-    });
-
-    addToast('Basic essential account details updated successfully.', 'SUCCESS');
-    onClose();
+    if (!user?.personnelId) { addToast('No personnel profile is linked to this account.', 'ERROR'); return; }
+    try {
+      await apiClient.put('/personnel/me', { contactNumber: phone.trim() || null });
+      addToast('Contact information saved.', 'SUCCESS');
+      onClose();
+    } catch (error: any) {
+      addToast(error.response?.data?.message || 'Unable to save contact information.', 'ERROR');
+    }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPassword) {
       addToast('Please enter your current password.', 'ERROR');
@@ -88,17 +101,21 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
       return;
     }
 
-    setPasswordSuccess(true);
-    addToast('Account password updated successfully.', 'SUCCESS');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => setPasswordSuccess(false), 3000);
+    try {
+      await apiClient.post('/auth/change-password', { currentPassword, newPassword });
+      setPasswordSuccess(true);
+      addToast('Password updated. Sign in again with your new password.', 'SUCCESS');
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      await logout();
+    } catch (error: any) {
+      addToast(error.response?.data?.message || 'Password change failed.', 'ERROR');
+    }
   };
 
   const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
-    addToast('Account security preferences updated.', 'SUCCESS');
+    localStorage.setItem('eminence-account-preferences', JSON.stringify({ emailNotifications, securityAlerts, dataPrivacyConsent }));
+    addToast('Preferences saved on this device.', 'SUCCESS');
     onClose();
   };
 
@@ -111,7 +128,8 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
   const primaryActionColor = isDark ? '#141416' : '#FFFFFF';
 
   return (
-    <div
+    <ModalPortal>
+    <ModalOverlay
       className="modal-overlay"
       onClick={onClose}
       style={{
@@ -308,7 +326,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))',
                   gap: 16,
                   marginBottom: 16,
                 }}
@@ -328,7 +346,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <input
                     type="text"
                     value={firstName}
-                    onChange={e => setFirstName(e.target.value)}
+                    disabled
                     required
                     style={{
                       width: '100%',
@@ -358,7 +376,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <input
                     type="text"
                     value={lastName}
-                    onChange={e => setLastName(e.target.value)}
+                    disabled
                     required
                     style={{
                       width: '100%',
@@ -444,7 +462,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))',
                   gap: 16,
                   marginBottom: 18,
                 }}
@@ -468,37 +486,19 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     >
                       Contact Number
                     </label>
-                    <span
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: 9999,
-                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                        color: '#10B981',
-                        border: '1px solid rgba(16, 185, 129, 0.25)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <AppIcon name="lock" size={10} color="#10B981" /> Verified
-                    </span>
                   </div>
                   <input
                     type="text"
                     value={phone}
-                    disabled
+                    onChange={e => setPhone(e.target.value)}
                     style={{
                       width: '100%',
                       padding: '10px 14px',
                       borderRadius: 10,
-                      backgroundColor: 'var(--color-bg-tertiary)',
+                      backgroundColor: 'var(--color-bg-secondary)',
                       border: '1px solid var(--color-border)',
                       color: 'var(--color-text-primary)',
                       fontSize: 13.5,
-                      cursor: 'not-allowed',
-                      opacity: 0.85,
                       boxSizing: 'border-box',
                     }}
                   />
@@ -778,7 +778,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))',
                       gap: '8px 16px',
                     }}
                   >
@@ -1063,6 +1063,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
           )}
         </div>
       </div>
-    </div>
+    </ModalOverlay>
+    </ModalPortal>
   );
 };

@@ -1,6 +1,7 @@
+import { ModalOverlay } from './ModalOverlay';
 import React, { useState, useEffect, useRef } from 'react';
 import { AppIcon } from './AppIcon';
-import { EminenceLogo } from './EminenceLogo';
+import { Digital201Logo } from './Digital201Logo';
 import { playLoginChime } from '../../utils/sound.utils';
 import type { AuthUser } from '../../types';
 
@@ -108,7 +109,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
   };
 
   return (
-    <div
+    <ModalOverlay
       className="modal-overlay animate-fade-in"
       style={{
         zIndex: 99999,
@@ -163,7 +164,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
                 boxShadow: '0 0 25px rgba(0, 123, 255, 0.3)',
                 margin: '0 auto'
               }}>
-                <EminenceLogo variant="mark" size="md" />
+                <Digital201Logo variant="mark" size="md" />
               </div>
             </div>
 
@@ -363,6 +364,6 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </ModalOverlay>
   );
 };

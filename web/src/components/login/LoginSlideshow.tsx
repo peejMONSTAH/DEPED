@@ -36,7 +36,7 @@ const SLIDES: SlideItem[] = [
       'Gain complete operational transparency with live workforce attendance telemetry, real-time 201 transaction queues, and sub-second analytics on a single pane of glass.',
     badge: 'Enterprise Telemetry • 99.99% Uptime',
     image: '/slides/analytics_command_center.jpg',
-    urlPath: 'eminence.deped.gov.ph/admin/dashboard',
+    urlPath: 'digital201.deped.gov.ph/admin/dashboard',
     accentColor: '#D7F84A',
     glowRgba: 'rgba(215, 248, 74, 0.22)',
     floatingPill1: {
@@ -62,7 +62,7 @@ const SLIDES: SlideItem[] = [
       'Transform thousands of paper folders into searchable, tamper-proof electronic service cards with automated civil service eligibility verification and digital credential attachments.',
     badge: 'CSC & DepEd Order Compliant',
     image: '/slides/digital_201_records.jpg',
-    urlPath: 'eminence.deped.gov.ph/admin/personnel',
+    urlPath: 'digital201.deped.gov.ph/admin/personnel',
     accentColor: '#38BDF8',
     glowRgba: 'rgba(56, 189, 248, 0.22)',
     floatingPill1: {
@@ -88,7 +88,7 @@ const SLIDES: SlideItem[] = [
       'Accelerate transaction throughput by 400% with automated multi-tier routing across Administrative Officers (AO II), HRMO leadership, and division governance.',
     badge: 'Multi-Tier RBAC Approval Engine',
     image: '/slides/validation_pipeline.jpg',
-    urlPath: 'eminence.deped.gov.ph/admin/transactions',
+    urlPath: 'digital201.deped.gov.ph/admin/transactions',
     accentColor: '#A78BFA',
     glowRgba: 'rgba(167, 139, 250, 0.22)',
     floatingPill1: {
@@ -114,7 +114,7 @@ const SLIDES: SlideItem[] = [
       'Eliminate favoritism and administrative overhead with an automated merit scoring engine and live applicant ranking leaderboards built strictly to DepEd Order No. 007, s. 2023.',
     badge: 'DepEd Order No. 007, s. 2023 Certified',
     image: '/slides/promotion_ranking.jpg',
-    urlPath: 'eminence.deped.gov.ph/admin/promotions',
+    urlPath: 'digital201.deped.gov.ph/admin/promotions',
     accentColor: '#FBBF24',
     glowRgba: 'rgba(251, 191, 36, 0.22)',
     floatingPill1: {
@@ -163,7 +163,7 @@ export const LoginSlideshow: React.FC = () => {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       role="region"
-      aria-label="Eminence System Showcase Presentation"
+      aria-label="Digital 201 System Showcase Presentation"
     >
       {/* Dynamic Ambient Spotlight Glow behind mockup */}
       <div
@@ -188,7 +188,7 @@ export const LoginSlideshow: React.FC = () => {
             />
           </div>
           <div className="neuro-brand-text-group">
-            <span className="neuro-brand-title">EMINENCE</span>
+            <span className="neuro-brand-title">DIGITAL 201</span>
             <span className="neuro-brand-sub">HRIS • ENTERPRISE</span>
           </div>
         </div>

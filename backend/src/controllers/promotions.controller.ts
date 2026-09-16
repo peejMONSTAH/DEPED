@@ -9,15 +9,32 @@ import {
 import { PromotionCycleStatus, PromotionCycleType } from '@prisma/client';
 import { getAOSchoolScope } from '../utils/scope.util';
 import { generateEmployeeNumber } from './users.controller';
-import { hashPassword } from '../utils/hash.util';
+import { hashPassword, validatePasswordComplexity } from '../utils/hash.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
 
+const normalizePositionTitle = (value: unknown): string => String(value || '')
+  .normalize('NFKD')
+  .toLowerCase()
+  .replace(/\([^)]*\)/g, ' ')
+  .replace(/\b(?:salary\s*grade|sg)\s*\d+\b/g, ' ')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+const getCycleTargetPosition = (cycle: { name?: string | null; rulesConfigurationJson?: unknown }): string => {
+  const rules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
+  if (rules.targetPosition || rules.positionTitle) return String(rules.targetPosition || rules.positionTitle).trim();
+  return String(cycle.name || '')
+    .replace(/^ranking\s+for\s+(?:natural\s+)?vacancy\s*:\s*/i, '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
+};
+
 export const getPromotionCycles = async (req: Request, res: Response): Promise<void> => {
-  if (req.user?.role === 'SYSTEM_ADMIN') {
+  if (req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'AO_II') {
     res.status(403).json({
       status: 'error',
-      message: 'Access denied: System Administrator cannot access promotions. Promotion cycles and Comparative Assessment Results are managed by HRMO and AO officers.',
+      message: 'Access denied: Promotion cycles and Comparative Assessment Results are managed exclusively by HR (HRMO).',
       code: 'FORBIDDEN',
     });
     return;
@@ -67,19 +84,33 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
   ]);
 
   let appliedCycleIds: number[] = [];
+  let currentPosition = '';
   if (req.user?.personnelId) {
-    const myApps = await prisma.promotionApplication.findMany({
-      where: { personnelId: req.user.personnelId },
-      select: { promotionCycleId: true },
-    });
+    const [myApps, personnel] = await Promise.all([
+      prisma.promotionApplication.findMany({
+        where: { personnelId: req.user.personnelId },
+        select: { promotionCycleId: true },
+      }),
+      prisma.personnel.findUnique({
+        where: { id: req.user.personnelId },
+        select: { designation: true, plantillaItem: { select: { positionTitle: true } } },
+      }),
+    ]);
     appliedCycleIds = myApps.map(a => a.promotionCycleId);
+    currentPosition = personnel?.designation || personnel?.plantillaItem?.positionTitle || '';
   }
 
-  const enriched = data.map(cycle => ({
-    ...cycle,
-    applicantCount: cycle._count?.promotionApplications || 0,
-    hasApplied: appliedCycleIds.includes(cycle.id),
-  }));
+  const enriched = data.map(cycle => {
+    const targetPosition = getCycleTargetPosition(cycle);
+    return {
+      ...cycle,
+      applicantCount: cycle._count?.promotionApplications || 0,
+      hasApplied: appliedCycleIds.includes(cycle.id),
+      targetPosition,
+      currentPosition: currentPosition || undefined,
+      isCurrentPosition: Boolean(currentPosition) && normalizePositionTitle(currentPosition) === normalizePositionTitle(targetPosition),
+    };
+  });
 
   sendSuccess(res, enriched, undefined, 200, buildPaginationMeta(page, limit, total));
 };
@@ -292,7 +323,7 @@ export const computeCycleRankingInternal = async (cycleId: number) => {
       ranked.map((r, idx) => {
         const details = (r.app.scoreDetailsJson as Record<string, any>) || {};
         const hasRating = Boolean(details.initialRating || details.finalRating);
-        const currentInitial = details.initialRating?.initialTotalScore || (hasRating ? (details.initialTotalScore || r.score) : 0);
+        const currentInitial = details.initialRating?.initialTotalScore ?? (hasRating ? (details.initialTotalScore ?? 0) : 0);
         const currentStatus = details.stageStatus || r.app.status;
         const updatedFinalRating = details.finalRating
           ? { ...details.finalRating, overallTotalScore: r.score }
@@ -662,9 +693,9 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
 
     if (isNonTeaching) {
       // Non-Teaching Potential (20 pts max)
-      const written = Number(potentialWrittenScore) || 5;
-      const bei = Number(potentialBeiScore) || 5;
-      const skills = Number(potentialSkillsScore) || 10;
+      const written = Math.min(5, Math.max(0, Number(potentialWrittenScore) || 0));
+      const bei = Math.min(5, Math.max(0, Number(potentialBeiScore) || 0));
+      const skills = Math.min(10, Math.max(0, Number(potentialSkillsScore) || 0));
       const totalPotential = potentialScore !== undefined ? Math.min(20, Math.max(0, Number(potentialScore))) : Math.min(20, written + bei + skills);
       hrmoFinalScore = parseFloat(totalPotential.toFixed(2));
       hrmoBreakdown = {
@@ -684,15 +715,13 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       };
     }
 
-    const initialTotal = currentDetails.initialRating?.initialTotalScore || currentDetails.initialTotalScore || (isNonTeaching ? 80 : 60);
+    const rawInitialTotal = currentDetails.initialRating?.initialTotalScore ?? currentDetails.initialTotalScore;
+    if (rawInitialTotal === undefined || rawInitialTotal === null || !Number.isFinite(Number(rawInitialTotal))) {
+      sendBadRequest(res, 'AO II initial rating must be completed before HRMO final rating.', 'INITIAL_RATING_REQUIRED');
+      return;
+    }
+    const initialTotal = Number(rawInitialTotal);
     const overallTotalScore = parseFloat((initialTotal + hrmoFinalScore).toFixed(2));
-
-    const cycleRules = (app.promotionCycle?.rulesConfigurationJson as any) || {};
-    const cycleTargetPos = cycleRules?.targetPosition || 'Master Teacher I';
-    const isExplicitlyAppointed = typeof forAppointment === 'string' && (
-      forAppointment.toLowerCase().includes('appoint') ||
-      forAppointment.toLowerCase().includes('selected')
-    );
 
     const updatedDetails = {
       ...currentDetails,
@@ -721,14 +750,6 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
         scoreDetailsJson: updatedDetails,
       },
     });
-
-    // If candidate was marked for appointment or already promoted, ensure personnel designation is updated
-    if (isExplicitlyAppointed || currentDetails.manuallyPromoted) {
-      await prisma.personnel.update({
-        where: { id: app.personnelId },
-        data: { designation: cycleTargetPos },
-      }).catch((err: any) => console.error('Failed to sync personnel designation in submitFinalRating:', err));
-    }
 
     await computeCycleRankingInternal(cycleId);
     notifyTransactionChange();
@@ -966,29 +987,34 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     plantillaItemNumber: isPromoted ? assignedPlantilla : null,
   };
 
-  const updated = await prisma.promotionApplication.update({
-    where: { id: appId },
-    data: {
-      status: newStatus as any,
-      scoreDetailsJson: updatedDetails,
-    },
-  });
-
   const targetPos = (app.promotionCycle.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I';
-  const isTeacherOne = targetPos.toLowerCase().includes('teacher 1') || targetPos.toLowerCase().includes('teacher i');
+  const isTeacherOne = /^(teacher (?:i|1))$/.test(normalizePositionTitle(targetPos));
+  if (!isPromoted && currentDetails.appointmentApproved) {
+    sendBadRequest(res, 'An officially approved appointment cannot be removed from candidate selection.', 'APPOINTMENT_ALREADY_APPROVED');
+    return;
+  }
+  if (isPromoted && assignedPlantilla) {
+    const plantillaItem = await prisma.plantillaItem.findUnique({ where: { itemNumber: assignedPlantilla } });
+    if (!plantillaItem) { sendNotFound(res, `Plantilla item "${assignedPlantilla}" was not found.`); return; }
+    const holder = await prisma.personnel.findFirst({ where: { plantillaItemId: plantillaItem.id, id: { not: app.personnelId } }, select: { employeeId: true } });
+    if (holder) { sendBadRequest(res, `Selected plantilla is already occupied by ${holder.employeeId}.`, 'PLANTILLA_ALREADY_OCCUPIED'); return; }
+  }
 
+  let updated: any;
+  let notificationUserId: number | null = null;
+  await prisma.$transaction(async db => {
   if (isPromoted) {
     // 1. Find or create the appropriate TransactionType (Newly Hired Appointment vs Promotion)
     const targetTxTypeName = isTeacherOne ? 'Newly Hired Appointment' : 'Promotion';
 
-    let txType = await prisma.transactionType.findFirst({
+    let txType = await db.transactionType.findFirst({
       where: {
         name: { contains: isTeacherOne ? 'Newly Hired' : 'Promotion', mode: 'insensitive' },
       },
     });
 
     if (!txType) {
-      txType = await prisma.transactionType.create({
+      txType = await db.transactionType.create({
         data: {
           name: targetTxTypeName,
           description: isTeacherOne
@@ -1020,11 +1046,11 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
         ];
 
     for (const reqItem of defaultRequirements) {
-      const existingReq = await prisma.requirementTemplate.findFirst({
+      const existingReq = await db.requirementTemplate.findFirst({
         where: { transactionTypeId: txType.id, name: reqItem.name },
       });
       if (!existingReq) {
-        await prisma.requirementTemplate.create({
+        await db.requirementTemplate.create({
           data: {
             transactionTypeId: txType.id,
             name: reqItem.name,
@@ -1037,7 +1063,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     }
 
     // 2. Create or find active Transaction for this candidate personnel
-    let activeTx = await prisma.transaction.findFirst({
+    let activeTx = await db.transaction.findFirst({
       where: {
         personnelId: app.personnelId,
         transactionTypeId: txType.id,
@@ -1046,7 +1072,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     });
 
     if (!activeTx) {
-      activeTx = await prisma.transaction.create({
+      activeTx = await db.transaction.create({
         data: {
           personnelId: app.personnelId,
           transactionTypeId: txType.id,
@@ -1057,42 +1083,19 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       });
     }
 
-    // Bind Plantilla Item to Personnel and mark Plantilla Item as Occupied
-    let plantillaIdToBind: number | null = null;
-    if (assignedPlantilla) {
-      const plantillaItem = await prisma.plantillaItem.findFirst({
-        where: { itemNumber: assignedPlantilla },
-      });
-      if (plantillaItem) {
-        plantillaIdToBind = plantillaItem.id;
-        await prisma.plantillaItem.update({
-          where: { id: plantillaItem.id },
-          data: { isOccupied: true },
-        });
-      }
-    }
-
-    // Always update personnel designation upon candidate appointment selection
-    await prisma.personnel.update({
-      where: { id: app.personnelId },
-      data: {
-        designation: targetPos,
-        ...(plantillaIdToBind ? { plantillaItemId: plantillaIdToBind } : {}),
-      },
-    });
-
     // Ensure User account is active so candidate can log in and submit requirements
     if (app.personnel?.userId) {
-      await prisma.user.update({
+      await db.user.update({
         where: { id: app.personnel.userId },
         data: { accountStatus: 'ACTIVE' },
       });
     }
 
     // Update scoreDetailsJson with transactionId & appointment metadata
-    await prisma.promotionApplication.update({
+    updated = await db.promotionApplication.update({
       where: { id: appId },
       data: {
+        status: newStatus as any,
         scoreDetailsJson: {
           ...updatedDetails,
           transactionId: activeTx.id,
@@ -1107,7 +1110,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
         ? `🎉 Congratulations! You have been selected for Newly Hired Appointment as ${targetPos} under ${app.promotionCycle.name}${assignedPlantilla ? ` (Plantilla: ${assignedPlantilla})` : ''}. Your appointment transaction #${activeTx.id} is now active. Please submit your required onboarding compliance documents on your portal for HR validation.`
         : `🎉 Congratulations! You have been selected for Promotion to ${targetPos} under ${app.promotionCycle.name}. Your Promotion Appointment transaction #${activeTx.id} is now active. Please submit your required appointment documents for HR validation and approval to confirm your promotion.`;
 
-      await prisma.notification.create({
+      await db.notification.create({
         data: {
           userId: app.personnel.user.id,
           message: notifMsg,
@@ -1116,40 +1119,27 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
           relatedEntityType: 'Transaction',
         },
       });
-      notifyUserNotifications([app.personnel.user.id]);
+      notificationUserId = app.personnel.user.id;
     }
   } else {
-    // If deselected, release the assigned plantilla item if occupied by this personnel
-    if (currentDetails.plantillaItemNumber) {
-      const plantilla = await prisma.plantillaItem.findFirst({
-        where: { itemNumber: currentDetails.plantillaItemNumber },
+    const linkedTransactionId = Number(currentDetails.transactionId);
+    if (Number.isInteger(linkedTransactionId) && linkedTransactionId > 0) {
+      await db.transaction.updateMany({
+        where: { id: linkedTransactionId, status: { in: ['DRAFT', 'DEFICIENCY'] } },
+        data: { status: 'ABANDONED', remarks: 'Candidate selection was withdrawn before appointment approval.' },
       });
-      if (plantilla && plantilla.isOccupied) {
-        const personnelWithPlantilla = await prisma.personnel.findFirst({
-          where: { id: app.personnelId, plantillaItemId: plantilla.id },
-        });
-        if (personnelWithPlantilla) {
-          await prisma.plantillaItem.update({
-            where: { id: plantilla.id },
-            data: { isOccupied: false },
-          });
-          await prisma.personnel.update({
-            where: { id: app.personnelId },
-            data: { plantillaItemId: null },
-          });
-        }
-      }
     }
-
-    // If deselected, revert accountStatus to PENDING if newly hired applicant
-    if (isTeacherOne && app.personnel?.userId) {
-      await prisma.user.update({
+    if (isTeacherOne && app.personnel?.userId && app.personnel.designation === 'External Applicant') {
+      await db.user.update({
         where: { id: app.personnel.userId },
         data: { accountStatus: 'PENDING' },
       });
     }
+    updated = await db.promotionApplication.update({ where: { id: appId }, data: { status: newStatus as any, scoreDetailsJson: updatedDetails } });
   }
+  });
 
+  if (notificationUserId) notifyUserNotifications([notificationUserId]);
   notifyTransactionChange();
   sendSuccess(
     res,
@@ -1208,9 +1198,15 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
   if (!targetPersonnelId && firstName && lastName) {
     const cleanFirstName = String(firstName).trim();
     const cleanLastName = String(lastName).trim();
-    const cleanEmail = email && String(email).trim()
-      ? String(email).trim().toLowerCase()
-      : `${cleanFirstName.toLowerCase().replace(/[^a-z0-9]/g, '')}.${cleanLastName.toLowerCase().replace(/[^a-z0-9]/g, '')}@deped.gov.ph`;
+    if (!email || !password || !birthDate || !['MALE', 'FEMALE', 'OTHER'].includes(String(gender).toUpperCase()) || !['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(String(civilStatus).toUpperCase())) {
+      sendBadRequest(res, 'Email, temporary password, birth date, gender, and civil status are required for a new external applicant.');
+      return;
+    }
+    const parsedBirthDate = new Date(birthDate);
+    if (isNaN(parsedBirthDate.getTime()) || parsedBirthDate >= new Date()) { sendBadRequest(res, 'Enter a valid birth date.'); return; }
+    const passwordCheck = validatePasswordComplexity(String(password));
+    if (!passwordCheck.valid) { sendBadRequest(res, passwordCheck.message || 'Temporary password does not meet security requirements.'); return; }
+    const cleanEmail = String(email).trim().toLowerCase();
 
     let existingUser = await prisma.user.findUnique({
       where: { email: cleanEmail },
@@ -1223,17 +1219,13 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
       const isTeaching = targetPos.toLowerCase().includes('teacher') || targetPos.toLowerCase().includes('principal');
       const roleName = isTeaching ? 'TEACHING_PERSONNEL' : 'NON_TEACHING_PERSONNEL';
       const roleRecord = await prisma.role.findFirst({ where: { name: roleName as any } });
-      const rawPassword = password && String(password).trim() ? String(password).trim() : 'P@ssw0rd2026';
-      const passwordHash = await hashPassword(rawPassword);
-
       const created = await prisma.$transaction(async (tx) => {
         let assignedUserId: number;
         if (existingUser) {
           assignedUserId = existingUser.id;
         } else {
           // Candidate applicants are not given active portal accounts yet; they receive accounts only if selected/recommended for the item
-          const rawPassword = password && String(password).trim() ? String(password).trim() : 'P@ssw0rd2026';
-          const passwordHash = await hashPassword(rawPassword);
+          const passwordHash = await hashPassword(String(password));
           const newUser = await tx.user.create({
             data: {
               email: cleanEmail,
@@ -1258,15 +1250,15 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
             lastName: cleanLastName,
             middleName: middleName ? String(middleName).trim() : null,
             suffix: suffix ? String(suffix).trim() : null,
-            designation: targetPos,
-            birthDate: birthDate ? new Date(birthDate) : new Date('1995-01-01'),
-            gender: gender && ['MALE', 'FEMALE', 'OTHER'].includes(gender) ? gender : 'FEMALE',
-            civilStatus: civilStatus && ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(civilStatus) ? civilStatus : 'SINGLE',
+            designation: 'External Applicant',
+            birthDate: parsedBirthDate,
+            gender: String(gender).toUpperCase() as any,
+            civilStatus: String(civilStatus).toUpperCase() as any,
             contactNumber: contactNumber ? String(contactNumber).trim() : null,
             address: finalAddress,
-            status: 'ACTIVE',
-            dateHired: new Date(),
-            profileComplete: true,
+            status: 'INACTIVE',
+            dateHired: null,
+            profileComplete: false,
           },
         });
 
@@ -1293,39 +1285,20 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
       },
     });
 
-    if (!found) {
-      const unlinkedUser = await prisma.user.findFirst({ where: { personnel: { is: null } } });
-      if (unlinkedUser) {
-        const applicantName = req.body.applicantName || req.body.name || 'Candidate Applicant';
-        const nameParts = applicantName.split(' ');
-        const fName = nameParts[0] || 'Applicant';
-        const lName = nameParts.slice(1).join(' ') || 'Candidate';
-
-        found = await prisma.personnel.create({
-          data: {
-            userId: unlinkedUser.id,
-            employeeId: targetCode,
-            firstName: fName,
-            lastName: lName,
-            designation: req.body.designation || targetPos,
-            birthDate: new Date('1990-01-01'),
-            gender: 'MALE',
-            civilStatus: 'SINGLE',
-            status: 'ACTIVE',
-            profileComplete: true,
-            dateHired: new Date(),
-          },
-        });
-      } else {
-        found = await prisma.personnel.findFirst();
-      }
-    }
-    if (found) targetPersonnelId = found.id;
+    if (!found) { sendNotFound(res, `No personnel record matches applicant code "${targetCode}".`); return; }
+    targetPersonnelId = found.id;
   }
 
   if (!targetPersonnelId) {
-    const defaultPersonnel = await prisma.personnel.findFirst();
-    targetPersonnelId = defaultPersonnel ? defaultPersonnel.id : 1;
+    sendBadRequest(res, 'Select an existing personnel record or provide complete applicant identity details.');
+    return;
+  }
+
+  const targetPersonnel = await prisma.personnel.findUnique({ where: { id: targetPersonnelId }, select: { id: true, designation: true } });
+  if (!targetPersonnel) { sendNotFound(res, 'Selected personnel record not found.'); return; }
+  if (normalizePositionTitle(targetPersonnel.designation) === normalizePositionTitle(targetPos)) {
+    sendBadRequest(res, `Applicant already holds the target position "${targetPos}".`, 'SAME_POSITION_APPLICATION');
+    return;
   }
 
   const rules = cycleRules;
@@ -1383,7 +1356,7 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
 
   // Notify all AO II & HRMO officers about the application form submission
   const adminUsers = await prisma.user.findMany({
-    where: { role: { name: { in: ['AO_II', 'HRMO', 'SYSTEM_ADMIN'] } } },
+    where: { role: { name: { in: ['AO_II', 'HRMO'] } } },
     select: { id: true },
   });
   if (adminUsers.length > 0) {
@@ -1421,6 +1394,26 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     return;
   }
 
+  const personnel = await prisma.personnel.findUnique({
+    where: { id: req.user.personnelId },
+    select: { designation: true, plantillaItem: { select: { positionTitle: true } } },
+  });
+  if (!personnel) {
+    sendBadRequest(res, 'Personnel profile not found.', 'PERSONNEL_NOT_FOUND');
+    return;
+  }
+
+  const currentPosition = personnel.designation || personnel.plantillaItem?.positionTitle || '';
+  const targetPosition = getCycleTargetPosition(cycle);
+  if (currentPosition && targetPosition && normalizePositionTitle(currentPosition) === normalizePositionTitle(targetPosition)) {
+    sendBadRequest(
+      res,
+      `You cannot apply for ${targetPosition} because it is already your current position.`,
+      'SAME_CURRENT_POSITION'
+    );
+    return;
+  }
+
   const existing = await prisma.promotionApplication.findUnique({
     where: { personnelId_promotionCycleId: { personnelId: req.user.personnelId, promotionCycleId: cycleId } },
   });
@@ -1453,16 +1446,16 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
 
   // Notify all AO II & HRMO officers about the new promotion application
   const adminUsers = await prisma.user.findMany({
-    where: { role: { name: { in: ['AO_II', 'HRMO', 'SYSTEM_ADMIN'] } } },
+    where: { role: { name: { in: ['AO_II', 'HRMO'] } } },
     select: { id: true },
   });
   if (adminUsers.length > 0) {
-    const personnel = await prisma.personnel.findUnique({
+    const applicantPersonnel = await prisma.personnel.findUnique({
       where: { id: req.user.personnelId },
       select: { firstName: true, lastName: true, employeeId: true },
     });
-    const applicantName = personnel ? `${personnel.firstName} ${personnel.lastName}`.trim() : 'Personnel Applicant';
-    const empId = personnel?.employeeId || `EMP-${req.user.personnelId}`;
+    const applicantName = applicantPersonnel ? `${applicantPersonnel.firstName} ${applicantPersonnel.lastName}`.trim() : 'Personnel Applicant';
+    const empId = applicantPersonnel?.employeeId || `EMP-${req.user.personnelId}`;
 
     await prisma.notification.createMany({
       data: adminUsers.map(u => ({
@@ -1509,6 +1502,21 @@ export const getCareerHistory = async (req: Request, res: Response): Promise<voi
   if (!isAdmin && req.user?.personnelId !== personnelId) {
     sendForbidden(res, 'You do not have permission to view this career history.');
     return;
+  }
+
+  if (req.user!.role === 'AO_II') {
+    const scope = await getAOSchoolScope(req.user);
+    const target = await prisma.personnel.findUnique({ where: { id: personnelId }, select: { id: true, address: true, designation: true } });
+    const school = scope.schoolName?.toLowerCase();
+    const belongsToSchool = Boolean(target && school && (
+      target.address?.toLowerCase().includes(school) ||
+      target.designation?.toLowerCase().includes(school) ||
+      target.id === scope.aoPersonnelId
+    ));
+    if (!belongsToSchool) {
+      sendForbidden(res, 'You do not have permission to view career history outside your assigned school.');
+      return;
+    }
   }
 
   const entries = await prisma.careerHistoryEntry.findMany({
@@ -1808,4 +1816,3 @@ export const generateCarDocument = async (req: Request, res: Response): Promise<
     res.status(500).json({ status: 'error', message: err?.message || 'Failed to generate CAR document.' });
   }
 };
-

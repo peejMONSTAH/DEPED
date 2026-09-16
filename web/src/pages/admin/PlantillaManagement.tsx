@@ -1,4 +1,6 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,6 +10,7 @@ import {
   TEACHING_POSITIONS,
   NON_TEACHING_POSITIONS,
   DEPED_KORONADAL_DISTRICTS,
+  getAutoSalaryGrade,
 } from '../../constants/depedData';
 import {
   Building2,
@@ -72,8 +75,9 @@ export const PlantillaManagement: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
   const { theme } = useTheme();
+  const navigate = useNavigate();
 
-  if (user?.role === 'SYSTEM_ADMIN') {
+  if (user?.role !== 'HRMO') {
     return (
       <div className="p-8 max-w-3xl mx-auto">
         <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl p-8 text-center space-y-4 shadow-sm">
@@ -82,14 +86,14 @@ export const PlantillaManagement: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Access Restricted: Plantilla Registry</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-            System Administrator accounts are strictly scoped to user provisioning, credentials, security audits, and system configuration. Plantilla items, assignments, and DBM registry are managed exclusively by HRMO and AO II personnel.
+            The Plantilla Items & Occupant Registry is exclusive to HR (HRMO) only. Neither Administrative Officer II (AO II) nor System Administrator accounts have access to manage or view the division plantilla inventory.
           </p>
           <div className="pt-2">
             <a
               href="/admin/dashboard"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white rounded-xl text-xs font-semibold hover:bg-opacity-90 transition-all shadow-md"
             >
-              Return to System Admin Dashboard
+              Return to Dashboard
             </a>
           </div>
         </div>
@@ -97,8 +101,8 @@ export const PlantillaManagement: React.FC = () => {
     );
   }
 
-  const isHR = user?.role === 'HRMO';
-  const isAdmin = isHR || user?.role === 'AO_II';
+  const isHR = true;
+  const isAdmin = true;
 
   // State
   const [plantillas, setPlantillas] = useState<PlantillaItem[]>([]);
@@ -179,12 +183,13 @@ export const PlantillaManagement: React.FC = () => {
       const data = res.data?.data || [];
       const meta = res.data?.meta || {};
       setPlantillas(data);
+      const isItemOccupied = (i: PlantillaItem) => Boolean(i.occupiedByPersonnel ?? i.isOccupied);
       setStats({
         totalItems: meta.totalItems ?? data.length,
-        vacantItems: meta.vacantItems ?? data.filter((i: PlantillaItem) => !i.isOccupied).length,
-        occupiedItems: meta.occupiedItems ?? data.filter((i: PlantillaItem) => i.isOccupied).length,
+        vacantItems: meta.vacantItems ?? data.filter((i: PlantillaItem) => !isItemOccupied(i)).length,
+        occupiedItems: meta.occupiedItems ?? data.filter((i: PlantillaItem) => isItemOccupied(i)).length,
         openForRanking: meta.openForRanking ?? data.filter((i: PlantillaItem) => i.isOpenForRanking).length,
-        availabilityRate: meta.availabilityRate ?? (data.length > 0 ? Math.round((data.filter((i: PlantillaItem) => !i.isOccupied).length / data.length) * 100) : 0),
+        availabilityRate: meta.availabilityRate ?? (data.length > 0 ? Math.round((data.filter((i: PlantillaItem) => !isItemOccupied(i)).length / data.length) * 100) : 0),
       });
     } catch (err: any) {
       console.error('Failed to load plantilla items:', err);
@@ -212,8 +217,9 @@ export const PlantillaManagement: React.FC = () => {
   // Filtered List
   const filteredPlantillas = useMemo(() => {
     return plantillas.filter((item) => {
-      if (statusFilter === 'VACANT' && item.isOccupied) return false;
-      if (statusFilter === 'OCCUPIED' && !item.isOccupied) return false;
+      const isItemOccupied = Boolean(item.occupiedByPersonnel ?? item.isOccupied);
+      if (statusFilter === 'VACANT' && isItemOccupied) return false;
+      if (statusFilter === 'OCCUPIED' && !isItemOccupied) return false;
       if (statusFilter === 'OPEN_RANKING' && !item.isOpenForRanking) return false;
 
       const isTeacher = item.positionTitle.toLowerCase().includes('teacher');
@@ -250,7 +256,7 @@ export const PlantillaManagement: React.FC = () => {
     setEditingItem(null);
     setFormItemNumber(`OSEC-DECSB-TCH3-${Math.floor(100000 + Math.random() * 900000)}-2026`);
     setFormPositionTitle('Teacher I');
-    setFormSalaryGrade(11);
+    setFormSalaryGrade(getAutoSalaryGrade('Teacher I'));
     setFormDepartment('Koronadal Central Elementary School 1');
     setFormDivision('SDO Koronadal City - District 1');
     setFormIsOccupied(false);
@@ -268,7 +274,7 @@ export const PlantillaManagement: React.FC = () => {
     setEditingItem(item);
     setFormItemNumber(item.itemNumber);
     setFormPositionTitle(item.positionTitle);
-    setFormSalaryGrade(item.salaryGrade);
+    setFormSalaryGrade(item.salaryGrade || getAutoSalaryGrade(item.positionTitle));
     setFormDepartment(item.department);
     setFormDivision(item.division);
     setFormIsOccupied(item.isOccupied);
@@ -406,6 +412,14 @@ export const PlantillaManagement: React.FC = () => {
       addToast('Access denied: Only HR (HRMO) can launch merit promotion cycles.', 'ERROR');
       return;
     }
+    if (item.isOpenForRanking && item.activePromotionCycle) {
+      addToast(
+        `Plantilla Item '${item.itemNumber}' is already open in active ranking cycle: ${item.activePromotionCycle.name}`,
+        'INFO'
+      );
+      navigate('/admin/promotions');
+      return;
+    }
     setSelectedPlantillaForCycle(item);
     setCycleName(`Ranking for Natural Vacancy: ${item.positionTitle} (${item.itemNumber})`);
     setCycleStartDate(new Date().toISOString().split('T')[0]);
@@ -470,7 +484,7 @@ export const PlantillaManagement: React.FC = () => {
       {/* Page Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
             <span className="badge badge-info" style={{ fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.5px' }}>
               DEPED DBM AUTHORIZED INVENTORY
             </span>
@@ -521,7 +535,7 @@ export const PlantillaManagement: React.FC = () => {
       </div>
 
       {/* KPI Overview Metrics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
           <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
             Total Authorized Items
@@ -595,8 +609,8 @@ export const PlantillaManagement: React.FC = () => {
             style={{ width: 'auto', minWidth: '160px', borderRadius: '10px', fontSize: '0.8125rem' }}
           >
             <option value="ALL">All Statuses ({plantillas.length})</option>
-            <option value="VACANT">Vacant Only ({plantillas.filter(p => !p.isOccupied).length})</option>
-            <option value="OCCUPIED">Occupied Only ({plantillas.filter(p => p.isOccupied).length})</option>
+            <option value="VACANT">Vacant Only ({plantillas.filter(p => !p.occupiedByPersonnel && !p.isOccupied).length})</option>
+            <option value="OCCUPIED">Occupied Only ({plantillas.filter(p => Boolean(p.occupiedByPersonnel ?? p.isOccupied)).length})</option>
             <option value="OPEN_RANKING">Open for Ranking ({plantillas.filter(p => p.isOpenForRanking).length})</option>
           </select>
 
@@ -717,6 +731,7 @@ export const PlantillaManagement: React.FC = () => {
                 filteredPlantillas.map((item) => {
                   const isTeacher = item.positionTitle.toLowerCase().includes('teacher');
                   const occupant = item.occupiedByPersonnel;
+                  const isOccupied = Boolean(occupant);
 
                   return (
                     <tr key={item.id} style={{ borderBottom: '1px solid var(--color-border)', transition: 'background-color 0.15s' }}>
@@ -726,7 +741,7 @@ export const PlantillaManagement: React.FC = () => {
                           {item.itemNumber}
                         </div>
                         <div style={{ marginTop: '4px' }}>
-                          {item.isOccupied ? (
+                          {isOccupied ? (
                             <span className="badge badge-neutral" style={{ fontSize: '0.625rem', fontWeight: 700, color: '#059669', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' }}>
                               ● OCCUPIED
                             </span>
@@ -798,7 +813,12 @@ export const PlantillaManagement: React.FC = () => {
                             </div>
                             <div style={{ marginTop: '3px' }}>
                               {item.isOpenForRanking && item.activePromotionCycle ? (
-                                <span className="badge badge-info" style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 8px' }}>
+                                <span
+                                  className="badge badge-info"
+                                  style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 8px', cursor: 'pointer' }}
+                                  onClick={() => navigate('/admin/promotions')}
+                                  title="Active cycle — click to view promotion ranking"
+                                >
                                   🎯 Open in: {item.activePromotionCycle.name?.slice(0, 24)}…
                                 </span>
                               ) : (
@@ -815,29 +835,53 @@ export const PlantillaManagement: React.FC = () => {
                       <td style={{ padding: '14px 16px', verticalAlign: 'middle', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                           {/* Vacant Actions */}
-                          {!item.isOccupied ? (
+                          {!isOccupied ? (
                             <>
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-xs"
-                                onClick={() => handleOpenForRanking(item)}
-                                title="Open this vacant plantilla for active merit promotion"
-                                style={{
-                                  fontSize: '0.75rem',
-                                  fontWeight: 800,
-                                  padding: '4px 10px',
-                                  borderRadius: '8px',
-                                  background: theme === 'dark' ? '#D7F84A' : '#141416',
-                                  color: theme === 'dark' ? '#141416' : '#FFFFFF',
-                                  border: 'none',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                }}
-                              >
-                                <Sparkles size={12} />
-                                Open for Ranking
-                              </button>
+                              {item.isOpenForRanking && item.activePromotionCycle ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-xs"
+                                  onClick={() => navigate('/admin/promotions')}
+                                  title={`Active in ranking cycle: ${item.activePromotionCycle.name}. Click to view ranking.`}
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    borderColor: '#3B82F6',
+                                    color: '#2563EB',
+                                    background: theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.08)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                >
+                                  <TrendingUp size={12} />
+                                  View Ranking
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-xs"
+                                  onClick={() => handleOpenForRanking(item)}
+                                  title="Open this vacant plantilla for active merit promotion"
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    padding: '4px 10px',
+                                    borderRadius: '8px',
+                                    background: theme === 'dark' ? '#D7F84A' : '#141416',
+                                    color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                                    border: 'none',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                >
+                                  <Sparkles size={12} />
+                                  Open for Ranking
+                                </button>
+                              )}
 
                               {isHR && (
                                 <button
@@ -892,7 +936,7 @@ export const PlantillaManagement: React.FC = () => {
                               >
                                 <Edit size={13} />
                               </button>
-                              {!item.isOccupied && (
+                              {!isOccupied && (
                                 <button
                                   type="button"
                                   className="btn btn-ghost btn-xs"
@@ -918,7 +962,7 @@ export const PlantillaManagement: React.FC = () => {
 
       {/* MODAL 1: ADD / EDIT PLANTILLA ITEM */}
       {showAddModal && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal animate-scale-in" style={{ maxWidth: '560px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -954,7 +998,7 @@ export const PlantillaManagement: React.FC = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, minmax(0, 2fr) minmax(0, 1fr))', gap: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
                       Authorized Position Title *
@@ -965,44 +1009,65 @@ export const PlantillaManagement: React.FC = () => {
                       onChange={(e) => {
                         const title = e.target.value;
                         setFormPositionTitle(title);
-                        if (title.includes('Teacher I')) setFormSalaryGrade(11);
-                        else if (title.includes('Teacher II')) setFormSalaryGrade(12);
-                        else if (title.includes('Teacher III')) setFormSalaryGrade(13);
-                        else if (title.includes('Master Teacher I')) setFormSalaryGrade(18);
-                        else if (title.includes('Master Teacher II')) setFormSalaryGrade(19);
-                        else if (title.includes('Head Teacher III')) setFormSalaryGrade(16);
-                        else if (title.includes('Administrative Officer II')) setFormSalaryGrade(11);
-                        else if (title.includes('Administrative Assistant III')) setFormSalaryGrade(9);
+                        setFormSalaryGrade(getAutoSalaryGrade(title));
                       }}
                       style={{ fontSize: '0.8125rem' }}
                     >
-                      <optgroup label="Teaching Positions">
-                        {TEACHING_POSITIONS.map((p) => (
-                          <option key={p} value={p}>{p}</option>
+                      <optgroup label="1. Teaching Personnel — Current ECP Positions">
+                        {TEACHING_POSITIONS.filter(p => !p.includes('(') && !p.includes('Special') && !p.includes('Principal') && !p.includes('Head Teacher')).map((p) => (
+                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
                         ))}
                       </optgroup>
-                      <optgroup label="Non-Teaching Positions">
-                        {NON_TEACHING_POSITIONS.map((p) => (
-                          <option key={p} value={p}>{p}</option>
+                      <optgroup label="Special Science / Special Needs Education Titles">
+                        {TEACHING_POSITIONS.filter(p => p.includes('Special') || p.includes('SPED')).map((p) => (
+                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="2. School Administration / School Heads — Current ECP Titles">
+                        {TEACHING_POSITIONS.filter(p => p.startsWith('School Principal')).map((p) => (
+                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Existing / Legacy Positions">
+                        {TEACHING_POSITIONS.filter(p => p.includes('Head Teacher') || p.includes('Assistant')).map((p) => (
+                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Newer DepEd Staffing Framework — Counselor Series">
+                        {NON_TEACHING_POSITIONS.filter(p => p.includes('Counselor')).map((p) => (
+                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Administrative & Office Staff Roles">
+                        {NON_TEACHING_POSITIONS.filter(p => !p.includes('Counselor')).map((p) => (
+                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
                         ))}
                       </optgroup>
                     </select>
                   </div>
 
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                      Salary Grade *
+                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Salary Grade *</span>
+                      <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>(Fixed by DBM)</span>
                     </label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={33}
-                      className="form-control"
-                      value={formSalaryGrade}
-                      onChange={(e) => setFormSalaryGrade(Number(e.target.value))}
-                      style={{ fontSize: '0.875rem' }}
-                    />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        readOnly
+                        disabled
+                        className="form-control"
+                        value={formSalaryGrade ? `SG ${formSalaryGrade}` : '—'}
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 700,
+                          background: 'var(--color-bg-secondary)',
+                          cursor: 'not-allowed',
+                          color: 'var(--color-primary)',
+                          opacity: 0.9,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1318,12 +1383,12 @@ export const PlantillaManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* MODAL 2: ASSIGN PERSONNEL OCCUPANT */}
       {showAssignModal && selectedPlantillaForAssign && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal animate-scale-in" style={{ maxWidth: '580px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -1447,12 +1512,12 @@ export const PlantillaManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* MODAL 3: LAUNCH MERIT PROMOTION CYCLE FOR VACANT PLANTILLA */}
       {showLaunchCycleModal && selectedPlantillaForCycle && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal animate-scale-in" style={{ maxWidth: '580px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -1496,7 +1561,7 @@ export const PlantillaManagement: React.FC = () => {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
                   <div>
                     <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
                       Application Start Date *
@@ -1565,7 +1630,7 @@ export const PlantillaManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

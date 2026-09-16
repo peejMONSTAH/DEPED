@@ -1,11 +1,10 @@
 import argon2 from 'argon2';
 
-const ARGON2_OPTIONS: argon2.Options = {
+const ARGON2_OPTIONS: argon2.HashOptions = {
   type: argon2.argon2id,
   memoryCost: 65536, // 64 MB
   timeCost: 3,
   parallelism: 4,
-  saltLength: 16,
 };
 
 /**
@@ -13,7 +12,7 @@ const ARGON2_OPTIONS: argon2.Options = {
  */
 export const hashPassword = async (password: string): Promise<string> => {
   const clean = String(password || '').trim();
-  const result = await argon2.hash(clean, ARGON2_OPTIONS as any);
+  const result = await argon2.hash(clean, ARGON2_OPTIONS);
   return String(result);
 };
 

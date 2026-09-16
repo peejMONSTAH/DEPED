@@ -32,7 +32,7 @@
       letter-spacing="9" 
       fill="url(#em-text-grad-svg)"
       filter="url(#em-glow-svg)"
-    >EMINENCE</text>
+    >DIGITAL 201</text>
 
     <!-- Gradient Line Accent -->
     <rect x="55" y="50" width="270" height="2" rx="1" fill="url(#em-line-grad-svg)" />

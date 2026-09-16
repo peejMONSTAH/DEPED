@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
+import { getAllPages } from '../../api/pagination';
 import { SkeletonStats, SkeletonTable } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
+import { getAutoSalaryGrade } from '../../constants/depedData';
 
 // HRMO Step 4: Compliance Monitoring — per 201-System-Workflow.md
 // Dashboard Analytics: Fully Compliant, Partially Compliant, Non-Compliant Personnel
@@ -19,7 +21,7 @@ type PersonnelRecord = {
   category: string;
   complianceStatus: 'Fully Compliant' | 'Partially Compliant' | 'Non-Compliant';
   complianceScore: number;
-  yearsInService: number;
+  yearsInService: number | null;
   firstAppointmentDate: string;
   latestPromotionDate: string;
   latestSalaryGrade: string;
@@ -64,28 +66,68 @@ export const ComplianceMonitoring: React.FC = () => {
     setLoading(true);
     try {
       const [personnelRes, transRes] = await Promise.allSettled([
-        apiClient.get('/personnel'),
+        getAllPages('/personnel?excludeAdmin=true').then(data => ({ data: { data } })),
         apiClient.get('/transactions')
       ]);
 
       if (personnelRes.status === 'fulfilled') {
-        const list = personnelRes.value.data?.data || (Array.isArray(personnelRes.value.data) ? personnelRes.value.data : []);
+        const rawList = personnelRes.value.data?.data || (Array.isArray(personnelRes.value.data) ? personnelRes.value.data : []);
+        // Strictly filter out system and administrative accounts
+        const list = rawList.filter((p: any) => {
+          const roleName = p.user?.role?.name;
+          if (roleName === 'SYSTEM_ADMIN' || roleName === 'HRMO' || roleName === 'AO_II') return false;
+          const desig = (p.designation || '').toLowerCase();
+          if (desig.includes('system administrator') || desig.includes('hrmo manager') || desig.includes('administrative officer ii')) return false;
+          return true;
+        });
+
+        const now = new Date();
         setPersonnelList(list.map((p: any) => {
-          const hired = p.dateHired ? new Date(p.dateHired) : new Date();
-          const years = Math.max(0, Math.floor((Date.now() - hired.getTime()) / (1000 * 60 * 60 * 24 * 365.25)));
-          const isComplete = Boolean(p.profileComplete);
+          const hired = p.dateHired ? new Date(p.dateHired) : null;
+          let years = hired ? now.getFullYear() - hired.getFullYear() : 0;
+          const m = hired ? now.getMonth() - hired.getMonth() : 0;
+          if (hired && (m < 0 || (m === 0 && now.getDate() < hired.getDate()))) {
+            years--;
+          }
+          years = Math.max(0, years);
+          let required = 0;
+          let validated = 0;
+          for (const tx of p.transactions || []) {
+            if (['REJECTED', 'CANCELLED'].includes(tx.status)) continue;
+            const ids = new Set((tx.transactionType?.requirementTemplates || []).map((r: any) => r.id));
+            required += ids.size;
+            const done = new Set((tx.uploadedDocuments || []).filter((d: any) => d.status === 'VALIDATED' && ids.has(d.requirementTemplateId)).map((d: any) => d.requirementTemplateId));
+            validated += done.size;
+          }
+          const score = required ? Math.round(validated / required * 100) : 0;
+
+          // Find authentic latest promotion
+          const promoEntries = (p.careerHistoryEntries || []).filter((e: any) => e.eventType === 'PROMOTION');
+          const approvedPromoTx = (p.transactions || []).filter((t: any) =>
+            t.status === 'APPROVED' && t.transactionType?.name?.toLowerCase().includes('promotion')
+          );
+          let latestPromoStr = 'None (Entry Level)';
+          if (promoEntries.length > 0) {
+            latestPromoStr = new Date(promoEntries[0].eventDate).toLocaleDateString();
+          } else if (approvedPromoTx.length > 0) {
+            const d = approvedPromoTx[0].approvalDate ? new Date(approvedPromoTx[0].approvalDate) : new Date(approvedPromoTx[0].createdAt);
+            latestPromoStr = d.toLocaleDateString();
+          }
+
+          const sgNum = p.plantillaItem?.salaryGrade || getAutoSalaryGrade(p.designation);
+
           return {
             employeeId: p.employeeId || 'EMP-000',
             name: `${p.lastName || ''}, ${p.firstName || ''}`.trim() || 'Personnel',
             position: p.designation || 'Staff',
             category: p.designation?.toLowerCase().includes('teacher') ? 'Teaching' : 'Non-Teaching',
-            complianceStatus: isComplete ? 'Fully Compliant' : 'Partially Compliant',
-            complianceScore: isComplete ? 100 : 70,
-            yearsInService: years,
-            firstAppointmentDate: hired.toLocaleDateString(),
-            latestPromotionDate: 'N/A',
-            latestSalaryGrade: p.plantillaItem ? `SG ${p.plantillaItem.salaryGrade}` : 'SG 11',
-            appointmentDate: p.dateHired || new Date().toISOString(),
+            complianceStatus: required > 0 && validated === required ? 'Fully Compliant' : validated > 0 ? 'Partially Compliant' : 'Non-Compliant',
+            complianceScore: score,
+            yearsInService: hired ? years : null,
+            firstAppointmentDate: hired ? hired.toLocaleDateString() : 'Not recorded',
+            latestPromotionDate: latestPromoStr,
+            latestSalaryGrade: sgNum ? `SG ${sgNum}` : 'Not recorded',
+            appointmentDate: p.dateHired || '',
           };
         }));
       }
@@ -125,7 +167,7 @@ export const ComplianceMonitoring: React.FC = () => {
     return matchSearch && matchStatus;
   });
 
-  const sortedByService = [...filtered].sort((a, b) => b.yearsInService - a.yearsInService);
+  const sortedByService = [...filtered].sort((a, b) => (b.yearsInService ?? -1) - (a.yearsInService ?? -1));
 
   return (
     <div className="animate-fade-in">
@@ -134,7 +176,7 @@ export const ComplianceMonitoring: React.FC = () => {
         <div>
           <h1 className="topbar-title">HRMO — Compliance & Years of Service</h1>
           <p className="topbar-subtitle">
-            Step 4: Compliance Monitoring Dashboard &bull; Step 5: Years of Service Monitoring
+            Required document validation and recorded service history
           </p>
         </div>
       </div>
@@ -143,6 +185,8 @@ export const ComplianceMonitoring: React.FC = () => {
         {/* Segmented Pill Tab Bar */}
         <div style={{
           display: 'inline-flex',
+          flexWrap: 'wrap',
+          maxWidth: '100%',
           alignItems: 'center',
           background: 'var(--glass-bg-subtle)',
           backdropFilter: 'var(--glass-blur)',
@@ -529,13 +573,15 @@ export const ComplianceMonitoring: React.FC = () => {
                         </td>
                         <td>
                           <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-success)', fontVariantNumeric: 'tabular-nums' }}>
-                            {p.yearsInService} {p.yearsInService === 1 ? 'yr' : 'yrs'}
+                            {p.yearsInService == null ? 'Not recorded' : `${p.yearsInService} ${p.yearsInService === 1 ? 'yr' : 'yrs'}`}
                           </span>
                         </td>
                         <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{p.firstAppointmentDate}</td>
-                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{p.latestPromotionDate}</td>
+                        <td style={{ fontSize: 13, color: p.latestPromotionDate.includes('None') ? 'var(--color-text-muted)' : 'var(--color-primary)', fontWeight: p.latestPromotionDate.includes('None') ? 400 : 700 }}>
+                          {p.latestPromotionDate}
+                        </td>
                         <td>
-                          <span className="badge badge-secondary">{p.latestSalaryGrade}</span>
+                          <span className="badge badge-secondary" style={{ fontWeight: 800 }}>{p.latestSalaryGrade}</span>
                         </td>
                         <td style={{ minWidth: 140 }}>
                           <div style={{ position: 'relative', height: 8, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
@@ -543,7 +589,7 @@ export const ComplianceMonitoring: React.FC = () => {
                               position: 'absolute',
                               left: 0,
                               top: 0,
-                              width: `${Math.min(Math.max((p.yearsInService / 40) * 100, 2), 100)}%`,
+                              width: `${p.yearsInService == null ? 0 : Math.min(Math.max((p.yearsInService / 40) * 100, 2), 100)}%`,
                               height: '100%',
                               background: 'linear-gradient(90deg, #10B981 0%, #3B82F6 100%)',
                               borderRadius: 4,

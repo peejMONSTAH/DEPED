@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden } from '../utils/response.util';
 import { getAOSchoolScope } from '../utils/scope.util';
+import { getAutoSalaryGrade } from '../utils/deped.util';
 
 /**
  * GET /api/v1/plantilla
@@ -9,10 +10,10 @@ import { getAOSchoolScope } from '../utils/scope.util';
  */
 export const getPlantillaItems = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (req.user?.role === 'SYSTEM_ADMIN') {
+    if (req.user?.role !== 'HRMO') {
       res.status(403).json({
         status: 'error',
-        message: 'Access denied: System Administrator cannot access the Plantilla Registry. Plantilla items are managed exclusively by HRMO.',
+        message: 'Access denied: Plantilla Registry is exclusive to HR (HRMO) only.',
         code: 'FORBIDDEN',
       });
       return;
@@ -109,6 +110,14 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
     });
 
     const enriched = items.map((item) => {
+      const actualIsOccupied = Boolean(item.occupiedByPersonnel);
+      if (item.isOccupied !== actualIsOccupied) {
+        prisma.plantillaItem.update({
+          where: { id: item.id },
+          data: { isOccupied: actualIsOccupied },
+        }).catch((err: any) => console.error('Failed to auto-heal plantilla occupancy:', err));
+      }
+
       // Find matching cycle where targetPosition matches positionTitle and (school or district matches)
       const matchingCycle = activeCycles.find((cycle) => {
         const rules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
@@ -120,7 +129,8 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
 
       return {
         ...item,
-        isOpenForRanking: !item.isOccupied && Boolean(matchingCycle),
+        isOccupied: actualIsOccupied,
+        isOpenForRanking: !actualIsOccupied && Boolean(matchingCycle),
         activePromotionCycle: matchingCycle
           ? {
               id: matchingCycle.id,
@@ -135,9 +145,9 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
     });
 
     // Aggregate statistics
-    const totalCount = items.length;
-    const vacantCount = items.filter((i) => !i.isOccupied).length;
-    const occupiedCount = items.filter((i) => i.isOccupied).length;
+    const totalCount = enriched.length;
+    const vacantCount = enriched.filter((i) => !i.isOccupied).length;
+    const occupiedCount = enriched.filter((i) => i.isOccupied).length;
     const openForRankingCount = enriched.filter((i) => i.isOpenForRanking).length;
 
     sendSuccess(res, enriched, undefined, 200, {
@@ -249,9 +259,16 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
 
     const { itemNumber, positionTitle, salaryGrade, department, division, isOccupied, personnelId } = req.body;
 
-    if (!itemNumber || !positionTitle || !salaryGrade || !department) {
-      sendBadRequest(res, 'itemNumber, positionTitle, salaryGrade, and department are required.');
+    if (!itemNumber || !positionTitle || !department) {
+      sendBadRequest(res, 'itemNumber, positionTitle, and department are required.');
       return;
+    }
+
+    const effectiveSalaryGrade = salaryGrade !== undefined && Number(salaryGrade) > 0
+      ? Number(salaryGrade)
+      : getAutoSalaryGrade(String(positionTitle));
+    if (!Number.isInteger(effectiveSalaryGrade) || effectiveSalaryGrade < 1 || effectiveSalaryGrade > 33) {
+      sendBadRequest(res, 'Enter the authorized salary grade (1–33) for this position.'); return;
     }
 
     const existing = await prisma.plantillaItem.findUnique({
@@ -279,15 +296,22 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
       data: {
         itemNumber: String(itemNumber).trim(),
         positionTitle: String(positionTitle).trim(),
-        salaryGrade: Number(salaryGrade),
+        salaryGrade: effectiveSalaryGrade,
         department: String(department).trim(),
         division: division ? String(division).trim() : 'SDO Koronadal City',
-        isOccupied: Boolean(isOccupied),
+        isOccupied: Boolean(assignedPersonnel),
       },
     });
 
     if (assignedPersonnel) {
-      // If personnel already had another plantilla, unbind from it
+      // If personnel already had another plantilla, unbind from it and mark it vacant
+      if (assignedPersonnel.plantillaItemId) {
+        await prisma.plantillaItem.update({
+          where: { id: assignedPersonnel.plantillaItemId },
+          data: { isOccupied: false },
+        }).catch((err: any) => console.error('Failed to vacate old plantilla on assignment:', err));
+      }
+
       await prisma.personnel.update({
         where: { id: assignedPersonnel.id },
         data: { plantillaItemId: newItem.id },
@@ -323,6 +347,7 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
         },
       }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_CREATED:', err));
     }
+    res.locals.auditLogged = true;
 
     sendCreated(res, newItem, `Plantilla Item '${newItem.itemNumber}' created successfully.`);
   } catch (error: any) {
@@ -366,8 +391,15 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
     const updateData: Record<string, any> = {};
     if (itemNumber !== undefined) updateData.itemNumber = String(itemNumber).trim();
     if (positionTitle !== undefined) updateData.positionTitle = String(positionTitle).trim();
-    if (salaryGrade !== undefined) updateData.salaryGrade = Number(salaryGrade);
+    if (salaryGrade !== undefined) {
+      updateData.salaryGrade = Number(salaryGrade);
+    } else if (positionTitle !== undefined) {
+      updateData.salaryGrade = getAutoSalaryGrade(String(positionTitle));
+    }
     if (department !== undefined) updateData.department = String(department).trim();
+    if (updateData.salaryGrade !== undefined && (!Number.isInteger(updateData.salaryGrade) || updateData.salaryGrade < 1 || updateData.salaryGrade > 33)) {
+      sendBadRequest(res, 'Enter the authorized salary grade (1–33) for this position.'); return;
+    }
     if (division !== undefined) updateData.division = String(division).trim();
 
     if (isOccupied !== undefined) {
@@ -375,6 +407,7 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
       updateData.isOccupied = willBeOccupied;
 
       if (!willBeOccupied) {
+        updateData.isOccupied = false;
         // Vacate current occupant if any
         if (existing.occupiedByPersonnel) {
           await prisma.personnel.update({
@@ -404,6 +437,14 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
         if (!isNaN(pId)) {
           const targetPersonnel = await prisma.personnel.findUnique({ where: { id: pId } });
           if (targetPersonnel) {
+            // Vacate old plantilla item of target personnel if they had one
+            if (targetPersonnel.plantillaItemId && targetPersonnel.plantillaItemId !== id) {
+              await prisma.plantillaItem.update({
+                where: { id: targetPersonnel.plantillaItemId },
+                data: { isOccupied: false },
+              }).catch((err: any) => console.error('Failed to vacate old plantilla on occupant reassign:', err));
+            }
+
             // Unbind previous occupant if different
             if (existing.occupiedByPersonnel && existing.occupiedByPersonnel.id !== pId) {
               await prisma.personnel.update({
@@ -420,6 +461,7 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
                 designation: positionTitle || existing.positionTitle,
               },
             });
+            updateData.isOccupied = true;
 
             if (req.user?.userId) {
               await prisma.validationLog.create({
@@ -459,6 +501,7 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
         },
       }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_UPDATED:', err));
     }
+    res.locals.auditLogged = true;
 
     sendSuccess(res, updated, 'Plantilla item updated successfully.');
   } catch (error: any) {
@@ -517,6 +560,7 @@ export const deletePlantillaItem = async (req: Request, res: Response): Promise<
         },
       }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_DELETED:', err));
     }
+    res.locals.auditLogged = true;
 
     sendSuccess(res, null, `Plantilla Item '${existing.itemNumber}' deleted successfully.`);
   } catch (error: any) {
@@ -588,6 +632,8 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
         }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_VACATED on unassign:', err));
       }
 
+      res.locals.auditLogged = true;
+
       sendSuccess(res, null, `Plantilla Item '${plantilla.itemNumber}' is now vacant.`);
       return;
     }
@@ -606,6 +652,14 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
     if (!targetPersonnel) {
       sendNotFound(res, 'Personnel not found.');
       return;
+    }
+
+    // If target personnel already held another plantilla item, vacate their old item
+    if (targetPersonnel.plantillaItemId && targetPersonnel.plantillaItemId !== plantilla.id) {
+      await prisma.plantillaItem.update({
+        where: { id: targetPersonnel.plantillaItemId },
+        data: { isOccupied: false },
+      }).catch((err: any) => console.error('Failed to vacate previous plantilla in assignPlantillaItem:', err));
     }
 
     // If another personnel was previously assigned to this plantilla, unbind them
@@ -646,6 +700,7 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
         },
       }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_ASSIGNED on reassign:', err));
     }
+    res.locals.auditLogged = true;
 
     sendSuccess(
       res,
@@ -657,4 +712,3 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
     res.status(500).json({ status: 'error', message: error?.message || 'Failed to assign personnel to plantilla.' });
   }
 };
-

@@ -33,6 +33,9 @@ const CATEGORIES = [
   { id: 'Approval Actions', label: 'Approval Actions', compactLabel: 'Approvals', dotClass: 'dot-approval' },
   { id: 'Returned Submissions', label: 'Returned Submissions', compactLabel: 'Returns', dotClass: 'dot-return' },
   { id: 'Account Modifications', label: 'Account Modifications', compactLabel: 'Modifications', dotClass: 'dot-mod' },
+  { id: 'Plantilla & Positions', label: 'Plantilla & Positions', compactLabel: 'Plantilla', dotClass: 'dot-plantilla' },
+  { id: 'Promotion & Ranking', label: 'Promotion & Ranking', compactLabel: 'Promotions', dotClass: 'dot-promotion' },
+  { id: 'Personnel Records', label: 'Personnel Records', compactLabel: '201 Files', dotClass: 'dot-personnel' },
 ];
 
 export const AuditLog: React.FC = () => {
@@ -43,7 +46,7 @@ export const AuditLog: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiClient.get('/audit-logs')
+    apiClient.get('/audit-logs?limit=250')
       .then(res => {
         const rawLogs = res.data?.data;
         if (Array.isArray(rawLogs) && rawLogs.length > 0) {
@@ -136,6 +139,9 @@ export const AuditLog: React.FC = () => {
     if (a.includes('SUCCESS') || a.includes('APPROVED')) return 'audit-action-login-success';
     if (a.includes('FAIL') || a.includes('ERROR') || a.includes('REJECT')) return 'audit-action-login-fail';
     if (a.includes('LOGOUT')) return 'audit-action-logout';
+    if (a.includes('PLANTILLA')) return 'audit-action-plantilla';
+    if (a.includes('PROMOTION') || a.includes('CAR_') || a.includes('RANKING')) return 'audit-action-promotion';
+    if (a.includes('201') || a.includes('PERSONNEL') || a.includes('SERVICE_RECORD')) return 'audit-action-personnel';
     if (a.includes('USER') || a.includes('ROLE')) return 'audit-action-user';
     if (a.includes('VALIDAT')) return 'audit-action-validation';
     if (a.includes('RETURN')) return 'audit-action-return';

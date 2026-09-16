@@ -45,9 +45,20 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   try {
     const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
     const { status } = req.query;
-    const where: Record<string, unknown> = { userId: req.user!.userId };
+    const isSysAdmin = req.user?.role === 'SYSTEM_ADMIN';
+
+    const where: any = { userId: req.user!.userId };
     if (status === 'unread') where.isRead = false;
     if (status === 'read') where.isRead = true;
+
+    // Strict Role Separation: System Administrators only receive System Admin related items
+    // (Account Creation Requests, User Credentials, Password Resets, System Logs),
+    // strictly excluding Promotion Cycles, Applications, and 201 Transactions.
+    if (isSysAdmin) {
+      where.NOT = [
+        { relatedEntityType: { in: ['PromotionCycle', 'PromotionApplication', 'Transaction'] } },
+      ];
+    }
 
     const [data, total] = await Promise.all([
       prisma.notification.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),

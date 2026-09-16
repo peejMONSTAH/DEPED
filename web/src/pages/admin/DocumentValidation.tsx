@@ -1,3 +1,4 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
@@ -81,7 +82,8 @@ const PROMOTION_DOCUMENTS: DocumentItem[] = [
 ];
 
 export const DocumentValidation: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedTxIdRef = useRef<string | null>(null);
   const { addToast } = useToast();
   const { user } = useAuthContext();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -89,11 +91,24 @@ export const DocumentValidation: React.FC = () => {
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [viewingDoc, setViewingDoc] = useState<DocumentItem | null>(null);
   const [selectedDocNames, setSelectedDocNames] = useState<string[]>([]);
-  const [docStatuses, setDocStatuses] = useState<Record<string, 'VERIFIED' | 'DEFICIENT'>>({});
+  const [docStatuses, setDocStatuses] = useState<Record<string, 'PENDING' | 'VERIFIED' | 'DEFICIENT'>>({});
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [rotation, setRotation] = useState<number>(0);
   const [docDeficiencyNotes, setDocDeficiencyNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'PENDING' | 'DEFICIENCY' | 'HISTORY'>('PENDING');
+
+  const handleCloseModal = () => {
+    setSelected(null);
+    setSelectedDocNames([]);
+    openedTxIdRef.current = null;
+    if (searchParams.get('txId')) {
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('txId');
+        return next;
+      }, { replace: true });
+    }
+  };
 
   const toggleSelectAllDocs = (docs: DocumentItem[]) => {
     if (selectedDocNames.length === docs.length) {
@@ -118,7 +133,7 @@ export const DocumentValidation: React.FC = () => {
       });
       return updated;
     });
-    addToast(`Bulk Verified ${docNames.length} document(s) successfully!`, 'SUCCESS');
+    addToast(`Marked ${docNames.length} document(s) as verified in this review. Submit the review to save it.`, 'INFO');
   };
 
   const handleBulkReject = (docNames: string[]) => {
@@ -134,18 +149,19 @@ export const DocumentValidation: React.FC = () => {
   };
 
   const handleOpenTransactionDetails = async (tx: Transaction) => {
+    openedTxIdRef.current = String(tx.id);
     setSelected(tx);
     setSelectedDocNames([]);
     try {
       const res = await apiClient.get(`/transactions/${tx.id}`);
       const detailed = res.data?.data;
       if (detailed) {
-        const initialDocStatuses: Record<string, 'VERIFIED' | 'DEFICIENT'> = {};
+        const initialDocStatuses: Record<string, 'PENDING' | 'VERIFIED' | 'DEFICIENT'> = {};
         const docsList = (detailed.uploadedDocuments && detailed.uploadedDocuments.length > 0)
           ? detailed.uploadedDocuments.map((d: any) => {
               const docName = d.requirementTemplate?.name || d.fileName || 'Uploaded Document';
               const isDef = d.status === 'REJECTED' || d.status === 'DEFICIENT';
-              initialDocStatuses[docName] = isDef ? 'DEFICIENT' : 'VERIFIED';
+              initialDocStatuses[docName] = isDef ? 'DEFICIENT' : d.status === 'VALIDATED' ? 'VERIFIED' : 'PENDING';
               return {
                 id: d.id,
                 name: docName,
@@ -209,7 +225,7 @@ export const DocumentValidation: React.FC = () => {
           promotionTrack: tx.transactionType?.name || (isPromo ? 'Promotion' : 'Appointment'),
           policyFramework: policy,
           dateSubmitted: tx.submissionDate ? new Date(tx.submissionDate).toLocaleDateString() : new Date(tx.createdAt).toLocaleDateString(),
-          complianceScore: tx.status === 'DRAFT' ? 0 : 100,
+          complianceScore: tx.complianceScore ?? 0,
           submissionStatus: tx.status,
           status: tx.status,
           remarks: tx.remarks,
@@ -232,9 +248,10 @@ export const DocumentValidation: React.FC = () => {
       setTransactions(mappedApi);
 
       const targetTxId = searchParams.get('txId');
-      if (targetTxId) {
+      if (targetTxId && openedTxIdRef.current !== targetTxId) {
         const found = mappedApi.find((t: any) => t.id === parseInt(targetTxId, 10));
         if (found) {
+          openedTxIdRef.current = targetTxId;
           handleOpenTransactionDetails(found);
         }
       }
@@ -268,11 +285,15 @@ export const DocumentValidation: React.FC = () => {
   // Step 5: Declare QUALIFIED & Validate Submission → Status: Validated by AO II → FOR_APPROVAL to HRMO
   const handleValidate = async (txId: number) => {
     if (!selected) return;
+    if (selected.documents.some(doc => docStatuses[doc.name] !== 'VERIFIED')) {
+      addToast('Review every document and mark each one verified before declaring the transaction qualified.', 'ERROR');
+      return;
+    }
     setIsSubmitting(true);
 
     const documentValidations = selected.documents.map((doc: any) => ({
       documentId: doc.id,
-      isValid: true,
+      isValid: docStatuses[doc.name] === 'VERIFIED',
       feedback: 'Declared QUALIFIED & Validated by AO II',
     })).filter(d => d.documentId !== undefined);
 
@@ -284,7 +305,7 @@ export const DocumentValidation: React.FC = () => {
       });
       addToast(`Transaction #${txId} declared QUALIFIED and validated. Forwarded to HRMO for final approval/ranking.`, 'SUCCESS');
       fetchPendingTransactions();
-      setSelected(null);
+      handleCloseModal();
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to validate transaction.', 'ERROR');
     } finally {
@@ -299,6 +320,9 @@ export const DocumentValidation: React.FC = () => {
       return;
     }
     if (!selected) return;
+    if (selected.documents.some(doc => !docStatuses[doc.name] || docStatuses[doc.name] === 'PENDING')) {
+      addToast('Review every document before recording disqualification.', 'ERROR'); return;
+    }
     setIsSubmitting(true);
 
     const policyRef = selected.promotionTrack === 'ECP' 
@@ -309,11 +333,12 @@ export const DocumentValidation: React.FC = () => {
       await apiClient.post(`/transactions/${selected.id}/validate`, {
         targetStatus: 'REJECTED',
         remarks: `Declared DISQUALIFIED (DQ) under ${policyRef}: ${dqReason}`,
+        documentValidations: selected.documents.filter(doc => doc.id !== undefined).map(doc => ({ documentId: doc.id, isValid: docStatuses[doc.name] === 'VERIFIED', feedback: docStatuses[doc.name] === 'DEFICIENT' ? dqReason : 'Document reviewed by AO II' })),
       });
       addToast(`Applicant ${selected.personnelName} declared DISQUALIFIED (DQ) under ${policyRef}. Notice generated.`, 'WARNING');
       fetchPendingTransactions();
       setShowDqModal(false);
-      setSelected(null);
+      handleCloseModal();
       setDqReason('');
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to disqualify applicant.', 'ERROR');
@@ -329,6 +354,9 @@ export const DocumentValidation: React.FC = () => {
       return;
     }
     if (!selected) return;
+    if (selected.documents.some(doc => !docStatuses[doc.name] || docStatuses[doc.name] === 'PENDING') || !selected.documents.some(doc => docStatuses[doc.name] === 'DEFICIENT')) {
+      addToast('Review every document and flag at least one deficient item before returning the transaction.', 'ERROR'); return;
+    }
     setIsSubmitting(true);
 
     const documentValidations = selected.documents.map((doc: any) => {
@@ -349,7 +377,7 @@ export const DocumentValidation: React.FC = () => {
       addToast(`Transaction #${selected.id} returned for correction. Remarks and document statuses sent to ${selected.personnelName}.`, 'WARNING');
       fetchPendingTransactions();
       setShowReturnModal(false);
-      setSelected(null);
+      handleCloseModal();
       setReturnRemarks('');
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to return transaction for correction.', 'ERROR');
@@ -376,20 +404,6 @@ export const DocumentValidation: React.FC = () => {
       </div>
 
       <div className="page-content">
-        {/* Workflow Governance Policy Banner */}
-        <div className="card card-glass mb-6" style={{ borderLeft: '4px solid var(--color-primary)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <AppIcon name="compliance" size={18} color="var(--color-primary)" />
-            <h4 style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>DepEd Qualification Evaluation Governance</h4>
-          </div>
-          <div className="text-xs text-muted" style={{ lineHeight: 1.6 }}>
-            • <strong>Teaching Personnel (Natural Vacancy — Teacher I):</strong> Initial evaluation conducted at school level by AO II following DepEd Quality Standards under <strong>DepEd Order No. 7, s. 2023</strong>.<br />
-            • <strong>Teaching Personnel (Expanded Career Progression — ECP):</strong> Initial evaluation conducted by AO II under <strong>DepEd Order No. 19, s. 2025</strong> and <strong>DepEd Order No. 24, s. 2025</strong>.<br />
-            • <strong>Disqualification Authority (Teaching):</strong> AO II has the authority to declare applicants <strong>Disqualified (DQ)</strong> during school-level evaluation.<br />
-            • <strong>Non-Teaching Personnel:</strong> Document evaluation and qualification/disqualification determination is handled directly by the <strong>HRMO</strong> at division level.
-          </div>
-        </div>
-
         {/* Tab Filter Bar for AO II */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button
@@ -532,11 +546,11 @@ export const DocumentValidation: React.FC = () => {
 
         {/* Review & Qualification Evaluation Modal */}
         {selected && (
-          <div className="modal-overlay" onClick={() => setSelected(null)}>
+          <ModalOverlay className="modal-overlay" onClick={handleCloseModal}>
             <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, width: '92vw' }}>
               <div className="modal-header">
                 <h3 className="modal-title">Evaluate & Validate — TRX-{selected.id}</h3>
-                <button className="modal-close" onClick={() => setSelected(null)}>×</button>
+                <button className="modal-close" onClick={handleCloseModal}>×</button>
               </div>
 
               <div className="modal-body">
@@ -707,9 +721,10 @@ export const DocumentValidation: React.FC = () => {
                     {selected.documents.map((doc, idx) => {
                       const status = docStatuses[doc.name];
                       const isChecked = selectedDocNames.includes(doc.name);
+                      const checkboxId = `doc-check-${doc.id || idx}`;
 
                       return (
-                        <div key={idx} style={{
+                        <div key={doc.id || doc.name || idx} style={{
                           padding: '10px 8px', borderBottom: '1px solid var(--color-border)', fontSize: 'var(--text-sm)',
                           background: isChecked ? 'rgba(59, 130, 246, 0.08)' : 'transparent', borderRadius: 6, margin: '2px 0'
                         }}>
@@ -717,11 +732,14 @@ export const DocumentValidation: React.FC = () => {
                             <div className="flex items-center gap-3">
                               <input
                                 type="checkbox"
+                                id={checkboxId}
                                 checked={isChecked}
                                 onChange={() => toggleSelectDoc(doc.name)}
                                 style={{ cursor: 'pointer', width: 16, height: 16 }}
                               />
-                              <span style={{ fontWeight: 500, color: 'var(--color-text-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{doc.name}</span>
+                              <label htmlFor={checkboxId} style={{ fontWeight: 500, color: 'var(--color-text-primary)', display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', userSelect: 'none' }}>
+                                {doc.name}
+                              </label>
                               {status === 'VERIFIED' && <span className="badge badge-approved" style={{ fontSize: 9, display: 'inline-flex', alignItems: 'center', gap: 3 }}>VERIFIED</span>}
                               {status === 'DEFICIENT' && <span className="badge badge-deficiency" style={{ fontSize: 9, display: 'inline-flex', alignItems: 'center', gap: 3 }}>DEFICIENT</span>}
                             </div>
@@ -803,7 +821,7 @@ export const DocumentValidation: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         )}
 
         {/* Full Document Inspector & Verification Workstation for AO II */}
@@ -830,7 +848,7 @@ export const DocumentValidation: React.FC = () => {
           ];
 
           return (
-            <div className="modal-overlay" style={{ zIndex: 1100, padding: 16 }} onClick={() => { setViewingDoc(null); setRotation(0); }}>
+            <ModalOverlay className="modal-overlay" style={{ zIndex: 1100, padding: 16 }} onClick={() => { setViewingDoc(null); setRotation(0); }}>
               <div
                 className="modal animate-scale-in"
                 onClick={e => e.stopPropagation()}
@@ -1032,7 +1050,7 @@ export const DocumentValidation: React.FC = () => {
                 </div>
 
                 {/* Executive Body Grid: Left Viewer Canvas (1fr) + Right Inspection & Action Station (420px) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <div className="document-inspector-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 420px', flex: 1, minHeight: 0, overflow: 'hidden' }}>
                   {/* Left: Document View Canvas */}
                   <div style={{
                     background: '#0a0a0f',
@@ -1334,7 +1352,7 @@ export const DocumentValidation: React.FC = () => {
                           }}
                           onClick={() => {
                             setDocStatuses(prev => ({ ...prev, [viewingDoc.name]: 'VERIFIED' }));
-                            addToast(`Document "${viewingDoc.name}" marked as VERIFIED.`, 'SUCCESS');
+                            addToast(`Document "${viewingDoc.name}" marked as verified in this review.`, 'INFO');
                             if (hasNext && nextDoc) {
                               setViewingDoc(nextDoc);
                               setRotation(0);
@@ -1488,13 +1506,13 @@ export const DocumentValidation: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </ModalOverlay>
           );
         })()}
 
         {/* Disqualification (DQ) Modal */}
         {showDqModal && selected && (
-          <div className="modal-overlay" onClick={() => setShowDqModal(false)}>
+          <ModalOverlay className="modal-overlay" onClick={() => setShowDqModal(false)}>
             <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
               <div className="modal-header">
                 <h3 className="modal-title" style={{ color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1534,12 +1552,12 @@ export const DocumentValidation: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         )}
 
         {/* Return for Correction Modal */}
         {showReturnModal && selected && (
-          <div className="modal-overlay" onClick={() => setShowReturnModal(false)}>
+          <ModalOverlay className="modal-overlay" onClick={() => setShowReturnModal(false)}>
             <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
               <div className="modal-header">
                 <h3 className="modal-title">↩ Return for Correction — TX #{selected.id}</h3>
@@ -1569,7 +1587,7 @@ export const DocumentValidation: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         )}
       </div>
     </div>

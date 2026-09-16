@@ -1,15 +1,15 @@
 {
-  "name": "Eminence HRIS",
-  "short_name": "Eminence",
+  "name": "Digital 201",
+  "short_name": "Digital 201",
   "description": "DepEd Koronadal City HR Information System",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#0d1117",
-  "theme_color": "#007bff",
+  "orientation": "any",
+  "background_color": "#f4f6f8",
+  "theme_color": "#243d50",
   "icons": [
     {
-      "src": "/logo.svg",
+      "src": "/digital201.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable any"

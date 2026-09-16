@@ -347,7 +347,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
                     const SizedBox(height: 24),
                     Text(
-                      'Eminence HRIS v1.0 · Protected by DepEd Data Privacy',
+                      'Digital 201 v1.0 · Protected by DepEd Data Privacy',
                       style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF6E7681)),
                     ),
                     const SizedBox(height: 16),

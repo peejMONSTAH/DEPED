@@ -75,13 +75,13 @@ model Personnel {
   lastName              String                 @map("last_name")
   middleName            String?                @map("middle_name")
   suffix                String?
-  birthDate             DateTime               @map("birth_date")
-  gender                Gender
-  civilStatus           CivilStatus            @map("civil_status")
+  birthDate             DateTime?              @map("birth_date")
+  gender                Gender?
+  civilStatus           CivilStatus?           @map("civil_status")
   contactNumber         String?                @map("contact_number")
   address               String?
   designation           String
-  dateHired             DateTime               @map("date_hired")
+  dateHired             DateTime?              @map("date_hired")
   status                PersonnelStatus
   plantillaItemId       Int?                   @unique @map("plantilla_item_id")
   profileComplete       Boolean                @default(false) @map("profile_complete")
@@ -303,6 +303,7 @@ model AccountCreationRequest {
   designation       String
   school            String?
   initialPassword   String               @map("initial_password")
+  dateHired         DateTime?            @map("date_hired")
   status            AccountRequestStatus @default(PENDING)
   rejectionReason   String?              @map("rejection_reason")
   createdUserId     Int?                 @map("created_user_id")

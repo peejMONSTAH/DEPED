@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   EMINENCE HRIS — LUXURY DARK NEURO AUTHENTICATION SCREEN
+   DIGITAL 201 — LUXURY DARK NEURO AUTHENTICATION SCREEN
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── 1. ROOT VIEWPORT & ATMOSPHERE ───────────────────────────────── */
@@ -101,10 +101,10 @@
   width: 100%;
   max-width: 1640px;
   height: 100%;
-  min-height: 720px;
+  min-height: 0;
   max-height: 980px;
   display: grid;
-  grid-template-columns: 1.22fr 1fr;
+  grid-template-columns: minmax(0, 1.22fr) minmax(0, 1fr);
   gap: 56px;
   align-items: stretch;
 }
@@ -1194,3 +1194,332 @@
   }
 }
 
+/* ─── 9. LIGHT THEME OVERRIDES ───────────────────────────────────────
+   A quiet, document-like surface for day-to-day use. These rules live at the
+   end of the file intentionally so the login view stays self-contained. */
+.neuro-login-viewport {
+  background: #f7f6f3;
+  color: #252525;
+}
+
+.nexus-base-gradient {
+  background: #f7f6f3;
+}
+
+.nexus-grid-mesh {
+  opacity: 0.42;
+  background-image:
+    linear-gradient(to right, rgba(69, 61, 46, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(69, 61, 46, 0.045) 1px, transparent 1px);
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.pool-ndmu,
+.pool-deped,
+.nexus-ambient-center-glow {
+  display: none;
+}
+
+.neuro-slideshow-card {
+  background: #ffffff;
+  border: 1px solid #e4e1db;
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(48, 42, 32, 0.06);
+}
+
+.showcase-spotlight-glow {
+  opacity: 0.12;
+}
+
+.neuro-slide-brand {
+  background: #fbfaf8;
+  border-color: #e4e1db;
+  box-shadow: none;
+}
+
+.neuro-brand-title,
+.neuro-slide-title {
+  color: #252525 !important;
+}
+
+.neuro-brand-sub,
+.metric-lbl,
+.neuro-slide-counter {
+  color: #78746d !important;
+}
+
+.neuro-slide-pill-badge {
+  background: #fbf3db !important;
+  border-color: #e5d7a2 !important;
+  color: #956400 !important;
+}
+
+.metric-val {
+  color: #6e5a0e !important;
+}
+
+.showcase-nav-pill {
+  background: #fbfaf8 !important;
+  border-color: #e4e1db !important;
+  color: #5f5a52 !important;
+}
+
+.showcase-nav-pill:hover,
+.showcase-nav-pill.is-active {
+  background: #fff8e8 !important;
+  color: #4b3a13 !important;
+  box-shadow: none;
+}
+
+.showcase-browser-frame {
+  background: #ffffff;
+  border-color: #e4e1db;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(48, 42, 32, 0.07);
+}
+
+.showcase-browser-frame:hover {
+  transform: none;
+  box-shadow: 0 4px 14px rgba(48, 42, 32, 0.07);
+}
+
+.showcase-browser-topbar {
+  background: #fbfaf8;
+  border-color: #e4e1db;
+}
+
+.browser-url-pill {
+  background: #f1efea;
+  border-color: #e4e1db;
+  color: #6d675e;
+}
+
+.live-text {
+  color: #4a463f;
+}
+
+.showcase-browser-viewport {
+  background: #f1efea;
+}
+
+.floating-showcase-chip {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: #e4e1db;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(48, 42, 32, 0.09);
+  color: #302d28;
+}
+
+.showcase-metrics-bar {
+  background: #fbfaf8;
+  border-color: #e4e1db;
+  border-radius: 8px;
+}
+
+.neuro-slide-subtitle {
+  color: #5f5a52 !important;
+}
+
+.neuro-dash-line {
+  background: #d6d1c8 !important;
+}
+
+.neuro-dash-line:hover {
+  background: #aaa398 !important;
+}
+
+.neuro-arrow-btn {
+  background: #ffffff !important;
+  border-color: #ddd8cf !important;
+  color: #4b463e !important;
+  box-shadow: none !important;
+}
+
+.neuro-arrow-btn:hover {
+  background: #fff8e8 !important;
+  border-color: #c9982d !important;
+  color: #704b00 !important;
+  transform: none !important;
+}
+
+.neuro-segmented-toggle {
+  background: #eeece7 !important;
+  border-color: #dedad2 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.neuro-toggle-btn {
+  border-radius: 6px !important;
+  color: #706b63 !important;
+}
+
+.neuro-toggle-btn:hover:not(.is-active) {
+  color: #252525 !important;
+}
+
+.neuro-toggle-btn.is-active {
+  background: #ffffff !important;
+  color: #31260e !important;
+  box-shadow: 0 1px 3px rgba(48, 42, 32, 0.1) !important;
+}
+
+.neuro-form-title {
+  color: #252525 !important;
+}
+
+.neuro-form-subtitle {
+  color: #706b63 !important;
+}
+
+.neuro-alert-error {
+  background: #fdebec;
+  border-color: #efc4c2;
+  color: #9f2f2d;
+}
+
+.neuro-alert-icon {
+  color: #9f2f2d;
+}
+
+.neuro-input-wrapper {
+  background: #ffffff !important;
+  border-color: #dedad2 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.neuro-input-wrapper:focus-within {
+  background: #ffffff !important;
+  border-color: #b47b0d !important;
+  box-shadow: 0 0 0 3px rgba(180, 123, 13, 0.14) !important;
+}
+
+.neuro-input-icon,
+.neuro-input-eye-btn {
+  color: #78746d !important;
+}
+
+.neuro-input-wrapper:focus-within .neuro-input-icon,
+.neuro-input-eye-btn:hover {
+  color: #9a6700 !important;
+}
+
+.neuro-input-eye-btn:hover {
+  background: #fbf3db !important;
+}
+
+.neuro-input-field {
+  color: #252525 !important;
+}
+
+.neuro-input-field::placeholder {
+  color: #918b82 !important;
+}
+
+.neuro-submit-btn {
+  background: #252525 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+.neuro-submit-btn:hover:not(:disabled) {
+  background: #423f39 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.neuro-submit-btn:active:not(:disabled) {
+  transform: scale(0.985) !important;
+}
+
+.neuro-divider-line,
+.neuro-form-footer {
+  border-color: #e4e1db !important;
+  background: #e4e1db !important;
+}
+
+.neuro-divider-text,
+.neuro-form-footer p {
+  color: #78746d !important;
+}
+
+.neuro-form-footer {
+  background: transparent !important;
+}
+
+.neuro-role-icon-btn,
+.neuro-role-card-btn {
+  background: #ffffff !important;
+  border-color: #e4e1db !important;
+  border-radius: 8px !important;
+  color: #5f5a52 !important;
+}
+
+.neuro-role-icon-btn:hover:not(:disabled),
+.neuro-role-card-btn:hover:not(:disabled) {
+  background: #fff8e8 !important;
+  border-color: #c9982d !important;
+  box-shadow: none !important;
+  color: #704b00 !important;
+  transform: none !important;
+}
+
+.neuro-role-tooltip {
+  background: #252525;
+  border-color: #252525;
+  box-shadow: none;
+}
+
+.neuro-role-card-title {
+  color: #302d28 !important;
+}
+
+.neuro-role-card-desc {
+  color: #78746d !important;
+}
+
+.neuro-role-card-icon {
+  background: #fbf3db;
+  color: #956400;
+}
+
+.neuro-role-card-action {
+  color: #956400 !important;
+}
+
+.neuro-login-viewport .modal-overlay {
+  background: rgba(37, 37, 37, 0.3);
+}
+
+.neuro-login-viewport .modal {
+  background: #ffffff;
+  border-color: #e4e1db;
+  border-radius: 12px;
+  box-shadow: 0 14px 36px rgba(48, 42, 32, 0.12);
+  color: #302d28;
+}
+
+.neuro-login-viewport .modal-title {
+  color: #252525 !important;
+}
+
+.neuro-login-viewport .modal-close,
+.neuro-login-viewport .modal .modal-label {
+  color: #706b63 !important;
+}
+
+.neuro-login-viewport .modal-close:hover {
+  background: #f1efea !important;
+  color: #252525 !important;
+}
+
+.neuro-login-viewport .modal .form-input {
+  background: #ffffff !important;
+  border-color: #dedad2 !important;
+  color: #252525 !important;
+  border-radius: 8px !important;
+}

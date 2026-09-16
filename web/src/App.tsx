@@ -30,10 +30,10 @@ import { PlantillaManagement } from './pages/admin/PlantillaManagement';
 // Personnel Pages (Mobile Web Portal)
 import { PersonnelHome } from './pages/personnel/Home';
 import { MyTransactions } from './pages/personnel/MyTransactions';
-import { NewTransaction } from './pages/personnel/NewTransaction';
 import { ProfileCompletion } from './pages/personnel/ProfileCompletion';
 import { Checklist } from './pages/personnel/Checklist';
 import { UploadDocument } from './pages/personnel/UploadDocument';
+const FillDocument = React.lazy(() => import('./pages/personnel/FillDocument'));
 import { PersonnelNotifications } from './pages/personnel/Notifications';
 import { CareerRecord } from './pages/personnel/CareerRecord';
 
@@ -131,8 +131,15 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* Personnel Management — shared view */}
-              <Route path="personnel" element={<PersonnelManagement />} />
+              {/* Personnel Records Management — AO II & HRMO only */}
+              <Route
+                path="personnel"
+                element={
+                  <RequireAuth allowedRoles={['AO_II', 'HRMO']}>
+                    <PersonnelManagement />
+                  </RequireAuth>
+                }
+              />
 
               {/* Sys Admin + AO II: Account Creation & Credential Distribution (Steps 1-3) */}
               <Route
@@ -144,21 +151,21 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* HRMO & AO II: Promotion Management */}
+              {/* HRMO only: Promotion Management */}
               <Route
                 path="promotions"
                 element={
-                  <RequireAuth allowedRoles={['HRMO', 'AO_II']}>
+                  <RequireAuth allowedRoles={['HRMO']}>
                     <PromotionManagement />
                   </RequireAuth>
                 }
               />
 
-              {/* HRMO & AO II: Plantilla Registry & Item Assignment */}
+              {/* HRMO only: Plantilla Registry & Item Assignment */}
               <Route
                 path="plantilla"
                 element={
-                  <RequireAuth allowedRoles={['HRMO', 'AO_II']}>
+                  <RequireAuth allowedRoles={['HRMO']}>
                     <PlantillaManagement />
                   </RequireAuth>
                 }
@@ -212,11 +219,12 @@ export const App: React.FC = () => {
               <Route path="profile" element={<CareerRecord />} />
 
               {/* Step 4: Transaction Selection */}
-              <Route path="new-transaction" element={<NewTransaction />} />
+              <Route path="new-transaction" element={<Navigate to="/personnel/transactions" replace />} />
 
               {/* Steps 5–8: Checklist → Upload → Compliance → Submit */}
               <Route path="checklist" element={<Checklist />} />
               <Route path="upload-document" element={<UploadDocument />} />
+              <Route path="fill-document" element={<React.Suspense fallback={<p>Loading form editor…</p>}><FillDocument /></React.Suspense>} />
 
               {/* My Transactions list */}
               <Route path="transactions" element={<MyTransactions />} />

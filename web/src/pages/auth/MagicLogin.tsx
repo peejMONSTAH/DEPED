@@ -139,7 +139,7 @@ export const MagicLogin: React.FC = () => {
           letterSpacing: '-0.5px',
           margin: '0 0 10px 0',
         }}>
-          Eminence HRIS Magic Access
+          Digital 201 Magic Access
         </h2>
 
         {status === 'verifying' && (

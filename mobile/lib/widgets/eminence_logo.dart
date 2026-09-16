@@ -89,7 +89,7 @@ class EminenceLogo extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'EMINENCE',
+                'DIGITAL 201',
                 style: customStyle ??
                     GoogleFonts.plusJakartaSans(
                       fontSize: fontSz,
@@ -157,7 +157,7 @@ class EminenceLogo extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'EMINENCE',
+                'DIGITAL 201',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: fontSz,
                   fontWeight: FontWeight.w900,

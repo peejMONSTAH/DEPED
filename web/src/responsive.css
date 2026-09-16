@@ -1,0 +1,461 @@
+/* Shared responsive contracts; document specimens retain local scrolling. */
+.modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1100 !important;
+  max-width: 100vw;
+  max-height: 100dvh;
+  padding: clamp(8px, 2vw, 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.modal-overlay > * { min-width: 0; max-width: 100%; }
+.modal-overlay form { min-width: 0; min-height: 0; }
+.modal-overlay [style*="display: grid"] > * { min-width: 0; }
+.modal-overlay :is(h2, h3, p, label) { overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .modal-overlay :is(.modal-header, .modal-footer) { gap: 12px; flex-wrap: wrap; }
+  .modal-overlay .form-group { grid-column: auto; }
+  .modal-overlay .form-group[style*="grid-column"] { grid-column: 1 / -1 !important; }
+}
+.neuro-login-viewport {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  align-items: flex-start;
+}
+.neuro-login-stage { min-height: 720px; }
+.neuro-stage-left, .neuro-stage-right, .neuro-auth-container { min-width: 0; }
+@media (max-width: 1080px) {
+  .neuro-login-stage { min-height: 0; height: auto; gap: 24px; }
+  .neuro-stage-right { order: -1; padding: 24px 0; }
+  .neuro-stage-left { height: auto; }
+  .neuro-slideshow-card { height: auto; min-height: 600px; gap: 16px; }
+  .showcase-stage-area { flex: none; height: 260px; }
+}
+@media (max-width: 640px) {
+  .neuro-login-viewport { padding: 16px; }
+  .neuro-slide-top-header { flex-wrap: wrap; gap: 10px; }
+  .neuro-slideshow-card { min-height: 0; padding: 16px; }
+  .showcase-stage-area { height: 210px; min-height: 0; }
+  .showcase-browser-topbar { padding: 0 6px; gap: 4px; }
+  .browser-url-pill { min-width: 0; }
+  .url-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ssl-badge, .browser-live-indicator { display: none; }
+  .neuro-form-title { font-size: 30px !important; }
+  .neuro-form-subtitle { font-size: 13px !important; }
+  .neuro-input-field { font-size: 16px !important; }
+  .neuro-role-card-btn { flex-wrap: wrap; gap: 8px; }
+  .neuro-role-card-left { min-width: 0; }
+  .neuro-role-card-action { margin-left: 48px; }
+  .neuro-roles-row { gap: 8px; }
+  .showcase-nav-pill { min-height: 36px; }
+  .floating-showcase-chip { max-width: calc(100% - 24px); font-size: 9px; }
+  .metric-lbl { white-space: normal; overflow-wrap: anywhere; }
+}
+html, body, #root, .shell-viewport-root, .app-shell-frame {
+  width: 100%;
+  height: 100dvh;
+}
+.app-workspace-area, .admin-content, .workspace-main-content,
+.page-transition-container, .page-content, .personnel-content-container,
+.personnel-dashboard-grid > *, .asymmetric-main-grid > *,
+.table-card-large, .card, .modal, .modal-body { min-width: 0; }
+.app-workspace-area, .admin-content { flex: 1 1 0%; }
+.page-transition-container { width: 100%; }
+.page-container { width: 100%; min-width: 0; }
+.mobile-app-title { color: #243240; }
+.personnel-dashboard-grid { grid-template-columns: minmax(0, 1fr) 380px; }
+.asymmetric-main-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.table-wrapper, .editorial-table-wrapper, .table-responsive, .table-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* Keep the personnel table within the available workspace at browser zoom.
+   Controlled column proportions preserve one continuous table surface. */
+.personnel-records-table-wrapper {
+  position: relative;
+  overflow-x: auto !important;
+  scrollbar-gutter: stable;
+}
+.personnel-records-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+.personnel-records-table th:nth-child(1) { width: 12%; }
+.personnel-records-table th:nth-child(2) { width: 13%; }
+.personnel-records-table th:nth-child(3) { width: 17%; }
+.personnel-records-table th:nth-child(4) { width: 15%; }
+.personnel-records-table th:nth-child(5) { width: 14%; }
+.personnel-records-table th:nth-child(6) { width: 9%; }
+.personnel-records-table th:nth-child(7) { width: 12%; }
+.personnel-records-table th:nth-child(8) { width: 108px; }
+.personnel-records-table th,
+.personnel-records-table td {
+  overflow-wrap: anywhere;
+}
+.personnel-records-table .personnel-records-action-cell {
+  width: 108px;
+  min-width: 108px;
+}
+.personnel-view-details-btn {
+  width: 100%;
+  min-width: 0 !important;
+  padding-inline: 10px !important;
+  white-space: nowrap;
+}
+
+/* Preserve readable applicant identities in the promotion leaderboard. The
+   table scrolls as a table at constrained widths instead of crushing words
+   into one-character lines. */
+.promotion-leaderboard-card { min-width: 0; }
+.promotion-cycle-index { width: 100%; min-width: 0; }
+.promotion-cycle-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  max-height: none;
+  overflow: visible;
+}
+.promotion-cycle-card {
+  min-width: 0;
+  outline: none;
+}
+.promotion-cycle-card:hover {
+  border-color: var(--color-primary) !important;
+  transform: translateY(-1px);
+}
+.promotion-cycle-card:focus-visible {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(57, 101, 74, 0.18) !important;
+}
+.promotion-detail-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.promotion-back-button {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+.promotion-detail-context {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+.promotion-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+.promotion-summary-card {
+  position: relative;
+  min-width: 0;
+  min-height: 116px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+.promotion-summary-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--color-primary);
+}
+.promotion-summary-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+.promotion-summary-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: var(--color-primary);
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+}
+.promotion-summary-value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.promotion-summary-value {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.promotion-summary-value--large {
+  font-size: 1.2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.promotion-summary-value--code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+.promotion-summary-card--slots::before { background: #059669; }
+.promotion-summary-card--plantilla::before { background: #2563eb; }
+.promotion-summary-card--track::before { background: #b45309; }
+.promotion-summary-card--candidates::before { background: #39654a; }
+
+@media (max-width: 1180px) {
+  .promotion-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+@media (max-width: 560px) {
+  .promotion-summary-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .promotion-summary-card { min-height: 0; }
+}
+.promotion-leaderboard-table-wrapper {
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+.promotion-leaderboard-table {
+  min-width: 980px;
+  table-layout: auto;
+}
+.promotion-leaderboard-table .promotion-applicant-column {
+  width: 300px;
+  min-width: 300px;
+}
+.promotion-applicant-copy { min-width: 0; }
+.promotion-applicant-identity { align-items: flex-start !important; }
+.promotion-applicant-meta {
+  max-width: 34rem;
+  line-height: 1.45;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.promotion-leaderboard-table th:nth-child(4) { min-width: 140px; }
+.promotion-leaderboard-table th:nth-child(5) { min-width: 190px; }
+.promotion-leaderboard-table th:nth-child(6) { min-width: 170px; }
+
+@media (max-width: 768px) {
+  .promotion-leaderboard-card { padding: 16px !important; }
+  .promotion-leaderboard-table { min-width: 900px; }
+  .promotion-leaderboard-table .promotion-applicant-column {
+    width: 260px;
+    min-width: 260px;
+  }
+}
+
+@media (max-width: 768px) {
+  .personnel-records-table { min-width: 720px; }
+  .personnel-records-table th,
+  .personnel-records-table td { padding-inline: 12px !important; }
+  .personnel-records-table .personnel-records-action-cell {
+    width: 108px;
+    min-width: 108px;
+  }
+}
+.topbar, .topbar-actions, .card-header-flex, .modal-header, .modal-footer { flex-wrap: wrap; gap: 12px; }
+.topbar > *, .card-header-flex > * { min-width: 0; }
+.form-input, .form-select, .form-textarea { min-width: 0; max-width: 100%; }
+.modal { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px) !important; }
+.modal-body { min-height: 0; overflow-y: auto; }
+.modal-title { overflow-wrap: anywhere; }
+.modal-close { flex-shrink: 0; }
+
+/* Page transitions use opacity only so every legacy fixed overlay is anchored
+   to the browser viewport instead of the workspace beside the sidebar. */
+.page-transition-container { transform: none !important; }
+
+.responsive-viewport-overlay {
+  width: 100vw;
+  min-height: 100dvh;
+  padding: clamp(8px, 2vw, 20px) !important;
+  overflow: auto;
+}
+.personnel-dossier-modal,
+.personnel-add-modal {
+  width: min(1280px, 100%) !important;
+  max-width: 1280px !important;
+  max-height: calc(100dvh - clamp(16px, 4vw, 40px)) !important;
+  min-width: 0;
+}
+.personnel-add-modal { max-width: 1100px !important; }
+.personnel-dossier-header > *,
+.personnel-dossier-body > *,
+.personnel-dossier-footer > *,
+.personnel-add-header > *,
+.personnel-add-form,
+.personnel-add-body > * { min-width: 0; }
+.personnel-dossier-header,
+.personnel-dossier-footer,
+.personnel-add-header,
+.personnel-add-footer { flex-wrap: wrap; }
+.personnel-dossier-body { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+@media (max-width: 980px) {
+  .personnel-dossier-body { grid-template-columns: minmax(0, 1fr) !important; }
+  .personnel-dossier-footer { align-items: flex-start !important; gap: 12px; }
+  .personnel-dossier-footer > div:last-child { margin-left: auto; flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  .responsive-viewport-overlay { align-items: flex-start; }
+  .personnel-dossier-modal,
+  .personnel-add-modal { max-height: calc(100dvh - 16px) !important; border-radius: 14px !important; }
+  .personnel-dossier-header,
+  .personnel-add-header { padding: 14px 16px !important; align-items: flex-start !important; }
+  .personnel-dossier-body,
+  .personnel-add-body { padding: 16px !important; gap: 14px !important; }
+  .personnel-dossier-footer,
+  .personnel-add-footer { padding: 12px 16px !important; }
+  .personnel-dossier-footer > div,
+  .personnel-dossier-footer > div:last-child,
+  .personnel-add-footer > button { width: 100%; margin-left: 0; }
+  .personnel-dossier-footer button,
+  .personnel-add-footer button { flex: 1 1 auto; white-space: normal; }
+}
+
+/* Viewport-level directory dialogs must remain independent from the fixed
+   desktop sidebar and keep their content legible at high browser zoom. */
+.plantilla-directory-overlay {
+  width: 100vw;
+  min-height: 100dvh;
+  padding: clamp(8px, 2vw, 20px) !important;
+  overflow: auto;
+}
+.plantilla-directory-modal {
+  width: min(920px, 100%) !important;
+  max-width: 920px !important;
+  max-height: calc(100dvh - clamp(16px, 4vw, 40px)) !important;
+  min-width: 0;
+}
+.plantilla-directory-header > div,
+.plantilla-directory-toolbar > div,
+.plantilla-directory-item-copy { min-width: 0; }
+.plantilla-directory-item-copy { overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .plantilla-directory-overlay { align-items: flex-start; }
+  .plantilla-directory-modal { max-height: calc(100dvh - 16px) !important; border-radius: 14px !important; }
+  .plantilla-directory-header { padding: 14px 16px !important; align-items: flex-start !important; }
+  .plantilla-directory-header h3 { font-size: 1rem !important; line-height: 1.3; text-wrap: balance; }
+  .plantilla-directory-toolbar { padding: 12px 16px !important; align-items: stretch !important; flex-direction: column; }
+  .plantilla-directory-toolbar > :last-child { align-self: flex-start; }
+  .plantilla-directory-list { padding: 14px 16px 18px !important; }
+  .plantilla-directory-item-copy { flex-basis: 100%; }
+}
+
+/* HRMO CAR deliberation uses a portal so browser zoom cannot confine the
+   overlay to the workspace beside the desktop sidebar. */
+.hrmo-deliberation-overlay { padding: 20px !important; }
+.hrmo-deliberation-modal {
+  width: min(1240px, calc(100vw - 40px)) !important;
+  max-width: min(1240px, calc(100vw - 40px)) !important;
+}
+.hrmo-deliberation-form, .hrmo-deliberation-form > *,
+.hrmo-deliberation-header > * { min-width: 0; }
+.hrmo-deliberation-header, .hrmo-criteria-heading,
+.hrmo-remarks-heading, .hrmo-modal-footer { flex-wrap: wrap; gap: 10px; }
+.hrmo-governance-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.hrmo-governance-grid > :first-child { grid-column: 1 / -1; }
+.hrmo-bi-options { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.hrmo-score-row { flex-wrap: wrap; }
+.hrmo-score-row > input[type="range"] { min-width: min(100%, 260px); }
+.hrmo-deliberation-form input, .hrmo-deliberation-form select,
+.hrmo-deliberation-form textarea { max-width: 100%; min-width: 0; }
+.modal.hrmo-deliberation-modal .hrmo-deliberation-form button { white-space: normal !important; }
+.modal.hrmo-deliberation-modal .hrmo-bi-options > button {
+  min-width: 0 !important;
+  padding: 7px 6px !important;
+  font-size: .7rem !important;
+  line-height: 1.2;
+}
+
+/* Browser zoom reduces the CSS viewport. Stack governance fields before their
+   labels and controls become cramped, while keeping the modal itself wide. */
+@media (max-width: 1180px) {
+  .hrmo-governance-grid > * { width: 100%; }
+  .hrmo-remarks-heading > label { flex: 1 1 100%; }
+}
+
+@media (max-width: 520px) {
+  .hrmo-governance-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .hrmo-bi-options { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+@media (max-width: 700px) {
+  .hrmo-deliberation-overlay { padding: 8px !important; }
+  .hrmo-deliberation-modal {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+  .hrmo-deliberation-header, .hrmo-deliberation-form { padding: 16px !important; }
+  .hrmo-modal-footer > button { flex: 1 1 220px; }
+}
+.sidebar-overlay { position: fixed; inset: 0; z-index: 190; background: rgba(24, 36, 48, .4); }
+
+@media (max-width: 1280px) {
+  :root { --layout-master-detail: minmax(0, 1fr); }
+  .document-inspector-grid { grid-template-columns: minmax(0, 1fr) !important; overflow-y: auto !important; }
+  .document-inspector-grid > * { min-width: 0; flex-shrink: 0; }
+  .document-inspector-grid > :first-child { min-height: 50dvh; }
+  .document-inspector-grid > :last-child { overflow: visible !important; }
+}
+@media (max-width: 1180px) {
+  .personnel-dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1024px) {
+  :root { --layout-columns-3: repeat(2, minmax(0, 1fr)); --layout-columns-4: repeat(2, minmax(0, 1fr)); }
+  .shell-sidebar { width: min(300px, calc(100vw - 48px)); height: 100dvh; }
+  .shell-sidebar:not(.open) { visibility: hidden; pointer-events: none; }
+  .shell-sidebar.open { visibility: visible; }
+  .mobile-admin-topbar { flex-shrink: 0; }
+  .mobile-menu-trigger { min-width: 44px; min-height: 44px; }
+  .asymmetric-main-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1025px) { .sidebar-overlay { display: none; } }
+@media (max-width: 768px) {
+  :root { --layout-columns-2: minmax(0, 1fr); --layout-columns-3: minmax(0, 1fr); --layout-columns-4: repeat(2, minmax(0, 1fr)); }
+  .page-content, .admin-main, .personnel-content-container, .page-container { padding: 16px 12px 100px !important; }
+  .topbar, .workspace-top-bar { padding: 16px 12px !important; }
+  .topbar { align-items: flex-start !important; }
+  .topbar-actions { width: 100%; flex-wrap: wrap; }
+  .card-header-flex { align-items: flex-start; }
+  h1:not(.neuro-login-viewport *), .topbar-title, .page-title { font-size: clamp(1.4rem, 5vw, 1.9rem) !important; overflow-wrap: anywhere; }
+  .table-card-large, .card:not(.modal), .soft-card:not(.modal), .bento-card:not(.modal) { padding: 16px !important; border-radius: 14px !important; }
+  .metrics-grid-row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px; }
+  .metrics-grid-row > * { min-width: 0; }
+  .grid-cols-2, .grid-cols-3 { grid-template-columns: minmax(0, 1fr) !important; }
+  .modal-overlay { padding: 8px; }
+  .modal { max-width: calc(100vw - 16px) !important; max-height: calc(100dvh - 16px) !important; }
+  .modal-header, .modal-body, .modal-footer { padding: 16px !important; }
+  .modal-footer > button { flex: 1 1 auto; white-space: normal; }
+  .topbar-flyout-menu { position: fixed !important; top: 76px !important; left: 12px !important; right: 12px !important; width: auto !important; max-width: none !important; max-height: calc(100dvh - 100px); overflow-y: auto; }
+  .form-input, .form-select, .form-textarea { font-size: 16px !important; }
+  .shell-nav-link { min-height: 44px; }
+  .toast-container { right: 12px !important; top: 12px !important; width: calc(100vw - 24px) !important; }
+}
+@media (max-width: 400px) {
+  :root { --layout-columns-4: minmax(0, 1fr); }
+  .metrics-grid-row, .compliance-stats-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .mobile-app-title { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-container, .shell-sidebar { animation: none !important; transition: none !important; }
+}

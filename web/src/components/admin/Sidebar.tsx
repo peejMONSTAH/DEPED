@@ -2,14 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import type { UserRole } from '../../types';
 import { AppIcon } from '../common/AppIcon';
+import { Digital201Logo } from '../common/Digital201Logo';
 import { notificationsApi } from '../../api/notifications.api';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { AccountSetupModal } from '../common/AccountSetupModal';
 import { CommandPalette } from '../common/CommandPalette';
 import { OfflineSyncBanner } from '../common/OfflineSyncBanner';
+import { personnelDisplayName } from '../../utils/personnel-display';
 
 interface NavItem {
   label: string;
@@ -38,11 +39,11 @@ const navSections: { label: string; items: NavItem[] }[] = [
   {
     label: 'HR & Digital 201',
     items: [
-      { label: 'Personnel',          icon: 'personnel',    path: '/admin/personnel',    roles: ['SYSTEM_ADMIN', 'AO_II', 'HRMO'] },
-      { label: 'Plantilla Registry', icon: 'employment',   path: '/admin/plantilla',    roles: ['HRMO', 'AO_II'] },
+      { label: 'Personnel',          icon: 'personnel',    path: '/admin/personnel',    roles: ['AO_II', 'HRMO'] },
+      { label: 'Plantilla Registry', icon: 'employment',   path: '/admin/plantilla',    roles: ['HRMO'] },
       { label: 'Credentials',        icon: 'credentials',  path: '/admin/credentials',  roles: ['SYSTEM_ADMIN', 'AO_II'] },
       { label: 'Compliance & YOS',   icon: 'compliance',   path: '/admin/compliance',   roles: ['HRMO'] },
-      { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['HRMO', 'AO_II'] },
+      { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['HRMO'] },
     ],
   },
   {
@@ -58,7 +59,6 @@ const navSections: { label: string; items: NavItem[] }[] = [
     items: [
       { label: 'Portal Home',       icon: 'home',            path: '/personnel/home',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'My Transactions',   icon: 'transactions',    path: '/personnel/transactions',    roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'New Application',   icon: 'new-transaction', path: '/personnel/new-transaction', roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'Notifications',     icon: 'notifications',   path: '/personnel/notifications',   roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'My 201 File',       icon: 'profile',         path: '/personnel/profile-completion', roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'Service Record',    icon: 'repository',      path: '/personnel/profile',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
@@ -82,7 +82,6 @@ const roleLabels: Record<string, string> = {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuthContext();
   const { addToast } = useToast();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   // Retain the authenticated user profile during logout transition to prevent showing fallbacks
@@ -93,6 +92,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const displayUser = user || lastUserRef.current;
 
   const [showUserMenu, setShowUserMenu] = useState(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose?.();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isOpen, onClose]);
   const [showAccountSetupModal, setShowAccountSetupModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -149,6 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   };
 
   const userRole = displayUser?.role || '';
+  const displayName = personnelDisplayName(displayUser?.personnel || displayUser, userRole) || displayUser?.email || '';
 
   const filterItems = (items: NavItem[]) =>
     items.filter(item => !item.roles || (userRole && item.roles.includes(userRole as UserRole)));
@@ -165,28 +173,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
 
-      <aside className={`shell-sidebar ${isOpen ? 'open' : ''}`}>
-        {/* Brand & Theme Header */}
+      <aside id="primary-navigation" aria-label="Main navigation" className={`shell-sidebar ${isOpen ? 'open' : ''}`}>
+        {/* Brand Header */}
         <div className="shell-sidebar-header">
           <div className="sidebar-brand-top-row">
             <div className="sidebar-brand-title-block">
               <div className="brand-title-row">
-                <span className="brand-name-text">EMINENCE</span>
-                <span className="brand-hrmis-pill">HRMIS</span>
+                <Digital201Logo variant="wordmark" showTag />
               </div>
               <div className="brand-org-subtitle">
                 City Schools Division of Koronadal
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="sidebar-theme-toggle-btn"
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            >
-              <AppIcon name={theme === 'dark' ? 'sun' : 'moon'} size={15} />
-            </button>
           </div>
         </div>
 
@@ -223,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <div className="user-popover-card">
               <div className="popover-user-info">
                 <div className="popover-name">
-                  {displayUser?.firstName ? `${displayUser.firstName} ${displayUser.lastName}` : (displayUser?.email || '')}
+                  {displayName}
                 </div>
                 <div className="popover-email">{displayUser?.email || ''}</div>
               </div>
@@ -257,9 +255,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <div className="user-avatar-circle">{initials}</div>
             <div className="user-meta">
               <div className="user-name-text">
-                {displayUser?.firstName
-                  ? `${displayUser.firstName} ${displayUser.lastName}`
-                  : (displayUser?.email?.split('@')[0] || '')}
+                {displayName}
               </div>
               <div className="user-role-text">{displayUser?.role ? (roleLabels[displayUser.role] || displayUser.role) : ''}</div>
             </div>

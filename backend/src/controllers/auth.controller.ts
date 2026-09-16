@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { verifyPassword, hashPassword } from '../utils/hash.util';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMagicToken } from '../utils/jwt.util';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMagicToken, passwordTokenVersion } from '../utils/jwt.util';
 import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound } from '../utils/response.util';
 import { config } from '../config';
 
@@ -103,6 +103,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
           status: 'FAILED',
         },
       });
+      res.locals.auditLogged = true;
     } catch (logErr) {
       console.error('Failed to log failed login attempt:', logErr);
     }
@@ -112,7 +113,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 
   // Generate tokens
-  const tokenPayload = { userId: user.id, email: user.email, role: user.role.name };
+  const tokenPayload = { userId: user.id, email: user.email, role: user.role.name, pwdv: passwordTokenVersion(user.passwordHash) };
   const accessToken = generateAccessToken(tokenPayload);
   const refreshToken = generateRefreshToken(tokenPayload);
 
@@ -140,6 +141,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         },
       }),
     ]);
+    res.locals.auditLogged = true;
   } catch (txErr) {
     console.warn('Non-fatal login transaction notice:', (txErr as Error).message);
     try {
@@ -200,12 +202,12 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       where: { id: payload.userId },
       include: { role: true },
     });
-    if (!user || user.accountStatus !== 'ACTIVE') {
+    if (!user || user.accountStatus !== 'ACTIVE' || payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
       sendUnauthorized(res, 'User not found or account is not active/distributed.');
       return;
     }
 
-    const newAccessToken = generateAccessToken({ userId: user.id, email: user.email, role: user.role.name });
+    const newAccessToken = generateAccessToken({ userId: user.id, email: user.email, role: user.role.name, pwdv: passwordTokenVersion(user.passwordHash) });
 
     sendSuccess(res, { accessToken: newAccessToken });
   } catch {
@@ -238,6 +240,7 @@ export const logout = async (req: Request, res: Response): Promise<void> => {
         status: 'SUCCESS',
       },
     });
+    res.locals.auditLogged = true;
   }
 
   sendSuccess(res, null, 'Logged out successfully.');
@@ -251,8 +254,8 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   const { currentPassword, newPassword } = req.body;
   const userId = req.user?.userId;
 
-  if (!userId || !newPassword) {
-    sendBadRequest(res, 'New password is required.');
+  if (!userId || !currentPassword || !newPassword) {
+    sendBadRequest(res, 'Current password and new password are required.');
     return;
   }
 
@@ -270,23 +273,20 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  if (currentPassword) {
-    const isValid = await verifyPassword(user.passwordHash, currentPassword);
-    if (!isValid) {
-      sendBadRequest(res, 'Current password is incorrect.');
-      return;
-    }
+  const isValid = await verifyPassword(user.passwordHash, currentPassword);
+  if (!isValid) {
+    sendBadRequest(res, 'Current password is incorrect.');
+    return;
   }
 
   const newHash = await hashPassword(newPassword);
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      passwordHash: newHash,
-      accountStatus: 'ACTIVE',
-    },
-  });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash, accountStatus: 'ACTIVE' } }),
+    prisma.refreshToken.updateMany({ where: { userId, revoked: false }, data: { revoked: true } }),
+    prisma.validationLog.create({ data: { entityType: 'User', entityId: userId, action: 'PASSWORD_CHANGED', userId, ipAddress: req.ip, status: 'SUCCESS' } }),
+  ]);
+  res.locals.auditLogged = true;
 
   sendSuccess(res, { accountStatus: 'ACTIVE' }, 'Password changed successfully. Your account is now ACTIVE.');
 };
@@ -334,32 +334,22 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
       userId: user.id,
       role: user.role.name,
       email: user.email,
+      pwdv: passwordTokenVersion(user.passwordHash),
     });
 
     const refreshToken = generateRefreshToken({
       userId: user.id,
       role: user.role.name,
       email: user.email,
+      pwdv: passwordTokenVersion(user.passwordHash),
     });
 
-    // Save refresh token to DB
-    await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: refreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    // Mark magic token as consumed
+    // Consume the one-time link and create its session atomically.
     const expiresAt = payload.exp ? new Date(payload.exp * 1000) : new Date(Date.now() + 48 * 60 * 60 * 1000);
-    await (prisma as any).usedMagicToken?.create({
-      data: {
-        jti,
-        userId: user.id,
-        expiresAt,
-      },
-    }).catch((e: any) => console.warn('Could not record used magic token:', e));
+    await prisma.$transaction([
+      prisma.usedMagicToken.create({ data: { jti, userId: user.id, expiresAt } }),
+      prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
+    ]);
 
     // Audit log
     await prisma.validationLog.create({
@@ -373,6 +363,7 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
         detailsJson: { txId: payload.txId, jti },
       },
     });
+    res.locals.auditLogged = true;
 
     sendSuccess(
       res,
@@ -394,5 +385,3 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
     sendUnauthorized(res, 'Invalid or expired magic login link. Please log in with your DepEd credentials.');
   }
 };
-
-

@@ -2,13 +2,17 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AppConfig {
-  static const String appName = 'Eminence HRIS';
+  static const String appName = 'Digital 201';
   static const String appVersion = '1.0.0';
 
   // Dynamic Base API resolution:
   // - Android Emulator requires 10.0.2.2 to connect to host PC backend at port 5000
   // - Web / Desktop / iOS Simulator uses localhost
   static String get defaultBaseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) {
+      return fromEnv;
+    }
     if (kIsWeb) {
       return 'http://localhost:5000/api/v1';
     } else if (Platform.isAndroid) {

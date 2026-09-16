@@ -4,7 +4,7 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
-import { DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS } from '../../constants/depedData';
+import { DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 
 // Step 3: Profile Completion — Required Information per 201-System-Workflow.md
 // Personal Information, PDS, WES, Employment Information, Contact Information
@@ -23,6 +23,18 @@ interface WesEntry {
   isLocked?: boolean;
 }
 
+const toDateInput = (value: string) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+};
+
+const splitDuration = (value: string) => {
+  const parts = String(value || '').split(/\s+(?:to|until|[-–—])\s+/i).map(part => part.trim()).filter(Boolean);
+  return { from: toDateInput(parts[0] || ''), to: /present/i.test(parts[1] || '') ? 'Present' : toDateInput(parts[1] || '') };
+};
+
 export const ProfileCompletion: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
@@ -32,6 +44,12 @@ export const ProfileCompletion: React.FC = () => {
   const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
   const [isEditMode, setIsEditMode] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [documentSources, setDocumentSources] = useState<Record<string, { status?: string; uploadDate?: string }>>({});
+  const aoOwnedPersonalFields = new Set([
+    'personal.firstName', 'personal.lastName', 'personal.middleName', 'personal.suffix',
+    'personal.birthDate', 'personal.birthPlace', 'personal.civilStatus', 'personal.sex',
+    'personal.nationality', 'personal.religion', 'personal.height', 'personal.weight', 'personal.bloodType',
+  ]);
 
   // Personal Information
   const [personal, setPersonal] = useState({
@@ -107,6 +125,13 @@ export const ProfileCompletion: React.FC = () => {
         const uid = data?.id || user?.id || 'default';
 
         // Load any previously persisted PDS/WES/Employment details from local cache
+        const documentProfile = data?.profileDocumentData || {};
+        setDocumentSources(documentProfile);
+        const uploadedPds = documentProfile.pds?.fields || {};
+        const uploadedWes = documentProfile.wes?.fields || {};
+        const compact = (prefix: string) => Object.entries(uploadedPds).filter(([key, value]) => key.startsWith(prefix) && String(value).trim()).map(([, value]) => String(value)).join('; ');
+        const uploadedResidential = ['house', 'street', 'subdivision', 'barangay', 'city', 'province'].map(key => uploadedPds[`residential.${key}`]).filter(Boolean).join(', ');
+        const uploadedPermanent = ['house', 'street', 'subdivision', 'barangay', 'city', 'province'].map(key => uploadedPds[`permanent.${key}`]).filter(Boolean).join(', ');
         const savedPdsStr = localStorage.getItem(`deped_pds_${uid}`);
         const savedPds = savedPdsStr ? JSON.parse(savedPdsStr) : {};
         const savedWesStr = localStorage.getItem(`deped_wes_${uid}`);
@@ -159,10 +184,24 @@ export const ProfileCompletion: React.FC = () => {
             const next = {
               ...prev,
               ...savedPds,
-              residentialAddress: data.address || savedPds.residentialAddress || '',
-              permanentAddress: data.address || savedPds.permanentAddress || '',
-              mobileNo: data.contactNumber || savedPds.mobileNo || '',
-              emailAddress: user?.email || prev.emailAddress,
+              gsisNumber: uploadedPds.gsis || savedPds.gsisNumber || '',
+              pagibigNumber: uploadedPds.pagibig || savedPds.pagibigNumber || '',
+              philhealthNumber: uploadedPds.philhealth || savedPds.philhealthNumber || '',
+              sssNumber: uploadedPds.sss || savedPds.sssNumber || '',
+              tinNumber: uploadedPds.tin || savedPds.tinNumber || '',
+              agencyEmployeeNumber: uploadedPds.agencyEmployeeNo || savedPds.agencyEmployeeNumber || '',
+              residentialAddress: uploadedResidential || data.address || savedPds.residentialAddress || '',
+              permanentAddress: uploadedPermanent || data.address || savedPds.permanentAddress || '',
+              telephoneNo: uploadedPds.telephone || savedPds.telephoneNo || '',
+              mobileNo: uploadedPds.mobile || data.contactNumber || savedPds.mobileNo || '',
+              emailAddress: uploadedPds.email || user?.email || prev.emailAddress,
+              spouseName: compact('spouse.') || savedPds.spouseName || '',
+              fathersName: compact('father.') || savedPds.fathersName || '',
+              mothersName: compact('mother.') || savedPds.mothersName || '',
+              educationalBackground: compact('education.') || savedPds.educationalBackground || '',
+              civilServiceEligibility: compact('eligibility.') || savedPds.civilServiceEligibility || '',
+              voluntaryWork: compact('voluntary.') || savedPds.voluntaryWork || '',
+              learningAndDevelopment: compact('training.') || savedPds.learningAndDevelopment || '',
             };
 
             // Lock all populated PDS fields
@@ -205,7 +244,21 @@ export const ProfileCompletion: React.FC = () => {
           });
 
           // WES entries: prioritize authentic database careerHistoryEntries
-          if (Array.isArray(data.careerHistoryEntries) && data.careerHistoryEntries.length > 0) {
+          const uploadedWorkRows = Object.keys(uploadedWes).map(key => key.match(/^work\.(\d+)\./)?.[1]).filter(Boolean);
+          const uploadedWorkIndexes = [...new Set(uploadedWorkRows)].map(Number).sort((a, b) => a - b);
+          if (uploadedWorkIndexes.length > 0) {
+            setWes(uploadedWorkIndexes.map((index, row) => {
+              const duration = splitDuration(uploadedWes[`work.${index}.duration`] || '');
+              return {
+                id: row + 1,
+                dateFrom: toDateInput(uploadedWes[`work.${index}.from`] || '') || duration.from,
+                dateTo: toDateInput(uploadedWes[`work.${index}.to`] || '') || duration.to,
+                positionTitle: uploadedWes[`work.${index}.position`] || '',
+                department: uploadedWes[`work.${index}.office`] || uploadedWes[`work.${index}.agency`] || '',
+                monthlySalary: '', salaryGrade: '', status: '', government: true, isLocked: true,
+              };
+            }));
+          } else if (Array.isArray(data.careerHistoryEntries) && data.careerHistoryEntries.length > 0) {
             setWes(data.careerHistoryEntries.map((che: any, index: number) => ({
               id: che.id || index + 1,
               dateFrom: che.eventDate ? che.eventDate.split('T')[0] : '',
@@ -225,7 +278,7 @@ export const ProfileCompletion: React.FC = () => {
             setWes([
               {
                 id: 1,
-                dateFrom: data.dateHired ? data.dateHired.split('T')[0] : '2022-06-01',
+                dateFrom: data.dateHired ? data.dateHired.split('T')[0] : '',
                 dateTo: 'Present',
                 positionTitle: data.designation || 'Teacher I',
                 department: 'City Schools Division of Koronadal',
@@ -258,8 +311,8 @@ export const ProfileCompletion: React.FC = () => {
   };
 
   const isFieldLocked = (fieldKey: string) => {
-    if (isEditMode) return false;
-    return lockedFields.has(fieldKey);
+    void fieldKey;
+    return true;
   };
 
   const renderFieldLabel = (label: string, fieldKey: string, required = false) => {
@@ -481,7 +534,7 @@ export const ProfileCompletion: React.FC = () => {
   // Determine if all required fields for a tab are already locked
   const isPersonalLocked = isFieldLocked('personal.firstName') && isFieldLocked('personal.lastName') && isFieldLocked('personal.birthDate');
   const isPdsLocked = isFieldLocked('pds.residentialAddress') && isFieldLocked('pds.permanentAddress') && isFieldLocked('pds.mobileNo');
-  const isWesLocked = wes.length > 0 && wes.every(w => w.isLocked);
+  const isWesLocked = true;
   const isEmploymentLocked = isFieldLocked('employment.position') && isFieldLocked('employment.firstDayOfService') && isFieldLocked('employment.contactNumber');
 
   const tabs = [
@@ -499,17 +552,6 @@ export const ProfileCompletion: React.FC = () => {
           <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
             Personal Data Sheet (CS Form 212), Work Experience Sheet (WES), and official employment records (Database Synchronized)
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            type="button"
-            className={`btn ${isEditMode ? 'btn-secondary' : 'btn-primary'}`}
-            onClick={() => setIsEditMode(!isEditMode)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 700 }}
-          >
-            <AppIcon name={isEditMode ? 'close' : 'edit'} size={15} />
-            {isEditMode ? 'Close Edit Mode' : 'Edit 201 Information'}
-          </button>
         </div>
       </div>
 
@@ -542,12 +584,10 @@ export const ProfileCompletion: React.FC = () => {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--color-text-primary)' }}>
-            {isEditMode ? '201 Information Edit Mode Active' : 'DepEd 201 Digital File & Master Record'}
+            AO-maintained Digital 201 record
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-            {isEditMode
-              ? 'You are actively editing your 201 file. Make your desired corrections across tabs and click "Apply Changes" to store your updates directly in the database.'
-              : 'Official digital 201 file records are synchronized with the central HRIS database. Click "Edit 201 Information" to make updates anytime.'}
+            Account identity and employment data are maintained by AO II. Validated PDS and WES submissions synchronize into this read-only record; contact AO II to request a correction.
           </div>
         </div>
       </div>
@@ -614,7 +654,7 @@ export const ProfileCompletion: React.FC = () => {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
             <div className="form-group">
               {renderFieldLabel('First Name', 'personal.firstName', true)}
               <input
@@ -652,14 +692,20 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Suffix (Jr., Sr., etc.)', 'personal.suffix')}
-              <input
+              <select
                 className="form-input"
                 value={personal.suffix}
-                readOnly={isFieldLocked('personal.suffix')}
                 disabled={isFieldLocked('personal.suffix')}
                 style={getLockedStyle('personal.suffix')}
-                onChange={e => !isFieldLocked('personal.suffix') && setPersonal({ ...personal, suffix: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-.]/g, '') })}
-              />
+                onChange={e => !isFieldLocked('personal.suffix') && setPersonal({ ...personal, suffix: e.target.value })}
+              >
+                {NAME_SUFFIX_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+                {personal.suffix && !NAME_SUFFIX_OPTIONS.some(opt => opt.value === personal.suffix) && (
+                  <option value={personal.suffix}>{personal.suffix}</option>
+                )}
+              </select>
             </div>
             <div className="form-group">
               {renderFieldLabel('Date of Birth', 'personal.birthDate', true)}
@@ -764,16 +810,8 @@ export const ProfileCompletion: React.FC = () => {
             </div>
           </div>
 
-          {isPersonalLocked && !isEditMode ? (
+          {isPersonalLocked ? (
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setIsEditMode(true)}
-                className="btn btn-primary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-              >
-                <AppIcon name="edit" size={15} /> Edit 201 Information
-              </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('pds')}
@@ -812,6 +850,9 @@ export const ProfileCompletion: React.FC = () => {
             <h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>
               Personal Data Sheet (PDS) — CS Form No. 212
             </h3>
+            {documentSources.pds && <span className="badge badge-info" title={documentSources.pds.uploadDate ? `Uploaded ${new Date(documentSources.pds.uploadDate).toLocaleString()}` : undefined}>
+              Imported from transaction PDS · {documentSources.pds.status || 'Recorded'}
+            </span>}
             {isPdsLocked && (
               <span className="badge badge-approved" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
                 <AppIcon name="lock" size={12} /> Official PDS Record Locked
@@ -819,7 +860,7 @@ export const ProfileCompletion: React.FC = () => {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
             <div className="form-group">
               {renderFieldLabel('GSIS ID Number', 'pds.gsisNumber')}
               <input
@@ -995,42 +1036,17 @@ export const ProfileCompletion: React.FC = () => {
                 onChange={e => !isFieldLocked('pds.educationalBackground') && setPds({ ...pds, educationalBackground: e.target.value })}
               />
             </div>
-
-            {/* Improvement 3: Automated ERF Reclassification Trigger */}
-            <div className="card card-glass" style={{ gridColumn: '1/-1', borderLeft: '4px solid var(--color-accent-purple)', background: 'rgba(139, 92, 246, 0.08)', padding: 'var(--space-3)' }}>
-              <div className="flex justify-between items-center mb-1">
-                <div className="flex items-center gap-2">
-                  <AppIcon name="promotions" size={16} color="var(--color-accent-purple)" />
-                  <span className="font-semibold text-xs">Automated ERF Reclassification Trigger</span>
-                </div>
-                <span className="badge badge-info" style={{ fontSize: 9 }}>DO No. 66 / ECP System</span>
-              </div>
-              <p className="text-xs text-muted mb-2">
-                Completing 18+ Masteral Units or a Master's Degree automatically triggers eligibility for Equivalent Record Form (ERF) position reclassification (Teacher I &rarr; Teacher II/III).
-              </p>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  addToast('ERF Reclassification Package auto-filled and saved to draft transactions!', 'SUCCESS');
-                  navigate('/personnel/new-transaction?txType=PROMOTION_APPOINTMENT');
-                }}
-                style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <AppIcon name="education" size={14} /> Auto-fill ERF Reclassification Application Package →
-              </button>
-            </div>
           </div>
 
           {isPdsLocked && !isEditMode ? (
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button
                 type="button"
-                onClick={() => setIsEditMode(true)}
-                className="btn btn-primary"
+                disabled
+                className="btn btn-secondary"
                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
               >
-                <AppIcon name="edit" size={15} /> Edit 201 Information
+                <AppIcon name="lock" size={15} /> AO-maintained record
               </button>
               <button
                 type="button"
@@ -1067,7 +1083,11 @@ export const ProfileCompletion: React.FC = () => {
       {activeTab === 'wes' && (
         <form onSubmit={handleSaveWes} className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>Work Experience Sheet (WES)</h3>
+            <div><h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>Work Experience Sheet (WES)</h3>
+              {documentSources.wes && <span className="badge badge-info" title={documentSources.wes.uploadDate ? `Uploaded ${new Date(documentSources.wes.uploadDate).toLocaleString()}` : undefined}>
+                Imported from transaction WES · {documentSources.wes.status || 'Recorded'}
+              </span>}
+            </div>
             <button type="button" className="btn btn-secondary btn-sm" onClick={addWesEntry}>
               + Add Past Experience Entry
             </button>
@@ -1110,7 +1130,7 @@ export const ProfileCompletion: React.FC = () => {
                     )}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
                     <div className="form-group">
                       <label className="form-label">Date From *</label>
                       <input
@@ -1225,11 +1245,11 @@ export const ProfileCompletion: React.FC = () => {
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button
                 type="button"
-                onClick={() => setIsEditMode(true)}
-                className="btn btn-primary"
+                disabled
+                className="btn btn-secondary"
                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
               >
-                <AppIcon name="edit" size={15} /> Edit 201 Information
+                <AppIcon name="lock" size={15} /> AO-maintained record
               </button>
               <button
                 type="button"
@@ -1276,7 +1296,7 @@ export const ProfileCompletion: React.FC = () => {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
             <div className="form-group">
               {renderFieldLabel('Employee ID', 'employment.employeeId')}
               <input
@@ -1474,11 +1494,11 @@ export const ProfileCompletion: React.FC = () => {
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button
                 type="button"
-                onClick={() => setIsEditMode(true)}
-                className="btn btn-primary"
+                disabled
+                className="btn btn-secondary"
                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
               >
-                <AppIcon name="edit" size={15} /> Edit 201 Information
+                <AppIcon name="lock" size={15} /> AO-maintained record
               </button>
               <button
                 type="button"

@@ -125,29 +125,45 @@ export const AdminNotifications: React.FC = () => {
     };
   };
 
+  const isSysAdmin = user?.role === 'SYSTEM_ADMIN';
+
   const filteredNotifications = useMemo(() => {
-    return notifications.filter(n => {
-      if (activeFilter === 'UNREAD') return !n.isRead;
-      if (activeFilter === 'ACCOUNT') {
-        const msg = n.message.toLowerCase();
-        const entity = (n.relatedEntityType || '').toLowerCase();
-        return entity === 'accountcreationrequest' || entity === 'user' || msg.includes('account') || msg.includes('password') || msg.includes('credential');
-      }
-      if (activeFilter === 'TRANSACTIONS') {
-        const msg = n.message.toLowerCase();
-        const entity = (n.relatedEntityType || '').toLowerCase();
-        return entity === 'transaction' || msg.includes('transaction') || msg.includes('validation') || msg.includes('approval');
-      }
-      return true;
-    });
-  }, [notifications, activeFilter]);
+    return notifications
+      .filter(n => {
+        if (isSysAdmin) {
+          const entity = (n.relatedEntityType || '').toLowerCase();
+          if (entity === 'promotioncycle' || entity === 'promotionapplication' || entity === 'transaction') {
+            return false;
+          }
+        }
+        return true;
+      })
+      .filter(n => {
+        if (activeFilter === 'UNREAD') return !n.isRead;
+        if (activeFilter === 'ACCOUNT') {
+          const msg = n.message.toLowerCase();
+          const entity = (n.relatedEntityType || '').toLowerCase();
+          return entity === 'accountcreationrequest' || entity === 'user' || msg.includes('account') || msg.includes('password') || msg.includes('credential');
+        }
+        if (activeFilter === 'TRANSACTIONS') {
+          const msg = n.message.toLowerCase();
+          const entity = (n.relatedEntityType || '').toLowerCase();
+          return entity === 'transaction' || msg.includes('transaction') || msg.includes('validation') || msg.includes('approval');
+        }
+        return true;
+      });
+  }, [notifications, activeFilter, isSysAdmin]);
 
   return (
     <div className="animate-fade-in">
       <div className="topbar">
         <div>
           <div className="topbar-title">Notifications Center</div>
-          <div className="topbar-subtitle">Real-time system activities, workflow alerts, and direct action routing</div>
+          <div className="topbar-subtitle">
+            {isSysAdmin
+              ? 'User credentials, account creation requests, and administrative security alerts'
+              : 'Real-time system activities, workflow alerts, and direct action routing'}
+          </div>
         </div>
         <div className="topbar-actions">
           <button className="btn btn-secondary btn-sm" onClick={handleMarkAllRead}>
@@ -163,13 +179,13 @@ export const AdminNotifications: React.FC = () => {
             className={`btn btn-sm ${activeFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveFilter('ALL')}
           >
-            All ({notifications.length})
+            All ({filteredNotifications.length})
           </button>
           <button
             className={`btn btn-sm ${activeFilter === 'UNREAD' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveFilter('UNREAD')}
           >
-            Unread ({notifications.filter(n => !n.isRead).length})
+            Unread ({filteredNotifications.filter(n => !n.isRead).length})
           </button>
           <button
             className={`btn btn-sm ${activeFilter === 'ACCOUNT' ? 'btn-primary' : 'btn-secondary'}`}
@@ -178,12 +194,14 @@ export const AdminNotifications: React.FC = () => {
           >
             <AppIcon name="security" size={14} /> Account & Credentials
           </button>
-          <button
-            className={`btn btn-sm ${activeFilter === 'TRANSACTIONS' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveFilter('TRANSACTIONS')}
-          >
-            Transactions & Approvals
-          </button>
+          {!isSysAdmin && (
+            <button
+              className={`btn btn-sm ${activeFilter === 'TRANSACTIONS' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setActiveFilter('TRANSACTIONS')}
+            >
+              Transactions & Approvals
+            </button>
+          )}
         </div>
 
         {loading ? (

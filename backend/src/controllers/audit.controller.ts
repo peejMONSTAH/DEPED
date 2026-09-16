@@ -2,10 +2,13 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendError, sendBadRequest, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { getAOSchoolScope } from '../utils/scope.util';
+import { deriveAuditCategory } from '../utils/audit.util';
 
 export const getAuditLogs = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
+    const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : 100;
+    const { page, skip } = getPaginationParams(req.query as Record<string, unknown>);
+    const limit = Math.min(500, Math.max(1, isNaN(rawLimit) ? 100 : rawLimit));
     const { userId, actionType, resourceType, startDate, endDate } = req.query;
 
     const where: Record<string, any> = {};
@@ -60,11 +63,13 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
       userId: log.userId,
       userEmail: log.user?.email || 'System / Automated',
       userRole: log.user?.role?.name || 'SYSTEM',
+      category: deriveAuditCategory(log.action, log.entityType),
       action: log.action,
       resourceType: log.entityType,
       resourceId: log.entityId,
       details: log.detailsJson,
       ipAddress: log.ipAddress,
+      userAgent: log.userAgent,
       status: log.status,
     })), undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {

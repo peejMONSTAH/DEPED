@@ -1,8 +1,9 @@
+import { ModalOverlay } from './ModalOverlay';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppIcon } from './AppIcon';
 import { useAuthContext } from '../../contexts/AuthContext';
-import { useTheme, type AppTheme } from '../../contexts/ThemeContext';
+import { ModalPortal } from './ModalPortal';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -21,7 +22,6 @@ interface CommandItem {
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const { user } = useAuthContext();
-  const { setTheme } = useTheme();
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,28 +42,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     ...(isAdmin ? [
       { id: 'nav-dashboard', title: 'Admin Dashboard', category: 'Navigation' as const, icon: 'dashboard', path: '/admin/dashboard' },
       { id: 'nav-notifications', title: 'Notifications Center', category: 'Navigation' as const, icon: 'notifications', path: '/admin/notifications' },
-      { id: 'nav-personnel', title: 'Personnel Directory', category: 'Navigation' as const, icon: 'personnel', path: '/admin/personnel' },
+      ...(userRole !== 'SYSTEM_ADMIN' ? [
+        { id: 'nav-personnel', title: 'Personnel Directory', category: 'Navigation' as const, icon: 'personnel', path: '/admin/personnel' },
+      ] : []),
       { id: 'nav-transactions', title: 'Transaction Queue', category: 'Navigation' as const, icon: 'transactions', path: '/admin/transactions' },
       { id: 'nav-approvals', title: 'HRMO Approvals', category: 'Navigation' as const, icon: 'approvals', path: '/admin/approvals' },
       { id: 'nav-documents', title: 'AO II Document Validation', category: 'Navigation' as const, icon: 'validation', path: '/admin/documents' },
       { id: 'nav-credentials', title: 'Credential Distribution', category: 'Navigation' as const, icon: 'credentials', path: '/admin/credentials' },
-      { id: 'nav-promotions', title: 'Promotions Management', category: 'Navigation' as const, icon: 'promotions', path: '/admin/promotions' },
+      ...(userRole === 'HRMO' ? [
+        { id: 'nav-promotions', title: 'Promotions Management', category: 'Navigation' as const, icon: 'promotions', path: '/admin/promotions' },
+        { id: 'nav-plantilla', title: 'Plantilla Registry', category: 'Navigation' as const, icon: 'employment', path: '/admin/plantilla' },
+      ] : []),
       { id: 'nav-reports', title: 'HR Analytics & Reports', category: 'Navigation' as const, icon: 'reports', path: '/admin/reports' },
       { id: 'nav-audit', title: 'Audit Trail Logs', category: 'Navigation' as const, icon: 'audit', path: '/admin/audit' },
       { id: 'nav-settings', title: 'Settings & Roles', category: 'Navigation' as const, icon: 'settings', path: '/admin/settings' },
     ] : [
       { id: 'nav-home', title: 'Personnel Home', category: 'Navigation' as const, icon: 'home', path: '/personnel/home' },
       { id: 'nav-my-transactions', title: 'My Submissions', category: 'Navigation' as const, icon: 'transactions', path: '/personnel/transactions' },
-      { id: 'nav-new-app', title: 'New Application Submission', category: 'Navigation' as const, icon: 'new-transaction', path: '/personnel/new-transaction' },
       { id: 'nav-my-profile', title: 'My 201 File Record', category: 'Navigation' as const, icon: 'profile', path: '/personnel/profile' },
       { id: 'nav-my-notifs', title: 'My Notifications', category: 'Navigation' as const, icon: 'notifications', path: '/personnel/notifications' },
     ]),
-
-    // System Settings & Actions
-
-    // Theme Actions
-    { id: 'theme-dark', title: 'Switch to Dark Theme', category: 'Settings', icon: 'settings', action: () => setTheme('dark') },
-    { id: 'theme-light', title: 'Switch to Light Theme', category: 'Settings', icon: 'settings', action: () => setTheme('light') },
   ];
 
   const filtered = commands.filter(cmd =>
@@ -100,7 +98,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 10000 }}>
+    <ModalPortal>
+    <ModalOverlay className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 10000 }}>
       <div
         className="modal animate-scale-in"
         style={{
@@ -217,9 +216,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             <span><kbd style={{ background: 'var(--color-bg-hover)', padding: '1px 4px', borderRadius: 3 }}>↑↓</kbd> Navigate</span>
             <span><kbd style={{ background: 'var(--color-bg-hover)', padding: '1px 4px', borderRadius: 3 }}>↵</kbd> Select</span>
           </div>
-          <div>Eminence HRIS Quick Actions</div>
+          <div>Digital 201 Quick Actions</div>
         </div>
       </div>
-    </div>
+    </ModalOverlay>
+    </ModalPortal>
   );
 };

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
-import { uploadDocument, getDocument, downloadDocumentFile } from '../controllers/documents.controller';
+import { uploadDocument, getDocument, downloadDocumentFile, getExtractionReview, confirmExtractionReview } from '../controllers/documents.controller';
 import multer from 'multer';
+import path from 'path';
 import { config } from '../config';
 
 const storage = multer.memoryStorage();
@@ -9,10 +10,15 @@ const upload = multer({
   storage,
   limits: { fileSize: config.documents.maxSizeBytes },
   fileFilter: (_req, file, cb) => {
-    if (config.documents.allowedMimeTypes.includes(file.mimetype)) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg'];
+    const isMimeAllowed = config.documents.allowedMimeTypes.includes(file.mimetype);
+    const isExtAllowed = allowedExts.includes(ext);
+
+    if (isMimeAllowed && isExtAllowed) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only PDF, JPEG, PNG, and TIFF are allowed.'));
+      cb(new Error('Invalid file format. Strict policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for transaction document uploads.'));
     }
   },
 });
@@ -27,6 +33,8 @@ router.post('/transactions/:transactionId/upload', authorize('TEACHING_PERSONNEL
 // Standalone document routes
 router.get('/:documentId/file', downloadDocumentFile);
 router.get('/:documentId/download', downloadDocumentFile);
+router.get('/:documentId/extraction-review', getExtractionReview);
+router.put('/:documentId/extraction-review', authorize('TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL', 'AO_II', 'HRMO', 'SYSTEM_ADMIN'), confirmExtractionReview);
 router.get('/:documentId', getDocument);
 
 export default router;

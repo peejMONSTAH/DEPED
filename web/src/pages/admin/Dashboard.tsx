@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
@@ -31,7 +30,6 @@ type TopNotificationItem = {
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
-  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
   const [recentTransactions, setRecentTransactions] = useState<TransactionItem[]>([]);
@@ -226,11 +224,7 @@ export const AdminDashboard: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDashboardData();
-    fetchNotifications();
-  }, [fetchDashboardData, fetchNotifications]);
-
+  // Live data subscriptions with automated initial fetch and fallback polling
   useRealtimeTransactions(fetchDashboardData);
   useRealtimeNotifications(fetchNotifications);
 
@@ -335,19 +329,6 @@ export const AdminDashboard: React.FC = () => {
     user?.role === 'TEACHING_PERSONNEL' ? 'Teaching Personnel' :
     user?.role === 'NON_TEACHING_PERSONNEL' ? 'Non-Teaching Personnel' : '';
 
-  const userDescription = (() => {
-    switch (user?.role) {
-      case 'AO_II':
-        return 'Manage your school division validation queue, submitted personnel transactions, and daily compliance tracking.';
-      case 'HRMO':
-        return 'Review division-wide 201 appointment approvals, promotion cycles, and workforce compliance status.';
-      case 'SYSTEM_ADMIN':
-        return 'Monitor full division workforce intelligence, security audit trails, and 201 master file transactions.';
-      default:
-        return 'Manage your workforce, 201 records, appointment validation, and daily operations.';
-    }
-  })();
-
   return (
     <div className="dashboard-editorial-root">
       
@@ -449,8 +430,8 @@ export const AdminDashboard: React.FC = () => {
                 setShowSettings(prev => !prev);
                 setShowNotifications(false);
               }}
-              title="Settings & Appearance"
-              aria-label="Settings & Appearance"
+              title="Settings"
+              aria-label="Settings"
             >
               <AppIcon name="settings" size={16} />
             </button>
@@ -458,33 +439,9 @@ export const AdminDashboard: React.FC = () => {
             {showSettings && (
               <div className="topbar-flyout-menu settings-flyout-menu animate-fade-in">
                 <div className="topbar-flyout-header">
-                  <span className="topbar-flyout-title">Settings & Display</span>
+                  <span className="topbar-flyout-title">Settings</span>
                   <span className="topbar-flyout-subtext">Preferences</span>
                 </div>
-
-                <div className="topbar-flyout-section">
-                  <div className="topbar-section-label">Interface Theme</div>
-                  <div className="theme-toggle-segment">
-                    <button
-                      type="button"
-                      className={`theme-segment-btn ${theme === 'light' ? 'active' : ''}`}
-                      onClick={() => setTheme('light')}
-                    >
-                      <AppIcon name="sun" size={14} />
-                      <span>Light Mode</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`theme-segment-btn ${theme === 'dark' ? 'active' : ''}`}
-                      onClick={() => setTheme('dark')}
-                    >
-                      <AppIcon name="moon" size={14} />
-                      <span>Dark Mode</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="topbar-flyout-divider" />
 
                 <div className="topbar-flyout-links">
                   <button
@@ -559,7 +516,7 @@ export const AdminDashboard: React.FC = () => {
 
       {/* ─── 2. EDITORIAL PAGE HEADING ─────────────────────────────── */}
       <div className="editorial-heading-block">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 0 }}>
           <h1 className="editorial-main-title" style={{ margin: 0 }}>
             Welcome back, {userFullName}!
           </h1>
@@ -580,11 +537,6 @@ export const AdminDashboard: React.FC = () => {
             </span>
           )}
         </div>
-        <p className="editorial-sub-title">
-          {isSysAdmin
-            ? 'Solely dedicated to provisioning user accounts, monitoring system security audit trails, and managing core system configuration.'
-            : userDescription}
-        </p>
       </div>
 
       {isSysAdmin ? (
@@ -600,19 +552,23 @@ export const AdminDashboard: React.FC = () => {
                 <span className="metric-label">TOTAL ACCOUNTS</span>
                 <span className="metric-lime-pill">ACTIVE</span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : totalUsersCount}</div>
-              <div className="metric-footer-note">Provisioned Users in DB</div>
-              <div className="metric-dot-matrix">
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : totalUsersCount}</div>
+                <div className="metric-footer-note">Provisioned Users in DB</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-dot-matrix">
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
               </div>
             </div>
 
@@ -624,54 +580,68 @@ export const AdminDashboard: React.FC = () => {
                   {pendingRequestsCount > 0 ? `${pendingRequestsCount} PENDING` : 'CLEARED'}
                 </span>
               </div>
-              <div className="metric-value-num text-purple">{loading ? '...' : pendingRequestsCount}</div>
-              <div className="metric-footer-note">Awaiting Admin Provisioning</div>
+              <div className="metric-card-body">
+                <div className="metric-value-num text-purple">{loading ? '...' : pendingRequestsCount}</div>
+                <div className="metric-footer-note">Awaiting Admin Provisioning</div>
+              </div>
+              <div className="metric-bottom-slot" />
             </div>
 
             {/* Metric 3: Teaching Accounts */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">TEACHING ACCOUNTS</span>
+                <span className="metric-label">TEACHING</span>
                 <span className="metric-lavender-pill">
                   {totalUsersCount > 0 ? Math.round((teachingUsersCount / totalUsersCount) * 100) + '%' : '0%'}
                 </span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : teachingUsersCount}</div>
-              <div className="metric-footer-note">Licensed Faculty Accounts</div>
-              <div className="metric-bar-visualizer">
-                <div
-                  className="bar-fill fill-lavender"
-                  style={{ width: totalUsersCount > 0 ? `${(teachingUsersCount / totalUsersCount) * 100}%` : '0%' }}
-                />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : teachingUsersCount}</div>
+                <div className="metric-footer-note">Licensed Faculty Accounts</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-bar-visualizer">
+                  <div
+                    className="bar-fill fill-lavender"
+                    style={{ width: totalUsersCount > 0 ? `${(teachingUsersCount / totalUsersCount) * 100}%` : '0%' }}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Metric 4: Non-Teaching & Staff */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">NON-TEACHING & STAFF</span>
+                <span className="metric-label">STAFF</span>
                 <span className="metric-gray-pill">
                   {totalUsersCount > 0 ? Math.round((nonTeachingUsersCount / totalUsersCount) * 100) + '%' : '0%'}
                 </span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : nonTeachingUsersCount}</div>
-              <div className="metric-footer-note">Administrative & Support Roles</div>
-              <div className="metric-bar-visualizer">
-                <div
-                  className="bar-fill fill-charcoal"
-                  style={{ width: totalUsersCount > 0 ? `${(nonTeachingUsersCount / totalUsersCount) * 100}%` : '0%' }}
-                />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : nonTeachingUsersCount}</div>
+                <div className="metric-footer-note">Administrative & Support Roles</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-bar-visualizer">
+                  <div
+                    className="bar-fill fill-charcoal"
+                    style={{ width: totalUsersCount > 0 ? `${(nonTeachingUsersCount / totalUsersCount) * 100}%` : '0%' }}
+                  />
+                </div>
               </div>
             </div>
 
             {/* Metric 5: Audit Log Events */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">SECURITY AUDIT EVENTS</span>
+                <span className="metric-label">SECURITY AUDIT</span>
                 <span className="metric-lime-pill">RECORDED</span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : totalAuditCount}</div>
-              <div className="metric-footer-note">System Security Entries</div>
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : totalAuditCount}</div>
+                <div className="metric-footer-note">System Security Entries</div>
+              </div>
+              <div className="metric-bottom-slot" />
             </div>
 
             {/* Metric 6: System Integrity */}
@@ -680,8 +650,11 @@ export const AdminDashboard: React.FC = () => {
                 <span className="metric-label">SYSTEM INTEGRITY</span>
                 <span className="metric-lime-pill">SECURE</span>
               </div>
-              <div className="metric-value-num lime-text">100%</div>
-              <div className="metric-footer-note">All Core Services Operational</div>
+              <div className="metric-card-body">
+                <div className="metric-value-num lime-text">100%</div>
+                <div className="metric-footer-note">All Core Services Operational</div>
+              </div>
+              <div className="metric-bottom-slot" />
             </div>
           </div>
 
@@ -971,7 +944,7 @@ export const AdminDashboard: React.FC = () => {
           <div className="quick-actions-section">
             <h3 className="section-title">System Administration & Provisioning Controls</h3>
 
-            <div className="bento-actions-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+            <div className="bento-actions-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))' }}>
               {/* Action 1: Provision Accounts */}
               <Link to="/admin/credentials" className="action-bento-link">
                 <div className="soft-card bento-action-card">
@@ -1032,26 +1005,30 @@ export const AdminDashboard: React.FC = () => {
         ═══════════════════════════════════════════════════════════════ */
         <>
           {/* ─── 3. HRMIS METRICS ROW (Strict Database Numbers) ─────────── */}
-          <div className="metrics-grid-row">
+          <div className="metrics-grid-row" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
             {/* Metric 1: Total Personnel (DB) */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
                 <span className="metric-label">TOTAL PERSONNEL</span>
                 <span className="metric-lime-pill">ACTIVE</span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : totalPersonnel.toLocaleString()}</div>
-              <div className="metric-footer-note">Division Active Records</div>
-              <div className="metric-dot-matrix">
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot active-dot" />
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
-                <span className="dot" />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : totalPersonnel.toLocaleString()}</div>
+                <div className="metric-footer-note">Division Active Records</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-dot-matrix">
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot active-dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
               </div>
             </div>
 
@@ -1061,23 +1038,31 @@ export const AdminDashboard: React.FC = () => {
                 <span className="metric-label">TEACHING</span>
                 <span className="metric-lavender-pill">{teachingPercent}</span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : teachingCount}</div>
-              <div className="metric-footer-note">Licensed Faculty</div>
-              <div className="metric-bar-visualizer">
-                <div className="bar-fill fill-lavender" style={{ width: teachingPercent }} />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : teachingCount}</div>
+                <div className="metric-footer-note">Licensed Faculty</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-bar-visualizer">
+                  <div className="bar-fill fill-lavender" style={{ width: teachingPercent }} />
+                </div>
               </div>
             </div>
 
             {/* Metric 3: Non-Teaching Personnel (DB) */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">NON-TEACHING</span>
+                <span className="metric-label">STAFF</span>
                 <span className="metric-gray-pill">{nonTeachingPercent}</span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : nonTeachingCount}</div>
-              <div className="metric-footer-note">Administrative Support</div>
-              <div className="metric-bar-visualizer">
-                <div className="bar-fill fill-charcoal" style={{ width: nonTeachingPercent }} />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : nonTeachingCount}</div>
+                <div className="metric-footer-note">Administrative Support</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-bar-visualizer">
+                  <div className="bar-fill fill-charcoal" style={{ width: nonTeachingPercent }} />
+                </div>
               </div>
             </div>
 
@@ -1087,10 +1072,14 @@ export const AdminDashboard: React.FC = () => {
                 <span className="metric-label">ATTENDANCE TODAY</span>
                 <span className="metric-lime-pill">OPTIMAL</span>
               </div>
-              <div className="metric-value-num">{loading ? '...' : attendanceRate}</div>
-              <div className="metric-footer-note">Division-wide Active</div>
-              <div className="metric-bar-visualizer">
-                <div className="bar-fill fill-lime" style={{ width: attendanceRate }} />
+              <div className="metric-card-body">
+                <div className="metric-value-num">{loading ? '...' : attendanceRate}</div>
+                <div className="metric-footer-note">Division-wide Active</div>
+              </div>
+              <div className="metric-bottom-slot">
+                <div className="metric-bar-visualizer">
+                  <div className="bar-fill fill-lime" style={{ width: attendanceRate }} />
+                </div>
               </div>
             </div>
 
@@ -1100,18 +1089,11 @@ export const AdminDashboard: React.FC = () => {
                 <span className="metric-label">PENDING REVIEW</span>
                 <span className="metric-lavender-pill">ACTION REQ</span>
               </div>
-              <div className="metric-value-num text-purple">{loading ? '...' : pendingQueue}</div>
-              <div className="metric-footer-note">Awaiting Validation</div>
-            </div>
-
-            {/* Metric 6: On Leave (DB) */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">ON LEAVE</span>
-                <span className="metric-gray-pill">ACTIVE</span>
+              <div className="metric-card-body">
+                <div className="metric-value-num text-purple">{loading ? '...' : pendingQueue}</div>
+                <div className="metric-footer-note">Awaiting Validation</div>
               </div>
-              <div className="metric-value-num">{loading ? '...' : onLeaveCount}</div>
-              <div className="metric-footer-note">Approved Leaves</div>
+              <div className="metric-bottom-slot" />
             </div>
           </div>
 
@@ -1231,44 +1213,91 @@ export const AdminDashboard: React.FC = () => {
             <h3 className="section-title">Quick Management Actions</h3>
 
             <div className="bento-actions-grid">
-              {/* Action 1: Create Credentials */}
-              <Link to="/admin/credentials" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-lime-bg">
-                    <AppIcon name="credentials" size={20} color="#141416" />
-                  </div>
-                  <h4 className="bento-card-title">Create Accounts & Credentials</h4>
-                  <p className="bento-card-desc">
-                    Onboard new division personnel and distribute secure digital login credentials.
-                  </p>
-                </div>
-              </Link>
+              {user?.role === 'SYSTEM_ADMIN' ? (
+                <>
+                  {/* SysAdmin Action 1: Create Credentials */}
+                  <Link to="/admin/credentials" className="action-bento-link">
+                    <div className="soft-card bento-action-card">
+                      <div className="bento-icon-badge badge-lime-bg">
+                        <AppIcon name="credentials" size={20} color="#141416" />
+                      </div>
+                      <h4 className="bento-card-title">User Accounts & Credentials</h4>
+                      <p className="bento-card-desc">
+                        Manage system logins, provision station accounts, and distribute secure credentials.
+                      </p>
+                    </div>
+                  </Link>
 
-              {/* Action 2: Document Validation */}
-              <Link to="/admin/documents" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-purple-bg">
-                    <AppIcon name="validation" size={20} color="#141416" />
-                  </div>
-                  <h4 className="bento-card-title">Document Validation (AO II)</h4>
-                  <p className="bento-card-desc">
-                    Review and certify submitted 201 appointment document packages and qualifications.
-                  </p>
-                </div>
-              </Link>
+                  {/* SysAdmin Action 2: Audit Trail */}
+                  <Link to="/admin/audit" className="action-bento-link">
+                    <div className="soft-card bento-action-card">
+                      <div className="bento-icon-badge badge-purple-bg">
+                        <AppIcon name="audit" size={20} color="#141416" />
+                      </div>
+                      <h4 className="bento-card-title">Security & Audit Logs</h4>
+                      <p className="bento-card-desc">
+                        Inspect immutable system audit trail and track administrative operations.
+                      </p>
+                    </div>
+                  </Link>
 
-              {/* Action 3: Personnel Master List */}
-              <Link to="/admin/personnel" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-charcoal-bg">
-                    <AppIcon name="personnel" size={20} color="#FFFFFF" />
-                  </div>
-                  <h4 className="bento-card-title">Personnel Master List</h4>
-                  <p className="bento-card-desc">
-                    Access and manage all employee digital 201 Personal Data Sheets (PDS) and service records.
-                  </p>
-                </div>
-              </Link>
+                  {/* SysAdmin Action 3: Settings & Roles */}
+                  <Link to="/admin/settings" className="action-bento-link">
+                    <div className="soft-card bento-action-card">
+                      <div className="bento-icon-badge badge-charcoal-bg">
+                        <AppIcon name="settings" size={20} color="#FFFFFF" />
+                      </div>
+                      <h4 className="bento-card-title">System Settings & Security</h4>
+                      <p className="bento-card-desc">
+                        Configure system parameters, RBAC roles, and authentication security.
+                      </p>
+                    </div>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  {/* Action 1: Create Credentials */}
+                  <Link to="/admin/credentials" className="action-bento-link">
+                    <div className="soft-card bento-action-card">
+                      <div className="bento-icon-badge badge-lime-bg">
+                        <AppIcon name="credentials" size={20} color="#141416" />
+                      </div>
+                      <h4 className="bento-card-title">Create Accounts & Credentials</h4>
+                      <p className="bento-card-desc">
+                        Onboard new division personnel and distribute secure digital login credentials.
+                      </p>
+                    </div>
+                  </Link>
+
+                  {/* Action 2: Document Validation (AO II) / Compliance (HRMO) */}
+                  <Link to={user?.role === 'AO_II' ? '/admin/documents' : '/admin/compliance'} className="action-bento-link">
+                    <div className="soft-card bento-action-card">
+                      <div className="bento-icon-badge badge-purple-bg">
+                        <AppIcon name={user?.role === 'AO_II' ? 'validation' : 'compliance'} size={20} color="#141416" />
+                      </div>
+                      <h4 className="bento-card-title">{user?.role === 'AO_II' ? 'Document Validation (AO II)' : 'Compliance & YOS'}</h4>
+                      <p className="bento-card-desc">
+                        {user?.role === 'AO_II'
+                          ? 'Review and certify submitted 201 appointment document packages and qualifications.'
+                          : 'Monitor statutory compliance, loyalty milestones, and years of service records.'}
+                      </p>
+                    </div>
+                  </Link>
+
+                  {/* Action 3: Personnel Master List */}
+                  <Link to="/admin/personnel" className="action-bento-link">
+                    <div className="soft-card bento-action-card">
+                      <div className="bento-icon-badge badge-charcoal-bg">
+                        <AppIcon name="personnel" size={20} color="#FFFFFF" />
+                      </div>
+                      <h4 className="bento-card-title">Personnel Master List</h4>
+                      <p className="bento-card-desc">
+                        Access and manage all employee digital 201 Personal Data Sheets (PDS) and service records.
+                      </p>
+                    </div>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </>

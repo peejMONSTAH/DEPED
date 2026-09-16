@@ -1,0 +1,156 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DIGITAL 201 — MINIMAL TEXT-ONLY BRANDING IDENTITY
+   Ultra-clean, typographic, architectural brand lockups.
+   No icons, no pictorial logos, pure typography.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.digital201-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  text-decoration: none;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  line-height: 1;
+  vertical-align: middle;
+  user-select: none;
+  color: inherit;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* ─── Typography Structure ────────────────────────────────────────── */
+.digital201-brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.24em;
+  white-space: nowrap;
+}
+
+.digital201-brand-prefix {
+  font-weight: 700;
+  font-size: 0.88em;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: inherit;
+  opacity: 0.88;
+}
+
+.digital201-brand-divider {
+  display: inline-block;
+  opacity: 0.35;
+  font-weight: 300;
+  margin: 0 0.05em;
+}
+
+.digital201-brand-accent {
+  font-weight: 900;
+  font-size: 1.06em;
+  letter-spacing: -0.035em;
+  font-feature-settings: 'tnum';
+  color: inherit;
+}
+
+/* Optional System Pill Badge */
+.digital201-brand-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.46em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.22em 0.5em;
+  border-radius: 4px;
+  line-height: 1;
+  margin-left: 0.35em;
+  border: 1px solid currentColor;
+  opacity: 0.6;
+  vertical-align: baseline;
+}
+
+/* Subtitle for Full Lockup */
+.digital201-brand-copy {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.32em;
+}
+
+.digital201-brand-subtitle {
+  font-size: 0.52em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.58;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* ─── Compact Typographic Mark (Text Only, No Logos) ───────────────── */
+.digital201-brand-mark-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', system-ui, sans-serif);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  padding: 0.22em 0.48em;
+  border-radius: 6px;
+  border: 1.5px solid currentColor;
+  font-feature-settings: 'tnum';
+  position: relative;
+}
+
+.digital201-brand-mark-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-left: 3px;
+  opacity: 0.8;
+}
+
+/* ─── Tone Modes ─────────────────────────────────────────────────── */
+.digital201-brand--dark {
+  color: #F4F4F5;
+}
+
+.digital201-brand--dark .digital201-brand-mark-dot {
+  background: #D7F84A;
+}
+
+.digital201-brand--light {
+  color: #141416;
+}
+
+.digital201-brand--light .digital201-brand-mark-dot {
+  background: #141416;
+}
+
+.digital201-brand--auto {
+  color: var(--color-text-primary, #141416);
+}
+
+/* ─── Size Variations ────────────────────────────────────────────── */
+.digital201-brand--xs {
+  font-size: 0.75rem;
+}
+
+.digital201-brand--sm {
+  font-size: 0.92rem;
+}
+
+.digital201-brand--md {
+  font-size: 1.2rem;
+}
+
+.digital201-brand--lg {
+  font-size: 1.55rem;
+}
+
+.digital201-brand--xl {
+  font-size: 2.1rem;
+}

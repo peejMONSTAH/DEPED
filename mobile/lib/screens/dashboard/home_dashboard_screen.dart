@@ -248,7 +248,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ],
         ),
         content: Text(
-          'Are you sure you want to sign out of Eminence HRIS?',
+          'Are you sure you want to sign out of Digital 201?',
           style: GoogleFonts.inter(color: const Color(0xFF8B949E), fontSize: 13),
         ),
         actions: [

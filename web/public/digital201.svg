@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Digital 201 branding">
+  <rect width="64" height="64" rx="14" fill="#141416"/>
+  <text x="32" y="42" fill="#F4F4F5" font-family="-apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Inter', 'Segoe UI', sans-serif" font-size="25" font-weight="900" letter-spacing="-0.04em" text-anchor="middle">201</text>
+  <circle cx="51" cy="22" r="3" fill="#D7F84A"/>
+</svg>

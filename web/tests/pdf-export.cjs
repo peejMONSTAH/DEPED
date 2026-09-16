@@ -1,0 +1,23 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const Module = require('node:module');
+const ts = require('typescript');
+const assert = require('node:assert/strict');
+const {PDFDocument} = require('pdf-lib');
+const filename = path.resolve(__dirname,'../src/components/forms/pdfExport.ts');
+const compiled = ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+const mod = new Module(filename,module); mod.filename=filename; mod.paths=module.paths; mod._compile(compiled,filename);
+(async () => {
+  const data = fs.readFileSync(path.resolve(__dirname,'../../backend/assets/forms/pds-2025.pdf'));
+  const input = data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
+  const entry = {id:'qa',page:0,x:.29,y:.207,size:9,text:'TEST ONLY'};
+  const blob = await mod.exports.exportFilledPdf(input,[0,1,2,3],[entry]);
+  const bytes = Buffer.from(await blob.arrayBuffer());
+  assert.equal((await PDFDocument.load(bytes)).getPageCount(),4);
+  await assert.rejects(mod.exports.exportFilledPdf(input,[0],[{...entry,x:.99,text:'Text beyond page boundary'}]),/beyond page/);
+  await assert.rejects(mod.exports.exportFilledPdf(input,[0],[{...entry,text:'😀'}]),/characters/);
+  assert.equal((await PDFDocument.load(await (await mod.exports.exportFilledPdf(input,[0,0],[entry])).arrayBuffer())).getPageCount(),2);
+  const output = path.resolve(__dirname,'../../tmp/pdfs'); fs.mkdirSync(output,{recursive:true});
+  fs.writeFileSync(path.join(output,'form-editor-qa.pdf'),bytes);
+  console.log('PASS: PDF generation, page count, continuation, overflow and unsupported-character checks.');
+})().catch(e=>{console.error(e);process.exitCode=1});

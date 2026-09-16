@@ -25,7 +25,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', tex
           marginBottom: 8,
         }}>E</div>
         <div className={`spinner spinner-lg`} />
-        <p className="text-sm text-muted">Loading Eminence HRIS…</p>
+        <p className="text-sm text-muted">Loading Digital 201…</p>
       </div>
     );
   }

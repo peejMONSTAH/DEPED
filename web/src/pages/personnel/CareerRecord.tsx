@@ -1,8 +1,10 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
+import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
 
 const HISTORY_TYPE_COLORS: Record<string, string> = {
@@ -61,14 +63,24 @@ export const CareerRecord: React.FC = () => {
         const fallbackRes = await apiClient.get('/personnel/me');
         const p = fallbackRes.data?.data;
         if (p) {
-          const hiredDate = p.dateHired ? new Date(p.dateHired) : new Date(p.createdAt);
+          if (!p.dateHired) {
+            setPersonnelData({ ...p, fullName: `${p.firstName} ${p.lastName}` });
+            setServiceDetails([
+              { label: 'Current Position', value: p.designation || 'Not recorded', highlight: false },
+              { label: 'First Appointment Date', value: 'Not recorded', highlight: false },
+              { label: 'Years in Service', value: 'Not recorded', highlight: false },
+            ]);
+            setCareerTimeline([]);
+            return;
+          }
+          const hiredDate = new Date(p.dateHired);
           const now = new Date();
           let years = now.getFullYear() - hiredDate.getFullYear();
           let months = now.getMonth() - hiredDate.getMonth();
           if (now.getDate() < hiredDate.getDate()) months--;
           if (months < 0) { years--; months += 12; }
           const tenureStr = years <= 0 && months <= 0 ? 'Newly Appointed' : years <= 0 ? `${months} Months` : `${years} Years`;
-          const sgStr = p.plantillaItem?.salaryGrade ? `SG ${p.plantillaItem.salaryGrade}` : 'SG 11';
+          const sgStr = p.plantillaItem?.salaryGrade ? `SG ${p.plantillaItem.salaryGrade}` : 'Not recorded';
 
           setPersonnelData({
             id: p.id,
@@ -260,7 +272,8 @@ export const CareerRecord: React.FC = () => {
 
       {/* Official DepEd Service Record Document Modal (CS Form 212 Compliant) */}
       {showPdfModal && (
-        <div className="modal-overlay" onClick={() => setShowPdfModal(false)}>
+        <ModalPortal>
+        <ModalOverlay className="modal-overlay" onClick={() => setShowPdfModal(false)}>
           <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 750, color: '#1e293b', background: '#ffffff', padding: 24, borderRadius: 14 }}>
             {/* Header */}
             <div style={{ textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: 12, marginBottom: 16 }}>
@@ -334,7 +347,8 @@ export const CareerRecord: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
+        </ModalPortal>
       )}
     </div>
   );

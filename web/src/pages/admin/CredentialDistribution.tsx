@@ -1,11 +1,14 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
-import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS } from '../../constants/depedData';
+import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
+import { getAllPages } from '../../api/pagination';
+import { personnelDisplayName } from '../../utils/personnel-display';
 
 type AccountRecord = {
   id: number;
@@ -46,12 +49,12 @@ export const CredentialDistribution: React.FC = () => {
     lastName: isSysAdmin ? defaultSchool : '',
     middleName: '',
     suffix: '',
-    birthDate: '1995-05-15',
+    birthDate: '',
     gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
     civilStatus: 'SINGLE' as 'SINGLE' | 'MARRIED' | 'WIDOWED' | 'SEPARATED',
     contactNumber: '',
     address: `${defaultSchool}, ${defaultDistrict.name}`,
-    dateHired: new Date().toISOString().split('T')[0],
+    dateHired: '',
     email: isSysAdmin ? `ao.${defaultSchoolSlug}@deped.gov.ph` : '',
     password: 'Personnel@Pass123',
     position: isSysAdmin ? `Administrative Officer II - ${defaultSchool} (${defaultDistrict.name})` : 'Teacher I',
@@ -231,8 +234,7 @@ export const CredentialDistribution: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/users?limit=200');
-      const data: AccountRecord[] = res.data?.data || [];
+      const data = await getAllPages<AccountRecord>('/users');
       setUsersList(data);
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -251,25 +253,45 @@ export const CredentialDistribution: React.FC = () => {
     }
   };
 
+  const handleOpenAddModal = () => {
+    if (!isSysAdmin) {
+      setFormData(prev => ({
+        ...prev,
+        personnelType: 'TEACHING_PERSONNEL',
+        position: TEACHING_POSITIONS[0],
+      }));
+    }
+    setShowAddModal(true);
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isSysAdmin && ['AO_II', 'HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType)) {
+      addToast('Administrative Officers (AO II) can only request account creation for Teaching and Non-Teaching personnel.', 'ERROR');
+      return;
+    }
 
     const isCreatingAo = formData.personnelType === 'AO_II';
     const isDivisionLevel = formData.personnelType === 'HRMO' || formData.personnelType === 'SYSTEM_ADMIN';
     const isSchoolPersonnel = formData.personnelType === 'TEACHING_PERSONNEL' || formData.personnelType === 'NON_TEACHING_PERSONNEL';
-    const effectiveFirstName = formData.firstName.trim() || (isCreatingAo ? 'AO II' : '');
-    const effectiveLastName = formData.lastName.trim() || (isCreatingAo ? formData.selectedSchool : '');
+    const effectiveFirstName = isCreatingAo ? 'AO II' : formData.firstName.trim();
+    const effectiveLastName = isCreatingAo ? formData.selectedSchool : formData.lastName.trim();
 
-    if (!effectiveFirstName) {
-      addToast('Please enter the First Name in Section 1 (Personal Details).', 'WARNING');
+    if (!isCreatingAo && !effectiveFirstName) {
+      addToast('Please enter the First Name in Personal Details.', 'WARNING');
       return;
     }
-    if (!effectiveLastName) {
-      addToast('Please enter the Last Name / School Name in Section 1.', 'WARNING');
+    if (!isCreatingAo && !effectiveLastName) {
+      addToast('Please enter the Last Name in Personal Details.', 'WARNING');
       return;
     }
     if (!formData.email.trim()) {
       addToast('Please enter an Official Email Address.', 'WARNING');
+      return;
+    }
+    if (!formData.password) {
+      addToast('Please enter an Initial Password.', 'WARNING');
       return;
     }
 
@@ -286,38 +308,40 @@ export const CredentialDistribution: React.FC = () => {
         role: formData.personnelType,
         firstName: effectiveFirstName,
         lastName: effectiveLastName,
-        middleName: formData.middleName.trim(),
-        suffix: formData.suffix.trim(),
-        birthDate: formData.birthDate,
-        gender: formData.gender,
-        civilStatus: formData.civilStatus,
-        contactNumber: formData.contactNumber.trim(),
-        address: formData.address.trim() || (
-          isDivisionLevel
-            ? (formData.personnelType === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
-            : isCreatingAo ? `${formData.selectedSchool}, ${currentDistrict.name}` : ''
+        middleName: isCreatingAo ? '' : formData.middleName.trim(),
+        suffix: isCreatingAo ? '' : formData.suffix.trim(),
+        birthDate: isCreatingAo ? undefined : formData.birthDate,
+        gender: isCreatingAo ? undefined : formData.gender,
+        civilStatus: isCreatingAo ? undefined : formData.civilStatus,
+        contactNumber: isCreatingAo ? '' : formData.contactNumber.trim(),
+        address: isCreatingAo ? `${formData.selectedSchool}, ${currentDistrict.name}` : (
+          formData.address.trim() || (
+            isDivisionLevel
+              ? (formData.personnelType === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
+              : ''
+          )
         ),
         designation: isCreatingAo
           ? `Administrative Officer II - ${formData.selectedSchool} (${currentDistrict.name})`
           : isDivisionLevel
             ? (formData.personnelType === 'HRMO' ? 'HRMO Approver / Manager' : 'System Administrator')
             : formData.position,
-        dateHired: formData.dateHired,
-        district: isDivisionLevel ? 'Division Office' : isCreatingAo ? currentDistrict.name : undefined,
-        schoolAssignment: isDivisionLevel
-          ? (formData.personnelType === 'HRMO' ? 'Schools Division Office (SDO)' : 'Division Office - ICT Unit (SDO)')
-          : isCreatingAo ? formData.selectedSchool : formData.schoolAssignment,
+        dateHired: isCreatingAo ? undefined : formData.dateHired,
+        nonPlantilla: isSchoolPersonnel && isNonPlantilla,
+        district: isDivisionLevel ? undefined : isCreatingAo ? currentDistrict.name : undefined,
+        schoolAssignment: isDivisionLevel ? undefined : isCreatingAo ? formData.selectedSchool : formData.schoolAssignment,
         plantillaItemId: isSchoolPersonnel && !isNonPlantilla && selectedPlantillaId ? Number(selectedPlantillaId) : undefined,
       };
 
       if (isSysAdmin) {
         const res = await apiClient.post('/users', payload);
         const created = res.data?.data;
-        const displayName = isCreatingAo ? `${formData.selectedSchool} (AO II - ${currentDistrict.name})` : `${effectiveFirstName} ${effectiveLastName}`;
-        addToast(`Complete PDS Profile & Account created for ${displayName}! Employee ID: ${created?.employeeId || 'Generated'}.`, 'SUCCESS');
+        const displayName = isCreatingAo ? `AO II ${formData.selectedSchool}` : `${effectiveFirstName} ${effectiveLastName}`;
+        addToast(`Station Account created for ${displayName}! Employee ID: ${created?.employeeId || 'Generated'}.`, 'SUCCESS');
       } else {
         await apiClient.post('/users/requests', payload);
-        addToast(`Account creation request for ${effectiveFirstName} ${effectiveLastName} submitted to System Administrator for approval!`, 'SUCCESS');
+        const displayName = isCreatingAo ? `AO II ${formData.selectedSchool}` : `${effectiveFirstName} ${effectiveLastName}`;
+        addToast(`Account creation request for ${displayName} submitted to System Administrator for approval!`, 'SUCCESS');
       }
 
       setShowAddModal(false);
@@ -326,12 +350,12 @@ export const CredentialDistribution: React.FC = () => {
         lastName: '',
         middleName: '',
         suffix: '',
-        birthDate: '1995-05-15',
+        birthDate: '',
         gender: 'MALE',
         civilStatus: 'SINGLE',
         contactNumber: '',
         address: '',
-        dateHired: new Date().toISOString().split('T')[0],
+        dateHired: '',
         email: '',
         password: 'Personnel@Pass123',
         position: 'Teacher I',
@@ -402,6 +426,23 @@ export const CredentialDistribution: React.FC = () => {
 
   const pendingRequestsCount = accountRequests.filter(r => r.status === 'PENDING').length;
 
+  // Strict defense-in-depth: AO II only sees Teaching & Non-Teaching personnel from their assigned station/district
+  const displayedUsers = React.useMemo(() => {
+    if (!isAo) return usersList;
+    return usersList.filter(u => {
+      // Exclude administrative accounts (SYSTEM_ADMIN, HRMO, AO_II)
+      if (u.role !== 'TEACHING_PERSONNEL' && u.role !== 'NON_TEACHING_PERSONNEL') return false;
+      // Do not show the AO's own user account in the credential handoff queue
+      if (u.id === user?.id) return false;
+      // Filter by station/school if available
+      if (aoStationInfo?.schoolName) {
+        const text = `${u.personnel?.address || ''} ${u.personnel?.designation || ''}`.toLowerCase();
+        return text.includes(aoStationInfo.schoolName.toLowerCase());
+      }
+      return true;
+    });
+  }, [usersList, isAo, user?.id, aoStationInfo?.schoolName]);
+
   return (
     <div className="animate-fade-in">
       <div className="topbar">
@@ -415,7 +456,7 @@ export const CredentialDistribution: React.FC = () => {
           </div>
         </div>
         <div className="topbar-actions">
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <button className="btn btn-primary btn-sm" onClick={handleOpenAddModal} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             {isSysAdmin ? (
               <>+ Create Personnel Account</>
             ) : (
@@ -502,7 +543,7 @@ export const CredentialDistribution: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap', minWidth: 260 }}>
+                      <td style={{ whiteSpace: 'nowrap', minWidth: 0 }}>
                         {isSysAdmin && req.status === 'PENDING' ? (
                           <div className="flex gap-2" style={{ flexWrap: 'nowrap' }}>
                             <button
@@ -545,7 +586,7 @@ export const CredentialDistribution: React.FC = () => {
         {/* Master Accounts Table */}
         <div className="card">
           <h3 className="card-title mb-4">
-            Personnel Accounts & Credential Handoff Queue ({usersList.length})
+            Personnel Accounts & Credential Handoff Queue ({displayedUsers.length})
           </h3>
           <div className="table-wrapper">
             <table className="table">
@@ -560,14 +601,16 @@ export const CredentialDistribution: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {usersList.length === 0 ? (
+                {displayedUsers.length === 0 ? (
                   <tr>
                     <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
-                      No personnel accounts created yet. Click "+ Create Personnel Account" above to initialize accounts for Teaching and Non-Teaching personnel.
+                      {isAo
+                        ? `No personnel accounts found for ${aoStationInfo?.schoolName || 'your assigned school'}. Click "Request Account Creation" above to submit account creation requests for teachers and staff.`
+                        : 'No personnel accounts created yet. Click "+ Create Personnel Account" above to initialize accounts for Teaching and Non-Teaching personnel.'}
                     </td>
                   </tr>
                 ) : (
-                  usersList.map(u => (
+                  displayedUsers.map(u => (
                     <tr key={u.id}>
                       <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                         {u.personnel?.employeeId || <span className="text-muted text-xs">Generating...</span>}
@@ -590,6 +633,21 @@ export const CredentialDistribution: React.FC = () => {
                               </div>
                             )}
                           </div>
+                        ) : ['SYSTEM_ADMIN', 'HRMO'].includes(u.role) ? (
+                          <div>
+                            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span>{u.personnel ? `${u.personnel.lastName}, ${u.personnel.firstName}` : u.email}</span>
+                              <span className={`badge ${u.role === 'SYSTEM_ADMIN' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 9, fontWeight: 700 }}>
+                                {u.role === 'SYSTEM_ADMIN' ? 'SYS ADMIN' : 'HRMO'}
+                              </span>
+                            </div>
+                            <div className="text-xs text-muted" style={{ marginTop: 2 }}>
+                              {u.personnel?.designation || (u.role === 'SYSTEM_ADMIN' ? 'System Administrator' : 'HRMO Approver / Manager')}
+                            </div>
+                            <div className="text-xs font-semibold" style={{ color: 'var(--color-primary-light)', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <AppIcon name="settings" size={12} /> Division-Wide Scope (SDO Koronadal City • No District)
+                            </div>
+                          </div>
                         ) : (
                           <div>
                             <div style={{ fontWeight: 600 }}>
@@ -601,10 +659,14 @@ export const CredentialDistribution: React.FC = () => {
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                   <AppIcon name="school" size={12} /> {u.personnel.address.split(',')[0]}
                                 </span>
-                                <span style={{ opacity: 0.6 }}>•</span>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                  <AppIcon name="location" size={12} /> {u.personnel.address.includes('District') ? u.personnel.address.split(',').slice(1).join(',').trim() : 'District Station'}
-                                </span>
+                                {u.personnel.address.includes(',') && (
+                                  <>
+                                    <span style={{ opacity: 0.6 }}>•</span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                      <AppIcon name="location" size={12} /> {u.personnel.address.split(',').slice(1).join(',').trim()}
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>
@@ -665,7 +727,7 @@ export const CredentialDistribution: React.FC = () => {
 
       {/* Account Creation Modal */}
       {showAddModal && createPortal(
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <ModalOverlay className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div
             className="animate-scale-in"
             onClick={e => e.stopPropagation()}
@@ -724,7 +786,7 @@ export const CredentialDistribution: React.FC = () => {
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="employment" size={14} /> Role & Assignment
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>Role / Category <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                       <select
@@ -738,9 +800,9 @@ export const CredentialDistribution: React.FC = () => {
                           if (cat === 'AO_II') {
                             setFormData(prev => ({ ...prev, personnelType: 'AO_II', selectedDistrictId: dist.id, selectedSchool: sch, schoolAssignment: sch, firstName: 'AO II', lastName: sch, email: `ao.${sSlug}@deped.gov.ph`, position: `Administrative Officer II - ${sch} (${dist.name})`, address: `${sch}, ${dist.name}` }));
                           } else if (cat === 'HRMO') {
-                            setFormData(prev => ({ ...prev, personnelType: 'HRMO', firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: 'HRMO Approver / Manager' }));
+                            setFormData(prev => ({ ...prev, personnelType: 'HRMO', firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: 'HRMO Approver / Manager', schoolAssignment: '', selectedSchool: '', address: 'Schools Division Office, SDO Koronadal City' }));
                           } else if (cat === 'SYSTEM_ADMIN') {
-                            setFormData(prev => ({ ...prev, personnelType: 'SYSTEM_ADMIN', firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: 'System Administrator' }));
+                            setFormData(prev => ({ ...prev, personnelType: 'SYSTEM_ADMIN', firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: 'System Administrator', schoolAssignment: '', selectedSchool: '', address: 'Schools Division Office, SDO Koronadal City' }));
                           } else {
                             const defaultPos = cat === 'TEACHING_PERSONNEL' ? TEACHING_POSITIONS[0] : NON_TEACHING_POSITIONS[0];
                             setFormData(prev => ({ ...prev, personnelType: cat, firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: defaultPos, schoolAssignment: sch, address: `${sch}, ${dist.name}` }));
@@ -751,11 +813,13 @@ export const CredentialDistribution: React.FC = () => {
                           <option value="TEACHING_PERSONNEL">Teaching Personnel</option>
                           <option value="NON_TEACHING_PERSONNEL">Non-Teaching Personnel</option>
                         </optgroup>
-                        <optgroup label="Administrative System Roles">
-                          <option value="AO_II">Administrative Officer II (AO II / SO II)</option>
-                          <option value="HRMO">HRMO Approver / Manager</option>
-                          <option value="SYSTEM_ADMIN">System Administrator</option>
-                        </optgroup>
+                        {isSysAdmin && (
+                          <optgroup label="Administrative System Roles">
+                            <option value="AO_II">Administrative Officer II (AO II / SO II)</option>
+                            <option value="HRMO">HRMO Approver / Manager</option>
+                            <option value="SYSTEM_ADMIN">System Administrator</option>
+                          </optgroup>
+                        )}
                       </select>
                     </div>
                     {['AO_II', 'HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType) ? (
@@ -866,38 +930,19 @@ export const CredentialDistribution: React.FC = () => {
                       </div>
                     )}
                     {['HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType) ? (
-                      <>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontWeight: 700 }}>
-                            Designated District <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginLeft: '0.4rem' }}>(Auto — Matches Position)</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value="Division Office (SDO Koronadal City)"
-                            disabled
-                            style={{ opacity: 0.8, cursor: 'not-allowed', background: 'var(--color-bg-secondary)', fontWeight: 600 }}
-                          />
+                      <div style={{ gridColumn: '1 / -1', padding: '14px 18px', borderRadius: 10, background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        <div style={{ padding: 6, borderRadius: 8, background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', display: 'flex' }}>
+                          <AppIcon name="settings" size={18} />
                         </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontWeight: 700 }}>
-                            Designated Station / Office <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginLeft: '0.4rem' }}>(Auto — Matches Position)</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={formData.personnelType === 'HRMO' ? 'Schools Division Office (SDO)' : 'Division Office - ICT Unit (SDO)'}
-                            disabled
-                            style={{ opacity: 0.8, cursor: 'not-allowed', background: 'var(--color-bg-secondary)', fontWeight: 600 }}
-                          />
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)', marginBottom: 2 }}>
+                            Division-Wide Scope (SDO Koronadal City) — No District Assigned
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                            System Administrator and HRMO roles have division-wide operational authority across all clusters and schools. They are not assigned to individual schools or districts. Only Station Accounts (AO II) are assigned to specific schools and district clusters.
+                          </div>
                         </div>
-                        <div style={{ gridColumn: '1 / -1', marginTop: 4, padding: '10px 14px', borderRadius: 8, background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '0.75rem', color: '#3B82F6', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <AppIcon name="info" size={16} color="#3B82F6" />
-                          <span>
-                            <strong>Division-Level Role:</strong> Assigned District and School Station only apply to Administrative Officers and school personnel. HRMO and System Administrator stations are designated at the Schools Division Office (SDO) level matching their position.
-                          </span>
-                        </div>
-                      </>
+                      </div>
                     ) : (
                       <>
                         <div className="form-group" style={{ margin: 0 }}>
@@ -958,13 +1003,18 @@ export const CredentialDistribution: React.FC = () => {
                             ))}
                           </select>
                         </div>
-                        {/* Info alert for AO II or auto-assigned */}
+                        {/* Info alert for AO II */}
                         {formData.personnelType === 'AO_II' && (
-                          <div style={{ gridColumn: '1 / -1', marginTop: 8, fontSize: '0.75rem', color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <AppIcon name="info" size={14} color="#8b5cf6" />
-                            <span>
-                              <strong>AO II Assignment:</strong> Designation automatically matches selected school and district: <strong>{formData.position}</strong>
-                            </span>
+                          <div style={{ gridColumn: '1 / -1', marginTop: 8, fontSize: '0.75rem', color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 8, padding: '10px 14px', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <AppIcon name="info" size={16} color="#8b5cf6" style={{ marginTop: 2, flexShrink: 0 }} />
+                            <div>
+                              <div>
+                                <strong>Station Account Name:</strong> <span style={{ color: 'var(--color-text)', fontWeight: 700 }}>AO II {formData.selectedSchool || 'School Station'}</span>
+                              </div>
+                              <div style={{ marginTop: 2, opacity: 0.85 }}>
+                                Station Officer accounts do not require personal civilian details. Designation: <strong>{formData.position}</strong>
+                              </div>
+                            </div>
                           </div>
                         )}
                         {isAo && ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(formData.personnelType) && (
@@ -980,83 +1030,126 @@ export const CredentialDistribution: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Row 2: Personal Info — 4-col */}
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <AppIcon name="profile" size={14} /> Personal Information
+                {/* Row 2: Personal Info — Hidden for AO II */}
+                {formData.personnelType !== 'AO_II' && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="profile" size={14} /> Personal Information
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">
+                          First Name <span style={{ color: 'var(--color-danger)' }}>*</span>
+                        </label>
+                        <input type="text" className="form-input" placeholder="e.g. Maria" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Middle Name</label>
+                        <input type="text" className="form-input" placeholder="e.g. Bautista" value={formData.middleName} onChange={e => setFormData({ ...formData, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">
+                          Last Name <span style={{ color: 'var(--color-danger)' }}>*</span>
+                        </label>
+                        <input type="text" className="form-input" placeholder="e.g. Santos" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Suffix</label>
+                        <select
+                          className="form-input"
+                          value={formData.suffix}
+                          onChange={e => setFormData({ ...formData, suffix: e.target.value })}
+                        >
+                          {NAME_SUFFIX_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                          {formData.suffix && !NAME_SUFFIX_OPTIONS.some(opt => opt.value === formData.suffix) && (
+                            <option value={formData.suffix}>{formData.suffix}</option>
+                          )}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <input type="date" className="form-input" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} required />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <select className="form-input" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as any })}>
+                          <option value="FEMALE">Female</option>
+                          <option value="MALE">Male</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Civil Status <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <select className="form-input" value={formData.civilStatus} onChange={e => setFormData({ ...formData, civilStatus: e.target.value as any })}>
+                          <option value="SINGLE">Single</option>
+                          <option value="MARRIED">Married</option>
+                          <option value="WIDOWED">Widowed</option>
+                          <option value="SEPARATED">Separated</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">
-                        {formData.personnelType === 'AO_II' ? 'Title / First Name' : 'First Name'} <span style={{ color: 'var(--color-danger)' }}>*</span>
-                      </label>
-                      <input type="text" className="form-input" placeholder={formData.personnelType === 'AO_II' ? 'AO II' : 'e.g. Maria'} value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Middle Name</label>
-                      <input type="text" className="form-input" placeholder="e.g. Bautista" value={formData.middleName} onChange={e => setFormData({ ...formData, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">
-                        {formData.personnelType === 'AO_II' ? 'School / Identifier' : 'Last Name'} <span style={{ color: 'var(--color-danger)' }}>*</span>
-                      </label>
-                      <input type="text" className="form-input" placeholder={formData.personnelType === 'AO_II' ? 'School name' : 'e.g. Santos'} value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Suffix</label>
-                      <input type="text" className="form-input" placeholder="Jr., Sr., III" value={formData.suffix} onChange={e => setFormData({ ...formData, suffix: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-.]/g, '') })} />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="date" className="form-input" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <select className="form-input" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as any })}>
-                        <option value="FEMALE">Female</option>
-                        <option value="MALE">Male</option>
-                        <option value="OTHER">Other</option>
-                      </select>
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Civil Status <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <select className="form-input" value={formData.civilStatus} onChange={e => setFormData({ ...formData, civilStatus: e.target.value as any })}>
-                        <option value="SINGLE">Single</option>
-                        <option value="MARRIED">Married</option>
-                        <option value="WIDOWED">Widowed</option>
-                        <option value="SEPARATED">Separated</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
+                )}
 
-                {/* Row 3: Contact & Credentials — 4-col */}
+                {/* Row 3: Credentials */}
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <AppIcon name="phone" size={14} /> Contact & Credentials
+                    <AppIcon name="credentials" size={14} /> {formData.personnelType === 'AO_II' ? 'Account Credentials' : 'Contact & Credentials'}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Email Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                  {formData.personnelType === 'AO_II' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))', gap: '14px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontWeight: 700 }}>
+                          Station Email Address <span style={{ color: 'var(--color-danger)' }}>*</span>
+                        </label>
+                        <input
+                          type="email"
+                          className="form-input"
+                          placeholder="ao.school@deped.gov.ph"
+                          value={formData.email}
+                          onChange={e => setFormData({ ...formData, email: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontWeight: 700 }}>
+                          Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={formData.password}
+                          onChange={e => setFormData({ ...formData, password: e.target.value })}
+                          required
+                        />
+                      </div>
                     </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Mobile Number</label>
-                      <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="09171234567" value={formData.contactNumber} onChange={e => setFormData({ ...formData, contactNumber: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })} />
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Email Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Mobile Number</label>
+                        <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="09171234567" value={formData.contactNumber} onChange={e => setFormData({ ...formData, contactNumber: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })} />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <input type="date" className="form-input" value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                        <input type="text" className="form-input" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
+                      </div>
+                      <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
+                        <label className="form-label">Station Address</label>
+                        <input type="text" className="form-input" placeholder="School Campus, City, Province" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                      </div>
                     </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="date" className="form-input" value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="text" className="form-input" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
-                    </div>
-                    <div className="form-group" style={{ margin: 0, gridColumn: 'span 4' }}>
-                      <label className="form-label">Station Address</label>
-                      <input type="text" className="form-input" placeholder="School Campus, City, Province" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -1064,18 +1157,20 @@ export const CredentialDistribution: React.FC = () => {
               <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)} style={{ borderRadius: '9999px' }}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
-                  {isSysAdmin ? 'Create Personnel Account' : 'Submit Request to System Admin'}
+                  {formData.personnelType === 'AO_II'
+                    ? (isSysAdmin ? 'Create AO II Account' : 'Submit AO II Request')
+                    : (isSysAdmin ? 'Create Personnel Account' : 'Submit Request to System Admin')}
                 </button>
               </div>
             </form>
           </div>
-        </div>,
+        </ModalOverlay>,
         document.body
       )}
 
       {/* Reset Password Modal (Sys Admin) */}
       {resetModalUser && createPortal(
-        <div className="modal-overlay" onClick={() => setResetModalUser(null)}>
+        <ModalOverlay className="modal-overlay" onClick={() => setResetModalUser(null)}>
           <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1109,13 +1204,13 @@ export const CredentialDistribution: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>,
+        </ModalOverlay>,
         document.body
       )}
 
       {/* View Personnel Info Modal */}
       {selectedAccount && createPortal(
-        <div className="modal-overlay" onClick={() => setSelectedAccount(null)}>
+        <ModalOverlay className="modal-overlay" onClick={() => setSelectedAccount(null)}>
           <div
             className="animate-scale-in"
             onClick={e => e.stopPropagation()}
@@ -1166,7 +1261,7 @@ export const CredentialDistribution: React.FC = () => {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-                  {selectedAccount.personnel ? `${selectedAccount.personnel.firstName} ${selectedAccount.personnel.lastName}` : selectedAccount.email}
+                  {personnelDisplayName(selectedAccount.personnel, selectedAccount.role) || selectedAccount.email}
                 </h3>
                 <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600 }}>{selectedAccount.personnel?.designation || selectedAccount.role}</span>
@@ -1191,7 +1286,7 @@ export const CredentialDistribution: React.FC = () => {
 
             {/* Body */}
             <div style={{ padding: '20px 28px', overflowY: 'auto', flex: '1 1 auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, background: 'var(--color-bg-tertiary)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 14, background: 'var(--color-bg-tertiary)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border)' }}>
                 <div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Employee ID</div>
                   <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontSize: '0.9375rem' }}>
@@ -1201,7 +1296,7 @@ export const CredentialDistribution: React.FC = () => {
                 <div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Name</div>
                   <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                    {selectedAccount.personnel ? `${selectedAccount.personnel.firstName} ${selectedAccount.personnel.lastName}` : 'N/A'}
+                    {personnelDisplayName(selectedAccount.personnel, selectedAccount.role) || 'N/A'}
                   </div>
                 </div>
                 <div>
@@ -1209,8 +1304,17 @@ export const CredentialDistribution: React.FC = () => {
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{selectedAccount.personnel?.designation || selectedAccount.role}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Station / Address</div>
-                  <div style={{ fontSize: '0.875rem' }}>{selectedAccount.personnel?.address || 'City Schools Division of Koronadal'}</div>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Station / Scope</div>
+                  <div style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {['SYSTEM_ADMIN', 'HRMO'].includes(selectedAccount.role) ? (
+                      <>
+                        <AppIcon name="settings" size={13} color="var(--color-primary-light)" />
+                        <span style={{ fontWeight: 600, color: 'var(--color-primary-light)' }}>Division Office (SDO Koronadal City) — Division-Wide Scope (No District)</span>
+                      </>
+                    ) : (
+                      selectedAccount.personnel?.address || 'City Schools Division of Koronadal'
+                    )}
+                  </div>
                 </div>
                 <div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Email Address</div>
@@ -1249,7 +1353,7 @@ export const CredentialDistribution: React.FC = () => {
               )}
             </div>
           </div>
-        </div>,
+        </ModalOverlay>,
         document.body
       )}
     </div>

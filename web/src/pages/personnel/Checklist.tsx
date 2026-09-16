@@ -5,6 +5,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
+import { templateForRequirement } from '../../components/forms/templateMatch';
 
 // ─── Step 5: Requirement Checklists per Transaction Type & Personnel Category ───
 // Exactly as specified in 201-System-Workflow.md
@@ -136,7 +137,6 @@ export const Checklist: React.FC = () => {
   const [txStatus, setTxStatus] = useState<string>('DRAFT');
   const [txRemarks, setTxRemarks] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
-  const [isAutoUploading, setIsAutoUploading] = useState<boolean>(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingReqId, setUploadingReqId] = useState<number | null>(null);
   const [activeReqItem, setActiveReqItem] = useState<RequirementItem | null>(null);
@@ -300,20 +300,24 @@ export const Checklist: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file || !activeReqItem) return;
 
-    const activeTargetId = txId && txId !== '101' ? txId : rawTxId && rawTxId !== '101' ? rawTxId : '8';
+    // Strict validation: Strictly PDF, PNG, JPEG (.pdf, .png, .jpg, .jpeg)
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg'];
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
 
-    // Immediately mark item as validated locally so UI updates with green checkmark with zero delay
-    setItems(prev => prev.map(item => {
-      if (item.requirementId === activeReqItem.requirementId) {
-        return {
-          ...item,
-          status: 'VALIDATED',
-          documentId: item.requirementId || Date.now(),
-          rejectionNotes: undefined,
-        };
-      }
-      return item;
-    }));
+    if (!allowedMimes.includes(file.type) && !allowedExts.includes(ext)) {
+      addToast('Invalid file format. Strict upload policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for transaction document uploads.', 'ERROR');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      addToast('File exceeds the 10 MB maximum size limit.', 'ERROR');
+      e.target.value = '';
+      return;
+    }
+
+    const activeTargetId = txId && txId !== '101' ? txId : rawTxId && rawTxId !== '101' ? rawTxId : '8';
 
     try {
       setUploadingReqId(activeReqItem.requirementId);
@@ -334,7 +338,7 @@ export const Checklist: React.FC = () => {
           if (item.requirementId === activeReqItem.requirementId) {
             return {
               ...item,
-              status: 'VALIDATED',
+              status: uploadedDoc.status || 'UPLOADED',
               documentId: uploadedDoc.id || item.requirementId,
               rejectionNotes: undefined,
             };
@@ -347,46 +351,12 @@ export const Checklist: React.FC = () => {
       await fetchTransactionData(activeTargetId);
     } catch (err: any) {
       console.error('Direct upload failed:', err);
-      addToast(`✅ Document attached for "${activeReqItem.name}".`, 'SUCCESS');
+      addToast(err.response?.data?.message || `Upload failed for "${activeReqItem.name}".`, 'ERROR');
+      await fetchTransactionData(activeTargetId);
     } finally {
       setUploadingReqId(null);
       setActiveReqItem(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleDemoAutoUpload = async () => {
-    try {
-      setIsAutoUploading(true);
-      addToast('Auto-uploading verified sample documents for all requirements…', 'INFO');
-
-      // Unconditionally set ALL checklist items to VALIDATED with 100% compliance immediately
-      setItems(prev => prev.map((item, idx) => ({
-        ...item,
-        status: 'VALIDATED',
-        documentId: item.documentId || item.requirementId || (idx + 1),
-        rejectionNotes: undefined,
-      })));
-
-      const activeTargetId = txId && txId !== '101' ? txId : rawTxId && rawTxId !== '101' ? rawTxId : '8';
-      const numId = Number(activeTargetId);
-      if (!isNaN(numId) && numId > 0) {
-        await apiClient.post(`/transactions/${numId}/demo-upload`);
-        await fetchTransactionData(numId);
-      }
-      addToast('✨ Demo: All required documents auto-uploaded! Compliance is now 100%.', 'SUCCESS');
-    } catch (err: any) {
-      console.error('Demo auto-upload API call:', err);
-      // Ensure 100% compliance remains active
-      setItems(prev => prev.map((item, idx) => ({
-        ...item,
-        status: 'VALIDATED',
-        documentId: item.documentId || item.requirementId || (idx + 1),
-        rejectionNotes: undefined,
-      })));
-      addToast('✨ Demo: Checklist set to 100% compliant and ready for validation.', 'SUCCESS');
-    } finally {
-      setIsAutoUploading(false);
     }
   };
 
@@ -422,8 +392,7 @@ export const Checklist: React.FC = () => {
       addToast('Document(s) successfully submitted to AO II for validation!', 'SUCCESS');
       navigate('/personnel/transactions');
     } catch (err: any) {
-      addToast(err.response?.data?.message || 'Transaction submitted to AO II for validation!', 'SUCCESS');
-      navigate('/personnel/transactions');
+      addToast(err.response?.data?.message || 'Unable to submit the transaction for validation.', 'ERROR');
     }
   };
 
@@ -440,29 +409,6 @@ export const Checklist: React.FC = () => {
           </div>
         </div>
 
-        <button
-          className="btn btn-secondary"
-          onClick={handleDemoAutoUpload}
-          disabled={isAutoUploading || txStatus === 'APPROVED' || txStatus === 'FOR_APPROVAL'}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            fontWeight: 700,
-            background: 'rgba(99, 102, 241, 0.12)',
-            color: '#818cf8',
-            border: '1px solid rgba(99, 102, 241, 0.35)',
-            borderRadius: 8,
-            padding: '8px 16px',
-            cursor: (isAutoUploading || txStatus === 'APPROVED' || txStatus === 'FOR_APPROVAL') ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s',
-            opacity: (txStatus === 'APPROVED' || txStatus === 'FOR_APPROVAL') ? 0.6 : 1,
-          }}
-          title="Auto-fill and upload verified sample documents for all checklist requirements"
-        >
-          <AppIcon name="upload" size={15} color="#818cf8" />
-          {isAutoUploading ? 'Auto-Uploading Sample Docs…' : '⚡ Demo: Auto-Upload All Documents'}
-        </button>
       </div>
 
       {/* 1. Submitted / Pending AO II Review Banner */}
@@ -607,26 +553,6 @@ export const Checklist: React.FC = () => {
               : `Action Required: Re-upload the ${missingReqs.length} deficient requirement(s) flagged above to complete submission.`
             }
           </div>
-          {!isComplete && txStatus !== 'PENDING_VALIDATION' && txStatus !== 'FOR_APPROVAL' && txStatus !== 'APPROVED' && txStatus !== 'COMPLETED' && (
-            <button
-              className="btn btn-ghost btn-xs"
-              onClick={handleDemoAutoUpload}
-              disabled={isAutoUploading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#818cf8',
-                textDecoration: 'underline',
-                cursor: 'pointer',
-                padding: '2px 6px',
-              }}
-            >
-              ⚡ Fast-track Demo: Auto-Upload All Required Documents
-            </button>
-          )}
         </div>
       </div>
 
@@ -638,29 +564,6 @@ export const Checklist: React.FC = () => {
             <div className="card-heading-sub">Official DepEd documentary requirements for verification & compliance</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleDemoAutoUpload}
-              disabled={isAutoUploading || txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED'}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                color: (txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED') ? 'var(--color-text-muted)' : '#818cf8',
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                borderRadius: 6,
-                padding: '4px 12px',
-                cursor: (isAutoUploading || txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED') ? 'not-allowed' : 'pointer',
-                opacity: (txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED') ? 0.6 : 1,
-              }}
-              title="Uploads are locked when transaction is submitted or finalized"
-            >
-              <AppIcon name="upload" size={13} color={(txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED') ? 'var(--color-text-muted)' : '#818cf8'} />
-              {isAutoUploading ? 'Auto-Uploading…' : (txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED') ? '🔒 Uploads Locked' : '⚡ Demo Auto-Upload'}
-            </button>
             <span className="badge badge-info" style={{ fontSize: 11, padding: '4px 10px' }}>
               {items.length} Documents Required
             </span>
@@ -723,7 +626,14 @@ export const Checklist: React.FC = () => {
                       <AppIcon name="lock" size={14} color="var(--color-success)" /> Locked
                     </button>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {templateForRequirement(item.name) && <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={uploadingReqId === item.requirementId}
+                        onClick={() => navigate(`/personnel/fill-document?reqId=${item.requirementId}&txId=${txId}&name=${encodeURIComponent(item.name)}`)}
+                        title={isTxLocked ? 'Open the saved form in read-only mode' : 'Fill and save this form online'}
+                      >{isTxLocked ? 'View online form' : 'Fill online'}</button>}
                       <button
                         className={`btn btn-sm ${isDeficientDoc ? 'btn-danger' : isUploaded ? 'btn-secondary' : 'btn-primary'}`}
                         onClick={() => {
@@ -759,7 +669,7 @@ export const Checklist: React.FC = () => {
         type="file"
         ref={fileInputRef}
         style={{ display: 'none' }}
-        accept=".pdf,.jpg,.jpeg,.png"
+        accept=".pdf,application/pdf,.png,image/png,.jpg,.jpeg,image/jpeg"
         onChange={handleDirectFileUpload}
       />
 

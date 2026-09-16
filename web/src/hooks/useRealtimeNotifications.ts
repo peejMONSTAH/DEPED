@@ -5,7 +5,7 @@ import { playSuccessChime } from '../utils/sound.utils';
  * Custom React hook for real-time notification updates using SSE (Server-Sent Events)
  * + Tab Focus listener + 5-second polling fallback.
  */
-export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: number = 3000) => {
+export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: number = 30000) => {
   const callbackRef = useRef(onUpdate);
   callbackRef.current = onUpdate;
 
@@ -16,6 +16,7 @@ export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: numbe
     let eventSource: EventSource | null = null;
     let reconnectTimeout: any = null;
     let isDisposed = false;
+    let sseConnected = false;
 
     const connectSSE = () => {
       if (isDisposed) return;
@@ -23,6 +24,7 @@ export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: numbe
         const token = localStorage.getItem('accessToken') || '';
         const url = token ? `/api/v1/notifications/stream?token=${encodeURIComponent(token)}` : '/api/v1/notifications/stream';
         eventSource = new EventSource(url);
+        eventSource.onopen = () => { sseConnected = true; };
 
         eventSource.onmessage = (event) => {
           try {
@@ -38,6 +40,7 @@ export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: numbe
 
         eventSource.onerror = () => {
           if (eventSource) {
+            sseConnected = false;
             eventSource.close();
             eventSource = null;
           }
@@ -54,7 +57,7 @@ export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: numbe
 
     // Polling timer
     const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (!sseConnected && document.visibilityState === 'visible') {
         callbackRef.current();
       }
     }, intervalMs);

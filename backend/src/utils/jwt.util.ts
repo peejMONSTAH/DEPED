@@ -7,7 +7,11 @@ export interface JwtPayload {
   role: string;
   email: string;
   jti?: string;
+  pwdv: string;
 }
+
+export const passwordTokenVersion = (passwordHash: string): string =>
+  crypto.createHash('sha256').update(passwordHash).digest('hex').slice(0, 24);
 
 export const generateAccessToken = (payload: JwtPayload): string => {
   const { jti, ...cleanPayload } = payload;
@@ -30,17 +34,21 @@ export const generateRefreshToken = (payload: JwtPayload): string => {
 };
 
 export const verifyAccessToken = (token: string): JwtPayload => {
-  return jwt.verify(token, config.jwt.accessSecret, {
+  const decoded = jwt.verify(token, config.jwt.accessSecret, {
     issuer: 'eminence-hris',
     audience: 'eminence-hris-client',
-  }) as JwtPayload;
+  }) as JwtPayload & { type?: string };
+  if (decoded.type || !decoded.pwdv) throw new Error('Invalid access token type');
+  return decoded;
 };
 
 export const verifyRefreshToken = (token: string): JwtPayload => {
-  return jwt.verify(token, config.jwt.refreshSecret, {
+  const decoded = jwt.verify(token, config.jwt.refreshSecret, {
     issuer: 'eminence-hris',
     audience: 'eminence-hris-client',
-  }) as JwtPayload;
+  }) as JwtPayload & { type?: string };
+  if (decoded.type || !decoded.pwdv) throw new Error('Invalid refresh token type');
+  return decoded;
 };
 
 export const decodeToken = (token: string): JwtPayload | null => {
@@ -59,6 +67,7 @@ export interface MagicLoginPayload {
   type: 'MAGIC_LINK';
   jti?: string;
   exp?: number;
+  pwdv: string;
 }
 
 export const generateMagicToken = (payload: Omit<MagicLoginPayload, 'type'>): string => {
@@ -82,4 +91,3 @@ export const verifyMagicToken = (token: string): MagicLoginPayload => {
 
   return decoded as MagicLoginPayload;
 };
-

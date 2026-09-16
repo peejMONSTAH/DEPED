@@ -3,7 +3,6 @@ import { useLocation, useOutlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/admin/Sidebar';
 import { ToastContainer } from '../components/shared/ToastContainer';
-import { QuickRoleSwitcher } from '../components/common/QuickRoleSwitcher';
 import { AppIcon } from '../components/common/AppIcon';
 
 import type { Variants } from 'framer-motion';
@@ -11,22 +10,16 @@ import type { Variants } from 'framer-motion';
 const pageVariants: Variants = {
   initial: {
     opacity: 0,
-    y: 8,
   },
   animate: {
     opacity: 1,
-    y: 0,
     transition: {
       duration: 0.24,
       ease: [0.16, 1, 0.3, 1] as const,
     },
-    transitionEnd: {
-      transform: 'none',
-    },
   },
   exit: {
     opacity: 0,
-    y: -6,
     transition: {
       duration: 0.18,
       ease: [0.16, 1, 0.3, 1] as const,
@@ -59,12 +52,16 @@ export const AdminLayout: React.FC = () => {
           {/* Mobile Admin Topbar */}
           <div className="mobile-admin-topbar">
             <button
+              type="button"
+              aria-label="Open navigation"
+              aria-expanded={sidebarOpen}
+              aria-controls="primary-navigation"
               onClick={() => setSidebarOpen(true)}
               className="mobile-menu-trigger"
             >
               <AppIcon name="menu" size={20} />
             </button>
-            <span className="mobile-app-title">Eminence HRMIS</span>
+            <span className="mobile-app-title">Digital 201</span>
           </div>
 
           <main className="workspace-main-content">
@@ -85,8 +82,6 @@ export const AdminLayout: React.FC = () => {
       </div>
 
       <ToastContainer />
-      <QuickRoleSwitcher />
     </div>
   );
 };
-

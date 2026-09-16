@@ -1,3 +1,4 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -450,7 +451,7 @@ export const TransactionQueue: React.FC = () => {
 
       {/* Transaction Dossier & Details Modal */}
       {selectedTx && (
-        <div
+        <ModalOverlay
           className="modal-overlay"
           style={{
             position: 'fixed',
@@ -577,7 +578,7 @@ export const TransactionQueue: React.FC = () => {
                     </div>
                   </div>
                   <SkeletonBox height={60} borderRadius={12} />
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, repeat(3, 1fr))', gap: 12 }}>
                     <SkeletonBox height={64} borderRadius={10} />
                     <SkeletonBox height={64} borderRadius={10} />
                     <SkeletonBox height={64} borderRadius={10} />
@@ -701,7 +702,7 @@ export const TransactionQueue: React.FC = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))',
                   gap: '10px',
                 }}
               >
@@ -755,7 +756,7 @@ export const TransactionQueue: React.FC = () => {
                     Compliance Score
                   </div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '4px' }}>
-                    {selectedTx.complianceScore !== undefined ? `${selectedTx.complianceScore}%` : '100%'} Complete
+                    {selectedTx.complianceScore !== undefined ? `${selectedTx.complianceScore}% complete` : 'Not calculated'}
                   </div>
                 </div>
               </div>
@@ -976,7 +977,7 @@ export const TransactionQueue: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

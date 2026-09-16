@@ -1,7 +1,7 @@
 {
   "name": "eminence-hris-backend",
   "version": "1.0.0",
-  "description": "Eminence HRIS Backend API - Node.js/Express/Prisma",
+  "description": "Digital 201 Backend API - Node.js/Express/Prisma",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
@@ -11,13 +11,15 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
     "test:email": "ts-node scripts/test-deficiency-email.ts",
-    "test": "jest"
+    "test": "node --test tests/*.cjs",
+    "check": "npm run build && npm test"
   },
   "dependencies": {
+    "@google-cloud/documentai": "^10.1.0",
     "@prisma/client": "^5.7.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
-    "argon2": "^0.31.2",
+    "argon2": "^0.45.1",
     "cors": "^2.8.5",
     "docxtemplater": "^3.69.3",
     "dotenv": "^16.3.1",
@@ -29,7 +31,7 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^10.0.2",
     "pizzip": "^3.2.0",
-    "uuid": "^9.0.0",
+    "uuid": "^11.1.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -45,6 +47,10 @@
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "qs": "6.16.0",
+    "tar": "7.5.22"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,

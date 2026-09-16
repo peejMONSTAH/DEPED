@@ -1,0 +1,44 @@
+.form-workspace { max-width: 1440px; margin: auto; padding: clamp(16px,3vw,32px); color: var(--color-text-primary); }
+.form-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:24px; }
+.form-heading h1 { font-size:clamp(1.4rem,3vw,2rem); margin:4px 0; letter-spacing:-.03em; }
+.form-eyebrow { color:var(--color-text-secondary); font-size:.8rem; }
+.form-notice { padding:16px 20px; background:#eef3f9; border-left:3px solid #58759a; margin-bottom:16px; border-radius:6px; }
+.form-workspace p { line-height:1.6; margin:8px 0; }
+.form-notice p { max-width:90ch; }
+.form-notice a { text-decoration:underline; }
+.form-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:12px 0; }
+.form-toolbar span { font-size:.85rem; }
+.form-editor-grid { display:grid; grid-template-columns:minmax(320px,380px) minmax(0,1fr); gap:20px; align-items:start; }
+.form-controls,.form-submit,.form-preview { padding:20px; background:var(--color-bg-surface,#fff); border:1px solid #dce2ea; border-radius:10px; }
+.form-controls h2,.form-submit h2,.form-preview h2 { font-size:1.05rem; margin-bottom:8px; }
+.form-controls p,.form-submit p,.form-preview p { font-size:.88rem; color:var(--color-text-secondary); }
+.form-workspace label { display:flex; flex-direction:column; gap:6px; font-size:.85rem; margin:10px 0; }
+.form-workspace input[type=number],.form-workspace textarea,.form-workspace select { width:100%; min-height:38px; padding:8px; background:#fff; color:#202c3b; border:1px solid #aebbc9; border-radius:5px; }
+.form-workspace textarea { resize:vertical; }
+.form-workspace fieldset { border:0; padding:0; min-width:0; }
+.form-coordinate-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.form-page-section { min-width:0; }
+.form-page-scroll { overflow:auto; max-height:75vh; background:#dce2ea; border:1px solid #bdc9d6; padding:16px; border-radius:8px; }
+.form-paper { position:relative; background:#fff; flex-shrink:0; overflow:hidden; }
+.form-field-list { display:flex; flex-direction:column; gap:12px; max-height:62vh; overflow:auto; padding:2px 8px 2px 2px; }
+.form-field-list label { margin:0; padding:10px; border:1px solid #dce2ea; border-radius:7px; background:#f8fafc; transition:border-color .15s,background .15s; }
+.form-field-list label.active { border-color:#2467a6; background:#eef6ff; box-shadow:0 0 0 2px rgba(36,103,166,.1); }
+.form-field-list label span { font-weight:650; color:#33465c; }
+.form-field-list input[type=checkbox] { width:20px; height:20px; }
+.form-empty-fields { padding:12px; border:1px dashed #aebbc9; border-radius:7px; }
+.form-legacy-entry { margin-top:16px; padding-top:14px!important; border-top:1px solid #dce2ea!important; }
+.form-workspace .form-paper .form-entry { position:absolute; display:block; box-sizing:border-box; padding:0!important; margin:0!important; border:0!important; border-radius:0!important; min-width:0!important; min-height:0!important; max-width:none!important; box-shadow:inset 0 0 0 .5px rgba(36,103,166,.6); background:rgba(219,234,254,.48); cursor:pointer; overflow:hidden; transform:none!important; }
+.form-paper .form-entry svg { display:block; pointer-events:none; }
+.form-paper .form-entry.invalid { background:rgba(254,202,202,.8); box-shadow:inset 0 0 0 1px #b91c1c; }
+.form-entry.completed { border-color:rgba(5,150,105,.7); background:rgba(209,250,229,.72); color:#000; }
+.form-entry.selected { outline:2px solid #2467a6; outline-offset:1px; background:rgba(191,219,254,.9); z-index:2; }
+.form-entry:focus-visible,.form-workspace button:focus-visible { outline:3px solid #2467a6; outline-offset:3px; }
+.form-caption { font-size:.78rem!important; }
+.form-error { background:#fff1f0; border:1px solid #d79f98; color:#8b2420; padding:12px; border-radius:6px; }
+.form-submit,.form-preview { margin-top:24px; }
+.form-preview iframe { width:100%; height:70vh; border:1px solid #bdc9d6; }
+.form-workspace .form-confirm { flex-direction:row; align-items:flex-start; line-height:1.6; max-width:90ch; }
+.form-confirm input { margin-top:6px; flex-shrink:0; }
+.form-workspace button.btn { white-space:normal!important; }
+.form-submit button { margin:8px 10px 0 0; }
+@media(max-width:950px) { .form-editor-grid { grid-template-columns:minmax(0,1fr); } .form-controls { padding:16px; } .form-field-list { max-height:none; } .form-page-scroll { max-height:65vh; } }

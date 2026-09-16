@@ -1,5 +1,5 @@
 /**
- * Web Audio API synthesizer for UI sound effects in Eminence HRIS.
+ * Web Audio API synthesizer for UI sound effects in Digital 201.
  * Provides lightweight audio feedback without requiring external media assets.
  */
 

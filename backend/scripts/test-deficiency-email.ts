@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { sendDeficiencyAlertEmail } from '../src/services/email.service';
 import { generateMagicToken } from '../src/utils/jwt.util';
+import { passwordTokenVersion } from '../src/utils/jwt.util';
 import { config } from '../src/config';
 
 const prisma = new PrismaClient();
@@ -41,6 +42,7 @@ async function runTest() {
     userId: user.id,
     email: user.email,
     role: user.role?.name || 'TEACHING_PERSONNEL',
+    pwdv: passwordTokenVersion(user.passwordHash),
     txId,
   });
 
@@ -56,7 +58,7 @@ async function runTest() {
   ];
 
   console.log('\n🚀 Dispatching Deficiency Alert Email...');
-  await sendDeficiencyAlertEmail({
+  const delivered = await sendDeficiencyAlertEmail({
     recipientEmail: user.email,
     recipientName: `${personnel.firstName} ${personnel.lastName}`,
     transactionId: txId,
@@ -65,6 +67,10 @@ async function runTest() {
     deficientDocuments,
     magicToken,
   });
+
+  if (!delivered) {
+    throw new Error('SMTP delivery failed. Check SMTP_HOST, SMTP_PORT, SMTP_USER and SMTP_PASS in backend/.env.');
+  }
 
   // Export HTML preview file so the user can open it in a browser directly
   const targetPath = `/personnel/checklist?txId=${txId}`;

@@ -22,7 +22,7 @@ let transporter: Transporter | null = null;
 const getTransporter = (): Transporter | null => {
   if (transporter) return transporter;
 
-  if (config.email.host && config.email.user) {
+  if (config.email.host && config.email.user && config.email.pass) {
     try {
       transporter = nodemailer.createTransport({
         host: config.email.host,
@@ -99,7 +99,7 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
                 Department of Education • SDO Koronadal City
               </div>
               <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 800; margin: 0 0 4px 0; letter-spacing: -0.5px;">
-                Eminence Human Resource Information System
+                Digital 201 Personnel Records System
               </h1>
               <p style="color: #94A3B8; font-size: 13px; margin: 0;">
                 Personnel Document Validation & Compliance Advisory
@@ -202,7 +202,7 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
                 Republic of the Philippines • Department of Education
               </p>
               <p style="font-size: 11px; color: #64748B; margin: 0 0 12px 0;">
-                Schools Division of Koronadal City • Eminence HRIS Automated Notification System
+                Schools Division of Koronadal City • Digital 201 Automated Notification System
               </p>
               <p style="font-size: 11px; color: #94A3B8; margin: 0;">
                 This is a system-generated advisory. Please do not reply directly to this email address.
@@ -220,7 +220,7 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
 
   // 1. Console Simulation Banner (Always visible in dev/test)
   console.log('\n' + '='.repeat(80));
-  console.log('✉️  [EMINENCE HRIS] DEFICIENCY NOTIFICATION EMAIL TRIGGERED');
+  console.log('✉️  [DIGITAL 201] DEFICIENCY NOTIFICATION EMAIL TRIGGERED');
   console.log('='.repeat(80));
   console.log(`To:            ${recipientName} <${recipientEmail}>`);
   console.log(`Subject:       ${subject}`);
@@ -249,5 +249,6 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
     }
   }
 
-  return true;
+  console.warn('[EmailService] SMTP is not configured; email was not delivered.');
+  return false;
 };

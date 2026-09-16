@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, JwtPayload } from '../utils/jwt.util';
+import { verifyAccessToken, JwtPayload, passwordTokenVersion } from '../utils/jwt.util';
 import { sendUnauthorized, sendError } from '../utils/response.util';
 import prisma from '../config/prisma';
 
@@ -11,6 +11,27 @@ declare global {
     }
   }
 }
+
+interface CachedUserRecord {
+  id: number;
+  email: string;
+  accountStatus: any;
+  personnelId: number | null;
+  passwordHash: string;
+  role: { name: any };
+  cachedAt: number;
+}
+
+const authUserCache = new Map<number, CachedUserRecord>();
+const AUTH_CACHE_TTL_MS = 30_000; // 30s cache eliminates redundant round-trips for parallel requests
+
+export const invalidateAuthUserCache = (userId?: number): void => {
+  if (userId) {
+    authUserCache.delete(userId);
+  } else {
+    authUserCache.clear();
+  }
+};
 
 /**
  * Middleware: Verifies JWT access token and attaches user to req.user
@@ -42,17 +63,29 @@ export const authenticate = async (
   try {
     const payload = verifyAccessToken(token);
 
-    // Verify user still exists and account is active
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: {
-        id: true,
-        email: true,
-        accountStatus: true,
-        personnelId: true,
-        role: { select: { name: true } },
-      },
-    });
+    // Check fast cache first to avoid high-latency network round-trips on concurrent calls
+    const cached = authUserCache.get(payload.userId);
+    let user: any;
+
+    if (cached && Date.now() - cached.cachedAt < AUTH_CACHE_TTL_MS) {
+      user = cached;
+    } else {
+      user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: {
+          id: true,
+          email: true,
+          accountStatus: true,
+          personnelId: true,
+          passwordHash: true,
+          role: { select: { name: true } },
+        },
+      });
+
+      if (user) {
+        authUserCache.set(payload.userId, { ...user, cachedAt: Date.now() });
+      }
+    }
 
     if (!user) {
       sendUnauthorized(res, 'User account not found.');
@@ -73,12 +106,17 @@ export const authenticate = async (
       sendUnauthorized(res, `Account is ${user.accountStatus.toLowerCase()}. Contact your system administrator.`);
       return;
     }
+    if (payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
+      sendUnauthorized(res, 'This session is no longer valid. Please sign in again.');
+      return;
+    }
 
     req.user = {
       userId: user.id,
       email: user.email,
       role: user.role.name,
       personnelId: user.personnelId,
+      pwdv: payload.pwdv,
     };
 
     next();

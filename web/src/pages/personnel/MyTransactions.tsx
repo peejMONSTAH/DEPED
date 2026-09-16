@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
@@ -71,11 +71,6 @@ export const MyTransactions: React.FC = () => {
             Track live submission stages, compliance checking, and approval status
           </div>
         </div>
-        <div className="topbar-actions">
-          <Link to="/personnel/new-transaction" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <AppIcon name="new-transaction" size={14} /> New Application
-          </Link>
-        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -85,10 +80,7 @@ export const MyTransactions: React.FC = () => {
               <AppIcon name="inbox" size={36} color="var(--color-text-muted)" />
             </div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>No transactions yet</div>
-            <div className="text-sm text-muted mb-4">You have not initiated any HR transactions or applications.</div>
-            <Link to="/personnel/new-transaction" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, margin: '0 auto' }}>
-              <AppIcon name="new-transaction" size={14} /> Start New Application
-            </Link>
+            <div className="text-sm text-muted mb-4">Your appointment transaction will appear here when HR selects you for hiring or promotion. Open it to complete and submit your requirements.</div>
           </div>
         ) : (
           transactions.map(tx => {

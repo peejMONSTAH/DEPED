@@ -3,9 +3,10 @@ import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendBadRequest, sendNotFound, sendForbidden, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { notifyUserNotifications } from './notifications.controller';
 import { getAOSchoolScope } from '../utils/scope.util';
-import { generateMagicToken } from '../utils/jwt.util';
+import { generateMagicToken, passwordTokenVersion } from '../utils/jwt.util';
 import { sendDeficiencyAlertEmail } from '../services/email.service';
 import { EventEmitter } from 'events';
+import { isConfirmedPdsData, pdsProfileProposal } from '../utils/pds-profile.util';
 
 const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
 export const transactionEvents = new EventEmitter();
@@ -43,19 +44,37 @@ export const getTransactions = async (req: Request, res: Response) => {
     if (!req.user?.personnelId) { sendBadRequest(res, 'No personnel profile linked.'); return; }
     where.personnelId = req.user.personnelId;
   } else if (req.user?.role === 'AO_II') {
-    // AO II can only see transactions of personnel under their school
+    // AO II can only see transactions of Teaching and Non-Teaching personnel under their school
     const scope = await getAOSchoolScope(req.user);
     if (scope.isAo) {
       if (scope.schoolName) {
         where.personnel = {
+          user: {
+            role: {
+              name: {
+                in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'],
+              },
+            },
+          },
           OR: [
             { address: { contains: scope.schoolName, mode: 'insensitive' } },
             { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-            ...(scope.aoPersonnelId ? [{ id: scope.aoPersonnelId }] : []),
+            { plantillaItem: { department: { contains: scope.schoolName, mode: 'insensitive' } } },
           ],
         };
-      } else if (scope.aoPersonnelId) {
-        where.personnelId = scope.aoPersonnelId;
+      } else if (scope.districtName) {
+        where.personnel = {
+          user: {
+            role: {
+              name: {
+                in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'],
+              },
+            },
+          },
+          address: { contains: scope.districtName, mode: 'insensitive' },
+        };
+      } else {
+        where.id = -1;
       }
     }
   }
@@ -69,7 +88,7 @@ export const getTransactions = async (req: Request, res: Response) => {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        transactionType: { select: { name: true } },
+        transactionType: { select: { name: true, requirementTemplates: { select: { id: true, isMandatory: true } } } },
         personnel: {
           select: {
             id: true,
@@ -96,7 +115,7 @@ export const getTransactions = async (req: Request, res: Response) => {
             },
           },
         },
-        uploadedDocuments: { select: { id: true, fileName: true, status: true } },
+        uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true } },
       },
     }),
     prisma.transaction.count({ where }),
@@ -105,16 +124,20 @@ export const getTransactions = async (req: Request, res: Response) => {
   const formatted = data.map(tx => {
     const promoApp = tx.personnel?.promotionApplications?.[0];
     const isPromo = tx.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
-    const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I';
-    const cycleName = promoApp?.promotionCycle?.name || 'DepEd Promotion Cycle';
+    const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || null;
+    const cycleName = promoApp?.promotionCycle?.name || null;
+    const mandatoryIds = tx.transactionType.requirementTemplates.filter(r => r.isMandatory).map(r => r.id);
+    const uploadedIds = new Set(tx.uploadedDocuments.map(d => d.requirementTemplateId));
+    const complianceScore = mandatoryIds.length > 0 ? Math.round((mandatoryIds.filter(id => uploadedIds.has(id)).length / mandatoryIds.length) * 100) : 0;
     return {
       ...tx,
+      complianceScore,
       isPromotion: isPromo,
-      promotionDetails: isPromo ? {
+      promotionDetails: isPromo && promoApp ? {
         isSelected: true,
         cycleName,
         targetPosition: targetPos,
-        cycleType: promoApp?.promotionCycle?.type || 'NATURAL_VACANCY',
+        cycleType: promoApp.promotionCycle?.type,
       } : null,
     };
   });
@@ -293,6 +316,7 @@ export const createTransaction = async (req: Request, res: Response) => {
       status: 'SUCCESS',
     },
   });
+  res.locals.auditLogged = true;
   notifyTransactionChange();
   sendCreated(res, { id: transaction.id, type: transaction.transactionType.name, status: transaction.status, submissionDate: transaction.submissionDate }, 'Transaction initiated successfully.');
 };
@@ -308,7 +332,7 @@ export const getTransactionById = async (req: Request, res: Response) => {
       prisma.transaction.findUnique({
         where: { id },
         include: {
-          transactionType: true,
+          transactionType: { include: { requirementTemplates: true } },
           personnel: {
             select: {
               id: true,
@@ -352,7 +376,9 @@ export const getTransactionById = async (req: Request, res: Response) => {
 
     if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
     if (!isAdmin && transaction.personnelId !== req.user?.personnelId) { sendForbidden(res, 'You do not have access to this transaction.'); return; }
-    const complianceScore = (transaction.uploadedDocuments && transaction.uploadedDocuments.length > 0) || transaction.status !== 'DRAFT' ? 100 : 0;
+    const mandatoryIds = transaction.transactionType.requirementTemplates.filter(r => r.isMandatory).map(r => r.id);
+    const uploadedIds = new Set(transaction.uploadedDocuments.map(d => d.requirementTemplateId));
+    const complianceScore = mandatoryIds.length > 0 ? Math.round((mandatoryIds.filter(templateId => uploadedIds.has(templateId)).length / mandatoryIds.length) * 100) : 0;
     const promoApp = transaction.personnel?.promotionApplications?.[0];
     const isPromo = transaction.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
     const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I';
@@ -405,12 +431,21 @@ export const submitTransaction = async (req: Request, res: Response) => {
       return;
     }
   }
+  const unconfirmedPds = transaction.uploadedDocuments.find(doc => {
+    const template = mandatoryTemplates.find(t => t.id === doc.requirementTemplateId);
+    return /personal data sheet|\bpds\b/i.test(template?.name || '') && doc.ocrExtractedDataJson && !isConfirmedPdsData(doc.correctedOcrDataJson);
+  });
+  if (unconfirmedPds) {
+    sendBadRequest(res, 'Review and confirm the fields detected from your PDS before submitting the transaction.', 'PDS_CONFIRMATION_REQUIRED');
+    return;
+  }
   const updated = await prisma.transaction.update({
     where: { id },
     data: { status: 'PENDING_VALIDATION', submissionDate: new Date(), resubmissionCount: { increment: 1 } },
     include: { personnel: { select: { firstName: true, lastName: true } }, transactionType: { select: { name: true } } },
   });
   await prisma.validationLog.create({ data: { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_SUBMITTED', userId: req.user!.userId, status: 'SUCCESS' } });
+  res.locals.auditLogged = true;
   const applicantName = updated.personnel ? `${updated.personnel.firstName} ${updated.personnel.lastName}` : 'Personnel Staff';
   const targetNotifyUsers = await prisma.user.findMany({
     where: { role: { name: 'AO_II' }, accountStatus: 'ACTIVE' },
@@ -436,29 +471,73 @@ export const submitTransaction = async (req: Request, res: Response) => {
 export const validateTransaction = async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
-  const { documentValidations, overallValidationStatus, targetStatus, remarks } = req.body;
-  const transaction = await prisma.transaction.findUnique({ where: { id } });
+  const { documentValidations, targetStatus, remarks } = req.body;
+  const transaction = await prisma.transaction.findUnique({
+    where: { id },
+    include: {
+      personnel: { select: { id: true, address: true, designation: true, user: { select: { role: { select: { name: true } } } } } },
+      uploadedDocuments: { include: { requirementTemplate: { select: { id: true, name: true, isMandatory: true } } } },
+      transactionType: { include: { requirementTemplates: true } },
+    },
+  });
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
-  if (transaction.status === 'APPROVED') {
-    sendBadRequest(res, `Transaction #${id} has already been approved and finalized.`, 'TRANSACTION_ALREADY_APPROVED');
+  if (!['PENDING_VALIDATION', 'DEFICIENCY', 'RETURNED'].includes(transaction.status)) {
+    sendBadRequest(res, `Transaction #${id} cannot be validated while its status is "${transaction.status}".`, 'INVALID_VALIDATION_STATE');
     return;
   }
 
-  const hasDeficiencies = targetStatus === 'DEFICIENCY' || documentValidations?.some((v: any) => !v.isValid);
-  let newStatus: any = hasDeficiencies ? 'DEFICIENCY' : 'FOR_APPROVAL';
-  if (targetStatus && ['FOR_APPROVAL', 'DEFICIENCY', 'REJECTED'].includes(targetStatus)) { newStatus = targetStatus; }
+  const scope = await getAOSchoolScope(req.user);
+  if (scope.isAo && scope.aoPersonnelId !== transaction.personnelId) {
+    const roleName = transaction.personnel?.user?.role?.name;
+    if (roleName !== 'TEACHING_PERSONNEL' && roleName !== 'NON_TEACHING_PERSONNEL') {
+      sendForbidden(res, 'Access denied. You can only validate transactions of school personnel.');
+      return;
+    }
+    const scopeText = `${transaction.personnel?.address || ''} ${transaction.personnel?.designation || ''}`.toLowerCase();
+    if (!scope.schoolName || !scopeText.includes(scope.schoolName.toLowerCase())) {
+      sendForbidden(res, 'Access denied. You can only validate transactions under your assigned school station.'); return;
+    }
+  }
+
+  if (!Array.isArray(documentValidations) || documentValidations.length === 0) {
+    sendBadRequest(res, 'Every submitted document must be explicitly reviewed before completing validation.', 'DOCUMENT_REVIEWS_REQUIRED'); return;
+  }
+  const docIds = transaction.uploadedDocuments.map(d => d.id);
+  const submittedIds = documentValidations.map((v: any) => Number(v.documentId));
+  if (submittedIds.some((docId: number) => !Number.isInteger(docId) || !docIds.includes(docId)) || new Set(submittedIds).size !== submittedIds.length) {
+    sendBadRequest(res, 'One or more document reviews do not belong to this transaction or are duplicated.', 'INVALID_DOCUMENT_REVIEW'); return;
+  }
+  if (documentValidations.some((v: any) => typeof v.isValid !== 'boolean')) {
+    sendBadRequest(res, 'Each document review must explicitly state whether the document is valid.', 'INVALID_DOCUMENT_REVIEW'); return;
+  }
+  if (submittedIds.length !== docIds.length || docIds.some(docId => !submittedIds.includes(docId))) {
+    sendBadRequest(res, 'All uploaded documents must be reviewed before the transaction can move forward.', 'INCOMPLETE_DOCUMENT_REVIEW'); return;
+  }
+  const mandatoryTemplateIds = transaction.transactionType.requirementTemplates.filter(t => t.isMandatory).map(t => t.id);
+  const uploadedTemplateIds = new Set(transaction.uploadedDocuments.map(d => d.requirementTemplateId).filter(Boolean));
+  const missingMandatory = mandatoryTemplateIds.filter(templateId => !uploadedTemplateIds.has(templateId));
+  if (missingMandatory.length > 0) {
+    sendBadRequest(res, `${missingMandatory.length} mandatory requirement(s) have not been uploaded.`, 'MANDATORY_DOCUMENTS_MISSING'); return;
+  }
+  const hasDeficiencies = documentValidations.some((v: any) => v.isValid === false);
+  if (targetStatus === 'FOR_APPROVAL' && hasDeficiencies) {
+    sendBadRequest(res, 'A transaction with rejected documents cannot be forwarded for approval.', 'INVALID_VALIDATION_OUTCOME'); return;
+  }
+  if (hasDeficiencies && !String(remarks || '').trim() && !documentValidations.some((v: any) => !v.isValid && String(v.feedback || '').trim())) {
+    sendBadRequest(res, 'Feedback is required for every deficient submission.', 'DEFICIENCY_REASON_REQUIRED'); return;
+  }
+  const isRejected = targetStatus === 'REJECTED';
+  if (isRejected && !String(remarks || '').trim()) { sendBadRequest(res, 'A disqualification reason is required.', 'REJECTION_REASON_REQUIRED'); return; }
+  const newStatus: any = isRejected ? 'REJECTED' : hasDeficiencies ? 'DEFICIENCY' : 'FOR_APPROVAL';
 
   await prisma.$transaction(async (tx) => {
     const deficientDocNames: string[] = [];
 
-    if (documentValidations && Array.isArray(documentValidations) && documentValidations.length > 0) {
-      for (const dv of documentValidations) {
-        if (dv.documentId) {
-          const docId = parseInt(dv.documentId, 10);
-          if (!isNaN(docId) && docId > 0) {
-            const isVal = dv.isValid !== false;
+    for (const dv of documentValidations) {
+          const docId = Number(dv.documentId);
+            const isVal = dv.isValid;
             await tx.uploadedDocument.updateMany({
-              where: { id: docId },
+              where: { id: docId, transactionId: id },
               data: {
                 status: isVal ? 'VALIDATED' : 'REJECTED',
                 validationNotes: dv.feedback || remarks,
@@ -467,33 +546,14 @@ export const validateTransaction = async (req: Request, res: Response) => {
               },
             });
             if (!isVal) {
-              const docItem = await tx.uploadedDocument.findUnique({
-                where: { id: docId },
+              const docItem = await tx.uploadedDocument.findFirst({
+                where: { id: docId, transactionId: id },
                 include: { requirementTemplate: { select: { name: true } } },
               });
               if (docItem) {
                 deficientDocNames.push(docItem.requirementTemplate?.name || docItem.fileName || 'Requirement Document');
               }
             }
-          }
-        }
-      }
-    } else if (newStatus === 'DEFICIENCY') {
-      const existingDocs = await tx.uploadedDocument.findMany({ where: { transactionId: id } });
-      if (existingDocs.length > 0) {
-        // Mark first doc as REJECTED and remaining as VALIDATED by default
-        await tx.uploadedDocument.updateMany({
-          where: { id: existingDocs[0].id },
-          data: { status: 'REJECTED', validationNotes: remarks || 'Document flagged as deficient', validatedByUserId: req.user!.userId, validationDate: new Date() },
-        });
-        deficientDocNames.push(existingDocs[0].fileName || 'Requirement Document');
-        for (let i = 1; i < existingDocs.length; i++) {
-          await tx.uploadedDocument.updateMany({
-            where: { id: existingDocs[i].id },
-            data: { status: 'VALIDATED', validationNotes: 'Verified by AO II', validatedByUserId: req.user!.userId, validationDate: new Date() },
-          });
-        }
-      }
     }
 
     await tx.transaction.update({
@@ -516,6 +576,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
         status: 'SUCCESS',
       },
     });
+    res.locals.auditLogged = true;
 
     const txWithPersonnel = await tx.transaction.findUnique({
       where: { id },
@@ -535,7 +596,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
       let notifMsg = '';
       let notifType: 'WARNING' | 'INFO' | 'SUCCESS' = 'INFO';
 
-      if (hasDeficiencies) {
+      if (hasDeficiencies || isRejected) {
         notifType = 'WARNING';
         if (deficientDocNames.length > 0) {
           notifMsg = `⚠️ Deficiency Alert on TRX-${id}: The document "${deficientDocNames.join(', ')}" was returned due to: "${remarks || 'Validation error'}". Only this document needs to be re-uploaded.`;
@@ -559,13 +620,14 @@ export const validateTransaction = async (req: Request, res: Response) => {
       notifyUserNotifications([txWithPersonnel.personnel.user.id]);
 
       // Automated Deficiency Notification Email with 1-Click Magic Login
-      if (hasDeficiencies && txWithPersonnel.personnel.user.email) {
+      if ((hasDeficiencies || isRejected) && txWithPersonnel.personnel.user.email) {
         try {
           const userObj = txWithPersonnel.personnel.user;
           const magicToken = generateMagicToken({
             userId: userObj.id,
             email: userObj.email,
-            role: userObj.role?.name || 'TEACHING_PERSONNEL',
+	            role: userObj.role?.name || 'TEACHING_PERSONNEL',
+	            pwdv: passwordTokenVersion(userObj.passwordHash),
             txId: id,
           });
 
@@ -592,7 +654,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
       }
     }
 
-    if (!hasDeficiencies) {
+    if (!hasDeficiencies && !isRejected) {
       const hrmoUsers = await tx.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' } });
       if (hrmoUsers.length > 0) {
         const applicantName = txWithPersonnel?.personnel ? `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}` : 'Personnel Applicant';
@@ -626,7 +688,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
   const { isApproved, notes } = req.body;
-  if (isApproved === undefined) { sendBadRequest(res, 'isApproved (boolean) is required.'); return; }
+  if (typeof isApproved !== 'boolean') { sendBadRequest(res, 'isApproved must be a boolean.'); return; }
   const transaction = await prisma.transaction.findUnique({
     where: { id },
     include: {
@@ -637,6 +699,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
         },
       },
       transactionType: true,
+      uploadedDocuments: { include: { requirementTemplate: { select: { name: true } } } },
     },
   });
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
@@ -652,9 +715,31 @@ export const approveTransaction = async (req: Request, res: Response) => {
   const newStatus = isApproved ? 'APPROVED' : 'REJECTED';
 
   await prisma.$transaction(async (tx) => {
-    await tx.transaction.update({ where: { id }, data: { status: newStatus, approvalDate: new Date(), remarks: notes } });
+    const claimed = await tx.transaction.updateMany({
+      where: { id, status: 'FOR_APPROVAL' },
+      data: { status: newStatus, approvalDate: new Date(), remarks: notes },
+    });
+    if (claimed.count !== 1) throw new Error(`Transaction #${id} was already processed by another reviewer.`);
 
     if (isApproved && transaction.personnelId) {
+      const pdsDocument = transaction.uploadedDocuments.find(doc => /personal data sheet|\bpds\b/i.test(doc.requirementTemplate.name));
+      if (pdsDocument?.ocrExtractedDataJson && !isConfirmedPdsData(pdsDocument.correctedOcrDataJson)) {
+        throw new Error('The submitted PDS contains extracted data that the personnel has not confirmed. Return it for correction before approval.');
+      }
+      if (pdsDocument?.status === 'VALIDATED' && isConfirmedPdsData(pdsDocument.correctedOcrDataJson)) {
+        const proposal = pdsProfileProposal(pdsDocument.correctedOcrDataJson) as any;
+        const allowedProposal = Object.fromEntries(Object.entries(proposal).filter(([, value]) => value !== undefined));
+        const previousValues = Object.fromEntries(Object.keys(allowedProposal).map(key => [key, (transaction.personnel as any)[key] ?? null]));
+        const merged = { ...transaction.personnel, ...allowedProposal } as any;
+        const profileComplete = Boolean(merged.firstName && merged.lastName && merged.birthDate && merged.gender && merged.civilStatus && merged.contactNumber && merged.address && merged.dateHired);
+        await tx.personnel.update({ where: { id: transaction.personnelId }, data: { ...allowedProposal, profileComplete } });
+        await tx.validationLog.create({
+          data: {
+            entityType: 'Personnel', entityId: transaction.personnelId, action: 'PDS_PROFILE_VERSION_APPLIED', userId: req.user!.userId,
+            detailsJson: JSON.parse(JSON.stringify({ transactionId: id, documentId: pdsDocument.id, sourceFile: pdsDocument.fileName, previousValues, appliedValues: allowedProposal })),
+          },
+        });
+      }
       const txTypeName = (transaction.transactionType?.name || '').toUpperCase();
       const isReclass = txTypeName.includes('RECLASSIFICATION') || txTypeName.includes('RECLASS');
       const isAppointment = txTypeName.includes('APPOINTMENT') || txTypeName.includes('APPOINT') || txTypeName.includes('NEWLY HIRED');
@@ -663,6 +748,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       // Update designation and record career history for promotions, appointments, and reclassifications
       if (isPromo) {
         let targetPosition: string | null = null;
+        let isNewHireAppointment = txTypeName.includes('NEWLY HIRED');
 
         // 1. Try finding by linked transactionId first
         let selectedApp = await tx.promotionApplication.findFirst({
@@ -673,38 +759,15 @@ export const approveTransaction = async (req: Request, res: Response) => {
           include: { promotionCycle: true },
         });
 
-        // 2. Fallback: match by personnelId and recent promotional status
         if (!selectedApp) {
-          selectedApp = await tx.promotionApplication.findFirst({
-            where: {
-              personnelId: transaction.personnelId,
-              OR: [
-                { status: 'APPROVED' },
-                { status: 'RANKED' },
-                { scoreDetailsJson: { path: ['manuallyPromoted'], equals: true } },
-                { scoreDetailsJson: { path: ['stageStatus'], equals: 'SELECTED_PENDING_DOCS' } },
-                { scoreDetailsJson: { path: ['stageStatus'], equals: 'FINAL_RANKED' } },
-                { scoreDetailsJson: { path: ['stageStatus'], equals: 'OFFICIALLY_PROMOTED' } },
-              ],
-            },
-            include: { promotionCycle: true },
-            orderBy: { updatedAt: 'desc' },
-          });
-        }
-
-        // 3. Fallback: match any latest application for this personnel
-        if (!selectedApp) {
-          selectedApp = await tx.promotionApplication.findFirst({
-            where: { personnelId: transaction.personnelId },
-            include: { promotionCycle: true },
-            orderBy: { updatedAt: 'desc' },
-          });
+          throw new Error(`Transaction #${id} is not linked to a promotion or appointment application.`);
         }
 
         if (selectedApp) {
           const cycleRules = (selectedApp.promotionCycle.rulesConfigurationJson as any) || {};
           targetPosition = cycleRules?.targetPosition || (selectedApp.scoreDetailsJson as any)?.targetPosition || null;
           const appDetails = (selectedApp.scoreDetailsJson as Record<string, any>) || {};
+          isNewHireAppointment = isNewHireAppointment || appDetails.isNewlyHiredAppointment === true;
           const targetPlantillaNumber = appDetails.plantillaItemNumber || cycleRules.plantillaItemNumber;
 
           // Update PromotionApplication status to reflect final appointment approval
@@ -728,6 +791,27 @@ export const approveTransaction = async (req: Request, res: Response) => {
             });
 
             if (targetPlantilla) {
+              // If personnel previously held another plantilla, vacate it
+              const currentPersonnel = await tx.personnel.findUnique({
+                where: { id: transaction.personnelId },
+                select: { plantillaItemId: true },
+              });
+
+              if (currentPersonnel?.plantillaItemId && currentPersonnel.plantillaItemId !== targetPlantilla.id) {
+                await tx.plantillaItem.update({
+                  where: { id: currentPersonnel.plantillaItemId },
+                  data: { isOccupied: false },
+                });
+              }
+
+              const conflictingHolder = await tx.personnel.findFirst({
+                where: { plantillaItemId: targetPlantilla.id, id: { not: transaction.personnelId } },
+                select: { employeeId: true },
+              });
+              if (conflictingHolder) {
+                throw new Error(`Plantilla item ${targetPlantilla.itemNumber} is already occupied by ${conflictingHolder.employeeId}. Resolve the plantilla assignment before approval.`);
+              }
+
               await tx.plantillaItem.update({
                 where: { id: targetPlantilla.id },
                 data: { isOccupied: true },
@@ -756,36 +840,25 @@ export const approveTransaction = async (req: Request, res: Response) => {
                   status: 'SUCCESS',
                 },
               }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_OCCUPIED:', err));
-            }
+            } else throw new Error(`Configured plantilla item "${targetPlantillaNumber}" was not found.`);
           }
         }
-
-        // Extract from transaction remarks if still not found (e.g. 'active for position "Master Teacher I"')
-        if (!targetPosition && transaction.remarks) {
-          const match = transaction.remarks.match(/position ["']([^"']+)["']/i) ||
-                        transaction.remarks.match(/as ([^•\(\n]+) under/i);
-          if (match && match[1]) {
-            targetPosition = match[1].trim();
-          }
-        }
-
-        // Or fallback to assigned plantilla position title
-        if (!targetPosition && transaction.personnel.plantillaItem?.positionTitle) {
-          targetPosition = transaction.personnel.plantillaItem.positionTitle;
-        }
-
-        const finalDesignation = targetPosition || transaction.personnel.designation || 'Teacher I';
+        if (!targetPosition) throw new Error('The linked application has no configured target position.');
+        const finalDesignation = targetPosition;
 
         // Automatically update personnel designation upon final HR document verification & approval
         await tx.personnel.update({
           where: { id: transaction.personnelId },
-          data: { designation: finalDesignation },
+          data: {
+            designation: finalDesignation,
+            ...(isNewHireAppointment ? { status: 'ACTIVE', dateHired: new Date() } : {}),
+          },
         });
 
         // Create official Career History Entry for PROMOTION / APPOINTMENT / RECLASSIFICATION
         const eventType = isReclass
           ? 'RECLASSIFICATION'
-          : (isAppointment && !txTypeName.includes('PROMOTION') ? 'APPOINTMENT' : 'PROMOTION');
+          : (isAppointment && !txTypeName.includes('PROMOTION') ? 'OTHER' : 'PROMOTION');
 
         await tx.careerHistoryEntry.create({
           data: {
@@ -798,6 +871,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
               approvedBy: req.user!.userId,
               newDesignation: finalDesignation,
               previousDesignation: transaction.personnel.designation,
+              ...(eventType === 'OTHER' ? { subtype: 'APPOINTMENT' } : {}),
             },
           },
         });
@@ -814,6 +888,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
         status: 'SUCCESS',
       },
     });
+    res.locals.auditLogged = true;
 
     if (transaction.personnel.user) {
       const isPromo = transaction.transactionType.name.toUpperCase().includes('PROMOTION');
@@ -867,146 +942,7 @@ export const getTransactionRequirements = async (req: Request, res: Response) =>
   });
   const totalCount = checklist.length;
   const uploadedCount = checklist.filter(c => c.isUploaded).length;
-  const complianceScore = totalCount > 0 ? Math.round((uploadedCount / totalCount) * 100) : 100;
+  const complianceScore = totalCount > 0 ? Math.round((uploadedCount / totalCount) * 100) : 0;
   const isComplete = checklist.filter(c => c.isMandatory).every(c => c.isUploaded);
   sendSuccess(res, { complianceScore, isComplete, status: isComplete ? 'Ready for Validation' : 'Incomplete Submission', recommendation: isComplete ? 'All required documents uploaded. You may submit this transaction for AO II validation.' : 'Please upload all missing required documents before submitting.', checklist });
-};
-
-/**
- * POST /transactions/:id/demo-upload
- * Demo mode: Auto-upload realistic sample documents for all requirements of this transaction.
- */
-export const demoAutoUploadDocuments = async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id) || id <= 0 || id > 2147483647) {
-    sendNotFound(res, 'Transaction not found.');
-    return;
-  }
-
-  const transaction = await prisma.transaction.findUnique({
-    where: { id },
-    include: {
-      transactionType: { include: { requirementTemplates: true } },
-      uploadedDocuments: true,
-    },
-  });
-
-  if (!transaction) {
-    sendNotFound(res, 'Transaction not found.');
-    return;
-  }
-
-  // Ensure permission: personnel itself or administrative staff
-  const isOwner = transaction.personnelId === req.user?.personnelId;
-  const isStaff = ['SYSTEM_ADMIN', 'HRMO', 'AO_II'].includes(req.user?.role || '');
-  if (!isOwner && !isStaff) {
-    sendForbidden(res, 'You do not have permission to upload documents for this transaction.');
-    return;
-  }
-
-  // Retrieve requirement templates for this transaction type
-  let templates = transaction.transactionType.requirementTemplates;
-  if (templates.length === 0) {
-    templates = await prisma.requirementTemplate.findMany();
-  }
-
-  const sampleFileNames: Record<string, string> = {
-    'oath': 'DepEd_Oath_of_Office_2025_Signed.pdf',
-    'omnibus': 'Omnibus_Certification_Authenticity_Veracity.pdf',
-    'pds': 'CS_Form_212_Personal_Data_Sheet_Revised_2025.pdf',
-    'personal data sheet': 'CS_Form_212_Personal_Data_Sheet_Revised_2025.pdf',
-    'work experience': 'Work_Experience_Sheet_CS_Form_212.pdf',
-    'prc': 'PRC_ID_Card_and_Verification_Printout.pdf',
-    'board rating': 'PRC_Board_Rating_Certified_True_Copy.pdf',
-    'eligibility': 'CSC_Certificate_of_Eligibility.pdf',
-    'principal': 'Principals_Test_Certificate_of_Rating.pdf',
-    'tor': 'Official_Transcript_of_Records_TOR_CAV.pdf',
-    'transcript': 'Official_Transcript_of_Records_TOR_CAV.pdf',
-    'saln': 'SALN_Revised_2025_Duly_Subscribed.pdf',
-    'service record': 'DepEd_Updated_Service_Record_Signed.pdf',
-    'payslip': 'Latest_DepEd_Monthly_Payslip_Certified.pdf',
-    'performance': 'IPCRF_Very_Satisfactory_Rating_Signed.pdf',
-    'ipcrf': 'IPCRF_Very_Satisfactory_Rating_Signed.pdf',
-    'medical': 'Medical_Certificate_CS_Form_211.pdf',
-    'nbi': 'NBI_Clearance_Valid_Copy.pdf',
-    'birth': 'PSA_Authenticated_Birth_Certificate.pdf',
-    'marriage': 'PSA_Authenticated_Marriage_Certificate.pdf',
-    'position': 'Position_Description_Form_DBM_CSC.pdf',
-    'plantilla': 'Plantilla_Allocation_Appointment_Form.pdf',
-  };
-
-  const getRealisticFileName = (templateName: string): string => {
-    const lower = templateName.toLowerCase();
-    for (const [key, val] of Object.entries(sampleFileNames)) {
-      if (lower.includes(key)) return val;
-    }
-    const clean = templateName.replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/_+/g, '_');
-    return `Verified_Sample_${clean}.pdf`;
-  };
-
-  const existingDocMap = new Map(transaction.uploadedDocuments.map(d => [d.requirementTemplateId, d]));
-  const processedDocs: any[] = [];
-
-  for (const tmpl of templates) {
-    const fileName = getRealisticFileName(tmpl.name);
-    const existing = existingDocMap.get(tmpl.id);
-
-    if (existing) {
-      const updated = await prisma.uploadedDocument.update({
-        where: { id: existing.id },
-        data: {
-          status: 'VALIDATED',
-          fileName,
-          validationNotes: null,
-          storagePath: `/uploads/demo_${transaction.id}_${tmpl.id}.pdf`,
-          fileSize: 1024 * (180 + (tmpl.id * 15)),
-          mimeType: 'application/pdf',
-        },
-      });
-      processedDocs.push(updated);
-    } else {
-      const created = await prisma.uploadedDocument.create({
-        data: {
-          transactionId: transaction.id,
-          requirementTemplateId: tmpl.id,
-          fileName,
-          storagePath: `/uploads/demo_${transaction.id}_${tmpl.id}.pdf`,
-          fileSize: 1024 * (180 + (tmpl.id * 15)),
-          mimeType: 'application/pdf',
-          uploadedByUserId: req.user!.userId,
-          status: 'VALIDATED',
-        },
-      });
-      processedDocs.push(created);
-    }
-  }
-
-  // Log in validation log
-  try {
-    await prisma.validationLog.create({
-      data: {
-        entityType: 'Transaction',
-        entityId: transaction.id,
-        action: 'DEMO_AUTO_UPLOAD_COMPLETED',
-        detailsJson: {
-          count: processedDocs.length,
-          documents: processedDocs.map(d => ({ id: d.id, name: d.fileName })),
-        },
-        userId: req.user!.userId,
-        status: 'SUCCESS',
-      },
-    });
-  } catch (logErr) {
-    console.warn('Could not write demo auto-upload validation log:', logErr);
-  }
-
-  notifyTransactionChange();
-
-  sendSuccess(res, {
-    transactionId: transaction.id,
-    uploadedCount: processedDocs.length,
-    documents: processedDocs,
-    complianceScore: 100,
-    isComplete: true,
-  }, `Demo Auto-Upload complete: ${processedDocs.length} required documents uploaded and verified!`);
 };

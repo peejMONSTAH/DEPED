@@ -28,7 +28,7 @@ class EminenceMobileApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Eminence HRIS Mobile',
+      title: 'Digital 201 Mobile',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const SplashScreen(),

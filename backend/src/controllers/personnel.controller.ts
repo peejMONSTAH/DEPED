@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
 import prisma from '../config/prisma';
 import { sendSuccess, sendNotFound, sendBadRequest, sendForbidden, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { getAOSchoolScope } from '../utils/scope.util';
@@ -22,6 +23,13 @@ const personnelSelect = {
       remarks: true,
       createdAt: true,
       transactionType: { select: { id: true, name: true, description: true } },
+      uploadedDocuments: {
+        select: {
+          id: true, fileName: true, status: true, validationDate: true,
+          requirementTemplate: { select: { name: true } },
+        },
+        orderBy: { uploadDate: 'desc' as const },
+      },
     },
     orderBy: { createdAt: 'desc' as const },
   },
@@ -81,19 +89,31 @@ export const personnelSelectLite = {
     select: { id: true, itemNumber: true, positionTitle: true, salaryGrade: true, department: true, division: true },
   },
   user: { select: { email: true, lastLogin: true, role: { select: { name: true } } } },
+  careerHistoryEntries: {
+    select: { id: true, eventType: true, eventDate: true, detailsJson: true },
+    orderBy: { eventDate: 'desc' as const },
+  },
+  transactions: {
+    select: {
+      id: true, status: true, approvalDate: true, createdAt: true,
+      transactionType: { select: { name: true, requirementTemplates: { where: { isMandatory: true }, select: { id: true } } } },
+      uploadedDocuments: { select: { requirementTemplateId: true, status: true } },
+    },
+    orderBy: { createdAt: 'desc' as const },
+  },
 };
 
 /**
  * Helper to compute authentic DepEd service record metrics & career timeline from database records
  */
 export const buildServiceRecordPayload = (p: any) => {
-  const hiredDate = p.dateHired ? new Date(p.dateHired) : new Date(p.createdAt);
+  const hiredDate = p.dateHired ? new Date(p.dateHired) : null;
   const now = new Date();
 
   // Precise years and months calculation
-  let years = now.getFullYear() - hiredDate.getFullYear();
-  let months = now.getMonth() - hiredDate.getMonth();
-  if (now.getDate() < hiredDate.getDate()) {
+  let years = hiredDate ? now.getFullYear() - hiredDate.getFullYear() : 0;
+  let months = hiredDate ? now.getMonth() - hiredDate.getMonth() : 0;
+  if (hiredDate && now.getDate() < hiredDate.getDate()) {
     months--;
   }
   if (months < 0) {
@@ -101,7 +121,9 @@ export const buildServiceRecordPayload = (p: any) => {
     months += 12;
   }
   let yearsInServiceStr = '';
-  if (years <= 0 && months <= 0) {
+  if (!hiredDate) {
+    yearsInServiceStr = 'Not recorded';
+  } else if (years <= 0 && months <= 0) {
     yearsInServiceStr = 'Newly Appointed (< 1 Month)';
   } else if (years <= 0) {
     yearsInServiceStr = `${months} Month${months > 1 ? 's' : ''}`;
@@ -120,7 +142,7 @@ export const buildServiceRecordPayload = (p: any) => {
   const approvedApps = (p.promotionApplications || []).filter((a: any) => a.status === 'APPROVED');
 
   let latestPromotionDateStr = 'Original Appointment (No Promotions Yet)';
-  let latestAppointmentDateStr = hiredDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  let latestAppointmentDateStr = hiredDate?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) || 'Not recorded';
 
   if (approvedPromotions.length > 0) {
     const latestPromo = approvedPromotions[0];
@@ -135,7 +157,7 @@ export const buildServiceRecordPayload = (p: any) => {
   }
 
   const currentPosition = p.designation || p.plantillaItem?.positionTitle || 'Teaching Personnel';
-  const currentSG = p.plantillaItem?.salaryGrade ? `SG ${p.plantillaItem.salaryGrade}` : 'SG 11';
+  const currentSG = p.plantillaItem?.salaryGrade ? `SG ${p.plantillaItem.salaryGrade}` : 'Not recorded';
 
   // Build authentic interactive career timeline
   const timeline: any[] = [];
@@ -186,18 +208,20 @@ export const buildServiceRecordPayload = (p: any) => {
   });
 
   // 3. Add base Initial Appointment
-  timeline.push({
-    id: 'initial-appointment',
-    year: hiredDate.getFullYear(),
-    date: hiredDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    rawDate: hiredDate.getTime(),
-    event: `Initial Appointment: ${p.designation || 'Teacher I'} (${currentSG})`,
-    type: 'Appointment',
-    ref: 'Initial',
-    status: 'APPROVED',
-    salary: `${currentSG} Base Entry`,
-    remarks: 'DepEd SDO Koronadal City Permanent Appointment',
-  });
+  if (hiredDate) {
+    timeline.push({
+      id: 'initial-appointment',
+      year: hiredDate.getFullYear(),
+      date: hiredDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      rawDate: hiredDate.getTime(),
+      event: `Initial Appointment: ${p.designation || 'Teacher I'} (${currentSG})`,
+      type: 'Appointment',
+      ref: 'Initial',
+      status: 'APPROVED',
+      salary: `${currentSG} Base Entry`,
+      remarks: 'DepEd SDO Koronadal City Permanent Appointment',
+    });
+  }
 
   // Sort timeline descending by date
   timeline.sort((a, b) => b.rawDate - a.rawDate);
@@ -230,7 +254,7 @@ export const buildServiceRecordPayload = (p: any) => {
     },
     serviceRecordDetails: [
       { label: 'Current Position', value: currentPosition, highlight: false },
-      { label: 'First Appointment Date', value: hiredDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), highlight: false },
+      { label: 'First Appointment Date', value: hiredDate?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) || 'Not recorded', highlight: false },
       { label: 'Years in Service', value: yearsInServiceStr, highlight: true, color: 'var(--color-success)' },
       { label: 'Latest Salary Grade', value: currentSG, highlight: true, color: 'var(--color-primary-light)' },
       { label: 'Latest Appointment Date', value: latestAppointmentDateStr, highlight: false },
@@ -272,46 +296,6 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
         where: { id: req.user.userId },
         data: { personnelId: pRecord.id },
       }).catch((err: any) => console.error('Failed to link user personnelId:', err));
-    } else {
-      // On-the-fly Personnel profile creation for unlinked accounts
-      const userRecord = await prisma.user.findUnique({
-        where: { id: req.user.userId },
-        include: { role: true },
-      });
-
-      if (userRecord) {
-        const empId = `EMP-2026-${String(userRecord.id).padStart(4, '0')}`;
-        const emailPrefix = userRecord.email.split('@')[0];
-        const nameParts = emailPrefix.split(/[\._]/);
-        const fName = nameParts[0] ? nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1) : 'Personnel';
-        const lName = nameParts[1] ? nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1) : 'Staff';
-
-        const createdPersonnel = await prisma.personnel.create({
-          data: {
-            userId: userRecord.id,
-            employeeId: empId,
-            firstName: fName,
-            lastName: lName,
-            designation: userRecord.role?.name === 'TEACHING_PERSONNEL' ? 'Teacher I' : 'Administrative Assistant II',
-            birthDate: new Date('1990-01-01'),
-            gender: 'MALE',
-            civilStatus: 'SINGLE',
-            dateHired: new Date(),
-            status: 'ACTIVE',
-            profileComplete: true,
-          },
-        });
-
-        await prisma.user.update({
-          where: { id: userRecord.id },
-          data: { personnelId: createdPersonnel.id },
-        });
-
-        personnel = await prisma.personnel.findUnique({
-          where: { id: createdPersonnel.id },
-          select: personnelSelect,
-        });
-      }
     }
   }
 
@@ -319,8 +303,33 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
     sendNotFound(res, 'Personnel profile not found.');
     return;
   }
+  const documentRows = await prisma.uploadedDocument.findMany({
+    where: {
+      transaction: { personnelId: personnel.id },
+      status: 'VALIDATED',
+      OR: [
+        { requirementTemplate: { name: { contains: 'Personal Data Sheet', mode: 'insensitive' } } },
+        { requirementTemplate: { name: { contains: 'PDS', mode: 'insensitive' } } },
+        { requirementTemplate: { name: { contains: 'Work Experience', mode: 'insensitive' } } },
+      ],
+    },
+    select: {
+      status: true, uploadDate: true, ocrExtractedDataJson: true, correctedOcrDataJson: true,
+      requirementTemplate: { select: { name: true } },
+    },
+    orderBy: { uploadDate: 'desc' },
+  });
+  const profileDocumentData: Record<string, unknown> = {};
+  for (const document of documentRows) {
+    const name = document.requirementTemplate.name.toLowerCase();
+    const type = name.includes('work experience') ? 'wes' : 'pds';
+    if (!profileDocumentData[type]) {
+      const extracted: any = document.correctedOcrDataJson || document.ocrExtractedDataJson;
+      if (extracted?.fields) profileDocumentData[type] = { ...extracted, status: document.status, uploadDate: document.uploadDate };
+    }
+  }
 
-  sendSuccess(res, personnel);
+  sendSuccess(res, { ...personnel, profileDocumentData });
 };
 
 /**
@@ -365,6 +374,8 @@ export const getMyServiceRecord = async (req: Request, res: Response): Promise<v
  * PUT /personnel/me — Update personal 201 file info and persist directly to database
  */
 export const updateMyProfile = async (req: Request, res: Response): Promise<void> => {
+  const inputError = validatePersonnelInput(req.body);
+  if (inputError) { sendBadRequest(res, inputError); return; }
   let targetId = req.user?.personnelId;
 
   if (targetId) {
@@ -383,41 +394,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
       select: { id: true },
     });
 
-    if (pRecord) {
-      targetId = pRecord.id;
-    } else {
-      // Auto-create personnel record if not linked yet
-      const userRecord = await prisma.user.findUnique({
-        where: { id: req.user.userId },
-        include: { role: true },
-      });
-
-      if (userRecord) {
-        const empId = `EMP-2026-${String(userRecord.id).padStart(4, '0')}`;
-        const createdPersonnel = await prisma.personnel.create({
-          data: {
-            userId: userRecord.id,
-            employeeId: empId,
-            firstName: req.body.firstName || 'Personnel',
-            lastName: req.body.lastName || 'Staff',
-            designation: userRecord.role?.name === 'TEACHING_PERSONNEL' ? 'Teacher I' : 'Administrative Assistant II',
-            birthDate: req.body.birthDate ? new Date(req.body.birthDate) : new Date('1990-01-01'),
-            gender: (req.body.gender?.toString().toUpperCase() === 'FEMALE') ? 'FEMALE' : 'MALE',
-            civilStatus: 'SINGLE',
-            dateHired: new Date(),
-            status: 'ACTIVE',
-            profileComplete: true,
-          },
-        });
-
-        await prisma.user.update({
-          where: { id: userRecord.id },
-          data: { personnelId: createdPersonnel.id },
-        });
-
-        targetId = createdPersonnel.id;
-      }
-    }
+    if (pRecord) targetId = pRecord.id;
   }
 
   if (!targetId) {
@@ -434,11 +411,21 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
     return;
   }
 
-  const allowedFields = [
+  const staffRoles = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
+  const isStaffUpdate = staffRoles.includes(req.user?.role || '');
+  const staffOnlyFields = [
     'firstName', 'lastName', 'middleName', 'suffix',
-    'birthDate', 'gender', 'civilStatus', 'contactNumber', 'address',
-    'designation', 'dateHired'
+    'birthDate', 'gender', 'civilStatus', 'designation', 'dateHired',
+    'position', 'firstDayOfService', 'wes'
   ];
+  const requestedStaffFields = staffOnlyFields.filter(field => req.body[field] !== undefined);
+  if (!isStaffUpdate && requestedStaffFields.length > 0) {
+    sendForbidden(res, 'Personal identity and appointment information is maintained by AO II and cannot be edited from a personnel account.');
+    return;
+  }
+  const allowedFields = isStaffUpdate
+    ? [...staffOnlyFields, 'contactNumber', 'address', 'designation', 'dateHired']
+    : ['contactNumber', 'address'];
   const updateData: Record<string, unknown> = {};
 
   // Store every updated field directly in the database without skipping
@@ -469,10 +456,10 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
   if (!updateData['address'] && (req.body.residentialAddress || req.body.permanentAddress)) {
     updateData['address'] = String(req.body.residentialAddress || req.body.permanentAddress).trim();
   }
-  if (!updateData['designation'] && req.body.position) {
+  if (isStaffUpdate && !updateData['designation'] && req.body.position) {
     updateData['designation'] = String(req.body.position).trim();
   }
-  if (!updateData['dateHired'] && req.body.firstDayOfService) {
+  if (isStaffUpdate && !updateData['dateHired'] && req.body.firstDayOfService) {
     const d = new Date(req.body.firstDayOfService);
     if (!isNaN(d.getTime())) updateData['dateHired'] = d;
   }
@@ -498,7 +485,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
   });
 
   // If WES entries are provided, persist them into CareerHistoryEntry records
-  if (Array.isArray(req.body.wes) && req.body.wes.length > 0) {
+  if (isStaffUpdate && Array.isArray(req.body.wes) && req.body.wes.length > 0) {
     for (const entry of req.body.wes) {
       if (entry && entry.positionTitle && entry.dateFrom) {
         const parsedDate = new Date(entry.dateFrom);
@@ -542,6 +529,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
       status: 'SUCCESS',
     },
   });
+  res.locals.auditLogged = true;
 
   sendSuccess(res, updated, '201 Information successfully saved to database.');
 };
@@ -551,22 +539,43 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
  */
 export const getAllPersonnel = async (req: Request, res: Response): Promise<void> => {
   const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
-  const { search, status } = req.query;
+  const { search, status, excludeAdmin } = req.query;
 
   const where: Record<string, any> = {};
   if (status) where.status = status;
 
-  // Scope AO II to only see personnel under their assigned school station
+  if (excludeAdmin === 'true' || excludeAdmin === '1') {
+    where.user = {
+      role: {
+        name: {
+          notIn: ['SYSTEM_ADMIN', 'HRMO', 'AO_II'],
+        },
+      },
+    };
+  }
+
+  // Scope AO II to strictly see only Teaching and Non-Teaching personnel under their assigned school station/district
   const scope = await getAOSchoolScope(req.user);
   if (scope.isAo) {
+    where.user = {
+      role: {
+        name: {
+          in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'],
+        },
+      },
+    };
+
     if (scope.schoolName) {
       where.OR = [
-        { id: scope.aoPersonnelId },
         { address: { contains: scope.schoolName, mode: 'insensitive' } },
         { designation: { contains: scope.schoolName, mode: 'insensitive' } },
+        { plantillaItem: { department: { contains: scope.schoolName, mode: 'insensitive' } } },
       ];
-    } else if (scope.aoPersonnelId) {
-      where.id = scope.aoPersonnelId;
+    } else if (scope.districtName) {
+      where.address = { contains: scope.districtName, mode: 'insensitive' };
+    } else {
+      sendForbidden(res, 'No school assignment is configured for this account.');
+      return;
     }
   }
 
@@ -614,7 +623,11 @@ export const getPersonnelById = async (req: Request, res: Response): Promise<voi
 
   const scope = await getAOSchoolScope(req.user);
   if (scope.isAo && scope.aoPersonnelId !== targetId) {
-    const text = `${personnel.address || ''} ${personnel.designation || ''}`;
+    if (!isPersonnelRole(personnel.user?.role?.name)) {
+      sendForbidden(res, 'Access denied. You can only view personnel records under your assigned school station.');
+      return;
+    }
+    const text = `${personnel.address || ''} ${personnel.designation || ''} ${personnel.plantillaItem?.department || ''}`;
     if (!scope.schoolName || !text.toLowerCase().includes(scope.schoolName.toLowerCase())) {
       sendForbidden(res, 'Access denied. You can only view personnel records under your assigned school station.');
       return;
@@ -644,6 +657,19 @@ export const getPersonnelServiceRecord = async (req: Request, res: Response): Pr
     return;
   }
 
+  const scope = await getAOSchoolScope(req.user);
+  if (scope.isAo && scope.aoPersonnelId !== targetId) {
+    if (!isPersonnelRole(personnel.user?.role?.name)) {
+      sendForbidden(res, 'Access denied. You can only view service records under your assigned school station.');
+      return;
+    }
+    const scopeText = `${personnel.address || ''} ${personnel.designation || ''} ${personnel.plantillaItem?.department || ''}`.toLowerCase();
+    if (!scope.schoolName || !scopeText.includes(scope.schoolName.toLowerCase())) {
+      sendForbidden(res, 'Access denied. You can only view service records under your assigned school station.');
+      return;
+    }
+  }
+
   const payload = buildServiceRecordPayload(personnel);
   sendSuccess(res, payload);
 };
@@ -652,16 +678,37 @@ export const getPersonnelServiceRecord = async (req: Request, res: Response): Pr
  * PUT /personnel/:id — Update personnel profile by ID with full 201 field support & DB persistence
  */
 export const updatePersonnelById = async (req: Request, res: Response): Promise<void> => {
+  const inputError = validatePersonnelInput(req.body);
+  if (inputError) { sendBadRequest(res, inputError); return; }
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     sendBadRequest(res, 'Invalid personnel ID.');
     return;
   }
 
-  const existingPersonnel = await prisma.personnel.findUnique({ where: { id } });
+  const existingPersonnel = await prisma.personnel.findUnique({
+    where: { id },
+    include: {
+      user: { select: { role: { select: { name: true } } } },
+      plantillaItem: { select: { department: true } },
+    },
+  });
   if (!existingPersonnel) {
     sendNotFound(res, 'Personnel record not found.');
     return;
+  }
+
+  const scope = await getAOSchoolScope(req.user);
+  if (scope.isAo && scope.aoPersonnelId !== id) {
+    if (!isPersonnelRole(existingPersonnel.user?.role?.name)) {
+      sendForbidden(res, 'Access denied. You can only update personnel under your assigned school station.');
+      return;
+    }
+    const scopeText = `${existingPersonnel.address || ''} ${existingPersonnel.designation || ''} ${existingPersonnel.plantillaItem?.department || ''}`.toLowerCase();
+    if (!scope.schoolName || !scopeText.includes(scope.schoolName.toLowerCase())) {
+      sendForbidden(res, 'Access denied. You can only update personnel under your assigned school station.');
+      return;
+    }
   }
 
   const updateData: Record<string, unknown> = {};
@@ -702,30 +749,25 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
     updateData.status = valid.includes(s) ? s : 'ACTIVE';
   }
 
-  // Handle Plantilla Item update & synchronization
+  // Validate Plantilla assignment before entering the atomic update.
+  let requestedPlantillaId: number | null | undefined;
   if (req.body.plantillaItemId !== undefined) {
-    const newPlantillaId = req.body.plantillaItemId ? parseInt(String(req.body.plantillaItemId), 10) : null;
-    const oldPlantillaId = existingPersonnel.plantillaItemId;
-
-    if (newPlantillaId !== oldPlantillaId) {
-      if (oldPlantillaId) {
-        // Mark old plantilla item vacant
-        await prisma.plantillaItem.update({
-          where: { id: oldPlantillaId },
-          data: { isOccupied: false },
-        }).catch((err: any) => console.error('Failed to vacate old plantilla item:', err));
-      }
-
-      if (newPlantillaId) {
-        // Mark new plantilla item occupied
-        await prisma.plantillaItem.update({
-          where: { id: newPlantillaId },
-          data: { isOccupied: true },
-        }).catch((err: any) => console.error('Failed to occupy new plantilla item:', err));
-      }
-
-      updateData.plantillaItemId = newPlantillaId;
+    requestedPlantillaId = req.body.plantillaItemId ? parseInt(String(req.body.plantillaItemId), 10) : null;
+    if (requestedPlantillaId !== null && (!Number.isInteger(requestedPlantillaId) || requestedPlantillaId <= 0)) {
+      sendBadRequest(res, 'Invalid plantilla item ID.'); return;
     }
+    if (requestedPlantillaId) {
+      const [item, holder] = await Promise.all([
+        prisma.plantillaItem.findUnique({ where: { id: requestedPlantillaId } }),
+        prisma.personnel.findFirst({ where: { plantillaItemId: requestedPlantillaId, id: { not: id } }, select: { id: true, employeeId: true } }),
+      ]);
+      if (!item) { sendNotFound(res, 'Plantilla item not found.'); return; }
+      if (holder) {
+        sendBadRequest(res, `Plantilla item is already assigned to ${holder.employeeId}. Vacate it through the proper personnel action first.`, 'PLANTILLA_ALREADY_OCCUPIED');
+        return;
+      }
+    }
+    updateData.plantillaItemId = requestedPlantillaId;
   }
 
   // DI-H1: Determine profile completeness
@@ -742,10 +784,12 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
   );
   updateData.profileComplete = isComplete;
 
-  const updated = await prisma.personnel.update({
-    where: { id },
-    data: updateData,
-    select: personnelSelect,
+  const updated = await prisma.$transaction(async tx => {
+    if (requestedPlantillaId !== undefined && requestedPlantillaId !== existingPersonnel.plantillaItemId) {
+      if (existingPersonnel.plantillaItemId) await tx.plantillaItem.update({ where: { id: existingPersonnel.plantillaItemId }, data: { isOccupied: false } });
+      if (requestedPlantillaId) await tx.plantillaItem.update({ where: { id: requestedPlantillaId }, data: { isOccupied: true } });
+    }
+    return tx.personnel.update({ where: { id }, data: updateData, select: personnelSelect });
   });
 
   // Record audit log
@@ -759,6 +803,7 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
       status: 'SUCCESS',
     },
   }).catch((err: any) => console.error('Failed to log 201_FILE_UPDATED:', err));
+  res.locals.auditLogged = true;
 
   sendSuccess(res, updated, 'Personnel 201 file changes applied and stored in database successfully.');
 };

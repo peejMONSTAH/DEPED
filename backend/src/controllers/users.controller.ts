@@ -8,6 +8,7 @@ import {
 import { UserRole, AccountStatus } from '@prisma/client';
 import { notifyUserNotifications } from './notifications.controller';
 import { getAOSchoolScope } from '../utils/scope.util';
+import { validateAccountInput, validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
 
 /**
  * GET /users — List all users with pagination and filtering
@@ -19,23 +20,29 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
   const where: Record<string, any> = {};
   if (role) where.role = { name: role as UserRole };
 
-  // Scope AO II to only see users under their assigned school
+  // Scope AO II to strictly see and manage only Teaching and Non-Teaching personnel under their assigned station/district
   const scope = await getAOSchoolScope(req.user);
   if (scope.isAo) {
-    if (scope.schoolName) {
-      where.OR = [
-        { id: req.user!.userId },
-        {
-          personnel: {
-            OR: [
-              { address: { contains: scope.schoolName, mode: 'insensitive' } },
-              { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-            ],
-          },
-        },
-      ];
+    if (role && (role === 'TEACHING_PERSONNEL' || role === 'NON_TEACHING_PERSONNEL')) {
+      where.role = { name: role as UserRole };
     } else {
-      where.id = req.user!.userId;
+      where.role = { name: { in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] } };
+    }
+
+    if (scope.schoolName) {
+      where.personnel = {
+        OR: [
+          { address: { contains: scope.schoolName, mode: 'insensitive' } },
+          { designation: { contains: scope.schoolName, mode: 'insensitive' } },
+          { plantillaItem: { department: { contains: scope.schoolName, mode: 'insensitive' } } },
+        ],
+      };
+    } else if (scope.districtName) {
+      where.personnel = {
+        address: { contains: scope.districtName, mode: 'insensitive' },
+      };
+    } else {
+      where.id = -1;
     }
   }
 
@@ -139,6 +146,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     sendBadRequest(res, 'Email, password, and role are required.');
     return;
   }
+  const inputError = validateAccountInput(req.body);
+  if (inputError) { sendBadRequest(res, inputError); return; }
 
   const passwordCheck = validatePasswordComplexity(password);
   if (!passwordCheck.valid) {
@@ -172,6 +181,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
   // Execute User & Personnel creation atomically
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(201, 1)`;
     let targetPersonnelId = personnelId ? parseInt(personnelId, 10) : undefined;
     let generatedEmployeeId: string | undefined;
 
@@ -208,8 +218,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
       // School & District preference for AO and Division-level accounts
       const isDivisionLevel = role === 'HRMO' || role === 'SYSTEM_ADMIN';
-      const finalFirstName = role === 'AO_II' ? (firstName || 'AO II') : (firstName || 'Employee');
-      const finalLastName = role === 'AO_II' ? (lastName || schoolAssignment || 'District Officer') : (lastName || 'Staff');
+      const finalFirstName = role === 'AO_II' ? 'AO II' : String(firstName).trim();
+      const finalLastName = role === 'AO_II' ? String(schoolAssignment).trim() : String(lastName).trim();
       const finalDesignation = targetPlantillaItem
         ? targetPlantillaItem.positionTitle
         : (designation || (
@@ -223,13 +233,13 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
                   ? 'Teacher I'
                   : 'Administrative Assistant II'
         ));
-      const finalAddress = address || (
-        isDivisionLevel
-          ? (role === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
-          : targetPlantillaItem?.department
+      const finalAddress = isDivisionLevel
+        ? (role === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
+        : (address || (
+          targetPlantillaItem?.department
             ? `${targetPlantillaItem.department}, ${district || targetPlantillaItem.division || 'Division Office'}`
             : (schoolAssignment ? `${schoolAssignment}${district ? `, ${district}` : ''}` : null)
-      );
+        ));
 
       const newPersonnel = await tx.personnel.create({
         data: {
@@ -237,18 +247,18 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
           employeeId: generatedEmployeeId,
           firstName: finalFirstName,
           lastName: finalLastName,
-          middleName: middleName || null,
-          suffix: suffix || null,
+          middleName: role === 'AO_II' ? null : middleName || null,
+          suffix: role === 'AO_II' ? null : suffix || null,
           designation: finalDesignation,
-          birthDate: birthDate ? new Date(birthDate) : new Date('1990-01-01'),
-          gender: gender && ['MALE', 'FEMALE', 'OTHER'].includes(gender) ? gender : 'MALE',
-          civilStatus: civilStatus && ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(civilStatus) ? civilStatus : 'SINGLE',
+          birthDate: role === 'AO_II' ? null : new Date(birthDate),
+          gender: role === 'AO_II' ? null : gender,
+          civilStatus: role === 'AO_II' ? null : civilStatus,
           contactNumber: contactNumber || null,
           address: finalAddress,
           status: 'ACTIVE',
-          dateHired: dateHired ? new Date(dateHired) : new Date(),
+          dateHired: dateHired ? new Date(dateHired) : null,
           plantillaItemId: targetPlantillaItem ? targetPlantillaItem.id : undefined,
-          profileComplete: true,
+          profileComplete: role === 'AO_II' || Boolean(firstName && lastName && birthDate && gender && civilStatus && contactNumber && finalAddress && dateHired),
         },
       });
 
@@ -335,6 +345,10 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 
   const scope = await getAOSchoolScope(req.user);
   if (scope.isAo && targetId !== req.user?.userId) {
+    if (!isPersonnelRole(user.role.name)) {
+      sendForbidden(res, 'Access denied. You can only view personnel under your assigned school station.');
+      return;
+    }
     const text = `${user.personnel?.address || ''} ${user.personnel?.designation || ''}`;
     if (!scope.schoolName || !text.toLowerCase().includes(scope.schoolName.toLowerCase())) {
       sendForbidden(res, 'Access denied. You can only view users under your assigned school station.');
@@ -356,12 +370,15 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   }
 
   const { email, role, accountStatus } = req.body;
+  const inputError = validatePersonnelInput({ email });
+  if (inputError) { sendBadRequest(res, inputError); return; }
+  if (role && !['SYSTEM_ADMIN', 'HRMO', 'AO_II', 'TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(role)) { sendBadRequest(res, 'Select a supported role.'); return; }
 
   const existing = await prisma.user.findUnique({ where: { id: userId } });
   if (!existing) { sendNotFound(res, 'User not found.'); return; }
 
   const updateData: Record<string, unknown> = {};
-  if (email) updateData.email = email;
+  if (email) updateData.email = email.trim().toLowerCase();
   if (accountStatus && Object.values(AccountStatus).includes(accountStatus)) {
     updateData.accountStatus = accountStatus;
   }
@@ -537,8 +554,14 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
     return;
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true, personnel: true } });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
+
+  const scope = await getAOSchoolScope(req.user);
+  if (scope.isAo && (!isPersonnelRole(user.role.name) || !scope.schoolName || !`${user.personnel?.address || ''} ${user.personnel?.designation || ''}`.toLowerCase().includes(scope.schoolName.toLowerCase()))) {
+    sendForbidden(res, 'You can only distribute credentials to personnel in your assigned school.'); return;
+  }
+  if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
 
   // Update account status to ACTIVE
   await prisma.user.update({
@@ -642,18 +665,31 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
  * POST /users/requests — AO II submits an account creation request for personnel
  */
 export const submitAccountRequest = async (req: Request, res: Response): Promise<void> => {
+  const inputError = validateAccountInput(req.body);
+  if (inputError) { sendBadRequest(res, inputError); return; }
+  if (!isPersonnelRole(req.body.role)) { sendBadRequest(res, 'Only teaching and non-teaching personnel accounts can be requested.'); return; }
   const {
     firstName, lastName, middleName, suffix, email,
     birthDate, gender, civilStatus, contactNumber, address,
     role, designation, school, initialPassword
   } = req.body;
 
-  if (!email || !initialPassword || !firstName || !lastName) {
-    sendBadRequest(res, 'First name, last name, official email address, and initial password are required.');
+  if (!email || !initialPassword || !firstName || !lastName || !birthDate || !gender || !civilStatus || !designation) {
+    sendBadRequest(res, 'First name, last name, birth date, gender, civil status, designation, official email, and initial password are required.');
+    return;
+  }
+
+  const administrativeRoles = ['AO_II', 'HRMO', 'SYSTEM_ADMIN'];
+  if (role && administrativeRoles.includes(role)) {
+    sendBadRequest(res, 'Administrative Officers (AO II) cannot request account creation for administrative roles. Only Teaching and Non-Teaching accounts are permitted.');
     return;
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
+  const passwordCheck = validatePasswordComplexity(String(initialPassword));
+  if (!passwordCheck.valid) { sendBadRequest(res, passwordCheck.message!); return; }
+  const parsedBirthDate = new Date(birthDate);
+  if (isNaN(parsedBirthDate.getTime()) || parsedBirthDate >= new Date()) { sendBadRequest(res, 'Enter a valid birth date.'); return; }
 
   // 1. Check if user email already exists
   const existingUser = await prisma.user.findFirst({
@@ -677,10 +713,16 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
   let finalAddress = address;
   let finalDesignation = designation || 'Teacher I';
 
+  if (role === 'HRMO' || role === 'SYSTEM_ADMIN') {
+    finalSchool = null;
+    finalAddress = role === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City';
+  }
+
   if (req.body.plantillaItemId) {
     const pId = parseInt(String(req.body.plantillaItemId), 10);
     if (!isNaN(pId)) {
       const pItem = await prisma.plantillaItem.findUnique({ where: { id: pId } });
+      if (!pItem || pItem.isOccupied) { sendBadRequest(res, 'Select an available plantilla item.'); return; }
       if (pItem) {
         finalDesignation = `${pItem.positionTitle} [Item #${pItem.itemNumber}]`;
         finalSchool = pItem.department;
@@ -689,6 +731,12 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
   }
 
   if (req.user?.role === 'AO_II') {
+    const scope = await getAOSchoolScope(req.user);
+    if (!scope.schoolName || (finalSchool && finalSchool.trim().toLowerCase() !== scope.schoolName.trim().toLowerCase())) {
+      sendForbidden(res, 'You can only request accounts for your assigned school.'); return;
+    }
+    finalSchool = scope.schoolName;
+    finalAddress = `${scope.schoolName}${scope.districtName ? `, ${scope.districtName}` : ''}`;
     const aoUser = await prisma.user.findUnique({
       where: { id: req.user.userId },
       include: { personnel: true },
@@ -707,8 +755,8 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
       lastName,
       middleName: middleName || null,
       suffix: suffix || null,
-      email,
-      birthDate: birthDate ? new Date(birthDate) : null,
+      email: cleanEmail,
+      birthDate: parsedBirthDate,
       gender: gender && ['MALE', 'FEMALE', 'OTHER'].includes(gender) ? gender : null,
       civilStatus: civilStatus && ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(civilStatus) ? civilStatus : null,
       contactNumber: contactNumber || null,
@@ -716,7 +764,8 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
       role: role && Object.values(UserRole).includes(role as UserRole) ? (role as UserRole) : UserRole.TEACHING_PERSONNEL,
       designation: finalDesignation,
       school: finalSchool || null,
-      initialPassword,
+      initialPassword: await hashPassword(initialPassword),
+      dateHired: req.body.dateHired ? new Date(req.body.dateHired) : null,
       status: 'PENDING',
     },
   });
@@ -739,14 +788,15 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
     });
   }
 
-  sendCreated(res, accountRequest, 'Account creation request submitted successfully. Awaiting System Administrator approval.');
+  const { initialPassword: _password, ...safeRequest } = accountRequest;
+  sendCreated(res, safeRequest, 'Account creation request submitted successfully. Awaiting System Administrator approval.');
 };
 
 /**
  * GET /users/requests — View all account creation requests
  */
 export const getAccountRequests = async (req: Request, res: Response): Promise<void> => {
-  const isSysAdmin = req.user?.role === 'SYSTEM_ADMIN';
+  const isSysAdmin = req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO';
   const where = isSysAdmin ? {} : { requestedByUserId: req.user!.userId };
 
   const requests = await prisma.accountCreationRequest.findMany({
@@ -771,7 +821,7 @@ export const getAccountRequests = async (req: Request, res: Response): Promise<v
     },
   });
 
-  sendSuccess(res, requests);
+  sendSuccess(res, requests.map(({ initialPassword: _password, ...request }) => request));
 };
 
 /**
@@ -793,6 +843,11 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
     return;
   }
 
+  if (!accountRequest.birthDate || !accountRequest.gender || !accountRequest.civilStatus) {
+    sendBadRequest(res, 'This legacy request is missing required personnel identity data. Return it for correction before approval.', 'INCOMPLETE_ACCOUNT_REQUEST');
+    return;
+  }
+
   if (accountRequest.status !== 'PENDING') {
     sendBadRequest(res, `This request has already been ${accountRequest.status.toLowerCase()}.`);
     return;
@@ -811,10 +866,15 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
     return;
   }
 
-  const passwordHash = await hashPassword(accountRequest.initialPassword);
+  // Older requests stored plaintext; new requests store only an Argon2 hash.
+  const passwordHash = accountRequest.initialPassword.startsWith('$argon2')
+    ? accountRequest.initialPassword : await hashPassword(accountRequest.initialPassword);
 
   // 2. Perform Account & Personnel creation inside an atomic Prisma Transaction
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(201, 1)`;
+    const claimed = await tx.accountCreationRequest.updateMany({ where: { id: requestId, status: 'PENDING' }, data: { status: 'APPROVED' } });
+    if (claimed.count !== 1) throw Object.assign(new Error('This request has already been processed.'), { statusCode: 409 });
     const employeeId = await generateEmployeeNumber(tx);
 
     // Check if designation carries an assigned Plantilla Item Number
@@ -825,6 +885,7 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
       matchedPlantilla = await tx.plantillaItem.findFirst({
         where: { itemNumber: itemNum, isOccupied: false },
       });
+      if (!matchedPlantilla) throw Object.assign(new Error('The requested plantilla item is no longer available. Return the request for correction.'), { statusCode: 409 });
     }
 
     const cleanDesignation = matchedPlantilla
@@ -849,15 +910,15 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
         middleName: accountRequest.middleName,
         suffix: accountRequest.suffix,
         designation: cleanDesignation,
-        birthDate: accountRequest.birthDate || new Date('1990-01-01'),
-        gender: accountRequest.gender || 'MALE',
-        civilStatus: accountRequest.civilStatus || 'SINGLE',
+        birthDate: accountRequest.birthDate!,
+        gender: accountRequest.gender!,
+        civilStatus: accountRequest.civilStatus!,
         contactNumber: accountRequest.contactNumber,
         address: accountRequest.address,
         status: 'ACTIVE',
-        dateHired: new Date(),
+        dateHired: accountRequest.dateHired,
         plantillaItemId: matchedPlantilla ? matchedPlantilla.id : undefined,
-        profileComplete: true,
+        profileComplete: false,
       },
     });
 
@@ -915,7 +976,8 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
 
   notifyUserNotifications(accountRequest.requestedByUserId);
 
-  sendSuccess(res, { user: result.newUser, personnel: result.newPersonnel, employeeId: result.employeeId }, 'Account request approved and user credentials created successfully.');
+  const { passwordHash: _hash, ...safeUser } = result.newUser;
+  sendSuccess(res, { user: safeUser, personnel: result.newPersonnel, employeeId: result.employeeId }, 'Account request approved and user credentials created successfully.');
 };
 
 /**

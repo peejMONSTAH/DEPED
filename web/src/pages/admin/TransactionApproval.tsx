@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { ModalOverlay } from '../../components/common/ModalOverlay';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -64,7 +65,8 @@ const CAREER_UPDATE_FIELDS = [
 type TabFilter = 'FOR_APPROVAL' | 'APPROVED' | 'RETURNED' | 'ALL';
 
 export const TransactionApproval: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openedTxIdRef = useRef<string | null>(null);
   const { addToast } = useToast();
   const { user } = useAuthContext();
   const [approvals, setApprovals] = useState<Transaction[]>([]);
@@ -108,13 +110,13 @@ export const TransactionApproval: React.FC = () => {
           transactionType: tx.transactionType?.name || 'HR Transaction',
           personnelCategory: tx.personnel?.designation?.toLowerCase().includes('teacher') ? 'Teaching Personnel' : 'Non-Teaching Personnel',
           dateSubmitted: tx.submissionDate ? new Date(tx.submissionDate).toLocaleDateString() : new Date(tx.createdAt).toLocaleDateString(),
-          validatedBy: 'AO II Evaluator',
+          validatedBy: tx.validatedBy?.email || 'Recorded validator',
           validatedDate: tx.validationDate ? new Date(tx.validationDate).toLocaleDateString() : new Date(tx.updatedAt || tx.createdAt).toLocaleDateString(),
-          complianceScore: tx.complianceScore || 100,
+          complianceScore: tx.complianceScore ?? 0,
           currentPosition: tx.personnel?.designation || 'Staff',
           yearsInService: years,
           status: tx.status,
-          validationHistory: ['Validated by AO II and transferred to HRMO for final approval'],
+          validationHistory: [],
           documents: (tx.uploadedDocuments || []).map((d: any) => d.fileName || 'Uploaded File'),
           careerUpdateTriggered: tx.status === 'APPROVED' || tx.status === 'COMPLETED',
           isPromotion: isPromo,
@@ -126,9 +128,10 @@ export const TransactionApproval: React.FC = () => {
       setApprovals(mapped);
 
       const targetTxId = searchParams.get('txId');
-      if (targetTxId) {
+      if (targetTxId && openedTxIdRef.current !== targetTxId) {
         const found = mapped.find((t: any) => t.id === parseInt(targetTxId, 10));
         if (found) {
+          openedTxIdRef.current = targetTxId;
           handleOpenTransactionDetails(found);
         }
       }
@@ -141,6 +144,7 @@ export const TransactionApproval: React.FC = () => {
   }, [searchParams]);
 
   const handleOpenTransactionDetails = async (tx: Transaction) => {
+    openedTxIdRef.current = String(tx.id);
     setSelected(tx);
     try {
       const res = await apiClient.get(`/transactions/${tx.id}`);
@@ -151,11 +155,11 @@ export const TransactionApproval: React.FC = () => {
               id: d.id,
               name: d.requirementTemplate?.name || d.fileName || 'Uploaded Document',
               type: d.fileName || 'DOCUMENT',
-              status: d.status || 'VALIDATED',
-              validationNotes: d.validationNotes || 'Verified & Validated by AO II Evaluator',
-              validatedBy: d.validatedBy?.email ? `${d.validatedBy.email}` : 'AO II Evaluator',
+              status: d.status || 'REQUIRES_MANUAL_REVIEW',
+              validationNotes: d.validationNotes || '',
+              validatedBy: d.validatedBy?.email || 'Not yet recorded',
             }))
-          : tx.documents.map(d => ({ name: d, status: 'VALIDATED' }));
+          : tx.documents.map(d => ({ name: d, status: 'REQUIRES_MANUAL_REVIEW' }));
 
         const historyList = (detailed.history || []).map((h: any) =>
           `[${new Date(h.timestamp || Date.now()).toLocaleDateString()}] ${h.action}: ${h.user?.email || 'System'} (${h.user?.role?.name || 'USER'})`
@@ -177,10 +181,6 @@ export const TransactionApproval: React.FC = () => {
   };
 
   useRealtimeTransactions(fetchApprovals);
-
-  useEffect(() => {
-    fetchApprovals();
-  }, [fetchApprovals]);
 
   // Status-segregated counts
   const forApprovalList = useMemo(() => approvals.filter(a => a.status === 'FOR_APPROVAL'), [approvals]);
@@ -235,9 +235,33 @@ export const TransactionApproval: React.FC = () => {
     }
   };
 
-  const handleBulkExportPdf = () => {
+  const handleBulkExportPdf = async () => {
     if (selectedTxIds.length === 0) return;
-    addToast(`Exporting Compiled 201 Digital Dossiers for ${selectedTxIds.length} personnel... Ready for download.`, 'SUCCESS');
+    setIsSubmitting(true);
+    let downloaded = 0;
+    try {
+      for (const txId of selectedTxIds) {
+        const detailResponse = await apiClient.get(`/transactions/${txId}`);
+        const documents = detailResponse.data?.data?.uploadedDocuments || [];
+        for (const document of documents) {
+          const fileResponse = await apiClient.get(`/documents/${document.id}/download`, { responseType: 'blob' });
+          const url = URL.createObjectURL(fileResponse.data);
+          const anchor = window.document.createElement('a');
+          anchor.href = url;
+          anchor.download = `TRX-${txId}-${String(document.fileName || `document-${document.id}.pdf`).replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+          window.document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+          URL.revokeObjectURL(url);
+          downloaded += 1;
+        }
+      }
+      addToast(downloaded > 0 ? `Downloaded ${downloaded} dossier document${downloaded === 1 ? '' : 's'}.` : 'No uploaded documents were found for the selected transactions.', downloaded > 0 ? 'SUCCESS' : 'WARNING');
+    } catch (error: any) {
+      addToast(error.response?.data?.message || `Download stopped after ${downloaded} document${downloaded === 1 ? '' : 's'}.`, 'ERROR');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Step 2: Approve → Status: Approved → triggers Step 3 Career Lifecycle Update
@@ -304,7 +328,7 @@ export const TransactionApproval: React.FC = () => {
                 onClick={handleBulkExportPdf}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
-                <AppIcon name="download" size={14} /> Export {selectedTxIds.length} PDFs
+                <AppIcon name="download" size={14} /> Download dossier files
               </button>
               <button
                 type="button"
@@ -328,7 +352,7 @@ export const TransactionApproval: React.FC = () => {
         {loading ? (
           <SkeletonStats count={4} columns={4} />
         ) : (
-          <div className="compliance-stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '20px' }}>
+          <div className="compliance-stats-grid" style={{ gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))', marginBottom: '20px' }}>
             <div className="compliance-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div style={{
@@ -430,7 +454,7 @@ export const TransactionApproval: React.FC = () => {
         {/* 3-Step Visual Workflow Pipeline */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateColumns: 'var(--layout-columns-3, repeat(3, 1fr))',
           gap: '12px',
           marginBottom: '24px',
         }}>
@@ -665,7 +689,7 @@ export const TransactionApproval: React.FC = () => {
         {/* Master-Detail Layout */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: selected ? '1fr 520px' : '1fr',
+          gridTemplateColumns: selected ? 'var(--layout-master-detail, minmax(0, 1fr) minmax(300px, 520px))' : 'minmax(0, 1fr)',
           gap: '24px',
           alignItems: 'start'
         }}>
@@ -825,7 +849,7 @@ export const TransactionApproval: React.FC = () => {
 
                       {/* Details Grid */}
                       <div style={{
-                        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10,
+                        display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))', gap: 10,
                         fontSize: 12, background: 'var(--color-bg-secondary)',
                         padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--color-border)',
                         marginBottom: 12
@@ -948,7 +972,7 @@ export const TransactionApproval: React.FC = () => {
                 <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
                   Personnel Profile
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px', fontSize: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px 12px', fontSize: 12 }}>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Name:</span> <strong style={{ color: 'var(--color-text-primary)' }}>{selected.personnelName}</strong></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Employee ID:</span> <strong className="font-mono" style={{ color: 'var(--color-text-primary)' }}>{selected.employeeId}</strong></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Category:</span> <strong>{selected.personnelCategory}</strong></div>
@@ -989,15 +1013,15 @@ export const TransactionApproval: React.FC = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
-                    Validated Requirements ({selected.detailedDocuments?.length || selected.documents.length})
+                    Submitted Requirements ({selected.detailedDocuments?.length ?? selected.documents.length})
                   </span>
-                  <span className="badge badge-approved" style={{ fontSize: 9 }}>
-                    AO II CERTIFIED
+                  <span className={`badge ${selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'badge-approved' : 'badge-info'}`} style={{ fontSize: 9 }}>
+                    {selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'AO II CERTIFIED' : 'LOADING REVIEW STATUS'}
                   </span>
                 </div>
 
                 <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {(selected.detailedDocuments || selected.documents.map(d => ({ name: d, status: 'VALIDATED', validationNotes: '' }))).map((doc, idx) => (
+                  {(selected.detailedDocuments || selected.documents.map(d => ({ name: d, status: 'REQUIRES_MANUAL_REVIEW', validationNotes: '' }))).map((doc, idx) => (
                     <div
                       key={idx}
                       style={{
@@ -1070,7 +1094,7 @@ export const TransactionApproval: React.FC = () => {
 
       {/* Step 3: Career Lifecycle Update Modal */}
       {showCareerUpdate && (
-        <div className="modal-overlay">
+        <ModalOverlay className="modal-overlay">
           <div className="modal" style={{ maxWidth: 540 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1122,12 +1146,12 @@ export const TransactionApproval: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Return Modal */}
       {showReturnModal && selected && (
-        <div className="modal-overlay">
+        <ModalOverlay className="modal-overlay">
           <div className="modal" style={{ maxWidth: 480 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1158,12 +1182,12 @@ export const TransactionApproval: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Full Document View Modal */}
       {viewingDoc && (
-        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal" style={{ maxWidth: 760, width: '90%' }}>
             <div className="modal-header">
               <div>
@@ -1186,7 +1210,7 @@ export const TransactionApproval: React.FC = () => {
                   <AppIcon name="repository" size={48} color="#3B82F6" />
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)' }}>{viewingDoc.name}</div>
-                <div style={{ fontSize: 12 }}>Evaluator: {viewingDoc.validatedBy || 'AO II Evaluator'}</div>
+                <div style={{ fontSize: 12 }}>Evaluator: {viewingDoc.validatedBy || 'Not recorded'}</div>
                 <div style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
                   Validation Feedback: "{viewingDoc.validationNotes || 'Verified & Compliant under Quality Standards'}"
                 </div>
@@ -1199,7 +1223,7 @@ export const TransactionApproval: React.FC = () => {
               <button type="button" className="btn btn-secondary" onClick={() => setViewingDoc(null)}>Close Viewer</button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

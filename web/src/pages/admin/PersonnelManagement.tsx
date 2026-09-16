@@ -1,11 +1,15 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
-import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS } from '../../constants/depedData';
+import { ModalPortal } from '../../components/common/ModalPortal';
+import { personnelDisplayName } from '../../utils/personnel-display';
+import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
+import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
 
 type PersonnelItem = {
@@ -26,6 +30,7 @@ type PersonnelItem = {
   profileComplete: boolean;
   user?: { email: string; lastLogin?: string; role?: { name: string } };
   plantillaItem?: { itemNumber: string; positionTitle: string; salaryGrade: number; department: string };
+  transactions?: Array<{ uploadedDocuments?: Array<{ id: number; fileName: string; status: string; requirementTemplate?: { name: string } }> }>;
 };
 
 export const PersonnelManagement: React.FC = () => {
@@ -68,6 +73,10 @@ export const PersonnelManagement: React.FC = () => {
     setEditDesignation(p.designation || '');
     setEditDateHired(p.dateHired ? p.dateHired.split('T')[0] : '');
     setEditStatus(p.status || 'ACTIVE');
+    apiClient.get(`/personnel/${p.id}`).then(response => {
+      const detail = response.data?.data;
+      if (detail) setSelected(detail);
+    }).catch(() => undefined);
   };
 
   const handleApply201Changes = async () => {
@@ -111,12 +120,12 @@ export const PersonnelManagement: React.FC = () => {
   const [newLastName, setNewLastName] = useState('');
   const [newMiddleName, setNewMiddleName] = useState('');
   const [newSuffix, setNewSuffix] = useState('');
-  const [newBirthDate, setNewBirthDate] = useState('1995-05-15');
+  const [newBirthDate, setNewBirthDate] = useState('');
   const [newGender, setNewGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
   const [newCivilStatus, setNewCivilStatus] = useState<'SINGLE' | 'MARRIED' | 'WIDOWED' | 'SEPARATED'>('SINGLE');
   const [newContactNumber, setNewContactNumber] = useState('');
   const [newAddress, setNewAddress] = useState('');
-  const [newDateHired, setNewDateHired] = useState(new Date().toISOString().split('T')[0]);
+  const [newDateHired, setNewDateHired] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('Personnel@Pass123');
   const [newCategory, setNewCategory] = useState<string>('AO_II');
@@ -172,7 +181,8 @@ export const PersonnelManagement: React.FC = () => {
     }
   };
 
-  const canManage = ['SYSTEM_ADMIN', 'HRMO'].includes(user?.role || '');
+  const isAo = user?.role === 'AO_II';
+  const canManage = user?.role === 'HRMO';
 
   // Enable Real-time sync across web and mobile
   useRealtimeNotifications(() => {
@@ -182,8 +192,7 @@ export const PersonnelManagement: React.FC = () => {
   const fetchPersonnel = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/personnel');
-      setPersonnel(res.data?.data || []);
+      setPersonnel(await getAllPages('/personnel'));
     } catch (err) {
       console.error('Failed to load personnel:', err);
       setPersonnel([]);
@@ -192,11 +201,17 @@ export const PersonnelManagement: React.FC = () => {
     }
   };
 
-  const filtered = personnel.filter(p =>
-    `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-    (p.employeeId && p.employeeId.toLowerCase().includes(search.toLowerCase())) ||
-    (p.designation && p.designation.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = personnel.filter(p => {
+    if (isAo) {
+      const roleName = p.user?.role?.name;
+      if (roleName !== 'TEACHING_PERSONNEL' && roleName !== 'NON_TEACHING_PERSONNEL') return false;
+    }
+    return (
+      `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
+      (p.employeeId && p.employeeId.toLowerCase().includes(search.toLowerCase())) ||
+      (p.designation && p.designation.toLowerCase().includes(search.toLowerCase()))
+    );
+  });
 
   const handleAddPersonnel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,13 +229,8 @@ export const PersonnelManagement: React.FC = () => {
           ? 'NON_TEACHING_PERSONNEL'
           : newCategory;
 
-      const effectiveSchool = isDivisionLevel
-        ? (newCategory === 'HRMO' ? 'Schools Division Office (SDO)' : 'Division Office - ICT Unit (SDO)')
-        : newSchool;
-
-      const effectiveDistrict = isDivisionLevel
-        ? 'Division Office'
-        : currentDist.name;
+      const effectiveSchool = isDivisionLevel ? undefined : newSchool;
+      const effectiveDistrict = isDivisionLevel ? undefined : currentDist.name;
 
       const effectiveDesignation = newCategory === 'AO_II'
         ? `Administrative Officer II - ${newSchool} (${currentDist.name})`
@@ -230,13 +240,11 @@ export const PersonnelManagement: React.FC = () => {
             ? 'System Administrator'
             : newDesignation;
 
-      const effectiveAddress = newAddress || (
-        isDivisionLevel
-          ? (newCategory === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
-          : `${newSchool}, ${currentDist.name}`
-      );
+      const effectiveAddress = isDivisionLevel
+        ? (newCategory === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
+        : (newAddress || `${newSchool}, ${currentDist.name}`);
 
-      if (!newFirstName.trim() || !newLastName.trim()) {
+      if (newCategory !== 'AO_II' && (!newFirstName.trim() || !newLastName.trim())) {
         addToast('First Name and Last Name are required.', 'ERROR');
         return;
       }
@@ -251,13 +259,14 @@ export const PersonnelManagement: React.FC = () => {
         email: newEmail.trim(),
         password: newPassword,
         role: roleName,
-        firstName: newFirstName.trim(),
-        lastName: newLastName.trim(),
-        middleName: newMiddleName,
-        suffix: newSuffix,
-        birthDate: newBirthDate,
-        gender: newGender,
-        civilStatus: newCivilStatus,
+        nonPlantilla: isSchoolPersonnel && isNonPlantilla,
+        firstName: newCategory === 'AO_II' ? 'AO II' : newFirstName.trim(),
+        lastName: newCategory === 'AO_II' ? newSchool : newLastName.trim(),
+        middleName: newCategory === 'AO_II' ? undefined : newMiddleName,
+        suffix: newCategory === 'AO_II' ? undefined : newSuffix,
+        birthDate: newCategory === 'AO_II' ? undefined : newBirthDate,
+        gender: newCategory === 'AO_II' ? undefined : newGender,
+        civilStatus: newCategory === 'AO_II' ? undefined : newCivilStatus,
         contactNumber: newContactNumber,
         address: effectiveAddress,
         designation: effectiveDesignation,
@@ -296,6 +305,16 @@ export const PersonnelManagement: React.FC = () => {
     }
   };
 
+  const complianceRows = selected ? [
+    { label: 'PDS CS Form 212', pattern: /personal data sheet|\bpds\b/i },
+    { label: 'Oath of Office', pattern: /oath of office/i },
+    { label: 'PRC License / Eligibility', pattern: /prc|license|eligibility/i },
+  ].map(row => {
+    const documents = (selected.transactions || []).flatMap(t => t.uploadedDocuments || []);
+    const document = documents.find(d => row.pattern.test(`${d.requirementTemplate?.name || ''} ${d.fileName || ''}`));
+    return { ...row, document, status: document?.status || 'NOT_SUBMITTED' };
+  }) : [];
+
   return (
     <div className="animate-fade-in">
       <div className="topbar">
@@ -304,6 +323,8 @@ export const PersonnelManagement: React.FC = () => {
           <div className="topbar-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {user?.role === 'AO_II' ? (
               <><AppIcon name="school" size={14} /> Station Scope: {(user as any).designation || user.lastName || 'Assigned School'} (Personnel under your station only)</>
+            ) : user?.role === 'HRMO' ? (
+              <><AppIcon name="settings" size={14} /> Division-Wide Scope: Schools Division Office (SDO Koronadal City) — Division Level (No District Assigned)</>
             ) : (
               'Browse and manage personnel employee profiles'
             )}
@@ -335,8 +356,8 @@ export const PersonnelManagement: React.FC = () => {
           </div>
         </div>
 
-        <div className="table-wrapper">
-          <table className="table">
+        <div className="table-wrapper personnel-records-table-wrapper">
+          <table className="table personnel-records-table">
             <thead>
               <tr>
                 <th>Employee ID</th>
@@ -346,7 +367,7 @@ export const PersonnelManagement: React.FC = () => {
                 <th>Plantilla Item</th>
                 <th>Status</th>
                 <th>Profile Complete</th>
-                <th>Action</th>
+                <th className="personnel-records-action-cell">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -360,16 +381,27 @@ export const PersonnelManagement: React.FC = () => {
                 filtered.map(p => (
                   <tr key={p.id}>
                     <td style={{ fontFamily: 'var(--font-mono)' }}>{p.employeeId}</td>
-                    <td style={{ fontWeight: 600 }}>{p.lastName}, {p.firstName}</td>
+                    <td style={{ fontWeight: 600 }}>{personnelDisplayName(p, p.user?.role?.name)}</td>
                     <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <AppIcon name="school" size={12} /> {p.address?.split(',')[0] || 'Assigned School'}
-                        </span>
-                        <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <AppIcon name="location" size={12} /> {p.address?.includes('District') ? p.address.split(',').slice(1).join(',').trim() : 'District Station'}
-                        </span>
-                      </div>
+                      {['SYSTEM_ADMIN', 'HRMO'].includes(p.user?.role?.name || '') ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <AppIcon name="settings" size={12} /> SDO Koronadal City
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            Division-Wide Scope (No District)
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <AppIcon name="school" size={12} /> {p.address?.split(',')[0] || 'Assigned School'}
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <AppIcon name="location" size={12} /> {p.address?.includes('District') ? p.address.split(',').slice(1).join(',').trim() : (p.address?.includes(',') ? p.address.split(',').slice(1).join(',').trim() : 'District Station')}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td>{p.designation}</td>
                     <td style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
@@ -381,8 +413,8 @@ export const PersonnelManagement: React.FC = () => {
                         {p.profileComplete ? 'Complete' : 'Incomplete'}
                       </span>
                     </td>
-                    <td>
-                      <button className="btn btn-ghost btn-sm" onClick={() => handleSelectPersonnel(p)}>
+                    <td className="personnel-records-action-cell">
+                      <button className="btn btn-ghost btn-sm personnel-view-details-btn" onClick={() => handleSelectPersonnel(p)}>
                         View Details
                       </button>
                     </td>
@@ -396,18 +428,24 @@ export const PersonnelManagement: React.FC = () => {
 
       {/* Details Side Panel Modal */}
       {selected && (() => {
-        const fullName = `${selected.lastName}, ${selected.firstName} ${selected.middleName || ''} ${selected.suffix || ''}`.trim();
+        const fullName = personnelDisplayName(selected, selected.user?.role?.name);
         const initials = `${selected.firstName?.[0] || ''}${selected.lastName?.[0] || ''}`.toUpperCase();
+        const isDivisionRole = ['SYSTEM_ADMIN', 'HRMO'].includes(selected.user?.role?.name || '');
         const addressParts = selected.address?.split(',') || [];
-        const schoolName = addressParts[0]?.trim() || 'Koronadal Central Elementary School 1';
-        const districtName = selected.address?.includes('District') 
-          ? addressParts.slice(1).join(',').trim() 
-          : 'District 1 • SDO Koronadal City';
+        const schoolName = isDivisionRole
+          ? 'Schools Division Office (SDO Koronadal City)'
+          : (addressParts[0]?.trim() || 'Koronadal Central Elementary School 1');
+        const districtName = isDivisionRole
+          ? 'Division-Wide Scope • SDO Koronadal City (No District Assigned)'
+          : (selected.address?.includes('District') 
+            ? addressParts.slice(1).join(',').trim() 
+            : 'District 1 • SDO Koronadal City');
 
         return (
-          <div className="modal-overlay" style={{ zIndex: 1100, padding: 16 }} onClick={() => setSelected(null)}>
+          <ModalPortal>
+          <ModalOverlay className="modal-overlay responsive-viewport-overlay" style={{ zIndex: 1100 }} onClick={() => setSelected(null)}>
             <div
-              className="animate-scale-in"
+              className="animate-scale-in personnel-dossier-modal"
               onClick={e => e.stopPropagation()}
               style={{
                 maxWidth: 'min(1280px, 95vw)',
@@ -425,6 +463,7 @@ export const PersonnelManagement: React.FC = () => {
             >
               {/* Profile Hero Header */}
               <div
+                className="personnel-dossier-header"
                 style={{
                   background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
                   borderBottom: '1px solid var(--color-border)',
@@ -490,52 +529,6 @@ export const PersonnelManagement: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                  {!isEditing201 ? (
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => setIsEditing201(true)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, borderRadius: 10, padding: '7px 14px' }}
-                    >
-                      <Edit size={14} /> Edit 201 Information
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          setIsEditing201(false);
-                          handleSelectPersonnel(selected);
-                        }}
-                        style={{ borderRadius: 10, padding: '7px 12px' }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={handleApply201Changes}
-                        disabled={saving201}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontWeight: 800,
-                          borderRadius: 10,
-                          padding: '7px 16px',
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                          color: '#fff',
-                          border: 'none',
-                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-                        }}
-                      >
-                        <Check size={15} />
-                        <span>{saving201 ? 'Applying Changes...' : 'Apply Changes'}</span>
-                      </button>
-                    </div>
-                  )}
-
                   <button
                     type="button"
                     onClick={() => setSelected(null)}
@@ -547,6 +540,7 @@ export const PersonnelManagement: React.FC = () => {
                       justifyContent: 'center', cursor: 'pointer', fontSize: '16px', fontWeight: 700,
                       transition: 'all 0.15s ease'
                     }}
+                    title="Close"
                   >
                     <X size={18} />
                   </button>
@@ -554,7 +548,7 @@ export const PersonnelManagement: React.FC = () => {
               </div>
 
               {/* Body: Spacious 2-Column Bento Dossier (Left 58% / Right 42%) */}
-              <div style={{ padding: '24px 28px', overflowY: 'auto', flex: '1 1 auto', display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: '22px' }}>
+              <div className="personnel-dossier-body" style={{ padding: '24px 28px', overflowY: 'auto', flex: '1 1 auto', display: 'grid', gridTemplateColumns: 'var(--layout-master-detail, minmax(0, 1.25fr) minmax(0, 1fr))', gap: '22px' }}>
                 {/* Left Column: Personal Data & Station Deployment */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                   {/* Station Banner */}
@@ -576,14 +570,23 @@ export const PersonnelManagement: React.FC = () => {
                     </div>
                     <div>
                       <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8b5cf6' }}>
-                        Assigned School Station & District
+                        {isDivisionRole ? 'Division Governance & Operational Scope' : 'Assigned School Station & District'}
                       </div>
                       <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-text-primary)', marginTop: 2 }}>
                         {schoolName}
                       </div>
                       <div style={{ fontSize: '0.78125rem', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                        <MapPin size={13} color="var(--color-text-muted)" />
-                        <span>{districtName}</span>
+                        {isDivisionRole ? (
+                          <>
+                            <AppIcon name="settings" size={13} color="var(--color-primary-light)" />
+                            <span style={{ fontWeight: 600, color: 'var(--color-primary-light)' }}>{districtName}</span>
+                          </>
+                        ) : (
+                          <>
+                            <MapPin size={13} color="var(--color-text-muted)" />
+                            <span>{districtName}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -599,8 +602,8 @@ export const PersonnelManagement: React.FC = () => {
                       )}
                     </div>
                     
-                    {!isEditing201 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 18px' }}>
+                    {selected.user?.role?.name === 'AO_II' ? <p>{fullName}</p> : !isEditing201 ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '14px 18px' }}>
                         <div>
                           <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Legal Name</div>
                           <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text-primary)' }}>{fullName}</div>
@@ -636,7 +639,7 @@ export const PersonnelManagement: React.FC = () => {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>First Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                             <input type="text" className="form-input" value={editFirstName} onChange={e => setEditFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
@@ -646,17 +649,28 @@ export const PersonnelManagement: React.FC = () => {
                             <input type="text" className="form-input" value={editMiddleName} onChange={e => setEditMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} />
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Last Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                             <input type="text" className="form-input" value={editLastName} onChange={e => setEditLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Suffix</label>
-                            <input type="text" className="form-input" placeholder="Jr., III, etc." value={editSuffix} onChange={e => setEditSuffix(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-.]/g, ''))} />
+                            <select
+                              className="form-input"
+                              value={editSuffix}
+                              onChange={e => setEditSuffix(e.target.value)}
+                            >
+                              {NAME_SUFFIX_OPTIONS.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                              {editSuffix && !NAME_SUFFIX_OPTIONS.some(opt => opt.value === editSuffix) && (
+                                <option value={editSuffix}>{editSuffix}</option>
+                              )}
+                            </select>
                           </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Date of Birth</label>
                             <input type="date" className="form-input" value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} />
@@ -689,7 +703,7 @@ export const PersonnelManagement: React.FC = () => {
                       <Phone size={15} /> Contact & Residential Location
                     </div>
                     {!isEditing201 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 18px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '14px 18px' }}>
                         <div>
                           <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>DepEd Workspace Email</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)', wordBreak: 'break-all' }}>
@@ -702,7 +716,7 @@ export const PersonnelManagement: React.FC = () => {
                             {selected.contactNumber || 'Not Provided'}
                           </div>
                         </div>
-                        <div style={{ gridColumn: 'span 2' }}>
+                        <div style={{ gridColumn: '1 / -1' }}>
                           <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Permanent Residential Address</div>
                           <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', lineHeight: 1.5 }}>
                             {selected.address || 'SDO Koronadal City, South Cotabato, Region XII'}
@@ -732,7 +746,7 @@ export const PersonnelManagement: React.FC = () => {
                       <Briefcase size={15} /> Employment & System Assignment
                     </div>
                     {!isEditing201 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 18px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '14px 18px' }}>
                         <div>
                           <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Position / Designation</div>
                           <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text-primary)' }}>{selected.designation}</div>
@@ -762,7 +776,7 @@ export const PersonnelManagement: React.FC = () => {
                           <label className="form-label" style={{ fontSize: 11 }}>Position / Designation Title <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                           <input type="text" className="form-input" value={editDesignation} onChange={e => setEditDesignation(e.target.value)} required />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Original Date Hired</label>
                             <input type="date" className="form-input" value={editDateHired} onChange={e => setEditDateHired(e.target.value)} />
@@ -803,7 +817,7 @@ export const PersonnelManagement: React.FC = () => {
                         </div>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                         <div style={{ background: 'var(--color-bg-tertiary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                           <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Authorized Title</div>
                           <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--color-text-primary)' }}>
@@ -826,34 +840,25 @@ export const PersonnelManagement: React.FC = () => {
                       <ShieldCheck size={15} /> 201 Dossier & Archival Compliance
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.8125rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--color-bg-tertiary)', borderRadius: 8 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <CheckCircle2 size={14} color="var(--color-success)" />
-                          <span>PDS CS Form 212 (Rev. 2017/2025)</span>
-                        </span>
-                        <span className="badge badge-approved" style={{ fontSize: 10 }}>Validated</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--color-bg-tertiary)', borderRadius: 8 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <CheckCircle2 size={14} color="var(--color-success)" />
-                          <span>Oath of Office & Station Deployment</span>
-                        </span>
-                        <span className="badge badge-approved" style={{ fontSize: 10 }}>Active</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--color-bg-tertiary)', borderRadius: 8 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <CheckCircle2 size={14} color="var(--color-success)" />
-                          <span>PRC Professional Teacher License</span>
-                        </span>
-                        <span className="badge badge-info" style={{ fontSize: 10 }}>Verified</span>
-                      </div>
+                      {complianceRows.map(row => {
+                        const verified = row.status === 'VALIDATED' || row.status === 'APPROVED';
+                        return <div key={row.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px', background: 'var(--color-bg-tertiary)', borderRadius: 8 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {verified ? <CheckCircle2 size={14} color="var(--color-success)" /> : <AlertCircle size={14} color="var(--color-text-muted)" />}
+                            <span>{row.label}</span>
+                          </span>
+                          <span className={`badge ${verified ? 'badge-approved' : row.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`} style={{ fontSize: 10 }}>
+                            {row.status.replace(/_/g, ' ')}
+                          </span>
+                        </div>;
+                      })}
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer */}
-              <div style={{
+              <div className="personnel-dossier-footer" style={{
                 padding: '14px 28px',
                 borderTop: '1px solid var(--color-border)',
                 backgroundColor: 'var(--color-bg-secondary)',
@@ -928,15 +933,17 @@ export const PersonnelManagement: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </ModalOverlay>
+          </ModalPortal>
         );
       })()}
 
       {/* Add Personnel Modal */}
       {showAddModal && (
-        <div className="modal-overlay">
+        <ModalPortal>
+        <ModalOverlay className="modal-overlay responsive-viewport-overlay">
           <div
-            className="animate-scale-in"
+            className="animate-scale-in personnel-add-modal"
             onClick={e => e.stopPropagation()}
             style={{
               maxWidth: 'min(1100px, 95vw)',
@@ -954,6 +961,7 @@ export const PersonnelManagement: React.FC = () => {
           >
             {/* Header */}
             <div
+              className="personnel-add-header"
               style={{
                 background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)',
                 borderBottom: '1px solid var(--color-border)',
@@ -980,8 +988,8 @@ export const PersonnelManagement: React.FC = () => {
             </div>
 
             {/* Form Body */}
-            <form onSubmit={handleAddPersonnel} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', overflow: 'hidden' }}>
-              <div style={{ padding: '20px 28px', overflowY: 'auto', flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form className="personnel-add-form" onSubmit={handleAddPersonnel} style={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', overflow: 'hidden' }}>
+              <div className="personnel-add-body" style={{ padding: '20px 28px', overflowY: 'auto', flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
 
                 {/* Auto-generated Employee Number */}
                 <div style={{ background: 'var(--color-bg-tertiary)', borderRadius: 12, padding: '12px 16px', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -994,12 +1002,12 @@ export const PersonnelManagement: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Section 1: Personal Info — 4-column grid */}
-                <div>
+                {/* Station accounts have no personal identity fields. */}
+                {newCategory !== 'AO_II' && <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="personnel" size={14} /> 1. Personal Information
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">First Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                       <input type="text" className="form-input" placeholder="e.g. Maria" value={newFirstName} onChange={e => setNewFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
@@ -1014,7 +1022,18 @@ export const PersonnelManagement: React.FC = () => {
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Suffix</label>
-                      <input type="text" className="form-input" placeholder="Jr., Sr., III" value={newSuffix} onChange={e => setNewSuffix(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-.]/g, ''))} />
+                      <select
+                        className="form-input"
+                        value={newSuffix}
+                        onChange={e => setNewSuffix(e.target.value)}
+                      >
+                        {NAME_SUFFIX_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                        {newSuffix && !NAME_SUFFIX_OPTIONS.some(opt => opt.value === newSuffix) && (
+                          <option value={newSuffix}>{newSuffix}</option>
+                        )}
+                      </select>
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
@@ -1040,12 +1059,13 @@ export const PersonnelManagement: React.FC = () => {
                   </div>
                 </div>
 
+                }
                 {/* Section 2: Contact & Address — 3-column */}
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="phone" size={14} /> 2. Contact & Address
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Email Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                       <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
@@ -1066,7 +1086,7 @@ export const PersonnelManagement: React.FC = () => {
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="employment" size={14} /> 3. Employment & Credentials
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>
                         Role / Category <span style={{ color: 'var(--color-danger)' }}>*</span>
@@ -1234,38 +1254,19 @@ export const PersonnelManagement: React.FC = () => {
 
                     {/* District & School Assignment: Only applies to AO II & school-based personnel; for HR & Sys Admin, district and station match position at Division Office */}
                     {['HRMO', 'SYSTEM_ADMIN'].includes(newCategory) ? (
-                      <>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontWeight: 700 }}>
-                            Designated District <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginLeft: '0.4rem' }}>(Auto — Matches Position)</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value="Division Office (SDO Koronadal City)"
-                            disabled
-                            style={{ opacity: 0.8, cursor: 'not-allowed', background: 'var(--color-bg-secondary)', fontWeight: 600 }}
-                          />
+                      <div style={{ gridColumn: '1 / -1', padding: '14px 18px', borderRadius: 10, background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                        <div style={{ padding: 6, borderRadius: 8, background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', display: 'flex' }}>
+                          <AppIcon name="settings" size={18} />
                         </div>
-                        <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontWeight: 700 }}>
-                            Designated Station / Office <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginLeft: '0.4rem' }}>(Auto — Matches Position)</span>
-                          </label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={newCategory === 'HRMO' ? 'Schools Division Office (SDO)' : 'Division Office - ICT Unit (SDO)'}
-                            disabled
-                            style={{ opacity: 0.8, cursor: 'not-allowed', background: 'var(--color-bg-secondary)', fontWeight: 600 }}
-                          />
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)', marginBottom: 2 }}>
+                            Division-Wide Scope (SDO Koronadal City) — No District Assigned
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                            HRMO and System Administrator roles have division-wide operational authority across all clusters and schools. They are not assigned to individual schools or districts. Only Station Accounts (AO II) are assigned to specific schools and district clusters.
+                          </div>
                         </div>
-                        <div style={{ gridColumn: '1 / -1', padding: '10px 14px', borderRadius: 8, background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '0.75rem', color: '#3B82F6', display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <AppIcon name="info" size={16} color="#3B82F6" />
-                          <span>
-                            <strong>Division-Level Office Role:</strong> Assigned District and Assigned School only apply to Administrative Officers and school personnel. HRMO and System Administrator stations are designated at the Schools Division Office (SDO) level matching their position.
-                          </span>
-                        </div>
-                      </>
+                      </div>
                     ) : (
                       <>
                         <div className="form-group" style={{ margin: 0 }}>
@@ -1341,13 +1342,14 @@ export const PersonnelManagement: React.FC = () => {
               </div>
 
               {/* Footer */}
-              <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
+              <div className="personnel-add-footer" style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)} style={{ borderRadius: '9999px' }}>Cancel</button>
                 <button type="submit" className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>Create Employee Account</button>
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
+        </ModalPortal>
       )}
     </div>
   );

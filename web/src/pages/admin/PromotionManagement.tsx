@@ -1,4 +1,6 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -6,7 +8,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
-import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_KORONADAL_DISTRICTS } from '../../constants/depedData';
+import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { Search, Filter, CheckCircle2, Clock, XCircle, AlertCircle, PlayCircle, Layers, RefreshCw, Archive, ChevronDown, ChevronUp, Building2, Check, X, Sparkles, Plus, Edit3, Trash2 } from 'lucide-react';
 
 export const PromotionManagement: React.FC = () => {
@@ -14,7 +16,7 @@ export const PromotionManagement: React.FC = () => {
   const { user } = useAuthContext();
   const { theme } = useTheme();
 
-  if (user?.role === 'SYSTEM_ADMIN') {
+  if (user?.role !== 'HRMO') {
     return (
       <div className="p-8 max-w-3xl mx-auto">
         <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl p-8 text-center space-y-4 shadow-sm">
@@ -23,14 +25,14 @@ export const PromotionManagement: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Access Restricted: Promotion Management</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-            System Administrator accounts are strictly scoped to user provisioning, credentials, security audits, and system configuration. Promotion cycles and CAR evaluations are restricted to HRMO and Administrative Officers.
+            Promotion Management and Comparative Assessment Results (CAR) are exclusive to HR (HRMO) only. Neither Administrative Officer II (AO II) nor System Administrator accounts have access to promotion cycles or applicant evaluation.
           </p>
           <div className="pt-2">
             <a
               href="/admin/dashboard"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-primary text-white rounded-xl text-xs font-semibold hover:bg-opacity-90 transition-all shadow-md"
             >
-              Return to System Admin Dashboard
+              Return to Dashboard
             </a>
           </div>
         </div>
@@ -38,7 +40,7 @@ export const PromotionManagement: React.FC = () => {
     );
   }
 
-  const isHR = user?.role === 'HRMO';
+  const isHR = true;
 
   const [cycles, setCycles] = useState<any[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<any | null>(null);
@@ -1001,10 +1003,11 @@ export const PromotionManagement: React.FC = () => {
       </div>
 
       {/* Main Container Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '320px minmax(0, 1fr)', gap: '20px' }}>
+      <div className="promotion-stage" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '20px' }}>
         
         {/* Left Sidebar: Promotion Cycles with Interactive Status Filters */}
-        <div className="card glass-surface" style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)', display: 'flex', flexDirection: 'column', gap: '14px', position: 'sticky', top: '24px', alignSelf: 'start' }}>
+        {!selectedCycle && (
+        <div className="card glass-surface promotion-cycle-index" style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)', display: 'flex', flexDirection: 'column', gap: '14px', alignSelf: 'start' }}>
           
           {/* Header & Refresh */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1117,7 +1120,7 @@ export const PromotionManagement: React.FC = () => {
           </div>
 
           {/* Cycle Cards List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: 'calc(100vh - 360px)', paddingRight: '2px' }}>
+          <div className="promotion-cycle-grid" style={{ display: 'grid', gap: '10px', paddingRight: '2px' }}>
             {cycles.length === 0 ? (
               <div style={{
                 padding: '24px 16px',
@@ -1182,7 +1185,20 @@ export const PromotionManagement: React.FC = () => {
                 return (
                   <div
                     key={cycle.id}
-                    onClick={() => setSelectedCycle(cycle)}
+                    className="promotion-cycle-card"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedCycle(cycle);
+                      setActiveTab('LEADERBOARD');
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedCycle(cycle);
+                        setActiveTab('LEADERBOARD');
+                      }
+                    }}
                     style={{
                       padding: '12px 14px',
                       borderRadius: '12px',
@@ -1230,9 +1246,21 @@ export const PromotionManagement: React.FC = () => {
             )}
           </div>
         </div>
+        )}
 
         {/* Right Area: Workspace, Tabs & Leaderboard */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {selectedCycle && (
+        <div className="promotion-cycle-detail" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="promotion-detail-navigation">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm promotion-back-button"
+              onClick={() => setSelectedCycle(null)}
+            >
+              <AppIcon name="chevron-left" size={14} /> Back to promotion cycles
+            </button>
+            <span className="promotion-detail-context">Viewing cycle details, applicants, ratings and CAR</span>
+          </div>
           {selectedCycle && (
             <>
               {/* Selected Cycle Header */}
@@ -1390,22 +1418,19 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     {/* Important Highlights Strip (Bento Row) */}
-                    <div style={{
+                    <div className="promotion-summary-grid" style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
                       gap: '12px',
-                      background: 'var(--color-bg-tertiary)',
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--color-border)',
                     }}>
                       {/* Highlight 1: Quota Available */}
-                      <div>
-                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '2px' }}>
+                      <div className="promotion-summary-card promotion-summary-card--slots">
+                        <div className="promotion-summary-label">
+                          <span className="promotion-summary-icon"><AppIcon name="checklist" size={15} /></span>
                           Available Openings
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '1.0625rem', fontWeight: 900, color: 'var(--color-text-primary)' }}>
+                        <div className="promotion-summary-value-row">
+                          <span className="promotion-summary-value promotion-summary-value--large">
                             {cycleVacantPositions} {cycleVacantPositions === 1 ? 'Slot' : 'Slots'}
                           </span>
                           <span style={{
@@ -1423,31 +1448,34 @@ export const PromotionManagement: React.FC = () => {
                       </div>
 
                       {/* Highlight 2: Plantilla Item */}
-                      <div>
-                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '2px' }}>
+                      <div className="promotion-summary-card promotion-summary-card--plantilla">
+                        <div className="promotion-summary-label">
+                          <span className="promotion-summary-icon"><AppIcon name="employment" size={15} /></span>
                           Plantilla Item
                         </div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>
+                        <div className="promotion-summary-value promotion-summary-value--code">
                           {cyclePlantillaNo || 'Division Pool'}
                         </div>
                       </div>
 
                       {/* Highlight 3: Evaluation Track */}
-                      <div>
-                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '2px' }}>
+                      <div className="promotion-summary-card promotion-summary-card--track">
+                        <div className="promotion-summary-label">
+                          <span className="promotion-summary-icon"><AppIcon name="promotions" size={15} /></span>
                           Evaluation Track
                         </div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                        <div className="promotion-summary-value">
                           {isCycleTeaching ? 'Teaching Personnel Track (100 pts)' : 'Non-Teaching Track (100 pts)'}
                         </div>
                       </div>
 
                       {/* Highlight 4: Candidate Pool */}
-                      <div>
-                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '2px' }}>
+                      <div className="promotion-summary-card promotion-summary-card--candidates">
+                        <div className="promotion-summary-label">
+                          <span className="promotion-summary-icon"><AppIcon name="personnel" size={15} /></span>
                           Candidate Pool
                         </div>
-                        <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                        <div className="promotion-summary-value promotion-summary-value--large">
                           {filteredLeaderboard.length} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Applicants</span>
                         </div>
                       </div>
@@ -1504,7 +1532,7 @@ export const PromotionManagement: React.FC = () => {
                   Comparative Assessment Result (CAR)
                 </button>
 
-                {(user?.role === 'AO_II' || user?.role === 'HRMO') && (
+                {isHR && (
                   <button
                     type="button"
                     onClick={() => setActiveTab('AO_RATING')}
@@ -1567,7 +1595,7 @@ export const PromotionManagement: React.FC = () => {
 
                 {/* TAB 1: REALTIME RANKING LEADERBOARD */}
                 {activeTab === 'LEADERBOARD' && (
-                  <div className="card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)' }}>
+                  <div className="card promotion-leaderboard-card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)' }}>
                     {/* Header Controls */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
                       <div>
@@ -1704,13 +1732,13 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     {/* LEADERBOARD TABLE WITH EXPANDABLE PARTICIPANTS */}
-                    <div className="table-wrapper" style={{ border: '1px solid var(--color-border)', borderRadius: '10px', width: '100%', overflowX: 'auto', background: 'var(--color-bg-card)' }}>
-                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                    <div className="table-wrapper promotion-leaderboard-table-wrapper" style={{ border: '1px solid var(--color-border)', borderRadius: '10px', width: '100%', overflowX: 'auto', background: 'var(--color-bg-card)' }}>
+                      <table className="table promotion-leaderboard-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
                         <thead>
                           <tr style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
                             <th style={{ padding: '10px 8px', textAlign: 'center', width: '40px' }} />
                             <th style={{ padding: '10px 10px', textAlign: 'center', width: '55px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Rank</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Applicant</th>
+                            <th className="promotion-applicant-column" style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Applicant</th>
                             <th style={{ padding: '10px 14px', textAlign: 'center', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Applicant No.</th>
                             <th style={{ padding: '10px 16px', textAlign: 'center', width: '200px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Score Breakdown & Total</th>
                             <th style={{ padding: '10px 14px', textAlign: 'right', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Actions</th>
@@ -1862,8 +1890,8 @@ export const PromotionManagement: React.FC = () => {
                                     </td>
 
                                     {/* Applicant Details */}
-                                    <td style={{ padding: '12px 14px' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <td className="promotion-applicant-column" style={{ padding: '12px 14px' }}>
+                                      <div className="promotion-applicant-identity" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <div style={{
                                           width: '32px',
                                           height: '32px',
@@ -1884,7 +1912,7 @@ export const PromotionManagement: React.FC = () => {
                                         }}>
                                           {item.name ? item.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2) : 'AP'}
                                         </div>
-                                        <div>
+                                        <div className="promotion-applicant-copy">
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                             <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
                                               {item.name}
@@ -1916,7 +1944,7 @@ export const PromotionManagement: React.FC = () => {
                                               </span>
                                             )}
                                           </div>
-                                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                          <div className="promotion-applicant-meta" style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                                             {item.designation || 'Candidate'} • <span>{item.station || 'Division Office'}</span>
                                             {(item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber) && (
                                               <span style={{ marginLeft: '6px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
@@ -2108,7 +2136,7 @@ export const PromotionManagement: React.FC = () => {
                                   {isExpanded && (
                                     <tr style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
                                       <td colSpan={6} style={{ padding: '14px 18px 18px 18px' }}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
                                           {/* Stage 1: AO II Initial Evaluation Card */}
                                           <div style={{
                                             background: 'var(--color-bg-card)',
@@ -2489,7 +2517,7 @@ export const PromotionManagement: React.FC = () => {
                       </div>
 
                       {/* Official DepEd Metadata Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', fontSize: '0.8125rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '12px', fontSize: '0.8125rem' }}>
                         <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                           <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Position:</span>
                           <strong style={{ color: 'var(--color-text-primary)', fontSize: '0.9375rem', fontWeight: 800 }}>{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Teacher / Plantilla Post'}</strong>
@@ -2726,21 +2754,9 @@ export const PromotionManagement: React.FC = () => {
                         
                         {/* District Jurisdiction Status Pill */}
                         <div style={{ marginTop: '8px' }}>
-                          {user?.role === 'AO_II' ? (
-                            isAoDistrictAllowed ? (
-                              <span style={{ fontSize: '0.75rem', color: '#059669', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(5, 150, 105, 0.3)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <AppIcon name="check" size={12} color="#059669" /> District Jurisdiction Verified: You are authorized as AO II for {cycleDistrict || 'this district'} ({cycleSchool || 'All Schools'})
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '0.75rem', color: '#DC2626', background: theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(220, 38, 38, 0.3)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <AppIcon name="error" size={12} color="#DC2626" /> District Jurisdiction Locked: Only AO II from {cycleDistrict || 'District 1'} can rate applicants in this cycle (Your assigned jurisdiction: {currentUserDistrict || 'Unassigned / Different District'})
-                              </span>
-                            )
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              <AppIcon name="location" size={12} color="var(--color-primary)" /> Designated Jurisdiction: {cycleDistrict || 'District 1'} ({cycleSchool || 'All Schools in District'})
-                            </span>
-                          )}
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <AppIcon name="location" size={12} color="var(--color-primary)" /> Division Scope: {cycleDistrict || 'Division-Wide'} ({cycleSchool || 'All Schools'})
+                          </span>
                         </div>
                       </div>
 
@@ -2798,7 +2814,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     {/* KPI Metric Counter Strip */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                       <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total Applicants</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{filteredSubmittedApps.length}</div>
@@ -2831,7 +2847,7 @@ export const PromotionManagement: React.FC = () => {
                   </div>
 
                   {/* Candidate Scoring Cards Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '18px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '18px' }}>
                     {displayedAoApps.map((app) => {
                       const initialRating = app.scoreDetailsJson?.initialRating || {};
                       const isRated = Boolean(app.status === 'INITIAL_RATED' || app.status === 'RANKED' || app.status === 'APPROVED' || app.status === 'PROMOTED' || initialRating.initialTotalScore !== undefined);
@@ -2916,7 +2932,7 @@ export const PromotionManagement: React.FC = () => {
                             </div>
 
                             {/* Criteria Score Breakdown Cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, 1fr))', gap: '8px', marginBottom: '14px' }}>
                               <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
                                 <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Education (10)</div>
                                 <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{edu} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ 10</span></div>
@@ -3102,7 +3118,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     {/* KPI Metric Counter Strip */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                       <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total In Deliberation</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{filteredSubmittedApps.length}</div>
@@ -3133,7 +3149,7 @@ export const PromotionManagement: React.FC = () => {
                   </div>
 
                   {/* Candidate Scoring Cards Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '18px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '18px' }}>
                     {displayedHrmoApps.map((app) => {
                       const finalRating = app.scoreDetailsJson?.finalRating || {};
                       const isFinalized = Boolean(app.status === 'RANKED' || app.status === 'APPROVED' || app.status === 'PROMOTED' || finalRating.finalTotalScore !== undefined);
@@ -3214,7 +3230,7 @@ export const PromotionManagement: React.FC = () => {
 
                             {/* Two-Stage Score Gauge Card */}
                             <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '10px', marginBottom: '14px' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px', marginBottom: '10px' }}>
                                 <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '8px 10px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
                                   <div style={{ fontSize: '0.625rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 1 • AO II Score</div>
                                   <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary)' }}>{aoSubtotal.toFixed(2)} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ {maxAo}</span></div>
@@ -3333,7 +3349,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
                     {filteredLeaderboard.map((item) => {
                       const isOfficiallyApproved = Boolean(item.isPromoted || item.status === 'OFFICIALLY_PROMOTED');
                       const isSelectedPendingDocs = Boolean(item.isSelectedForPromotion || item.status === 'SELECTED_PENDING_DOCS' || item.status === 'PROMOTED' || item.status === 'APPROVED');
@@ -3525,11 +3541,12 @@ export const PromotionManagement: React.FC = () => {
             </>
           )}
         </div>
+        )}
       </div>
 
       {/* MODAL 1: AO II INITIAL RATING FORM (OFFICIAL DEPED CAR CRITERIA) */}
       {showAoModal && selectedAppForModal && (
-        <div className="modal-overlay">
+        <ModalOverlay className="modal-overlay">
           <div className="modal animate-scale-in" style={{ maxWidth: '560px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.2)' }}>
             <div className="modal-header" style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)', padding: '16px 20px', borderRadius: '16px 16px 0 0' }}>
               <div>
@@ -3546,7 +3563,7 @@ export const PromotionManagement: React.FC = () => {
 
             <form onSubmit={handleSubmitAoRating} style={{ padding: '20px' }}>
               {/* Common AO II Criteria */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px', marginBottom: '12px' }}>
                 <div className="form-group">
                   <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Education Score (Max 10)</label>
                   <input
@@ -3601,7 +3618,7 @@ export const PromotionManagement: React.FC = () => {
                   <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#D97706', marginBottom: '8px' }}>
                     Non-Teaching Specific Criteria (30 pts)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '10px' }}>
                     <div className="form-group">
                       <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Accomplishments (Max 5)</label>
                       <input
@@ -3686,15 +3703,15 @@ export const PromotionManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* MODAL 2: HRMO STAFF FINAL RATING FORM (OFFICIAL DEPED CAR DELIBERATION) */}
-      {showHrmoModal && selectedAppForModal && isHR && (
-        <div className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1050 }}>
-          <div className="modal animate-scale-in" style={{
-            maxWidth: '680px',
-            width: '95%',
+      {showHrmoModal && selectedAppForModal && isHR && createPortal((
+        <ModalOverlay className="modal-overlay hrmo-deliberation-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1050 }}>
+          <div className="modal animate-scale-in hrmo-deliberation-modal" style={{
+            maxWidth: '1240px',
+            width: 'calc(100vw - 48px)',
             borderRadius: '16px',
             background: 'var(--color-bg-card)',
             border: '1px solid var(--color-border)',
@@ -3706,7 +3723,7 @@ export const PromotionManagement: React.FC = () => {
             overflow: 'hidden',
           }}>
             {/* Modal Header */}
-            <div style={{
+            <div className="hrmo-deliberation-header" style={{
               background: 'var(--color-bg-tertiary)',
               borderBottom: '1px solid var(--color-border)',
               padding: '20px 24px',
@@ -3750,7 +3767,7 @@ export const PromotionManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitHrmoRating} style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <form className="hrmo-deliberation-form" onSubmit={handleSubmitHrmoRating} style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '18px' }}>
               {/* Candidate Info Profile Card */}
               <div style={{
                 background: 'var(--color-bg-tertiary)',
@@ -3840,7 +3857,7 @@ export const PromotionManagement: React.FC = () => {
                   borderRadius: '12px',
                   padding: '18px',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <div className="hrmo-criteria-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                     <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Teaching Merit Criteria (40.00 pts Max)
                     </div>
@@ -3867,7 +3884,7 @@ export const PromotionManagement: React.FC = () => {
                           <button type="button" onClick={() => setHrmoPpstCoiScore(20)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>20.00</button>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <input
                           type="range"
                           min={0} max={25} step="0.25"
@@ -3907,7 +3924,7 @@ export const PromotionManagement: React.FC = () => {
                           <button type="button" onClick={() => setHrmoPpstNcoiScore(12)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>12.00</button>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <input
                           type="range"
                           min={0} max={15} step="0.25"
@@ -3939,7 +3956,7 @@ export const PromotionManagement: React.FC = () => {
                   borderRadius: '12px',
                   padding: '18px',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                  <div className="hrmo-criteria-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                     <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Non-Teaching Potential Criteria (20.00 pts Max)
                     </div>
@@ -3948,7 +3965,7 @@ export const PromotionManagement: React.FC = () => {
                     </span>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
                       <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Written Examination (Max 5)</label>
                       <input
@@ -4049,13 +4066,13 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 {/* BI, Appointment, Probation Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '14px', minWidth: 0 }}>
+                <div className="hrmo-governance-grid" style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '14px', marginBottom: '14px', minWidth: 0 }}>
                   {/* Background Investigation Segment */}
                   <div style={{ minWidth: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                       1. Background Investigation (BI)
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                    <div className="hrmo-bi-options" style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '6px' }}>
                       <button
                         type="button"
                         onClick={() => setForBackgroundInvestigation('YES')}
@@ -4134,7 +4151,7 @@ export const PromotionManagement: React.FC = () => {
 
                 {/* Remarks & Quick Preset Prompts */}
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div className="hrmo-remarks-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', margin: 0 }}>
                       4. Board Final Remarks / Deliberation Summary
                     </label>
@@ -4167,7 +4184,7 @@ export const PromotionManagement: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div style={{
+              <div className="hrmo-modal-footer" style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'flex-end',
@@ -4207,12 +4224,12 @@ export const PromotionManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </ModalOverlay>
+      ), document.body)}
 
       {/* MODAL 3: APPLICATION FORM FILL (COMPLETE PDS FORM 212) */}
       {showAppModal && (
-        <div className="modal-overlay">
+        <ModalOverlay className="modal-overlay">
           <div className="modal animate-scale-in" style={{
             maxWidth: 'min(980px, 95vw)',
             width: '95vw',
@@ -4351,7 +4368,7 @@ export const PromotionManagement: React.FC = () => {
                   }}>
                     <AppIcon name="personnel" size={14} /> 1. Personal Information (PDS CS Form 212)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
                         First Name <span style={{ color: 'var(--color-danger)' }}>*</span>
@@ -4409,13 +4426,18 @@ export const PromotionManagement: React.FC = () => {
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
                         Suffix
                       </label>
-                      <input
-                        type="text"
+                      <select
                         className="form-input"
-                        placeholder="Jr., Sr., III"
                         value={appSuffix}
-                        onChange={(e) => setAppSuffix(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-.]/g, ''))}
-                      />
+                        onChange={(e) => setAppSuffix(e.target.value)}
+                      >
+                        {NAME_SUFFIX_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                        {appSuffix && !NAME_SUFFIX_OPTIONS.some(opt => opt.value === appSuffix) && (
+                          <option value={appSuffix}>{appSuffix}</option>
+                        )}
+                      </select>
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
@@ -4479,7 +4501,7 @@ export const PromotionManagement: React.FC = () => {
                   }}>
                     <AppIcon name="phone" size={14} /> 2. Contact Details & Residential Address
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
                         Email Address (Portal Account) <span style={{ color: 'var(--color-danger)' }}>*</span>
@@ -4628,12 +4650,12 @@ export const PromotionManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* MODAL 4: CREATE PROMOTION CYCLE */}
       {showConfigModal && isHR && (
-        <div className="modal-overlay">
+        <ModalOverlay className="modal-overlay">
           <div className="modal animate-scale-in" style={{
             maxWidth: '780px',
             width: '92vw',
@@ -4689,7 +4711,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 {/* 2-Column Grid at Top: Max Applicants Capacity & Applicants to be Chosen */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px', marginBottom: '14px' }}>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <AppIcon name="users" size={13} color="var(--color-primary)" />
@@ -5296,7 +5318,7 @@ export const PromotionManagement: React.FC = () => {
               )}
 
               {/* Cycle Information & Schedule (Spacious 2-Column Grid) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '14px', marginBottom: '16px' }}>
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
                     Cycle Title <span style={{ color: 'var(--color-danger)' }}>*</span>
@@ -5376,7 +5398,7 @@ export const PromotionManagement: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* MODAL 5: APPLICANT SCORE BREAKDOWN & CAR DOSSIER INFO */}
@@ -5422,7 +5444,7 @@ export const PromotionManagement: React.FC = () => {
         const primaryActionColor = '#FFFFFF';
 
         return (
-          <div
+          <ModalOverlay
             className="modal-overlay"
             style={{
               position: 'fixed',
@@ -5814,7 +5836,7 @@ export const PromotionManagement: React.FC = () => {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))',
                       gap: '10px',
                       marginBottom: '14px',
                     }}
@@ -5931,7 +5953,7 @@ export const PromotionManagement: React.FC = () => {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
                       gap: '10px',
                       marginBottom: '14px',
                     }}
@@ -6148,7 +6170,7 @@ export const PromotionManagement: React.FC = () => {
                     Official DepEd Governance & Appointment Status
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '10px' }}>
                     <div
                       style={{
                         backgroundColor: 'var(--color-bg-card)',
@@ -6265,13 +6287,13 @@ export const PromotionManagement: React.FC = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         );
       })()}
 
       {/* MODAL 6: PROMOTION SELECTION CONFIRMATION */}
       {showConfirmPromotionModal && selectedCandidateForConfirm && isHR && (
-        <div className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1060 }}>
+        <ModalOverlay className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1060 }}>
           <div className="modal animate-scale-in" style={{
             maxWidth: '520px',
             width: '95%',
@@ -6467,7 +6489,7 @@ export const PromotionManagement: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
 

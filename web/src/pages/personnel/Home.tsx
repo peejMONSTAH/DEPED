@@ -1,9 +1,11 @@
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
+import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 
@@ -24,6 +26,10 @@ type PromotionCycleItem = {
   status: string;
   applicantCount?: number;
   hasApplied?: boolean;
+  targetPosition?: string;
+  currentPosition?: string;
+  isCurrentPosition?: boolean;
+  rulesConfigurationJson?: Record<string, any>;
 };
 
 export const PersonnelHome: React.FC = () => {
@@ -39,6 +45,20 @@ export const PersonnelHome: React.FC = () => {
   const [availablePlantillaItems, setAvailablePlantillaItems] = useState<any[]>([]);
   const [showPlantillaDirectory, setShowPlantillaDirectory] = useState(false);
   const [plantillaSearch, setPlantillaSearch] = useState('');
+
+  const normalizePositionTitle = (value: unknown) => String(value || '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b(?:salary\s*grade|sg)\s*\d+\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  const isCycleForCurrentPosition = (cycle: PromotionCycleItem | any) => {
+    if (cycle?.isCurrentPosition) return true;
+    const current = user?.personnel?.designation || cycle?.currentPosition || '';
+    const target = cycle?.targetPosition || cycle?.rulesConfigurationJson?.targetPosition || '';
+    return Boolean(current && target && normalizePositionTitle(current) === normalizePositionTitle(target));
+  };
 
   const fetchMyTransactions = useCallback(async () => {
     try {
@@ -84,6 +104,10 @@ export const PersonnelHome: React.FC = () => {
   }, [fetchMyTransactions, fetchOpenCycles, fetchAvailablePlantilla, user?.id]);
 
   const handleApplyForCycle = async (cycle: PromotionCycleItem) => {
+    if (isCycleForCurrentPosition(cycle)) {
+      addToast(`You cannot apply for ${cycle.targetPosition || cycle.rulesConfigurationJson?.targetPosition || 'this position'} because it is already your current position.`, 'ERROR');
+      return;
+    }
     setSubmittingCycleId(cycle.id);
     try {
       await apiClient.post(`/promotions/cycles/${cycle.id}/apply`);
@@ -166,7 +190,7 @@ export const PersonnelHome: React.FC = () => {
       </div>
 
       {/* ─── 3. METRICS ROW (Strict Database Numbers & Editorial Styling) ─── */}
-      <div className="metrics-grid-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="metrics-grid-row" style={{ gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))' }}>
         {/* Metric 1: Active Transactions */}
         <div className="soft-card metric-card">
           <div className="metric-card-top">
@@ -286,7 +310,7 @@ export const PersonnelHome: React.FC = () => {
                       </div>
                     </div>
                     <Link
-                      to="/personnel/new-transaction"
+                      to="/personnel/transactions"
                       className="btn btn-primary"
                       style={{
                         display: 'inline-flex',
@@ -299,7 +323,7 @@ export const PersonnelHome: React.FC = () => {
                         borderRadius: 999
                       }}
                     >
-                      <AppIcon name="new-transaction" size={14} /> Start New Filing
+                      <AppIcon name="transactions" size={14} /> View My Transactions
                     </Link>
                   </div>
 
@@ -382,7 +406,7 @@ export const PersonnelHome: React.FC = () => {
                     lineHeight: 1.6,
                     color: 'var(--color-text-secondary)'
                   }}>
-                    You currently have no pending or in-review document submissions. Start a new filing to submit promotion, newly hired appointment, or 201 records to the Division Office.
+                    You have no pending document submissions. When HR selects you for hiring or promotion, your appointment transaction will appear in My Transactions so you can complete the requirements.
                   </p>
 
                   {/* 3-Step Guided Workflow Pills */}
@@ -407,7 +431,7 @@ export const PersonnelHome: React.FC = () => {
                       color: 'var(--color-text-secondary)'
                     }}>
                       <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #141416)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>1</span>
-                      Select Transaction Type
+                      Open Assigned Transaction
                     </div>
                     <div style={{
                       display: 'flex',
@@ -442,21 +466,6 @@ export const PersonnelHome: React.FC = () => {
                   </div>
 
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <Link
-                      to="/personnel/new-transaction"
-                      className="btn btn-primary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        textDecoration: 'none',
-                        padding: '10px 20px',
-                        fontWeight: 700,
-                        borderRadius: 999
-                      }}
-                    >
-                      <AppIcon name="new-transaction" size={16} /> Start New 201 Application
-                    </Link>
                     <Link
                       to="/personnel/transactions"
                       className="btn btn-secondary"
@@ -514,7 +523,6 @@ export const PersonnelHome: React.FC = () => {
             <div className="card-header-flex">
               <div>
                 <h3 className="card-heading-title">Open Promotion & Reclassification Vacancies</h3>
-                <div className="card-heading-sub">DepEd Order No. 7, s. 2023 & DO 19/24, s. 2025 Career Tracks</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -626,11 +634,12 @@ export const PersonnelHome: React.FC = () => {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--color-border)', flexWrap: 'wrap', gap: 8 }}>
-                        <span className="text-xs text-muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <AppIcon name="compliance" size={13} color="var(--color-text-muted)" /> DepEd DO 7 s.2023 / DO 19 s.2025 Standard
-                        </span>
-                        {cycle.hasApplied ? (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--color-border)', flexWrap: 'wrap', gap: 8 }}>
+                        {isCycleForCurrentPosition(cycle) ? (
+                          <span className="badge badge-secondary" style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <AppIcon name="employment" size={12} /> Current Position — Not Eligible
+                          </span>
+                        ) : cycle.hasApplied ? (
                           <span className="badge badge-success" style={{ padding: '6px 12px', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             <AppIcon name="approved" size={12} /> Application Submitted
                           </span>
@@ -672,13 +681,13 @@ export const PersonnelHome: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-              <Link to="/personnel/new-transaction" className="quick-action-tile">
+            <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, 1fr))', gap: 12 }}>
+              <Link to="/personnel/transactions" className="quick-action-tile">
                 <div className="quick-action-tile-icon" style={{ background: 'rgba(56, 139, 253, 0.14)', color: '#388bfd' }}>
-                  <AppIcon name="new-transaction" size={22} />
+                  <AppIcon name="transactions" size={22} />
                 </div>
-                <span className="quick-action-tile-title">New Application</span>
-                <span className="quick-action-sub">Start 201 filing</span>
+                <span className="quick-action-tile-title">My Transactions</span>
+                <span className="quick-action-sub">Complete assigned requirements</span>
               </Link>
 
               <Link to="/personnel/notifications" className="quick-action-tile" style={{ position: 'relative' }}>
@@ -758,28 +767,27 @@ export const PersonnelHome: React.FC = () => {
 
       {/* ─── 5. ITEM AVAILABILITY / PLANTILLA DIRECTORY MODAL ─── */}
       {showPlantillaDirectory && (
-        <div
+        <ModalPortal>
+        <ModalOverlay
+          className="modal-overlay plantilla-directory-overlay"
+          role="presentation"
           style={{
-            position: 'fixed',
-            inset: 0,
             background: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(6px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             zIndex: 1100,
-            padding: 20,
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowPlantillaDirectory(false);
           }}
         >
           <div
-            className="soft-card"
+            className="soft-card plantilla-directory-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="plantilla-directory-title"
             style={{
               width: '100%',
               maxWidth: 920,
-              maxHeight: '90vh',
               display: 'flex',
               flexDirection: 'column',
               padding: 0,
@@ -791,8 +799,9 @@ export const PersonnelHome: React.FC = () => {
           >
             {/* Modal Header */}
             <div
+              className="plantilla-directory-header"
               style={{
-                padding: '20px 24px',
+                padding: '18px 24px',
                 borderBottom: '1px solid var(--color-border)',
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -800,56 +809,89 @@ export const PersonnelHome: React.FC = () => {
                 background: 'var(--color-bg-secondary)',
               }}
             >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 10,
-                      background: 'rgba(215, 248, 74, 0.15)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--color-primary)',
-                    }}
-                  >
-                    <AppIcon name="employment" size={20} color="var(--color-primary)" />
-                  </div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                      DepEd Plantilla Directory & Item Availability
-                    </h3>
-                    <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                      SDO Koronadal City Official Registry · Open Plantilla Positions Available for Ranking & Applications
-                    </p>
-                  </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    background: 'rgba(215, 248, 74, 0.15)',
+                    border: '1px solid rgba(215, 248, 74, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--color-primary)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <AppIcon name="employment" size={20} color="var(--color-primary)" />
+                </div>
+                <div>
+                  <h3 id="plantilla-directory-title" style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.015em' }}>
+                    DepEd Plantilla Directory & Item Availability
+                  </h3>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPlantillaDirectory(false)}
-                className="btn btn-secondary btn-xs"
-                style={{ borderRadius: '50%', width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title="Close"
+                aria-label="Close"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg-card)',
+                  color: 'var(--color-text-secondary)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  transition: 'all 0.15s ease',
+                }}
               >
-                ✕
+                <AppIcon name="close" size={16} />
               </button>
             </div>
 
             {/* Filter & Search Bar */}
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: 12, alignItems: 'center', background: 'var(--color-bg-primary)' }}>
-              <div style={{ flex: 1, position: 'relative' }}>
+            <div className="plantilla-directory-toolbar" style={{ padding: '14px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: 14, alignItems: 'center', background: 'var(--color-bg-card)' }}>
+              <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <div style={{ position: 'absolute', left: 14, pointerEvents: 'none', display: 'flex', alignItems: 'center', zIndex: 2 }}>
+                  <AppIcon name="search" size={16} color="var(--color-text-muted)" />
+                </div>
                 <input
                   type="text"
-                  className="input"
+                  className="search-input"
                   placeholder="Search by position title, plantilla item #, school station, district..."
                   value={plantillaSearch}
                   onChange={(e) => setPlantillaSearch(e.target.value)}
-                  style={{ width: '100%', fontSize: 13, padding: '9px 14px' }}
+                  style={{
+                    width: '100%',
+                    fontSize: 13,
+                    padding: '9px 16px 9px 42px',
+                    paddingLeft: '42px',
+                    borderRadius: 10,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-secondary)',
+                  }}
                 />
               </div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-                Found <strong>{availablePlantillaItems.filter(item => {
+              <div
+                style={{
+                  fontSize: 12,
+                  color: 'var(--color-text-secondary)',
+                  whiteSpace: 'nowrap',
+                  background: 'var(--color-bg-secondary)',
+                  padding: '7px 14px',
+                  borderRadius: 20,
+                  border: '1px solid var(--color-border)',
+                  fontWeight: 500,
+                }}
+              >
+                Found <strong style={{ color: 'var(--color-text-primary)' }}>{availablePlantillaItems.filter(item => {
                   if (!plantillaSearch.trim()) return true;
                   const q = plantillaSearch.toLowerCase();
                   return (
@@ -864,7 +906,7 @@ export const PersonnelHome: React.FC = () => {
             </div>
 
             {/* Modal Body / Items List */}
-            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="plantilla-directory-list" style={{ padding: '20px 24px 24px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {availablePlantillaItems.filter(item => {
                 if (!plantillaSearch.trim()) return true;
                 const q = plantillaSearch.toLowerCase();
@@ -895,6 +937,8 @@ export const PersonnelHome: React.FC = () => {
                   const hasCycle = !!item.promotionCycle;
                   const cycle = item.promotionCycle;
                   const isCycleActive = cycle && cycle.status === 'ACTIVE';
+                  const trackName = item.track || (item.positionTitle?.toLowerCase().includes('teacher') ? 'Teaching' : 'Non-Teaching');
+
                   return (
                     <div
                       key={item.id}
@@ -902,47 +946,125 @@ export const PersonnelHome: React.FC = () => {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        padding: 16,
+                        padding: '16px 20px',
                         borderRadius: 14,
                         background: 'var(--color-bg-secondary)',
                         border: '1px solid var(--color-border)',
+                        transition: 'all 0.15s ease',
                         flexWrap: 'wrap',
-                        gap: 12,
+                        gap: 14,
                       }}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 260 }}>
+                      <div className="plantilla-directory-item-copy" style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--color-text-primary)' }}>
+                          <span style={{ fontWeight: 800, fontSize: 15.5, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
                             {item.positionTitle}
                           </span>
-                          <span className="badge badge-info" style={{ fontSize: 10 }}>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              background: 'rgba(234, 179, 8, 0.12)',
+                              color: '#b45309',
+                              border: '1px solid rgba(234, 179, 8, 0.3)',
+                              letterSpacing: '0.02em',
+                            }}
+                          >
                             SG {item.salaryGrade}
                           </span>
-                          <span className="badge badge-secondary" style={{ fontSize: 10 }}>
-                            {item.track} Track
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              background: 'var(--color-bg-card)',
+                              color: 'var(--color-text-secondary)',
+                              border: '1px solid var(--color-border)',
+                            }}
+                          >
+                            {trackName} Track
                           </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontWeight: 700 }}>
+                          <span
+                            style={{
+                              fontFamily: 'var(--font-mono)',
+                              color: 'var(--color-text-primary)',
+                              fontWeight: 700,
+                              fontSize: 11.5,
+                              background: 'var(--color-bg-card)',
+                              border: '1px solid var(--color-border)',
+                              padding: '1px 7px',
+                              borderRadius: 5,
+                            }}
+                          >
                             {item.itemNumber}
                           </span>
-                          <span>·</span>
-                          <span>Station: <strong>{item.stationOrSchool || 'SDO Proper'}</strong></span>
-                          <span>·</span>
+                          <span style={{ color: 'var(--color-text-muted)', margin: '0 2px' }}>·</span>
+                          <span>Station: <strong style={{ color: 'var(--color-text-primary)' }}>{item.stationOrSchool || 'SDO Proper'}</strong></span>
+                          <span style={{ color: 'var(--color-text-muted)', margin: '0 2px' }}>·</span>
                           <span>{item.district || 'Division-Wide'}</span>
                         </div>
                         {hasCycle && (
-                          <div style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--color-primary)' }}>
-                            <AppIcon name="promotions" size={13} color="var(--color-primary)" />
-                            <span>Linked Cycle: <strong>{cycle.name}</strong> ({cycle.status})</span>
+                          <div
+                            style={{
+                              marginTop: 4,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              fontSize: 11.5,
+                              color: 'var(--color-text-primary)',
+                              background: 'rgba(59, 130, 246, 0.08)',
+                              padding: '4px 10px',
+                              borderRadius: 8,
+                              border: '1px solid rgba(59, 130, 246, 0.2)',
+                              alignSelf: 'flex-start',
+                            }}
+                          >
+                            <AppIcon name="promotions" size={13} color="#2563eb" />
+                            <span>
+                              Linked Cycle: <strong>{cycle.name}</strong>{' '}
+                              <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 11 }}>({cycle.status})</span>
+                            </span>
                           </div>
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {hasCycle && cycle.hasApplied ? (
-                          <span className="badge badge-success" style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="approved" size={13} /> Applied
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        {hasCycle && isCycleForCurrentPosition(cycle) ? (
+                          <span
+                            style={{
+                              padding: '6px 14px',
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              borderRadius: 8,
+                              background: 'var(--color-bg-tertiary)',
+                              color: 'var(--color-text-secondary)',
+                              border: '1px solid var(--color-border)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            Current Position — Not Eligible
+                          </span>
+                        ) : hasCycle && cycle.hasApplied ? (
+                          <span
+                            style={{
+                              padding: '6px 14px',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              borderRadius: 8,
+                              background: 'rgba(34, 197, 94, 0.15)',
+                              color: '#15803d',
+                              border: '1px solid rgba(34, 197, 94, 0.3)',
+                            }}
+                          >
+                            <AppIcon name="approved" size={14} /> Applied
                           </span>
                         ) : hasCycle && isCycleActive ? (
                           <button
@@ -952,17 +1074,51 @@ export const PersonnelHome: React.FC = () => {
                             onClick={() => {
                               handleApplyForCycle(cycle);
                             }}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontWeight: 700 }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '8px 18px',
+                              fontWeight: 700,
+                              borderRadius: 8,
+                              whiteSpace: 'nowrap',
+                            }}
                           >
-                            <AppIcon name="promotions" size={13} />
+                            <AppIcon name="promotions" size={14} />
                             {submittingCycleId === cycle.id ? 'Submitting...' : 'Apply for Position'}
                           </button>
                         ) : hasCycle ? (
-                          <span className="badge badge-warning" style={{ fontSize: 11, padding: '6px 12px' }}>
+                          <span
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              padding: '6px 14px',
+                              borderRadius: 8,
+                              background: 'rgba(234, 179, 8, 0.12)',
+                              color: '#b45309',
+                              border: '1px solid rgba(234, 179, 8, 0.28)',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
                             Starts {new Date(cycle.startDate).toLocaleDateString()}
                           </span>
                         ) : (
-                          <span className="badge badge-secondary" style={{ fontSize: 11, padding: '6px 12px', color: 'var(--color-text-muted)' }}>
+                          <span
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              padding: '6px 14px',
+                              borderRadius: 8,
+                              background: 'rgba(100, 116, 139, 0.08)',
+                              color: 'var(--color-text-secondary)',
+                              border: '1px solid var(--color-border)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
                             Vacant (Cycle Pending)
                           </span>
                         )}
@@ -972,22 +1128,9 @@ export const PersonnelHome: React.FC = () => {
                 })
               )}
             </div>
-
-            {/* Modal Footer */}
-            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg-secondary)' }}>
-              <span style={{ fontSize: 11.5, color: 'var(--color-text-secondary)' }}>
-                Regulated under Civil Service Commission (CSC) & DepEd Order No. 7, s. 2023 Guidelines
-              </span>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowPlantillaDirectory(false)}
-              >
-                Close Directory
-              </button>
-            </div>
           </div>
-        </div>
+        </ModalOverlay>
+        </ModalPortal>
       )}
     </div>
   );

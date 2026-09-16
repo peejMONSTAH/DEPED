@@ -3,6 +3,9 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
+import { templateForRequirement } from '../../components/forms/templateMatch';
+import { extractStructuredDataFromPdf } from '../../components/forms/formDataExtraction';
+import { fieldsForTemplate } from '../../components/forms/formFields';
 
 export const UploadDocument: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -16,6 +19,9 @@ export const UploadDocument: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [txStatus, setTxStatus] = useState<string>('DRAFT');
+  const [structuredData, setStructuredData] = useState<{ templateId: string; fields: Record<string, string> } | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   // Auto-resolve active transaction ID if not provided in search params
   React.useEffect(() => {
@@ -43,9 +49,44 @@ export const UploadDocument: React.FC = () => {
     resolveTx();
   }, [rawTxId]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selected = e.target.files[0];
+      const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+      const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg'];
+      const ext = selected.name.substring(selected.name.lastIndexOf('.')).toLowerCase();
+
+      if (!allowedMimes.includes(selected.type) && !allowedExts.includes(ext)) {
+        addToast('Invalid file format. Strict upload policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for transaction document uploads.', 'ERROR');
+        e.target.value = '';
+        setFile(null);
+        return;
+      }
+
+      if (selected.size > 10 * 1024 * 1024) {
+        addToast('File exceeds maximum size limit of 10 MB.', 'ERROR');
+        e.target.value = '';
+        setFile(null);
+        return;
+      }
+
+      setFile(selected);
+      setStructuredData(null);
+      setConfirmed(false);
+      const templateId = templateForRequirement(reqName);
+      if (templateId && (selected.type === 'application/pdf' || selected.name.toLowerCase().endsWith('.pdf'))) {
+        setIsExtracting(true);
+        try {
+          const blank = await apiClient.get(`/forms/templates/${templateId}/file`, { responseType: 'arraybuffer' });
+          const extracted = await extractStructuredDataFromPdf(selected, templateId, blank.data as ArrayBuffer);
+          if (extracted && Object.values(extracted.fields).some(value => value.trim())) setStructuredData(extracted);
+          else addToast('No fillable text was detected. The AO can still inspect the uploaded scan manually.', 'INFO');
+        } catch {
+          addToast('Automatic field detection was unavailable. The document can still be uploaded for manual review.', 'INFO');
+        } finally {
+          setIsExtracting(false);
+        }
+      }
     }
   };
 
@@ -66,10 +107,16 @@ export const UploadDocument: React.FC = () => {
       formData.append('file', file);
       if (reqId) formData.append('requirementId', reqId);
       if (reqName) formData.append('requirementName', reqName);
+      if (structuredData) formData.append('structuredDataJson', JSON.stringify(structuredData));
 
-      await apiClient.post(`/transactions/${targetTx}/documents`, formData, {
+      const uploadResponse = await apiClient.post(`/transactions/${targetTx}/documents`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      const documentId = uploadResponse.data?.data?.id;
+      if (structuredData?.templateId === 'pds-2025' && documentId) {
+        if (!confirmed) throw new Error('Please confirm the detected PDS fields before continuing.');
+        await apiClient.put(`/documents/${documentId}/extraction-review`, { fields: structuredData.fields });
+      }
 
       addToast('✅ Document uploaded successfully and saved to database!', 'SUCCESS');
       navigate(`/personnel/checklist?txId=${targetTx}`);
@@ -78,21 +125,6 @@ export const UploadDocument: React.FC = () => {
       addToast(err.response?.data?.message || 'Failed to upload document to database.', 'ERROR');
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const handleDemoFill = async () => {
-    const targetTx = txId && txId !== '101' ? txId : '8';
-    setIsUploading(true);
-    addToast('⚡ Demo: Auto-attaching verified sample DepEd document…', 'INFO');
-    try {
-      await apiClient.post(`/transactions/${targetTx}/demo-upload`);
-      addToast('Sample document auto-uploaded and verified!', 'SUCCESS');
-    } catch (_) {
-      addToast('Sample document attached!', 'SUCCESS');
-    } finally {
-      setIsUploading(false);
-      navigate(`/personnel/checklist?txId=${targetTx}`);
     }
   };
 
@@ -105,25 +137,6 @@ export const UploadDocument: React.FC = () => {
           <button className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>Back</button>
           <h2 style={{ fontSize: 'var(--text-lg)' }}>Upload: {reqName}</h2>
         </div>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={handleDemoFill}
-          disabled={isUploading || isTxLocked}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            fontWeight: 700,
-            background: isTxLocked ? 'rgba(255,255,255,0.05)' : 'rgba(99, 102, 241, 0.12)',
-            color: isTxLocked ? 'var(--color-text-muted)' : '#818cf8',
-            border: isTxLocked ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(99, 102, 241, 0.3)',
-            cursor: isTxLocked ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <AppIcon name={isTxLocked ? 'lock' : 'upload'} size={13} color={isTxLocked ? 'var(--color-text-muted)' : '#818cf8'} />
-          {isTxLocked ? 'Uploads Locked' : '⚡ Demo: Auto-Fill Sample Document'}
-        </button>
       </div>
 
       {isTxLocked && (
@@ -138,6 +151,11 @@ export const UploadDocument: React.FC = () => {
         </div>
       )}
 
+      {templateForRequirement(reqName) && <section className="card" style={{ marginBottom: 20 }}>
+        <h3>Prefer to fill out a template?</h3>
+        <p style={{ margin: '10px 0', lineHeight: 1.6 }}>Enter information on the official form, save a draft to your account, and generate a PDF. Required signatures and AO/HRMO validation still apply.</p>
+        <button type="button" className="btn btn-primary" disabled={!rawTxId} onClick={() => navigate(`/personnel/fill-document?txId=${txId}&reqId=${reqId || ''}&name=${encodeURIComponent(reqName)}`)}>{isTxLocked ? 'View online form' : 'Fill online'}</button>
+      </section>}
       <div className="card">
         <form onSubmit={handleUpload} className="login-form">
           <div 
@@ -163,37 +181,55 @@ export const UploadDocument: React.FC = () => {
             ) : (
               <div>
                 <p className="upload-text">Drag & Drop file or click to browse</p>
-                <p className="upload-hint">Supports PDF, JPG, PNG (Max 10MB)</p>
+                <p className="upload-hint">Strictly accepts PDF, PNG, JPEG (.pdf, .png, .jpg, .jpeg — Max 10MB)</p>
               </div>
             )}
             <input 
               type="file" 
               id="file-picker" 
               style={{ display: 'none' }} 
-              accept=".pdf,.jpg,.png"
+              accept=".pdf,application/pdf,.png,image/png,.jpg,.jpeg,image/jpeg"
               disabled={isTxLocked}
               onChange={handleFileChange}
             />
           </div>
+
+          {isExtracting && <div className="card" style={{ marginTop: 16, padding: 16 }}>Detecting fields from the uploaded form…</div>}
+          {structuredData && (
+            <section className="card" style={{ marginTop: 16, padding: 18, border: '1px solid var(--color-border)' }}>
+              <h3 style={{ marginBottom: 6 }}>Review detected fields</h3>
+              <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+                Correct any inaccurate value below. These values are only a draft and will not update your official 201 record until AO validation and HRMO approval.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 12, maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
+                {fieldsForTemplate(structuredData.templateId).filter(field => structuredData.fields[field.key]?.trim()).map(field => (
+                  <label key={field.key} style={{ display: 'grid', gap: 5, fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                    {field.label}
+                    <input
+                      className="form-input"
+                      value={structuredData.fields[field.key] || ''}
+                      onChange={event => setStructuredData(current => current ? { ...current, fields: { ...current.fields, [field.key]: event.target.value } } : current)}
+                    />
+                  </label>
+                ))}
+              </div>
+              {structuredData.templateId === 'pds-2025' && (
+                <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 16, lineHeight: 1.45 }}>
+                  <input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} style={{ marginTop: 3 }} />
+                  <span>I reviewed these detected PDS values and confirm that they are accurate. I understand they remain subject to AO and HRMO validation.</span>
+                </label>
+              )}
+            </section>
+          )}
 
           <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
             <button 
               type="submit" 
               className="btn btn-primary" 
               style={{ flex: 1 }}
-              disabled={isUploading || !file || isTxLocked}
+              disabled={isUploading || isExtracting || !file || isTxLocked || (structuredData?.templateId === 'pds-2025' && !confirmed)}
             >
               {isTxLocked ? '🔒 Uploads Locked' : isUploading ? 'Uploading Document…' : 'Upload Document'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleDemoFill}
-              disabled={isUploading || isTxLocked}
-              style={{ fontWeight: 600, cursor: isTxLocked ? 'not-allowed' : 'pointer' }}
-              title="Fast-track with certified dummy PDF"
-            >
-              ⚡ Demo Auto-Fill
             </button>
           </div>
         </form>
