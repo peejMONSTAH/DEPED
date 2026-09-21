@@ -39,3 +39,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    # Self-hosted copies of the Google Fonts families used across the app. With
+    # these bundled and runtime fetching disabled in main.dart, the app never
+    # calls fonts.gstatic.com, so typography survives an offline or filtered
+    # network. Files are the exact TTFs the google_fonts package would have
+    # downloaded, verified against its own SHA-256 manifest.
+    - google_fonts/

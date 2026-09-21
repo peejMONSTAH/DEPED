@@ -4,6 +4,68 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Release signing is read from android/key.properties, which is gitignored and
+// never committed. Generate the upload keystore with:
+//   keytool -genkey -v -keystore upload-keystore.jks -storetype JKS \
+//           -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+// then copy android/key.properties.example to android/key.properties and fill it in.
+def keystorePropertiesFile = rootProject.file('key.properties')
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = false
+def missingKeystoreFile = null
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    // key.properties on its own is not enough: it points at a .jks that may not
+    // be there (not committed, or not generated yet). Check the file exists, or
+    // the build fails later with an opaque signing error instead of this one.
+    def storePath = keystoreProperties['storeFile']
+    if (storePath) {
+        def storeFileCandidate = file(storePath)
+        if (!storeFileCandidate.isAbsolute()) {
+            storeFileCandidate = new File(projectDir, storePath.toString())
+        }
+        if (storeFileCandidate.exists()) {
+            hasReleaseKeystore = true
+        } else {
+            missingKeystoreFile = storeFileCandidate.canonicalPath
+        }
+    }
+}
+
+// Fail a release build that has no upload keystore, instead of quietly producing a
+// debug-signed APK that looks shippable but is not. A warning is not enough here:
+// Flutter filters Gradle's log output, so it would never reach anyone.
+def isReleaseBuild = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
+def allowDebugSigning = project.hasProperty('allow-debug-signing') || project.hasProperty('allowDebugSigning')
+if (isReleaseBuild && !hasReleaseKeystore && !allowDebugSigning) {
+    if (missingKeystoreFile != null) {
+        throw new GradleException("""
+Release build blocked: the keystore file is missing.
+
+android/key.properties points at:
+    ${missingKeystoreFile}
+
+Generate it, running from the mobile/android directory:
+    keytool -genkey -v -keystore upload-keystore.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+
+To build an unpublishable APK anyway (local testing only):
+    flutter build apk --release -Pallow-debug-signing
+""")
+    }
+    throw new GradleException('''
+Release build blocked: android/key.properties not found.
+
+An APK signed with the debug key cannot be published to Play, and cannot update
+any existing install, because the debug key differs from machine to machine.
+
+To fix, see android/key.properties.example: generate the upload keystore, then
+copy that example to android/key.properties and fill it in.
+
+To build an unpublishable APK anyway (local testing only):
+    flutter build apk --release -Pallow-debug-signing
+''')
+}
+
 android {
     namespace "com.eminence.hris.mobile"
     compileSdk 36
@@ -26,9 +88,20 @@ android {
         versionName "1.0.0"
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
         }
     }
 }

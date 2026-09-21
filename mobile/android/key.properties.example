@@ -1,0 +1,17 @@
+# Copy this file to android/key.properties and fill in the real values.
+# NEVER commit key.properties or the .jks file - they are the signing credential
+# for Digital 201, and losing or leaking them means no future release can update
+# an installed app.
+#
+# Generate the keystore first (run from the mobile/android directory):
+#
+#   keytool -genkey -v -keystore upload-keystore.jks -storetype JKS \
+#           -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Back the .jks file up somewhere offline. It cannot be regenerated.
+
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+# Path to the .jks, relative to the mobile/android/app directory, or absolute.
+storeFile=../upload-keystore.jks

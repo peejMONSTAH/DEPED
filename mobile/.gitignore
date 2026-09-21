@@ -1,0 +1,9 @@
+
+# Android signing credentials - never commit these.
+android/key.properties
+*.jks
+*.keystore
+
+# Build artifacts - never commit binaries.
+*.apk
+*.aab
