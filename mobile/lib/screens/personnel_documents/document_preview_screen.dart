@@ -58,20 +58,56 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
     super.dispose();
   }
 
-  /// Writes the document to a temporary file and hands it to whatever app on
-  /// the phone handles the type. Used for formats the app cannot render, and
-  /// offered alongside the inline view for everything else.
+  /// Removes previously extracted previews, optionally sparing [keep].
+  ///
+  /// Best-effort: a file the receiving app still holds open cannot be deleted
+  /// on some devices, and that must not block opening a document.
+  Future<void> _purgePreviews(Directory dir, {String? keep}) async {
+    try {
+      await for (final entity in dir.list()) {
+        if (entity is! File || entity.path == keep) continue;
+        try {
+          await entity.delete();
+        } catch (_) {
+          // Still in use elsewhere; it will be cleared with the cache.
+        }
+      }
+    } catch (_) {
+      // Listing failed; nothing to clean up.
+    }
+  }
+
+  /// Writes the document to the app's private cache and hands it to whatever
+  /// app on the phone handles the type. Used for formats this app cannot
+  /// render, and offered alongside the inline view for everything else.
   Future<void> _openExternally() async {
     final bytes = _bytes;
     if (bytes == null || _openingExternally) return;
     setState(() => _openingExternally = true);
     try {
+      // Written to the app's private cache, never to Downloads or any shared
+      // folder. These are 201 records — a payslip, a birth certificate, an NBI
+      // clearance — and they should not end up in the phone's gallery or file
+      // manager where anyone picking up the device can read them. The cache is
+      // private to this app, is covered by open_file's FileProvider so the
+      // receiving app gets a temporary grant rather than broad access, and is
+      // reclaimed by Android under storage pressure.
       final dir = await getTemporaryDirectory();
+      final previewDir = Directory('${dir.path}/document_preview');
+      if (!await previewDir.exists()) {
+        await previewDir.create(recursive: true);
+      }
+
       // Keep the original name so the receiving app shows something meaningful,
-      // with the id in front so two documents cannot collide in temp.
+      // with the id in front so two documents cannot collide.
       final safeName = widget.document.originalFileName
           .replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
-      final file = File('${dir.path}/${widget.document.id}_$safeName');
+      final file = File('${previewDir.path}/${widget.document.id}_$safeName');
+
+      // Drop any previously opened document first, so at most one personnel
+      // record sits on the device at a time instead of accumulating silently.
+      await _purgePreviews(previewDir, keep: file.path);
+
       await file.writeAsBytes(bytes, flush: true);
       final result = await OpenFile.open(file.path,
           type: widget.document.mimeType.isNotEmpty
@@ -315,8 +351,8 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
                 ),
                 child: Text(
                   doc.rejectionReason!,
-                  style: AppText.caption
-                      .copyWith(color: AppTheme.statusReturned),
+                  style:
+                      AppText.caption.copyWith(color: AppTheme.statusReturned),
                 ),
               ),
             ],

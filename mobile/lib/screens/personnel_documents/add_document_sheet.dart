@@ -41,7 +41,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
   AcquiredDocument? _acquiredDocument;
   int _selectedPageIndex = 0;
 
-  UploadStateInfo _uploadState = const UploadStateInfo(state: UploadProgressState.idle);
+  UploadStateInfo _uploadState =
+      const UploadStateInfo(state: UploadProgressState.idle);
 
   bool get isReplacing => widget.documentToReplace != null;
 
@@ -81,7 +82,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
       if (mounted && types.isNotEmpty) {
         setState(() {
           _documentTypes = types;
-          if (_selectedTypeId == null || !_documentTypes.any((t) => t.id == _selectedTypeId)) {
+          if (_selectedTypeId == null ||
+              !_documentTypes.any((t) => t.id == _selectedTypeId)) {
             _selectedTypeId = _documentTypes.first.id;
           }
         });
@@ -97,7 +99,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
     );
   }
 
-  bool get _supportsExpiration => _selectedTypeConfig?.supportsExpiration ?? false;
+  bool get _supportsExpiration =>
+      _selectedTypeConfig?.supportsExpiration ?? false;
 
   Future<void> _handleScanDocument() async {
     if (_uploadState.isBusy) return;
@@ -110,7 +113,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
     });
 
     try {
-      final acquired = await widget.acquisitionService.scanDocument(pageLimit: 10);
+      final acquired =
+          await widget.acquisitionService.scanDocument(pageLimit: 10);
       if (!mounted) return;
 
       if (acquired == null) {
@@ -179,7 +183,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
         setState(() {
           _uploadState = UploadStateInfo(
             state: UploadProgressState.error,
-            errorMessage: validation.errorMessage ?? 'Unsupported document format or size.',
+            errorMessage: validation.errorMessage ??
+                'Unsupported document format or size.',
           );
         });
         return;
@@ -268,7 +273,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
     });
 
     try {
-      final issueStr = _issueDate != null ? DateFormat('yyyy-MM-dd').format(_issueDate!) : null;
+      final issueStr = _issueDate != null
+          ? DateFormat('yyyy-MM-dd').format(_issueDate!)
+          : null;
       final expStr = (_supportsExpiration && _expirationDate != null)
           ? DateFormat('yyyy-MM-dd').format(_expirationDate!)
           : null;
@@ -334,17 +341,20 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(LucideIcons.checkCircle2, color: Colors.white, size: 20),
+              const Icon(LucideIcons.checkCircle2,
+                  color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Text(
                 'Document uploaded successfully.',
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, color: Colors.white),
+                style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ],
           ),
           backgroundColor: AppTheme.emeraldGreen,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
 
@@ -446,7 +456,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                   ],
                 ),
                 IconButton(
-                  onPressed: _uploadState.isBusy ? null : () => Navigator.of(context).pop(),
+                  onPressed: _uploadState.isBusy
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   icon: const Icon(LucideIcons.x, size: 20),
                   style: IconButton.styleFrom(
                     backgroundColor: AppTheme.lightBgCard,
@@ -479,7 +491,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(LucideIcons.alertCircle, color: Color(0xFFDC2626), size: 20),
+                            const Icon(LucideIcons.alertCircle,
+                                color: Color(0xFFDC2626), size: 20),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -517,7 +530,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                         child: DropdownButton<String>(
                           value: _selectedTypeId,
                           isExpanded: true,
-                          icon: const Icon(LucideIcons.chevronDown, size: 18, color: AppTheme.textMuted),
+                          icon: const Icon(LucideIcons.chevronDown,
+                              size: 18, color: AppTheme.textMuted),
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -535,7 +549,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               value: type.id,
                               child: Row(
                                 children: [
-                                  Icon(type.icon, size: 16, color: AppTheme.primaryLight),
+                                  Icon(type.icon,
+                                      size: 16, color: AppTheme.primaryLight),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -549,9 +564,11 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                   ),
                                   if (type.supportsExpiration)
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.accentGold.withOpacity(0.12),
+                                        color: AppTheme.accentGold
+                                            .withOpacity(0.12),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
@@ -587,22 +604,28 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                         controller: _customNameController,
                         enabled: !_uploadState.isBusy,
                         decoration: InputDecoration(
-                          hintText: 'e.g. Special Order No. 42, Certification of Eligibility',
-                          hintStyle: GoogleFonts.inter(fontSize: 13, color: AppTheme.textMuted),
+                          hintText:
+                              'e.g. Special Order No. 42, Certification of Eligibility',
+                          hintStyle: GoogleFonts.inter(
+                              fontSize: 13, color: AppTheme.textMuted),
                           filled: true,
                           fillColor: AppTheme.lightBgCard,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: AppTheme.lightBorder),
+                            borderSide:
+                                const BorderSide(color: AppTheme.lightBorder),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(color: AppTheme.lightBorder),
+                            borderSide:
+                                const BorderSide(color: AppTheme.lightBorder),
                           ),
                         ),
                         validator: (value) {
-                          if (_selectedTypeId == 'OTHER' && (value == null || value.trim().isEmpty)) {
+                          if (_selectedTypeId == 'OTHER' &&
+                              (value == null || value.trim().isEmpty)) {
                             return 'Please enter document name';
                           }
                           return null;
@@ -628,28 +651,38 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               ),
                               const SizedBox(height: 6),
                               InkWell(
-                                onTap: _uploadState.isBusy ? null : () => _pickDate(isIssueDate: true),
+                                onTap: _uploadState.isBusy
+                                    ? null
+                                    : () => _pickDate(isIssueDate: true),
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: AppTheme.lightBgCard,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: AppTheme.lightBorder),
+                                    border:
+                                        Border.all(color: AppTheme.lightBorder),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(LucideIcons.calendar, size: 16, color: AppTheme.textMuted),
+                                      const Icon(LucideIcons.calendar,
+                                          size: 16, color: AppTheme.textMuted),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           _issueDate != null
-                                              ? DateFormat('MMM dd, yyyy').format(_issueDate!)
+                                              ? DateFormat('MMM dd, yyyy')
+                                                  .format(_issueDate!)
                                               : 'Select date',
                                           style: GoogleFonts.inter(
                                             fontSize: 13,
-                                            color: _issueDate != null ? AppTheme.textPrimary : AppTheme.textMuted,
-                                            fontWeight: _issueDate != null ? FontWeight.w600 : FontWeight.normal,
+                                            color: _issueDate != null
+                                                ? AppTheme.textPrimary
+                                                : AppTheme.textMuted,
+                                            fontWeight: _issueDate != null
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                       ),
@@ -676,28 +709,40 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                 ),
                                 const SizedBox(height: 6),
                                 InkWell(
-                                  onTap: _uploadState.isBusy ? null : () => _pickDate(isIssueDate: false),
+                                  onTap: _uploadState.isBusy
+                                      ? null
+                                      : () => _pickDate(isIssueDate: false),
                                   borderRadius: BorderRadius.circular(16),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 12),
                                     decoration: BoxDecoration(
                                       color: AppTheme.lightBgCard,
                                       borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: AppTheme.lightBorder),
+                                      border: Border.all(
+                                          color: AppTheme.lightBorder),
                                     ),
                                     child: Row(
                                       children: [
-                                        const Icon(LucideIcons.calendarClock, size: 16, color: AppTheme.accentGold),
+                                        const Icon(LucideIcons.calendarClock,
+                                            size: 16,
+                                            color: AppTheme.accentGold),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
                                             _expirationDate != null
-                                                ? DateFormat('MMM dd, yyyy').format(_expirationDate!)
+                                                ? DateFormat('MMM dd, yyyy')
+                                                    .format(_expirationDate!)
                                                 : 'Select date',
                                             style: GoogleFonts.inter(
                                               fontSize: 13,
-                                              color: _expirationDate != null ? AppTheme.textPrimary : AppTheme.textMuted,
-                                              fontWeight: _expirationDate != null ? FontWeight.w600 : FontWeight.normal,
+                                              color: _expirationDate != null
+                                                  ? AppTheme.textPrimary
+                                                  : AppTheme.textMuted,
+                                              fontWeight:
+                                                  _expirationDate != null
+                                                      ? FontWeight.w600
+                                                      : FontWeight.normal,
                                             ),
                                           ),
                                         ),
@@ -728,18 +773,23 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       enabled: !_uploadState.isBusy,
                       maxLines: 2,
                       decoration: InputDecoration(
-                        hintText: 'Additional notes or remarks regarding this document...',
-                        hintStyle: GoogleFonts.inter(fontSize: 12, color: AppTheme.textMuted),
+                        hintText:
+                            'Additional notes or remarks regarding this document...',
+                        hintStyle: GoogleFonts.inter(
+                            fontSize: 12, color: AppTheme.textMuted),
                         filled: true,
                         fillColor: AppTheme.lightBgCard,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: AppTheme.lightBorder),
+                          borderSide:
+                              const BorderSide(color: AppTheme.lightBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: AppTheme.lightBorder),
+                          borderSide:
+                              const BorderSide(color: AppTheme.lightBorder),
                         ),
                       ),
                     ),
@@ -766,7 +816,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                           decoration: BoxDecoration(
                             color: AppTheme.lightBgCard,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.primaryLight.withOpacity(0.4), width: 1.5),
+                            border: Border.all(
+                                color: AppTheme.primaryLight.withOpacity(0.4),
+                                width: 1.5),
                           ),
                           child: Row(
                             children: [
@@ -776,7 +828,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                   color: AppTheme.primaryLight.withOpacity(0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(LucideIcons.camera, color: AppTheme.primaryLight, size: 24),
+                                child: const Icon(LucideIcons.camera,
+                                    color: AppTheme.primaryLight, size: 24),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -795,13 +848,18 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                         ),
                                         const SizedBox(width: 8),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.accentLime.withOpacity(0.3),
-                                            borderRadius: BorderRadius.circular(8),
+                                            color: AppTheme.accentLime
+                                                .withOpacity(0.3),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: Text(
-                                            kIsWeb ? 'Camera' : 'ML Kit Enhanced',
+                                            kIsWeb
+                                                ? 'Camera'
+                                                : 'ML Kit Enhanced',
                                             style: GoogleFonts.inter(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -816,12 +874,15 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                       kIsWeb
                                           ? 'Capture document using device/browser camera'
                                           : 'Scan physical document with edge detection & auto-crop',
-                                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
-                              const Icon(LucideIcons.chevronRight, size: 18, color: AppTheme.textMuted),
+                              const Icon(LucideIcons.chevronRight,
+                                  size: 18, color: AppTheme.textMuted),
                             ],
                           ),
                         ),
@@ -842,14 +903,16 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
 
                       // Upload File Option
                       InkWell(
-                        onTap: _uploadState.isBusy ? null : _handleUploadDocument,
+                        onTap:
+                            _uploadState.isBusy ? null : _handleUploadDocument,
                         borderRadius: BorderRadius.circular(16),
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: AppTheme.lightBgCard,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.lightBorder, width: 1.2),
+                            border: Border.all(
+                                color: AppTheme.lightBorder, width: 1.2),
                           ),
                           child: Row(
                             children: [
@@ -859,7 +922,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                   color: AppTheme.brandDark.withOpacity(0.08),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(LucideIcons.uploadCloud, color: AppTheme.brandDark, size: 24),
+                                child: const Icon(LucideIcons.uploadCloud,
+                                    color: AppTheme.brandDark, size: 24),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -877,12 +941,15 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                     const SizedBox(height: 4),
                                     Text(
                                       'PDF, JPG, JPEG, or PNG · Maximum 10 MB',
-                                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
-                              const Icon(LucideIcons.chevronRight, size: 18, color: AppTheme.textMuted),
+                              const Icon(LucideIcons.chevronRight,
+                                  size: 18, color: AppTheme.textMuted),
                             ],
                           ),
                         ),
@@ -895,7 +962,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                     const SizedBox(height: 24),
 
                     // 6. Upload Progress Display
-                    if (_uploadState.state == UploadProgressState.uploading) ...[
+                    if (_uploadState.state ==
+                        UploadProgressState.uploading) ...[
                       Container(
                         padding: const EdgeInsets.all(14),
                         margin: const EdgeInsets.only(bottom: 16),
@@ -930,7 +998,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                             ),
                             const SizedBox(height: 10),
                             LinearProgressIndicator(
-                              value: _uploadState.progress > 0 ? _uploadState.progress : null,
+                              value: _uploadState.progress > 0
+                                  ? _uploadState.progress
+                                  : null,
                               backgroundColor: AppTheme.lightSurface,
                               color: AppTheme.primaryLight,
                               minHeight: 6,
@@ -941,60 +1011,43 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       ),
                     ],
 
-                    // Action Buttons (Submit / Cancel)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _uploadState.isBusy ? null : () => Navigator.of(context).pop(),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: AppTheme.lightBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            ),
-                            child: Text(
-                              'Cancel',
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
+                    // Submit only. The header's close button already dismisses
+                    // this sheet, and two controls for one action is a choice
+                    // the user should not have to make.
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: (_uploadState.isBusy ||
+                                (_acquiredDocument == null && !isReplacing))
+                            ? null
+                            : _handleSubmit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.brandDark,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: AppTheme.lightBorder,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        icon: _uploadState.isBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(LucideIcons.check,
+                                size: 16, color: Colors.white),
+                        label: Text(
+                          isReplacing ? 'Confirm Replace' : 'Submit Document',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton.icon(
-                            onPressed: (_uploadState.isBusy || (_acquiredDocument == null && !isReplacing))
-                                ? null
-                                : _handleSubmit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.brandDark,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor: AppTheme.lightBorder,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              elevation: 0,
-                            ),
-                            icon: _uploadState.isBusy
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                : const Icon(LucideIcons.check, size: 16, color: Colors.white),
-                            label: Text(
-                              isReplacing ? 'Confirm Replace' : 'Submit Document',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1025,7 +1078,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
             children: [
               Row(
                 children: [
-                  const Icon(LucideIcons.eye, size: 16, color: AppTheme.primaryLight),
+                  const Icon(LucideIcons.eye,
+                      size: 16, color: AppTheme.primaryLight),
                   const SizedBox(width: 6),
                   Text(
                     'DOCUMENT PREVIEW',
@@ -1040,7 +1094,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
               ),
               if (doc.isScanned)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppTheme.emeraldGreen.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -1078,7 +1133,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       color: const Color(0xFFEF4444).withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(LucideIcons.fileText, color: Color(0xFFDC2626), size: 36),
+                    child: const Icon(LucideIcons.fileText,
+                        color: Color(0xFFDC2626), size: 36),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -1095,7 +1151,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                   const SizedBox(height: 2),
                   Text(
                     'PDF Document · ${doc.pageCount} ${doc.pageCount == 1 ? "page" : "pages"} · ${doc.formattedSize}',
-                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textSecondary),
+                    style: GoogleFonts.inter(
+                        fontSize: 11, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -1122,11 +1179,17 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                 children: [
                   Text(
                     'Pages (${doc.pageCount})',
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondary),
                   ),
                   Text(
                     'Viewing Page ${_selectedPageIndex + 1}',
-                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.primaryLight, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppTheme.primaryLight,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -1146,7 +1209,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryLight : AppTheme.lightBorder,
+                            color: isSelected
+                                ? AppTheme.primaryLight
+                                : AppTheme.lightBorder,
                             width: isSelected ? 2.0 : 1.0,
                           ),
                         ),
@@ -1162,14 +1227,18 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               top: 2,
                               left: 2,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.6),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   'P${idx + 1}',
-                                  style: GoogleFonts.inter(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -1185,7 +1254,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                       color: Color(0xFFDC2626),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(LucideIcons.x, size: 8, color: Colors.white),
+                                    child: const Icon(LucideIcons.x,
+                                        size: 8, color: Colors.white),
                                   ),
                                 ),
                               ),
@@ -1219,7 +1289,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                     ),
                     Text(
                       '${doc.formattedSize} · ${doc.mimeType}',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textSecondary),
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: AppTheme.textSecondary),
                     ),
                   ],
                 ),
@@ -1237,10 +1308,14 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               _handleUploadDocument();
                             }
                           },
-                    icon: const Icon(LucideIcons.refreshCw, size: 12, color: AppTheme.primaryLight),
+                    icon: const Icon(LucideIcons.refreshCw,
+                        size: 12, color: AppTheme.primaryLight),
                     label: Text(
                       doc.isScanned ? 'Rescan' : 'Replace',
-                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryLight),
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryLight),
                     ),
                   ),
                   IconButton(
@@ -1249,10 +1324,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                         : () {
                             setState(() {
                               _acquiredDocument = null;
-                              _uploadState = const UploadStateInfo(state: UploadProgressState.idle);
+                              _uploadState = const UploadStateInfo(
+                                  state: UploadProgressState.idle);
                             });
                           },
-                    icon: const Icon(LucideIcons.trash2, size: 14, color: Color(0xFFDC2626)),
+                    icon: const Icon(LucideIcons.trash2,
+                        size: 14, color: Color(0xFFDC2626)),
                     tooltip: 'Remove',
                   ),
                 ],
@@ -1271,7 +1348,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
         fit: BoxFit.contain,
       );
     }
-    if (!kIsWeb && doc.pagePaths.isNotEmpty && pageIndex < doc.pagePaths.length) {
+    if (!kIsWeb &&
+        doc.pagePaths.isNotEmpty &&
+        pageIndex < doc.pagePaths.length) {
       return Image.file(
         File(doc.pagePaths[pageIndex]),
         fit: BoxFit.contain,
@@ -1287,9 +1366,13 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
     if (doc.pageBytes.isNotEmpty && pageIndex < doc.pageBytes.length) {
       return Image.memory(doc.pageBytes[pageIndex], fit: BoxFit.cover);
     }
-    if (!kIsWeb && doc.pagePaths.isNotEmpty && pageIndex < doc.pagePaths.length) {
+    if (!kIsWeb &&
+        doc.pagePaths.isNotEmpty &&
+        pageIndex < doc.pagePaths.length) {
       return Image.file(File(doc.pagePaths[pageIndex]), fit: BoxFit.cover);
     }
-    return Container(color: AppTheme.lightSurface, child: const Icon(LucideIcons.image, size: 16));
+    return Container(
+        color: AppTheme.lightSurface,
+        child: const Icon(LucideIcons.image, size: 16));
   }
 }
