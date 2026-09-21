@@ -179,3 +179,134 @@ A high-level checklist for production deployments:
 *   [ ] Production deployment pipeline triggered.
 *   [ ] Post-deployment smoke tests performed.
 *   [ ] Monitoring dashboards reviewed for anomalies.
+
+---
+
+# Release Runbook
+
+Every command below was executed and verified on 2026-09-21 against a restored
+copy of production, except the two marked **NOT YET RUN** which need production
+write access.
+
+Order matters. Step 4 fails if step 3 has not run.
+
+## 0. Preconditions
+
+Two settings in `backend/.env` will stop the API from booting under
+`NODE_ENV=production`, by design:
+
+```
+CORS_ORIGIN=https://<your-division-domain>
+CLIENT_URL=https://<your-division-domain>
+NODE_ENV=production
+```
+
+Both are currently `http://localhost:5173`. The boot check refuses any
+non-HTTPS origin outside localhost, so the API will exit at startup until the
+real domain is in place. Everything else in `.env` is production-ready:
+JWT secrets, Supabase URL and service key, and SMTP host are all present and valid.
+
+Confirm readiness before anything else:
+
+```bash
+cd backend && npm run check          # 83 tests, typecheck
+cd ../web && npx tsc --noEmit && npx vite build
+cd ../mobile && flutter analyze
+```
+
+## 1. Take a backup
+
+```powershell
+./scripts/backup-daily.ps1
+```
+
+Writes to `./backups/digital201-<timestamp>/`. The run fails if any document
+referenced by a database row is missing from object storage, rather than
+producing a backup that only looks complete.
+
+## 2. Prove that backup restores
+
+```powershell
+./scripts/restore-drill.ps1 -ApplyMigrations
+```
+
+Restores the newest backup into a throwaway container, applies pending
+migrations, and boots the API against it. **Do not skip this.** It is what
+caught two real defects in the backup pipeline: a `pg_dump 17` archive that
+`pg_restore 15` could not read at all, and Supabase's managed schemas
+(including `vault.secrets`) being written into the backup folder.
+
+A pass means the archive restores, the migrations apply to real data, and the
+application runs on the result.
+
+## 3. Apply migrations — **NOT YET RUN**
+
+```bash
+cd backend && npx prisma migrate deploy
+```
+
+Two pending: `202609210001_force_password_change` and
+`202609210002_appointment_status`. Both additive, both `IF NOT EXISTS`, neither
+rewrites existing rows.
+
+Rehearsed on a restored production copy: applied cleanly, all data intact
+(7 users, 6 personnel, 3 cycles, 2 applications), and **0 accounts were gated** —
+`must_change_password` defaults to false so nobody is locked out by the deploy.
+
+## 4. Check for accounts on a shared password — **NOT YET RUN**
+
+```bash
+cd backend && npx ts-node scripts/flag-leaked-passwords.ts           # report
+cd backend && npx ts-node scripts/flag-leaked-passwords.ts --apply   # then flag
+```
+
+Earlier releases issued every account the same literal (`Personnel@Pass123`,
+and `Reset@Pass2026!` on reset). The migration in step 3 deliberately does not
+flag existing rows, so this finds the ones that still hold a known password and
+requires them to choose their own.
+
+**Dry-run against restored production data returned 0 of 7 accounts.** Nobody
+will be forced to change a password by this release. Re-run the report on live
+before applying, and if the count is ever non-zero, warn those staff first:
+each is required to set a new password at their next sign-in.
+
+## 5. Deploy the applications
+
+```bash
+cd backend && npm run build && npm start
+cd web && npx vite build          # serve ./web/dist
+```
+
+Mobile release builds must be given the API host or they throw at startup:
+
+```bash
+flutter build apk --dart-define=API_BASE_URL=https://<your-api-host>/api/v1
+```
+
+## 6. Verify
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" -X POST https://<api>/api/v1/auth/login \
+  -H "Content-Type: application/json" -d '{"email":"x","password":"y"}'   # expect 401
+```
+
+Then sign in as HRMO and confirm: the promotions list loads, a personnel record
+opens, and a newly created account is required to change its password before it
+can do anything else.
+
+## Rollback
+
+The migrations are additive, so the previous release runs unchanged against the
+new schema — rolling back code needs no database change. Only restore from
+backup if data is wrong, and use `restore-drill.ps1` against that backup first
+to confirm it is good.
+
+## What this release changes operationally
+
+- Administrator-issued passwords are single-purpose: the API accepts nothing but
+  change-password until the holder sets their own. Expect first-sign-in support
+  questions from anyone given a new account.
+- Backups now include object storage and fail when a referenced document is
+  missing.
+- Backups cover the `public` schema only. Supabase-managed schemas are no longer
+  captured, which also keeps `vault.secrets` out of the backup folder.

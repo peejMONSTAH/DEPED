@@ -54,11 +54,15 @@ try {
     throw 'Docker Desktop is not running or is not accessible.'
   }
 
-  Write-BackupLog 'Starting PostgreSQL database export.'
+  # Only the public schema: that is the whole application. Dumping everything also
+  # captured Supabase-managed schemas including vault.secrets, putting encrypted
+  # secret material in the backup folder and making the archive restorable only
+  # onto Supabase.
+  Write-BackupLog 'Starting PostgreSQL database export (public schema).'
   $env:DIGITAL201_BACKUP_DATABASE_URL = $databaseUrl
   $mountPath = $backupPath.Replace('\', '/')
   docker run --rm --env DIGITAL201_BACKUP_DATABASE_URL --volume "${mountPath}:/backup" $PostgresImage `
-    sh -c 'pg_dump "$DIGITAL201_BACKUP_DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/database.dump'
+    sh -c 'pg_dump "$DIGITAL201_BACKUP_DATABASE_URL" --format=custom --no-owner --no-privileges --schema=public --file=/backup/database.dump'
   if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL database export failed.' }
   if (!(Test-Path -LiteralPath (Join-Path $backupPath 'database.dump'))) { throw 'Database dump was not created.' }
 
