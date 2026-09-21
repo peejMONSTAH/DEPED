@@ -39,7 +39,6 @@ export const AdminDashboard: React.FC = () => {
   const [totalPersonnel, setTotalPersonnel] = useState<number>(0);
   const [teachingCount, setTeachingCount] = useState<number>(0);
   const [nonTeachingCount, setNonTeachingCount] = useState<number>(0);
-  const [onLeaveCount, setOnLeaveCount] = useState<number>(0);
   const [totalTransactions, setTotalTransactions] = useState<number>(0);
   const [pendingQueue, setPendingQueue] = useState<number>(0);
   const [approvedCount, setApprovedCount] = useState<number>(0);
@@ -202,14 +201,10 @@ export const AdminDashboard: React.FC = () => {
           setTeachingCount(teaching);
           setNonTeachingCount(total >= teaching ? total - teaching : 0);
 
-          // Dynamic on-leave count
-          const leave = pList.filter((p: any) => p.status === 'ON_LEAVE' || p.status === 'LEAVE' || p.status === 'INACTIVE').length;
-          setOnLeaveCount(leave);
         } else {
           setTotalPersonnel(0);
           setTeachingCount(0);
           setNonTeachingCount(0);
-          setOnLeaveCount(0);
         }
       }
     } catch (err) {
@@ -312,7 +307,6 @@ export const AdminDashboard: React.FC = () => {
   // Dynamic percentages calculated strictly from database numbers
   const teachingPercent = totalPersonnel > 0 ? ((teachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
   const nonTeachingPercent = totalPersonnel > 0 ? ((nonTeachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
-  const attendanceRate = totalPersonnel > 0 ? Math.round(((totalPersonnel - onLeaveCount) / totalPersonnel) * 100) + '%' : '100%';
 
   const activeAccountsCount = usersList.filter((account: any) => account.accountStatus === 'ACTIVE').length;
   const accountsRequiringAction = usersList.filter((account: any) => {
@@ -1031,23 +1025,6 @@ export const AdminDashboard: React.FC = () => {
               <div className="metric-bottom-slot">
                 <div className="metric-bar-visualizer">
                   <div className="bar-fill fill-charcoal" style={{ width: nonTeachingPercent }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 4: Attendance / Active Rate (DB) */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">ATTENDANCE TODAY</span>
-                <span className="metric-lime-pill">OPTIMAL</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : attendanceRate}</div>
-                <div className="metric-footer-note">Division-wide Active</div>
-              </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-bar-visualizer">
-                  <div className="bar-fill fill-lime" style={{ width: attendanceRate }} />
                 </div>
               </div>
             </div>
