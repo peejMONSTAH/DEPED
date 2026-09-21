@@ -14,6 +14,8 @@ import { Search, Filter, CheckCircle2, Clock, XCircle, AlertCircle, PlayCircle, 
 import { clickable, clickableRow } from '../../a11y/clickable';
 import { deliberationBlockReason, isRequirementsVerified } from '../../promotions/stageGate';
 import { usePending } from '../../hooks/usePending';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import { FieldError } from '../../components/common/FieldError';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -951,7 +953,10 @@ export const PromotionManagement: React.FC = () => {
     }
   };
 
-    const creatingCycle = usePending();
+    // The server already returns "field: message" 400s from createCycleSchema;
+  // this lands them on the right input instead of a toast that vanishes.
+  const cycleErrors = useFormErrors();
+  const creatingCycle = usePending();
   // Double-clicking used to send this twice, creating duplicate records.
   const handleCreateCycle = (e: React.FormEvent) => {
     e.preventDefault();
@@ -998,6 +1003,7 @@ export const PromotionManagement: React.FC = () => {
           vacantPositions: Number(newVacantPositions) || 1,
         },
       };
+      cycleErrors.clear();
       const res = await apiClient.post('/promotions/cycles', payload);
       const createdCycle = res.data?.data;
       addToast(`New promotion cycle '${payload.name}' created for ${finalDistrict} (${finalSchool})! (Track: ${finalTrack === 'TEACHING' ? 'Teaching' : 'Non-Teaching'} | Max Capacity: ${payload.rulesConfigurationJson.maxApplicants} applicants | Vacancies: ${payload.rulesConfigurationJson.vacantPositions} posts | Plantillas: ${activePlantillaNumbers.length} allocated)`, 'SUCCESS');
@@ -1014,8 +1020,10 @@ export const PromotionManagement: React.FC = () => {
       }
       await fetchCycles();
     } catch (err: any) {
-      const msg = err.response?.data?.message || 'Failed to create promotion cycle.';
-      addToast(msg, 'ERROR');
+      // A field-shaped rejection goes to that field; anything else still needs a toast.
+      if (!cycleErrors.setFromResponse(err)) {
+        addToast(err.response?.data?.message || 'Failed to create promotion cycle.', 'ERROR');
+      }
     }
   };
 
@@ -5969,9 +5977,11 @@ export const PromotionManagement: React.FC = () => {
                     className="form-input"
                     placeholder={newCycleTrack === 'TEACHING' ? "e.g. 2026 Division Master Teacher Promotion" : "e.g. 2026 Administrative Officer Promotion"}
                     value={newCycleName}
-                    onChange={(e) => setNewCycleName(e.target.value)}
+                    onChange={(e) => { setNewCycleName(e.target.value); cycleErrors.clearField('name'); }}
+                    aria-invalid={Boolean(cycleErrors.errors.name)}
                     required
                   />
+                  <FieldError message={cycleErrors.errors.name} />
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
