@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "node tests/form-alignment.cjs",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "start": "serve -s dist -l ${PORT:-4173}"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.1",
@@ -23,13 +24,13 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
     "recharts": "^2.10.3",
+    "serve": "^14.2.6",
     "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
-    "serve": "^14.2.6",
     "typescript": "^5.3.3",
     "vite": "^5.0.8"
   },
