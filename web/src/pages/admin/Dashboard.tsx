@@ -1007,7 +1007,7 @@ export const AdminDashboard: React.FC = () => {
         ═══════════════════════════════════════════════════════════════ */
         <>
           {/* ─── 3. HRMIS METRICS ROW (Strict Database Numbers) ─────────── */}
-          <div className="metrics-grid-row" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+          <div className="metrics-grid-row">
             {/* Metric 1: Total Personnel (DB) */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">

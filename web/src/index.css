@@ -1371,12 +1371,24 @@ tr:hover td {
 }
 
 /* ─── DASHBOARD SPECIFIC METRICS & GRIDS ────────────────────────── */
+.dashboard-editorial-root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  container-type: inline-size;
+}
+
 .metrics-grid-row {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
   gap: 16px;
   padding: 0 36px 24px 36px;
   align-items: stretch;
+}
+
+.metrics-grid-row > * {
+  min-width: 0;
 }
 
 .metric-card {
@@ -1527,9 +1539,13 @@ tr:hover td {
 
 .asymmetric-main-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 4fr) minmax(280px, 1fr);
   gap: 20px;
   padding: 0 36px 24px 36px;
+}
+
+.asymmetric-main-grid > * {
+  min-width: 0;
 }
 
 .table-card-large {
@@ -1586,6 +1602,7 @@ tr:hover td {
 
 .editorial-table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -1881,8 +1898,16 @@ tr:hover td {
 
 /* ─── RESPONSIVE BREAKPOINTS ────────────────────────────────────────── */
 @media (max-width: 1400px) {
-  .metrics-grid-row {
-    grid-template-columns: repeat(3, 1fr);
+  .metrics-grid-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+}
+
+@container (max-width: 1180px) {
+  .asymmetric-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dark-feature-card {
+    min-height: 0;
   }
 }
 
