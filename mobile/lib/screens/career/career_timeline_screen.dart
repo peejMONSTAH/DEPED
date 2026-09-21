@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/service_record_model.dart';
+import '../../utils/display.dart';
 import '../../services/api_service.dart';
 import '../../services/career_service.dart';
 import '../../services/profile_service.dart';
@@ -66,15 +67,8 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                     padding: const EdgeInsets.all(20.0),
                     decoration: BoxDecoration(
                       color: AppTheme.lightBgCard,
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppTheme.lightBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                     child: Row(
                       children: [
@@ -95,7 +89,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                               Text(
                                 'Accumulated Government Service',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: AppTheme.textSecondary,
                                 ),
@@ -104,7 +98,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                               Text(
                                 '${_yearsOfService.toStringAsFixed(1)} Years',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 26,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w900,
                                   color: AppTheme.textPrimary,
                                   letterSpacing: -0.02,
@@ -129,7 +123,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                   Text(
                     'Official Service Record Timeline',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textPrimary,
                       letterSpacing: -0.01,
@@ -156,6 +150,10 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                   else
                     ListView.builder(
                       shrinkWrap: true,
+                      // A nested ListView with no explicit padding inherits the
+                      // MediaQuery vertical inset, which injects the bottom nav bar
+                      // height as blank space in the middle of the page.
+                      padding: EdgeInsets.zero,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _records.length,
                       itemBuilder: (ctx, index) {
@@ -204,13 +202,6 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                       color: AppTheme.lightBgCard,
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(color: AppTheme.lightBorder),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.04),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
                                     ),
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +225,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                                               decoration: BoxDecoration(
                                                 color: AppTheme.primaryLight.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(6),
+                                                borderRadius: BorderRadius.circular(8),
                                                 border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
                                               ),
                                               child: Text(
@@ -250,7 +241,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          '${item.dateFrom}  ──  ${item.isPresent ? "PRESENT" : item.dateTo}',
+                                          '${formatDate(item.dateFrom)}  ──  ${item.isPresent ? "Present" : formatDate(item.dateTo)}',
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 12,
                                             color: AppTheme.textSecondary,
@@ -275,7 +266,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                               ),
                                             ),
                                             Text(
-                                              '₱${item.monthlySalary.toStringAsFixed(2)}/mo',
+                                              '${formatPeso(item.monthlySalary)}/mo',
                                               style: GoogleFonts.jetBrainsMono(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 13,

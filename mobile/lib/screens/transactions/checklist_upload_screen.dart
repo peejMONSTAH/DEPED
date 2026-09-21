@@ -6,6 +6,8 @@ import '../../models/transaction_model.dart';
 import '../../services/api_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/ui_kit.dart';
+import '../../utils/display.dart';
 import '../../widgets/compliance_gauge.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/transaction_tracker_card.dart';
@@ -25,6 +27,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
   late final TransactionService _transactionService;
   bool _isUploading = false;
   bool _isSubmitting = false;
+  bool _unavailableDialogShown = false;
 
   @override
   void initState() {
@@ -38,29 +41,59 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
     try {
       final fresh = await _transactionService.getTransaction(_currentTx.id);
       if (mounted) setState(() => _currentTx = fresh);
-    } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not refresh the transaction: $error')),
+    } on TransactionUnavailableException catch (error) {
+      if (!mounted || _unavailableDialogShown) return;
+      _unavailableDialogShown = true;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Transaction unavailable'),
+          content: Text(
+            '${error.message} The outdated saved copy has been removed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Back to transactions'),
+            ),
+          ],
+        ),
       );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'The transaction could not be refreshed. Check your connection and try again.',
+            ),
+          ),
+        );
+      }
     }
   }
 
   void _pickAndUploadDocument(RequirementItemModel item) async {
     if (_isUploading || _isSubmitting) return;
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom, allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
     );
     if (result == null || !mounted) return;
     final filePath = result.files.single.path;
     if (filePath == null) return;
     setState(() => _isUploading = true);
     try {
-      await _transactionService.uploadDocument(_currentTx.id, item.id, filePath);
+      await _transactionService.uploadDocument(
+          _currentTx.id, item.id, filePath);
       await _refreshTransaction();
     } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Upload failed: $error')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $error')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -80,7 +113,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
             title: Text(
               'Promotion Eligibility Check',
               style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold, fontSize: 16),
+                  fontWeight: FontWeight.bold, fontSize: 15),
             ),
             content: Text(
               promoStatus['message'] ??
@@ -158,319 +191,329 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_currentTx.referenceNo),
-        actions: [
-        ],
+        actions: [],
       ),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Status & Compliance Card
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: AppTheme.lightBorder),
+          ContentWidth(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Status & Compliance Card
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: const BorderSide(color: AppTheme.lightBorder),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18.0),
+                      child: Row(
+                        children: [
+                          ComplianceGauge(
+                              score: _currentTx.complianceScore, radius: 36),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  humanizeEnum(_currentTx.type.name),
+                                  style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimary),
+                                ),
+                                const SizedBox(height: 6),
+                                StatusBadge(status: _currentTx.status),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _currentTx.complianceScore >= 100.0
+                                      ? 'Ready for AO II Submission'
+                                      : 'Upload all mandatory requirements below',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _currentTx.complianceScore >= 100.0
+                                        ? AppTheme.emeraldGreen
+                                        : AppTheme.textMuted,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18.0),
-                    child: Row(
-                      children: [
-                        ComplianceGauge(
-                            score: _currentTx.complianceScore, radius: 36),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
+                  const SizedBox(height: 16),
+
+                  // Live 4-Stage Transaction Tracking Stepper
+                  TransactionTrackerCard(transaction: _currentTx),
+
+                  // Return Remarks Banner if returned by AO II / HRMO
+                  if (_currentTx.status == TransactionStatus.RETURNED_BY_AO2 ||
+                      _currentTx.status == TransactionStatus.RETURNED_BY_HRMO)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.statusReturned.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.statusReturned),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.alertTriangle,
+                              color: AppTheme.statusReturned),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Remarks: ${_currentTx.remarks ?? "Please re-upload missing or unauthenticated PDF documents."}',
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.statusReturned,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Dynamic Checklist Section Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Dynamic Requirement Checklist',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  ListView.builder(
+                    shrinkWrap: true,
+                    // A nested ListView with no explicit padding inherits the
+                    // MediaQuery vertical inset, which injects the bottom nav bar
+                    // height as blank space in the middle of the page.
+                    padding: EdgeInsets.zero,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _currentTx.requirements.length,
+                    itemBuilder: (ctx, index) {
+                      final item = _currentTx.requirements[index];
+                      final isDeficient = item.fileStatus == 'REJECTED' ||
+                          item.fileStatus == 'DEFICIENT';
+                      final isApproved = (item.fileStatus == 'VERIFIED' ||
+                              item.fileStatus == 'APPROVED' ||
+                              item.fileStatus == 'VALIDATED' ||
+                              item.fileStatus == 'OCR_REVIEWED') &&
+                          (_currentTx.status ==
+                                  TransactionStatus.RETURNED_BY_AO2 ||
+                              _currentTx.status ==
+                                  TransactionStatus.RETURNED_BY_HRMO);
+
+                      return Card(
+                        elevation: 0,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isDeficient
+                                ? AppTheme.statusReturned
+                                : (isApproved
+                                    ? AppTheme.emeraldGreen.withOpacity(0.5)
+                                    : AppTheme.lightBorder),
+                            width: isDeficient || isApproved ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14.0),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _currentTx.type.name.replaceAll('_', ' '),
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary),
+                              Icon(
+                                isDeficient
+                                    ? LucideIcons.alertCircle
+                                    : (item.isUploaded
+                                        ? LucideIcons.checkCircle2
+                                        : LucideIcons.circle),
+                                color: isDeficient
+                                    ? AppTheme.statusReturned
+                                    : (item.isUploaded
+                                        ? AppTheme.emeraldGreen
+                                        : AppTheme.textMuted),
+                                size: 24,
                               ),
-                              const SizedBox(height: 6),
-                              StatusBadge(status: _currentTx.status),
-                              const SizedBox(height: 6),
-                              Text(
-                                _currentTx.complianceScore >= 100.0
-                                    ? 'Ready for AO II Submission'
-                                    : 'Upload all mandatory requirements below',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _currentTx.complianceScore >= 100.0
-                                      ? AppTheme.emeraldGreen
-                                      : AppTheme.textMuted,
-                                  fontWeight: FontWeight.bold,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.documentName,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                                color: AppTheme.textPrimary),
+                                          ),
+                                        ),
+                                        if (isDeficient)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.statusReturned
+                                                  .withOpacity(0.15),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'DEFICIENT — Action Required',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color:
+                                                      AppTheme.statusReturned,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          )
+                                        else if (isApproved)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.emeraldGreen
+                                                  .withOpacity(0.15),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'APPROVED by AO II',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme.emeraldGreen,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          )
+                                        else if (item.isMandatory)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.red.withOpacity(0.1),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'MANDATORY',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.red,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    if (item.description != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(item.description!,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondary)),
+                                    ],
+                                    if (isDeficient &&
+                                        item.rejectionReason != null) ...[
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.statusReturned
+                                              .withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          item.rejectionReason!,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.statusReturned,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                    if (item.isUploaded && !isDeficient) ...[
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          const Icon(LucideIcons.fileCheck,
+                                              size: 14,
+                                              color: AppTheme.primaryLight),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              item.uploadedFilePath!,
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppTheme.primaryLight,
+                                                  fontWeight: FontWeight.w600),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: 10),
+                              if (canEdit && !isApproved)
+                                ElevatedButton(
+                                  onPressed: () => _pickAndUploadDocument(item),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isDeficient
+                                        ? AppTheme.statusReturned
+                                        : (item.isUploaded
+                                            ? AppTheme.lightSurface
+                                            : AppTheme.brandDark),
+                                    foregroundColor: isDeficient
+                                        ? Colors.white
+                                        : (item.isUploaded
+                                            ? AppTheme.textPrimary
+                                            : Colors.white),
+                                    side: item.isUploaded && !isDeficient
+                                        ? const BorderSide(
+                                            color: AppTheme.lightBorder)
+                                        : null,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(isDeficient
+                                      ? 'Fix & Upload'
+                                      : (item.isUploaded
+                                          ? 'Replace'
+                                          : 'Upload')),
+                                ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // Live 4-Stage Transaction Tracking Stepper
-                TransactionTrackerCard(transaction: _currentTx),
-
-                // Return Remarks Banner if returned by AO II / HRMO
-                if (_currentTx.status == TransactionStatus.RETURNED_BY_AO2 ||
-                    _currentTx.status == TransactionStatus.RETURNED_BY_HRMO)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppTheme.statusReturned.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.statusReturned),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(LucideIcons.alertTriangle,
-                            color: AppTheme.statusReturned),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Remarks: ${_currentTx.remarks ?? "Please re-upload missing or unauthenticated PDF documents."}',
-                            style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.statusReturned,
-                                fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Dynamic Checklist Section Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Dynamic Requirement Checklist',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _currentTx.requirements.length,
-                  itemBuilder: (ctx, index) {
-                    final item = _currentTx.requirements[index];
-                    final isDeficient = item.fileStatus == 'REJECTED' ||
-                        item.fileStatus == 'DEFICIENT';
-                    final isApproved = (item.fileStatus == 'VERIFIED' ||
-                            item.fileStatus == 'APPROVED' ||
-                            item.fileStatus == 'VALIDATED' ||
-                            item.fileStatus == 'OCR_REVIEWED') &&
-                        (_currentTx.status ==
-                                TransactionStatus.RETURNED_BY_AO2 ||
-                            _currentTx.status ==
-                                TransactionStatus.RETURNED_BY_HRMO);
-
-                    return Card(
-                      elevation: 0,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: isDeficient
-                              ? AppTheme.statusReturned
-                              : (isApproved
-                                  ? AppTheme.emeraldGreen.withOpacity(0.5)
-                                  : AppTheme.lightBorder),
-                          width: isDeficient || isApproved ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              isDeficient
-                                  ? LucideIcons.alertCircle
-                                  : (item.isUploaded
-                                      ? LucideIcons.checkCircle2
-                                      : LucideIcons.circle),
-                              color: isDeficient
-                                  ? AppTheme.statusReturned
-                                  : (item.isUploaded
-                                      ? AppTheme.emeraldGreen
-                                      : AppTheme.textMuted),
-                              size: 24,
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.documentName,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                              color: AppTheme.textPrimary),
-                                        ),
-                                      ),
-                                      if (isDeficient)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.statusReturned
-                                                .withOpacity(0.15),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'DEFICIENT — Action Required',
-                                            style: TextStyle(
-                                                fontSize: 9,
-                                                color: AppTheme.statusReturned,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        )
-                                      else if (isApproved)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.emeraldGreen
-                                                .withOpacity(0.15),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'APPROVED by AO II',
-                                            style: TextStyle(
-                                                fontSize: 9,
-                                                color: AppTheme.emeraldGreen,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        )
-                                      else if (item.isMandatory)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.red.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'MANDATORY',
-                                            style: TextStyle(
-                                                fontSize: 9,
-                                                color: Colors.red,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  if (item.description != null) ...[
-                                    const SizedBox(height: 2),
-                                    Text(item.description!,
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.textSecondary)),
-                                  ],
-                                  if (isDeficient &&
-                                      item.rejectionReason != null) ...[
-                                    const SizedBox(height: 6),
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.statusReturned
-                                            .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        item.rejectionReason!,
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.statusReturned,
-                                            fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ],
-                                  if (item.isUploaded && !isDeficient) ...[
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        const Icon(LucideIcons.fileCheck,
-                                            size: 14,
-                                            color: AppTheme.primaryLight),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            item.uploadedFilePath!,
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.primaryLight,
-                                                fontWeight: FontWeight.w600),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            if (canEdit && !isApproved)
-                              ElevatedButton(
-                                onPressed: () => _pickAndUploadDocument(item),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isDeficient
-                                      ? AppTheme.statusReturned
-                                      : (item.isUploaded
-                                          ? AppTheme.lightSurface
-                                          : AppTheme.brandDark),
-                                  foregroundColor: isDeficient
-                                      ? Colors.white
-                                      : (item.isUploaded
-                                          ? AppTheme.textPrimary
-                                          : Colors.white),
-                                  side: item.isUploaded && !isDeficient
-                                      ? const BorderSide(
-                                          color: AppTheme.lightBorder)
-                                      : null,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  elevation: 0,
-                                ),
-                                child: Text(isDeficient
-                                    ? 'Fix & Upload'
-                                    : (item.isUploaded ? 'Replace' : 'Upload')),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           if (_isUploading || _isSubmitting)
@@ -505,19 +548,12 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                 color: AppTheme.lightBgCard,
                 border: const Border(
                     top: BorderSide(color: AppTheme.lightBorder, width: 1)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
               ),
               child: SafeArea(
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     gradient: LinearGradient(
                       colors: _currentTx.complianceScore >= 100.0
                           ? const [Color(0xFF059669), Color(0xFF10B981)]
@@ -539,7 +575,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       onTap: _handleSubmitTransaction,
                       child: Center(
                         child: Row(

@@ -103,15 +103,8 @@ class EminenceLogo extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentLime,
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accentLime.withOpacity(0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
+                  color: AppTheme.brandDark,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'HRMIS',
@@ -119,7 +112,7 @@ class EminenceLogo extends StatelessWidget {
                     fontSize: badgeSz,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.8,
-                    color: AppTheme.brandDark,
+                    color: Colors.white,
                     height: 1.0,
                   ),
                 ),
@@ -131,7 +124,7 @@ class EminenceLogo extends StatelessWidget {
             Text(
               'City Schools Division of Koronadal',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 9.5,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textMuted,
                 letterSpacing: 0.1,
@@ -170,14 +163,7 @@ class EminenceLogo extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: AppTheme.accentLime,
-                  borderRadius: BorderRadius.circular(5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accentLime.withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'HRMIS',
@@ -207,7 +193,7 @@ class EminenceLogo extends StatelessWidget {
             width: 140,
             height: 2.5,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(8),
               gradient: const LinearGradient(
                 colors: [
                   Colors.transparent,

@@ -11,6 +11,9 @@ import '../../services/profile_service.dart';
 import '../../services/realtime_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
+import '../../utils/display.dart';
+import '../../widgets/ui_kit.dart';
 import '../../widgets/compliance_gauge.dart';
 import '../../widgets/eminence_logo.dart';
 import '../../widgets/status_badge.dart';
@@ -33,6 +36,10 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   int _currentIndex = 0;
+
+  /// Alerts is the last tab. Named so the app-bar bell, the unread badge and
+  /// the tab itself cannot drift apart if the order changes again.
+  static const int _alertsTabIndex = 4;
   bool _isStretched = false;
   late final ProfileService _profileService;
   late final TransactionService _transactionService;
@@ -46,6 +53,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Map<String, dynamic>? _promoStatus;
   int _unreadCount = 0;
   bool _isLoading = true;
+
+  /// True when the last attempt could not load the personnel profile. Drives
+  /// the error state, and the "showing saved copy" notice when stale data is
+  /// still on screen.
+  bool _profileUnavailable = false;
   late final ApiService _apiService;
 
   @override
@@ -118,6 +130,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     List<dynamic> loadedCycles = [];
     Map<String, dynamic>? loadedPromo;
     int unread = 0;
+    bool profileFailed = false;
 
     try {
       loadedProfile = await _profileService.getProfile();
@@ -126,42 +139,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           '[HRIS Profile] Failed to load personnel profile from server: $e\n$stack');
     }
 
-    // Fallback: If server profile is temporarily null, keep existing _profile if available
-    if (loadedProfile == null && _profile != null) {
+    // Keep a previously loaded profile if the refresh failed, and say so.
+    // Never invent one: showing a fabricated position or station on a 201
+    // record is worse than showing nothing.
+    if (loadedProfile == null) {
       loadedProfile = _profile;
-    } else if (loadedProfile == null) {
-      final u = widget.user;
-      final fName = (u.firstName != null && u.firstName!.isNotEmpty)
-          ? u.firstName!
-          : (u.email.split('@').first.replaceAll(RegExp(r'[\._]'), ' ').trim());
-      final lName = (u.lastName != null && u.lastName!.isNotEmpty)
-          ? u.lastName!
-          : 'Staff';
-      final roleCategory = u.role == UserRole.TEACHING_PERSONNEL
-          ? 'Teaching Personnel'
-          : 'Non-Teaching Personnel';
-      final roleTitle = u.role == UserRole.TEACHING_PERSONNEL
-          ? 'Teacher I'
-          : 'Administrative Officer';
-
-      loadedProfile = PersonnelProfileModel(
-        id: u.personnelId ?? u.id,
-        employeeId: 'EMP-2026-${u.id.toString().padLeft(4, '0')}',
-        firstName: fName,
-        lastName: lName,
-        positionTitle: roleTitle,
-        plantillaItemNo: 'OSEC-DECSB-TCH1-2026',
-        salaryGrade: 11,
-        stepIncrement: 1,
-        stationName: 'SDO Koronadal City',
-        personnelType: roleCategory,
-        email: u.email,
-        birthDate: '1995-05-15',
-        gender: 'MALE',
-        civilStatus: 'SINGLE',
-        address: 'Koronadal City, South Cotabato',
-        dateHired: '2024-01-15',
-      );
+      profileFailed = true;
     }
 
     try {
@@ -203,6 +186,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         _activeCycles = loadedCycles;
         _promoStatus = loadedPromo;
         _unreadCount = unread;
+        _profileUnavailable = profileFailed;
         _isLoading = false;
       });
     }
@@ -231,7 +215,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.lightBgCard,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: AppTheme.lightBorder),
         ),
         title: Row(
@@ -251,7 +235,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               style: GoogleFonts.plusJakartaSans(
                 color: AppTheme.textPrimary,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: 15,
               ),
             ),
           ],
@@ -274,7 +258,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF85149),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: Text(
               'Sign Out',
@@ -305,6 +289,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final List<Widget> pages = [
       _buildHomeTab(),
       ProfileScreen(profile: _profile, onRefresh: _loadData),
+      const PersonnelDocumentsScreen(embedded: true),
       const CareerTimelineScreen(),
       const NotificationsScreen(),
     ];
@@ -320,19 +305,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           variant: EminenceLogoVariant.wordmark,
           size: EminenceLogoSize.md,
         ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppTheme.lightBorder),
+        ),
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.bell,
-                size: 20, color: Color(0xFF8B949E)),
-            onPressed: () => setState(() => _currentIndex = 3),
+                size: 20, color: AppTheme.textSecondary),
+            onPressed: () => setState(() => _currentIndex = _alertsTabIndex),
+            tooltip: 'Alerts',
           ),
           IconButton(
             icon: const Icon(LucideIcons.logOut,
-                size: 20, color: Color(0xFFF85149)),
+                size: 20, color: AppTheme.textSecondary),
             onPressed: _handleLogout,
-            tooltip: 'Sign Out',
+            tooltip: 'Sign out',
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpace.xs),
         ],
       ),
       body: NotificationListener<ScrollNotification>(
@@ -351,7 +341,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         child: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(color: AppTheme.primaryLight))
-            : pages[_currentIndex],
+            : ContentWidth(child: pages[_currentIndex]),
       ),
       bottomNavigationBar: _buildLiquidGlassNavBar(),
     );
@@ -360,60 +350,51 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   /// Floating liquid-glass navigation bar.
   Widget _buildLiquidGlassNavBar() {
     return SafeArea(
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.fromLTRB(_isStretched ? 6 : 14, 0,
-            _isStretched ? 6 : 14, _isStretched ? 6 : 12),
-        child: Row(
-          children: [
-            // Personnel transactions are assigned by the AO/HRMO workflow.
-            // The navigation therefore contains no manual transaction action.
-            Expanded(
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                height: _isStretched ? 70 : 64,
-                decoration: BoxDecoration(
-                  color: AppTheme.lightBgCard,
-                  borderRadius: BorderRadius.circular(_isStretched ? 36 : 32),
-                  border: Border.all(
-                    color: _isStretched
-                        ? AppTheme.primaryLight.withOpacity(0.5)
-                        : AppTheme.lightBorder,
-                    width: _isStretched ? 1.6 : 1.0,
+      child: ContentWidth(
+        shrinkWrapHeight: true,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.fromLTRB(_isStretched ? 6 : 14, 0,
+              _isStretched ? 6 : 14, _isStretched ? 6 : 12),
+          child: Row(
+            children: [
+              // Personnel transactions are assigned by the AO/HRMO workflow.
+              // The navigation therefore contains no manual transaction action.
+              Expanded(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  height: _isStretched ? 70 : 64,
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightBgCard,
+                    borderRadius: BorderRadius.circular(_isStretched ? 36 : 32),
+                    border: Border.all(color: AppTheme.lightBorder, width: 1),
                   ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 18,
-                      offset: Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: Color(0x08000000),
-                      blurRadius: 6,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildNavTabItem(
-                        index: 0, icon: LucideIcons.home, label: 'Home'),
-                    _buildNavTabItem(
-                        index: 1,
-                        icon: LucideIcons.userCheck,
-                        label: 'Profile'),
-                    _buildNavTabItem(
-                        index: 2, icon: LucideIcons.award, label: 'Career'),
-                    _buildNavTabItem(
-                        index: 3, icon: LucideIcons.bell, label: 'Alerts'),
-                  ],
+                  child: Row(
+                    children: [
+                      _buildNavTabItem(
+                          index: 0, icon: LucideIcons.home, label: 'Home'),
+                      _buildNavTabItem(
+                          index: 1,
+                          icon: LucideIcons.userCheck,
+                          label: 'Profile'),
+                      _buildNavTabItem(
+                          index: 2,
+                          icon: LucideIcons.folderOpen,
+                          label: 'Documents'),
+                      _buildNavTabItem(
+                          index: 3, icon: LucideIcons.award, label: 'Career'),
+                      _buildNavTabItem(
+                          index: _alertsTabIndex,
+                          icon: LucideIcons.bell,
+                          label: 'Alerts'),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -427,84 +408,126 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     final isSelected = _currentIndex == index;
     final color = isSelected ? AppTheme.primaryLight : AppTheme.textMuted;
 
-    return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
-      borderRadius: BorderRadius.circular(24),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSelected
-                        ? AppTheme.primaryLight.withOpacity(0.12)
-                        : Colors.transparent,
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _currentIndex = index),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected
+                          ? AppTheme.primaryLight.withOpacity(0.12)
+                          : Colors.transparent,
+                    ),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: color,
+                    ),
                   ),
-                  child: Icon(
-                    icon,
-                    size: 20,
-                    color: color,
-                  ),
-                ),
-                if (index == 3 && _unreadCount > 0)
-                  Positioned(
-                    top: -4,
-                    right: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF85149),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFF85149).withOpacity(0.4),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      constraints:
-                          const BoxConstraints(minWidth: 16, minHeight: 16),
-                      child: Center(
-                        child: Text(
-                          _unreadCount > 99 ? '99+' : '$_unreadCount',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
+                  if (index == _alertsTabIndex && _unreadCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF85149),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        constraints:
+                            const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Center(
+                          child: Text(
+                            _unreadCount > 99 ? '99+' : '$_unreadCount',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11.5,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: color,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              // scaleDown keeps a longer label such as "Documents" inside its
+              // share of the bar instead of overflowing on a narrow phone.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHomeTab() {
+    // Nothing loaded and nothing cached: say so instead of rendering a
+    // dashboard built from placeholder values.
+    if (_profileUnavailable && _profile == null) {
+      return RefreshIndicator(
+        onRefresh: _loadData,
+        color: AppTheme.primaryLight,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpace.lg, AppSpace.lg, AppSpace.lg, 100),
+          children: [
+            EmptyState(
+              icon: LucideIcons.cloudOff,
+              title: 'Cannot reach the 201 server',
+              message:
+                  'Your records could not be loaded, so nothing is shown rather than out-of-date or placeholder details. Check your connection and try again.',
+              action: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _loadData,
+                      child: const Text('Try again'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  TextButton(
+                    onPressed: _handleLogout,
+                    child: Text(
+                      'Sign out',
+                      style: AppText.caption
+                          .copyWith(color: AppTheme.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final fn = widget.user.firstName;
     final ln = widget.user.lastName;
     final initials =
@@ -519,534 +542,299 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
         children: [
-          // Profile Welcome Header Hero Card
-          Container(
-            padding: const EdgeInsets.all(20.0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: AppTheme.lightBgCard,
-              border: Border.all(color: AppTheme.lightBorder),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 16,
-                  offset: Offset(0, 4),
-                ),
-              ],
+          // Shown only when a refresh failed and the card below is therefore a
+          // saved copy, so nobody mistakes it for live data.
+          if (_profileUnavailable) ...[
+            AppCard(
+              padding: const EdgeInsets.all(AppSpace.md),
+              borderColor: AppTheme.statusPending.withValues(alpha: 0.4),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.cloudOff,
+                      size: 16, color: AppTheme.statusPending),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: Text(
+                      'Showing a saved copy. Could not reach the server.',
+                      style: AppText.caption,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadData,
+                    child: Text(
+                      'Retry',
+                      style: AppText.caption.copyWith(
+                        color: AppTheme.primaryLight,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: AppSpace.md),
+          ],
+
+          // Personnel identity
+          AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    // Avatar Circle with Electric Lime Brand Highlight
                     Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppTheme.accentLime,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.accentLime.withOpacity(0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                        color: AppTheme.lightSurface,
                       ),
-                      child: Center(
-                        child: Text(
-                          initials,
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppTheme.brandDark,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
+                      child:
+                          Center(child: Text(initials, style: AppText.heading)),
                     ),
-                    const SizedBox(width: 14),
-
+                    const SizedBox(width: AppSpace.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Welcome back,',
-                            style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSecondary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500),
-                          ),
+                          Text('Welcome back', style: AppText.micro),
+                          const SizedBox(height: 2),
                           Text(
                             _profile?.fullName ??
                                 '${widget.user.firstName} ${widget.user.lastName}',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: AppTheme.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: AppText.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
-                      ),
-                    ),
-
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryLight.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                            color: AppTheme.primaryLight.withOpacity(0.25)),
-                      ),
-                      child: Text(
-                        _profile?.personnelType ??
-                            widget.user.role.name.replaceAll('_', ' '),
-                        style: GoogleFonts.plusJakartaSans(
-                          color: AppTheme.primaryLight,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                const Divider(color: AppTheme.lightBorder),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(height: AppSpace.md),
+                Wrap(
+                  spacing: AppSpace.md,
+                  runSpacing: AppSpace.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(LucideIcons.briefcase,
-                              size: 14, color: AppTheme.accentGold),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _profile?.positionTitle ?? 'DepEd Personnel',
-                              style: GoogleFonts.inter(
-                                  color: AppTheme.textPrimary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                    StatusPill(
+                      label: humanizeEnum(
+                        _profile?.personnelType ?? widget.user.role.name,
+                        fallback: 'Personnel',
                       ),
+                      tone: AppStatusTone.info,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(LucideIcons.building,
-                              size: 14, color: AppTheme.emeraldGreen),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _profile?.stationName ?? 'SDO Koronadal',
-                              style: GoogleFonts.inter(
-                                  color: AppTheme.textSecondary, fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                    MetaItem(
+                      icon: LucideIcons.briefcase,
+                      label: _profile?.positionTitle ?? 'Position not recorded',
+                    ),
+                    MetaItem(
+                      icon: LucideIcons.building2,
+                      label: _profile?.stationName ?? 'Station not recorded',
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpace.md),
 
           // Promotion Status & Pending Document Approval Card
           _buildPromotionStatusCard(),
 
-          // Quick Stats Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatTile(
-                  title: 'Employee ID',
-                  value: _profile?.employeeId ??
-                      (widget.user.personnelId != null
-                          ? 'EMP-${widget.user.personnelId}'
-                          : 'EMP-2026-${widget.user.id.toString().padLeft(4, '0')}'),
-                  icon: LucideIcons.contact,
-                  color: AppTheme.primaryLight,
+          // Quick Stats Row.
+          // IntrinsicHeight gives the row a bounded height equal to its tallest
+          // child, which is what lets the two cards match. Using
+          // CrossAxisAlignment.stretch on its own does not work here: this row
+          // sits in a scrolling ListView, so the cross axis is unbounded and
+          // stretch asks the cards to be infinitely tall, which throws.
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _buildStatTile(
+                    title: 'Employee ID',
+                    value: _profile?.employeeId ??
+                        (widget.user.personnelId != null
+                            ? 'EMP-${widget.user.personnelId}'
+                            : 'EMP-2026-${widget.user.id.toString().padLeft(4, '0')}'),
+                    icon: LucideIcons.contact,
+                    color: AppTheme.primaryLight,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatTile(
-                  title: 'Active Filing',
-                  value: '${_transactions.length} Request',
-                  icon: LucideIcons.fileText,
-                  color: AppTheme.accentGold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Personnel 201 Documents Quick Action Card
-          Container(
-            padding: const EdgeInsets.all(16.0),
-            decoration: BoxDecoration(
-              color: AppTheme.lightBgCard,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.lightBorder),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x06000000),
-                  blurRadius: 10,
-                  offset: Offset(0, 3),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatTile(
+                    title: 'Active Filing',
+                    value: pluralize(_transactions.length, 'request',
+                        zeroLabel: 'None'),
+                    icon: LucideIcons.fileText,
+                    color: AppTheme.accentGold,
+                  ),
                 ),
               ],
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 420;
-                final details = Row(
+          ),
+          const SizedBox(height: 14),
+
+          // Personnel 201 documents quick action
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.brandDark,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(LucideIcons.scanLine,
-                          color: AppTheme.accentLime, size: 22),
-                    ),
-                    const SizedBox(width: 14),
+                    const Icon(LucideIcons.scanLine,
+                        size: 18, color: AppTheme.primaryLight),
+                    const SizedBox(width: AppSpace.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Personnel documents',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          Text('Personnel documents', style: AppText.heading),
                           const SizedBox(height: 2),
-                          Text(
-                            'Scan with camera or upload 201 records',
-                            style: GoogleFonts.inter(
-                                fontSize: 12,
-                                height: 1.35,
-                                color: AppTheme.textSecondary),
-                          ),
+                          Text('Scan or upload your 201 records',
+                              style: AppText.caption),
                         ],
                       ),
                     ),
                   ],
-                );
-                final manageButton = ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const PersonnelDocumentsScreen()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.brandDark,
-                    foregroundColor: Colors.white,
-                    minimumSize: compact ? const Size.fromHeight(44) : null,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text(
-                    'Manage documents',
-                    style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
-                  ),
-                );
-
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      details,
-                      const SizedBox(height: 14),
-                      manageButton
-                    ],
-                  );
-                }
-
-                return Row(children: [
-                  Expanded(child: details),
-                  const SizedBox(width: 12),
-                  manageButton
-                ]);
-              },
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Open Promotion & Reclassification Positions Section
-          if (_activeCycles.isNotEmpty) ...[
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    const Icon(LucideIcons.trophy,
-                        color: AppTheme.accentGold, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Open Vacancies & Promotion Cycles',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.emeraldGreen.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: AppTheme.emeraldGreen.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    'Active Now',
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.emeraldGreen),
+                const SizedBox(height: AppSpace.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    // Documents has its own tab, so switch to it rather than
+                    // pushing a second copy on top of the navigation bar.
+                    onPressed: () => setState(() => _currentIndex = 2),
+                    child: const Text('Manage documents'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+          ),
+          const SizedBox(height: AppSpace.xl),
+
+          // Open promotion & reclassification positions
+          if (_activeCycles.isNotEmpty) ...[
+            SectionHeading(
+              title: 'Open vacancies',
+              trailing: StatusPill(
+                label: pluralize(_activeCycles.length, 'cycle'),
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
             ListView.builder(
               shrinkWrap: true,
+              // A nested ListView with no explicit padding inherits the
+              // MediaQuery vertical inset, which injects the bottom nav bar
+              // height as blank space in the middle of the page.
+              padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _activeCycles.length,
               itemBuilder: (ctx, idx) {
                 final cycle = _activeCycles[idx] as Map<String, dynamic>;
                 final bool hasApplied = cycle['hasApplied'] == true;
                 final bool isActive = cycle['status'] == 'ACTIVE';
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBgCard,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: isActive
-                            ? const Color(0xFF8B5CF6).withOpacity(0.35)
-                            : AppTheme.lightBorder),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x06000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              cycle['name']?.toString() ?? 'Promotion Vacancy',
-                              style: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
-                                  fontSize: 13),
+                final name = splitVacancyName(cycle['name']);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.md),
+                  child: AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                                child:
+                                    Text(name.title, style: AppText.heading)),
+                            const SizedBox(width: AppSpace.sm),
+                            StatusPill(
+                              label: isActive ? 'Open' : 'Upcoming',
+                              tone: isActive
+                                  ? AppStatusTone.success
+                                  : AppStatusTone.pending,
                             ),
-                          ),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                margin: const EdgeInsets.only(right: 6),
-                                decoration: BoxDecoration(
-                                  color: isActive
-                                      ? AppTheme.emeraldGreen.withOpacity(0.15)
-                                      : AppTheme.accentGold.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  isActive ? 'OPEN' : 'UPCOMING',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                      color: isActive
-                                          ? AppTheme.emeraldGreen
-                                          : AppTheme.accentGold),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color:
-                                      const Color(0xFF8B5CF6).withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  cycle['type']?.toString() ?? 'VACANCY',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF7C3AED)),
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
+                        ),
+                        if (name.code != null) ...[
+                          const SizedBox(height: AppSpace.xs),
+                          Text(name.code!, style: AppText.mono),
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        isActive
-                            ? 'DepEd Qualification Standards · Deadline: ${cycle['endDate'] != null ? cycle['endDate'].toString().split('T')[0] : 'Open'}'
-                            : 'Starts: ${cycle['startDate'] != null ? cycle['startDate'].toString().split('T')[0] : 'Soon'} · DepEd Qualification Standards',
-                        style: GoogleFonts.inter(
-                            fontSize: 12.5, color: AppTheme.textSecondary),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Applicants: ${cycle['applicantCount'] ?? 0}',
-                            style: GoogleFonts.inter(
-                                fontSize: 12.5, color: AppTheme.textSecondary),
-                          ),
-                          hasApplied
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.emeraldGreen.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    'Applied',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.emeraldGreen),
-                                  ),
-                                )
-                              : isActive
-                                  ? ElevatedButton.icon(
-                                      onPressed: () =>
-                                          _handleApplyForCycle(cycle),
-                                      icon: const Icon(LucideIcons.zap,
-                                          size: 14, color: Colors.white),
-                                      label: Text(
-                                        'Apply for Position',
-                                        style: GoogleFonts.inter(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.brandDark,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 8),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8)),
-                                      ),
-                                    )
-                                  : Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.lightSurface,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                            color: AppTheme.lightBorder),
-                                      ),
-                                      child: Text(
-                                        'Opening Soon',
-                                        style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.textMuted),
-                                      ),
-                                    ),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(height: AppSpace.md),
+                        Wrap(
+                          spacing: AppSpace.md,
+                          runSpacing: AppSpace.sm,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            MetaItem(
+                              icon: LucideIcons.tag,
+                              label: humanizeEnum(cycle['type'],
+                                  fallback: 'Vacancy'),
+                            ),
+                            MetaItem(
+                              icon: LucideIcons.calendarClock,
+                              label: isActive
+                                  ? 'Closes ${formatDate(cycle['endDate'], fallback: 'when filled')}'
+                                  : 'Opens ${formatDate(cycle['startDate'], fallback: 'soon')}',
+                            ),
+                            MetaItem(
+                              icon: LucideIcons.users,
+                              label: pluralize(
+                                (cycle['applicantCount'] as num?)?.toInt() ?? 0,
+                                'applicant',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpace.lg),
+                        if (hasApplied)
+                          const StatusPill(
+                            label: 'Application submitted',
+                            tone: AppStatusTone.success,
+                            icon: LucideIcons.check,
+                          )
+                        else if (isActive)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () => _handleApplyForCycle(cycle),
+                              child: const Text('Apply for position'),
+                            ),
+                          )
+                        else
+                          const StatusPill(label: 'Opening soon'),
+                      ],
+                    ),
                   ),
                 );
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpace.xl),
           ],
 
-          // Active Transactions Section Header
-          Text(
-            'My assigned 201 transactions',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 8),
+          // Active transactions
+          SectionHeading(title: 'My 201 transactions'),
+          const SizedBox(height: AppSpace.md),
 
           // Transactions List
           if (_transactions.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(28.0),
-              decoration: BoxDecoration(
-                color: AppTheme.lightBgCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.lightBorder),
-              ),
-              child: Column(
-                children: [
-                  const Icon(LucideIcons.folderOpen,
-                      size: 44, color: AppTheme.textMuted),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No assigned transactions',
-                    style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                        fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'When the AO or HRMO assigns a hiring or promotion transaction, it will appear here automatically.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: AppTheme.textSecondary),
-                  ),
-                ],
-              ),
+            const EmptyState(
+              icon: LucideIcons.folderOpen,
+              title: 'No assigned transactions',
+              message:
+                  'A hiring or promotion transaction will appear here once the AO or HRMO assigns one to you.',
             )
           else
             ListView.builder(
               shrinkWrap: true,
+              // A nested ListView with no explicit padding inherits the
+              // MediaQuery vertical inset, which injects the bottom nav bar
+              // height as blank space in the middle of the page.
+              padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _transactions.length,
               itemBuilder: (ctx, index) {
@@ -1055,19 +843,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: AppTheme.lightBgCard,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppTheme.lightBorder),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x06000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
                   ),
                   child: Material(
                     color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
@@ -1078,14 +859,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textPrimary,
-                            fontSize: 14),
+                            fontSize: 15),
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 4),
                           Text(
-                            item.type.name.replaceAll('_', ' '),
+                            humanizeEnum(item.type.name),
                             style: GoogleFonts.inter(
                                 color: AppTheme.textSecondary, fontSize: 12),
                           ),
@@ -1121,51 +902,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     required IconData icon,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14.0),
-      decoration: BoxDecoration(
-        color: AppTheme.lightBgCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.lightBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x06000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: GoogleFonts.inter(
-                        fontSize: 12.5, color: AppTheme.textSecondary)),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: StatBlock(label: title, value: value, icon: icon),
     );
   }
 
@@ -1192,13 +931,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           color: const Color(0xFFFFFBEB),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFFDE68A)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x08000000),
-              blurRadius: 10,
-              offset: Offset(0, 3),
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1242,13 +974,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFFFCD34D)),
                   ),
                   child: Text(
                     'DOCS PENDING',
                     style: GoogleFonts.inter(
-                        fontSize: 9,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF92400E)),
                   ),
@@ -1260,7 +992,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7).withOpacity(0.6),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
@@ -1271,7 +1003,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     child: Text(
                       'You are not officially promoted until HR validates and approves your appointment documents.',
                       style: GoogleFonts.inter(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: const Color(0xFF92400E),
                           height: 1.35),
                     ),
@@ -1284,28 +1016,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  TransactionModel matchingTx;
-                  try {
-                    matchingTx = _transactions.firstWhere(
-                      (t) =>
-                          (txId != null && t.id == txId) ||
-                          t.type == TransactionType.PROMOTION,
+                  TransactionModel? matchingTx;
+                  for (final transaction in _transactions) {
+                    if ((txId != null && transaction.id == txId) ||
+                        transaction.type == TransactionType.PROMOTION) {
+                      matchingTx = transaction;
+                      break;
+                    }
+                  }
+                  if (matchingTx == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'No assigned promotion transaction is available yet.',
+                        ),
+                      ),
                     );
-                  } catch (_) {
-                    matchingTx = TransactionModel(
-                      id: txId is int ? txId : 1,
-                      referenceNo: txId != null ? 'TRX-$txId' : 'TRX-PROMOTION',
-                      type: TransactionType.PROMOTION,
-                      status: TransactionStatus.DRAFT,
-                      complianceScore: 0,
-                      createdAt: DateTime.now().toIso8601String(),
-                      updatedAt: DateTime.now().toIso8601String(),
-                    );
+                    return;
                   }
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) =>
-                          ChecklistUploadScreen(transaction: matchingTx),
+                          ChecklistUploadScreen(transaction: matchingTx!),
                     ),
                   );
                 },
@@ -1325,7 +1057,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -1342,13 +1074,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           color: const Color(0xFFECFDF5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFA7F3D0)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x08000000),
-              blurRadius: 10,
-              offset: Offset(0, 3),
-            ),
-          ],
         ),
         child: Row(
           children: [

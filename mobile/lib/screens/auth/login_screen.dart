@@ -180,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Text(
                                       'Official DepEd Region XII & NDMU HRIS',
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 12.5,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                         color: AppTheme.primaryLight,
                                       ),
@@ -215,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Personnel Digital 201 Portal',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: AppTheme.textSecondary,
                               ),
@@ -227,15 +227,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               padding: EdgeInsets.all(isCompact ? 20.0 : 26.0),
                               decoration: BoxDecoration(
                                 color: AppTheme.lightBgCard,
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(16),
                                 border: Border.all(color: AppTheme.lightBorder),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x0C000000),
-                                    blurRadius: 20,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ],
                               ),
                               child: Form(
                                 key: _formKey,
@@ -255,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     Text(
                                       'Enter your DepEd enterprise credentials to proceed.',
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 14,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w500,
                                         color: AppTheme.textSecondary,
                                         height: 1.4,
@@ -269,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       keyboardType: TextInputType.emailAddress,
                                       style: GoogleFonts.inter(
                                         color: AppTheme.textPrimary,
-                                        fontSize: 15.5,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w500,
                                       ),
                                       decoration: const InputDecoration(
@@ -290,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       obscureText: _obscurePassword,
                                       style: GoogleFonts.inter(
                                         color: AppTheme.textPrimary,
-                                        fontSize: 15.5,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w500,
                                       ),
                                       decoration: InputDecoration(
@@ -318,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           padding: const EdgeInsets.symmetric(vertical: 16),
                                           backgroundColor: AppTheme.brandDark,
                                           foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                           elevation: 0,
                                         ),
                                         child: _isLoading && _loadingRole == null
@@ -330,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             : Text(
                                                 'Sign In to 201 Portal',
                                                 style: GoogleFonts.plusJakartaSans(
-                                                  fontSize: 16,
+                                                  fontSize: 15,
                                                   fontWeight: FontWeight.w800,
                                                   color: Colors.white,
                                                   letterSpacing: 0.1,
@@ -390,15 +383,8 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: AppTheme.lightBgCard,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.4)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 30,
-                  spreadRadius: 2,
-                ),
-              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -417,7 +403,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(
                       initials,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 28,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
@@ -436,7 +422,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Text(
                     roleName,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: const Color(0xFF059669),
                     ),
@@ -457,7 +443,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Launching your DepEd 201 HRIS workspace...',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 13.5, color: AppTheme.textSecondary),
+                  style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 24),
 

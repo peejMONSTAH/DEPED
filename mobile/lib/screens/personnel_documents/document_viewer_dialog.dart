@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/personnel_document_model.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/display.dart';
 
 class DocumentViewerDialog extends StatelessWidget {
   final PersonnelDocument document;
@@ -22,7 +23,7 @@ class DocumentViewerDialog extends StatelessWidget {
       backgroundColor: AppTheme.lightBgCard,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         side: const BorderSide(color: AppTheme.lightBorder),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -58,14 +59,14 @@ class DocumentViewerDialog extends StatelessWidget {
                         Text(
                           document.documentTypeName,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textPrimary,
                           ),
                         ),
                         Text(
                           document.originalFileName,
-                          style: GoogleFonts.inter(fontSize: 11.5, color: AppTheme.textSecondary),
+                          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textSecondary),
                         ),
                       ],
                     ),
@@ -99,14 +100,14 @@ class DocumentViewerDialog extends StatelessWidget {
                   const SizedBox(height: 8),
                   _buildDetailRow('Format', document.mimeType),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Uploaded On', document.uploadedAt.split('T')[0]),
+                  _buildDetailRow('Uploaded On', formatDate(document.uploadedAt)),
                   if (document.issueDate != null) ...[
                     const SizedBox(height: 8),
-                    _buildDetailRow('Issue Date', document.issueDate!.split('T')[0]),
+                    _buildDetailRow('Issue Date', formatDate(document.issueDate)),
                   ],
                   if (document.expirationDate != null) ...[
                     const SizedBox(height: 8),
-                    _buildDetailRow('Expiration Date', document.expirationDate!.split('T')[0]),
+                    _buildDetailRow('Expiration Date', formatDate(document.expirationDate)),
                   ],
                   if (document.reviewedBy != null) ...[
                     const SizedBox(height: 8),
@@ -156,7 +157,7 @@ class DocumentViewerDialog extends StatelessWidget {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     icon: const Icon(LucideIcons.trash2, size: 14),
-                    label: Text('Delete', style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                    label: Text('Delete', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -177,7 +178,7 @@ class DocumentViewerDialog extends StatelessWidget {
                       icon: const Icon(LucideIcons.refreshCw, size: 14, color: Colors.white),
                       label: Text(
                         'Replace Document',
-                        style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ),
                   ),
@@ -204,7 +205,7 @@ class DocumentViewerDialog extends StatelessWidget {
           Text(
             value ?? '—',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
             ),

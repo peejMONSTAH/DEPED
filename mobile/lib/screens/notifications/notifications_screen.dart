@@ -7,6 +7,9 @@ import '../../services/api_service.dart';
 import '../../services/realtime_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
+import '../../utils/display.dart';
+import '../../widgets/ui_kit.dart';
 import '../transactions/checklist_upload_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -49,12 +52,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await _apiService.dio.get<dynamic>('/notifications');
-      final List<dynamic> list = (response.data != null && response.data['data'] is List)
-          ? (response.data['data'] as List<dynamic>)
-          : <dynamic>[];
+      final List<dynamic> list =
+          (response.data != null && response.data['data'] is List)
+              ? (response.data['data'] as List<dynamic>)
+              : <dynamic>[];
       if (mounted) {
         setState(() {
-          _notifications = list.map((dynamic e) => e as Map<String, dynamic>).toList();
+          _notifications =
+              list.map((dynamic e) => e as Map<String, dynamic>).toList();
           _isLoading = false;
         });
       }
@@ -92,57 +97,52 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         elevation: 0,
         title: Text(
           'Notifications & Alerts',
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+          style: GoogleFonts.plusJakartaSans(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary),
         ),
         actions: [
           IconButton(
             tooltip: 'Mark All as Read',
-            icon: const Icon(LucideIcons.checkCheck, color: AppTheme.primaryLight, size: 20),
+            icon: const Icon(LucideIcons.checkCheck,
+                color: AppTheme.primaryLight, size: 20),
             onPressed: _markAllRead,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryLight))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryLight))
           : RefreshIndicator(
               onRefresh: _fetchNotifications,
               color: AppTheme.primaryLight,
               child: _notifications.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(LucideIcons.bellOff, size: 48, color: AppTheme.textMuted),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No Notifications Yet',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'System updates, filing approvals, and status alerts will appear here.',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary),
-                            ),
-                          ],
+                  ? ListView(
+                      padding: const EdgeInsets.all(AppSpace.lg),
+                      children: const [
+                        EmptyState(
+                          icon: LucideIcons.bellOff,
+                          title: 'No notifications',
+                          message:
+                              'Filing approvals, document reviews and status changes will appear here.',
                         ),
-                      ),
+                      ],
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSpace.lg),
                       itemCount: _notifications.length,
                       itemBuilder: (ctx, index) {
                         final item = _notifications[index];
                         final type = item['type']?.toString() ?? 'INFO';
-                        final isRead = item['read'] == true || item['isRead'] == true;
-                        final message = item['message']?.toString() ?? 'Notification';
-                        final entityType = item['relatedEntityType']?.toString() ?? '';
+                        final isRead =
+                            item['read'] == true || item['isRead'] == true;
+                        final message =
+                            stripLeadingSymbols(item['message']).isEmpty
+                                ? 'Notification'
+                                : stripLeadingSymbols(item['message']);
+                        final entityType =
+                            item['relatedEntityType']?.toString() ?? '';
 
                         Color iconColor = AppTheme.primaryLight;
                         IconData iconData = LucideIcons.bell;
@@ -154,7 +154,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           iconColor = AppTheme.accentGold;
                           iconData = LucideIcons.alertTriangle;
                         } else if (type == 'ERROR') {
-                          iconColor = const Color(0xFFF85149);
+                          iconColor = AppTheme.statusReturned;
                           iconData = LucideIcons.xCircle;
                         }
 
@@ -163,133 +163,154 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         IconData actionIcon = LucideIcons.arrowRight;
                         final lowerMsg = message.toLowerCase();
 
-                        if (entityType == 'AccountCreationRequest' || lowerMsg.contains('account creation') || lowerMsg.contains('creation request')) {
+                        if (entityType == 'AccountCreationRequest' ||
+                            lowerMsg.contains('account creation') ||
+                            lowerMsg.contains('creation request')) {
                           actionLabel = 'Review Account Request';
                           actionIcon = LucideIcons.userPlus;
-                        } else if (lowerMsg.contains('password') || lowerMsg.contains('credential') || lowerMsg.contains('reset')) {
+                        } else if (lowerMsg.contains('password') ||
+                            lowerMsg.contains('credential') ||
+                            lowerMsg.contains('reset')) {
                           actionLabel = 'Manage Credentials';
                           actionIcon = LucideIcons.keyRound;
-                        } else if (lowerMsg.contains('deficienc') || lowerMsg.contains('reject') || lowerMsg.contains('return')) {
+                        } else if (lowerMsg.contains('deficienc') ||
+                            lowerMsg.contains('reject') ||
+                            lowerMsg.contains('return')) {
                           actionLabel = 'Fix Requirements';
                           actionIcon = LucideIcons.fileWarning;
-                        } else if (lowerMsg.contains('approved') || lowerMsg.contains('transaction')) {
+                        } else if (lowerMsg.contains('approved') ||
+                            lowerMsg.contains('transaction')) {
                           actionLabel = 'Open Transaction';
                           actionIcon = LucideIcons.fileText;
-                        } else if (lowerMsg.contains('promotion') || lowerMsg.contains('career')) {
+                        } else if (lowerMsg.contains('promotion') ||
+                            lowerMsg.contains('career')) {
                           actionLabel = 'View Service Record';
                           actionIcon = LucideIcons.award;
                         }
 
                         return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(bottom: AppSpace.md),
                           decoration: BoxDecoration(
                             color: AppTheme.lightBgCard,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: AppRadius.lgAll,
                             border: Border.all(
-                              color: isRead ? AppTheme.lightBorder : AppTheme.primaryLight.withOpacity(0.4),
+                              color: isRead
+                                  ? AppTheme.lightBorder
+                                  : AppTheme.primaryLight
+                                      .withValues(alpha: 0.35),
                             ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x06000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(14),
+                            padding: const EdgeInsets.all(AppSpace.lg),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: iconColor.withOpacity(0.12),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(iconData, color: iconColor, size: 20),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 1),
+                                      child: Icon(iconData,
+                                          color: iconColor, size: 18),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: AppSpace.md),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             message,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 13,
-                                              fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
-                                              color: AppTheme.textPrimary,
-                                              height: 1.4,
+                                            style: AppText.body.copyWith(
+                                              fontWeight: isRead
+                                                  ? FontWeight.w400
+                                                  : FontWeight.w600,
                                             ),
                                           ),
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: AppSpace.xs),
                                           Text(
-                                            item['createdAt']?.toString().split('T')[0] ?? '',
-                                            style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
+                                            formatDate(item['createdAt'],
+                                                fallback: ''),
+                                            style: AppText.micro,
                                           ),
                                         ],
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: AppSpace.md),
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: TextButton.icon(
                                     style: TextButton.styleFrom(
-                                      backgroundColor: AppTheme.primaryLight.withOpacity(0.12),
                                       foregroundColor: AppTheme.primaryLight,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpace.md,
+                                          vertical: AppSpace.sm),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: AppRadius.mdAll,
                                       ),
                                     ),
                                     onPressed: () async {
-                                       final navigator = Navigator.of(context);
-                                       final messenger = ScaffoldMessenger.of(context);
-                                       final rawTxId = item['relatedEntityId'] ?? item['related_entity_id'];
-                                       final txId = rawTxId is int ? rawTxId : (int.tryParse(rawTxId?.toString() ?? '') ?? 0);
-                                       
-                                       if (txId > 0) {
-                                         try {
-                                           final txs = await TransactionService(ApiService()).getMyTransactions();
-                                           final foundTx = txs.firstWhere(
-                                             (t) => t.id == txId,
-                                             orElse: () => TransactionModel(
-                                               id: txId,
-                                               referenceNo: 'TRX-$txId',
-                                               type: TransactionType.PROMOTION,
-                                               status: TransactionStatus.RETURNED_BY_AO2,
-                                               complianceScore: 85.0,
-                                               remarks: message,
-                                               createdAt: DateTime.now().toIso8601String(),
-                                               updatedAt: DateTime.now().toIso8601String(),
-                                             ),
-                                           );
-                                           
-                                           if (!mounted) return;
-                                           navigator.push(
-                                             MaterialPageRoute(
-                                               builder: (ctx) => ChecklistUploadScreen(transaction: foundTx),
-                                             ),
-                                           );
-                                           return;
-                                         } catch (_) {}
-                                       }
+                                      final navigator = Navigator.of(context);
+                                      final messenger =
+                                          ScaffoldMessenger.of(context);
+                                      final rawTxId = item['relatedEntityId'] ??
+                                          item['related_entity_id'];
+                                      final txId = rawTxId is int
+                                          ? rawTxId
+                                          : (int.tryParse(
+                                                  rawTxId?.toString() ?? '') ??
+                                              0);
 
-                                       if (!mounted) return;
-                                       messenger.showSnackBar(
-                                         SnackBar(
-                                           content: Text('Redirecting to: $actionLabel'),
-                                           duration: const Duration(seconds: 2),
-                                           backgroundColor: AppTheme.primaryLight,
-                                         ),
-                                       );
-                                     },
+                                      if (txId > 0) {
+                                        try {
+                                          final txs = await TransactionService(
+                                                  ApiService())
+                                              .getMyTransactions();
+                                          TransactionModel? foundTx;
+                                          for (final transaction in txs) {
+                                            if (transaction.id == txId) {
+                                              foundTx = transaction;
+                                              break;
+                                            }
+                                          }
+
+                                          if (foundTx == null) {
+                                            if (!mounted) return;
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'This transaction is no longer available. Your transaction list has been refreshed.',
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+
+                                          if (!mounted) return;
+                                          navigator.push(
+                                            MaterialPageRoute(
+                                              builder: (ctx) =>
+                                                  ChecklistUploadScreen(
+                                                      transaction: foundTx!),
+                                            ),
+                                          );
+                                          return;
+                                        } catch (_) {}
+                                      }
+
+                                      if (!mounted) return;
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Redirecting to: $actionLabel'),
+                                          duration: const Duration(seconds: 2),
+                                          backgroundColor:
+                                              AppTheme.primaryLight,
+                                        ),
+                                      );
+                                    },
                                     icon: Icon(actionIcon, size: 14),
                                     label: Text(
                                       '$actionLabel →',

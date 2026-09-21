@@ -62,9 +62,19 @@ class ApiService {
       final refreshToken = await _storage.read(key: AppConfig.keyRefreshToken);
       if (refreshToken == null) return false;
 
-      // A bare Dio instance on purpose: the interceptor above must not attach the
-      // expired access token, or re-enter itself when this call is the one that 401s.
-      final response = await Dio().post<dynamic>(
+      // A separate Dio instance on purpose: the interceptor above must not attach
+      // the expired access token, or re-enter itself when this call is the one
+      // that 401s.
+      //
+      // It must still carry timeouts. A bare Dio() has none, so a refresh that
+      // stalled never returned and never threw: the caller awaited it forever
+      // and the screen sat on its spinner with no error, indefinitely.
+      final response = await Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      ).post<dynamic>(
         '$baseUrl/auth/refresh-token',
         data: {'refreshToken': refreshToken},
       );

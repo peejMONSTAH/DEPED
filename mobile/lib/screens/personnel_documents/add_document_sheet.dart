@@ -416,7 +416,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
               height: 4,
               decoration: BoxDecoration(
                 color: AppTheme.lightBorder,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
@@ -486,7 +486,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                 _uploadState.errorMessage!,
                                 style: GoogleFonts.inter(
                                   color: const Color(0xFF991B1B),
-                                  fontSize: 12.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -510,7 +510,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: AppTheme.lightBgCard,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppTheme.lightBorder),
                       ),
                       child: DropdownButtonHideUnderline(
@@ -519,7 +519,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                           isExpanded: true,
                           icon: const Icon(LucideIcons.chevronDown, size: 18, color: AppTheme.textMuted),
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimary,
                           ),
@@ -541,7 +541,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                     child: Text(
                                       type.name,
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 13.5,
+                                        fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                         color: AppTheme.textPrimary,
                                       ),
@@ -552,12 +552,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: AppTheme.accentGold.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
                                         'Expires',
                                         style: GoogleFonts.inter(
-                                          fontSize: 9.5,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: const Color(0xFFB45309),
                                         ),
@@ -593,11 +593,11 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                           fillColor: AppTheme.lightBgCard,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(color: AppTheme.lightBorder),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(color: AppTheme.lightBorder),
                           ),
                         ),
@@ -629,12 +629,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               const SizedBox(height: 6),
                               InkWell(
                                 onTap: _uploadState.isBusy ? null : () => _pickDate(isIssueDate: true),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: AppTheme.lightBgCard,
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(16),
                                     border: Border.all(color: AppTheme.lightBorder),
                                   ),
                                   child: Row(
@@ -677,12 +677,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                 const SizedBox(height: 6),
                                 InkWell(
                                   onTap: _uploadState.isBusy ? null : () => _pickDate(isIssueDate: false),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(16),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                     decoration: BoxDecoration(
                                       color: AppTheme.lightBgCard,
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(16),
                                       border: Border.all(color: AppTheme.lightBorder),
                                     ),
                                     child: Row(
@@ -729,16 +729,16 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       maxLines: 2,
                       decoration: InputDecoration(
                         hintText: 'Additional notes or remarks regarding this document...',
-                        hintStyle: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.textMuted),
+                        hintStyle: GoogleFonts.inter(fontSize: 12, color: AppTheme.textMuted),
                         filled: true,
                         fillColor: AppTheme.lightBgCard,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(color: AppTheme.lightBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(color: AppTheme.lightBorder),
                         ),
                       ),
@@ -767,9 +767,6 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                             color: AppTheme.lightBgCard,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: AppTheme.primaryLight.withOpacity(0.4), width: 1.5),
-                            boxShadow: const [
-                              BoxShadow(color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 3)),
-                            ],
                           ),
                           child: Row(
                             children: [
@@ -801,12 +798,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: AppTheme.accentLime.withOpacity(0.3),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
                                             kIsWeb ? 'Camera' : 'ML Kit Enhanced',
                                             style: GoogleFonts.inter(
-                                              fontSize: 9,
+                                              fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                               color: AppTheme.brandDark,
                                             ),
@@ -853,9 +850,6 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                             color: AppTheme.lightBgCard,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: AppTheme.lightBorder, width: 1.2),
-                            boxShadow: const [
-                              BoxShadow(color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 3)),
-                            ],
                           ),
                           child: Row(
                             children: [
@@ -907,7 +901,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: AppTheme.lightBgCard,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppTheme.lightBorder),
                         ),
                         child: Column(
@@ -940,7 +934,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               backgroundColor: AppTheme.lightSurface,
                               color: AppTheme.primaryLight,
                               minHeight: 6,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ],
                         ),
@@ -956,12 +950,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               side: const BorderSide(color: AppTheme.lightBorder),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             ),
                             child: Text(
                               'Cancel',
                               style: GoogleFonts.inter(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.textSecondary,
                               ),
@@ -980,7 +974,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                               foregroundColor: Colors.white,
                               disabledBackgroundColor: AppTheme.lightBorder,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               elevation: 0,
                             ),
                             icon: _uploadState.isBusy
@@ -993,7 +987,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                             label: Text(
                               isReplacing ? 'Confirm Replace' : 'Submit Document',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -1020,11 +1014,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.lightBgCard,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.lightBorder),
-        boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 3)),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1057,7 +1048,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                   child: Text(
                     'Scanned via ML Kit',
                     style: GoogleFonts.inter(
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.emeraldGreen,
                     ),
@@ -1075,7 +1066,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: AppTheme.lightSurface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.lightBorder),
               ),
               child: Column(
@@ -1104,7 +1095,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                   const SizedBox(height: 2),
                   Text(
                     'PDF Document · ${doc.pageCount} ${doc.pageCount == 1 ? "page" : "pages"} · ${doc.formattedSize}',
-                    style: GoogleFonts.inter(fontSize: 11.5, color: AppTheme.textSecondary),
+                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -1112,7 +1103,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
           ] else if (doc.isImage) ...[
             // Image Preview (with multi-page support)
             ClipRRect(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
                 height: 200,
                 width: double.infinity,
@@ -1131,7 +1122,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                 children: [
                   Text(
                     'Pages (${doc.pageCount})',
-                    style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
                   ),
                   Text(
                     'Viewing Page ${_selectedPageIndex + 1}',
@@ -1163,7 +1154,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                           children: [
                             Positioned.fill(
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(8),
                                 child: _buildThumbnailWidget(doc, idx),
                               ),
                             ),
@@ -1174,11 +1165,11 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   'P${idx + 1}',
-                                  style: GoogleFonts.inter(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.inter(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),

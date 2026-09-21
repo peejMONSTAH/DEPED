@@ -59,7 +59,7 @@ class ComplianceGauge extends StatelessWidget {
               child: Text(
                 'Compliance',
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: AppTheme.textSecondary,
                 ),

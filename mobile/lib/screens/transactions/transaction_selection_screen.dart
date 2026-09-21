@@ -61,7 +61,7 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppTheme.statusReturned.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.statusReturned.withOpacity(0.25)),
               ),
               child: const Row(
@@ -90,7 +90,7 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
                   backgroundColor: AppTheme.brandDark,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                 ),
                 onPressed: () => Navigator.of(ctx).pop(),
                 child: const Text('Understood', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -288,7 +288,7 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     const SizedBox(height: 4),
                     Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ],

@@ -177,13 +177,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                               shape: BoxShape.circle,
                               color: AppTheme.lightBgCard,
                               border: Border.all(color: AppTheme.lightBorder, width: 1.5),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x0E000000),
-                                  blurRadius: 20,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
                             ),
                             child: const Center(
                               child: EminenceLogo(
@@ -232,15 +225,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: AppTheme.lightBgCard,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: AppTheme.lightBorder),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x0C000000),
-                            blurRadius: 20,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +334,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     const SizedBox(height: 24),
                     Text(
                       'Digital 201 v1.0 · Protected by DepEd Data Privacy',
-                      style: GoogleFonts.inter(fontSize: 10, color: AppTheme.textMuted),
+                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
                     ),
                     const SizedBox(height: 16),
                   ],

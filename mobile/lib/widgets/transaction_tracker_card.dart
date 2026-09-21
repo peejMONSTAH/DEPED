@@ -34,13 +34,6 @@ class TransactionTrackerCard extends StatelessWidget {
               ? AppTheme.statusReturned.withOpacity(0.5)
               : AppTheme.lightBorder,
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,7 +205,7 @@ class TransactionTrackerCard extends StatelessWidget {
               Text(
                 subtitle,
                 style: GoogleFonts.inter(
-                  fontSize: 10,
+                  fontSize: 11,
                   color: isFailed
                       ? AppTheme.statusReturned
                       : (isCurrent ? AppTheme.primaryLight : AppTheme.textMuted),

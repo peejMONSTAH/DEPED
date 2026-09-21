@@ -124,7 +124,11 @@ class PersonnelProfileModel {
     }
 
     if (desig.isEmpty) {
-      desig = cleanRole.toLowerCase().contains('non-teaching') ? 'Administrative Officer' : 'Teacher I';
+      // Do not guess a rank. Defaulting an absent designation to "Teacher I" or
+      // "Administrative Officer" states someone's position as fact when the
+      // server did not supply one, which on a 201 record is a claim the app has
+      // no basis for.
+      desig = 'Position not recorded';
     }
 
     final rawItemNo = (plantilla['itemNumber'] ?? json['plantillaItemNo'] ?? '').toString().trim();

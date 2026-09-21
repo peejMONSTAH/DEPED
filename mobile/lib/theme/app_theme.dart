@@ -80,7 +80,7 @@ class AppTheme {
         centerTitle: false,
         iconTheme: const IconThemeData(color: textPrimary),
         titleTextStyle: GoogleFonts.plusJakartaSans(
-          fontSize: 19,
+          fontSize: 18,
           fontWeight: FontWeight.w800,
           color: textPrimary,
           letterSpacing: -0.02,
@@ -91,7 +91,7 @@ class AppTheme {
         elevation: 0,
         shadowColor: const Color(0x0A000000),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: lightBorder, width: 1),
         ),
       ),
@@ -99,7 +99,7 @@ class AppTheme {
         backgroundColor: lightBgCard,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: lightBorder, width: 1),
         ),
       ),
@@ -110,23 +110,23 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-        labelStyle: GoogleFonts.plusJakartaSans(color: textSecondary, fontSize: 15, fontWeight: FontWeight.w500),
-        hintStyle: GoogleFonts.plusJakartaSans(color: textMuted, fontSize: 15),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelStyle: GoogleFonts.plusJakartaSans(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+        hintStyle: GoogleFonts.plusJakartaSans(color: textMuted, fontSize: 13),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: lightBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: lightBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: brandDark, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: statusReturned),
         ),
       ),
@@ -135,13 +135,13 @@ class AppTheme {
           backgroundColor: brandDark,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9999), // Pill button
+            borderRadius: BorderRadius.circular(12),
           ),
           textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.01,
           ),
         ),
@@ -150,9 +150,9 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: textPrimary,
           side: const BorderSide(color: lightBorder, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(12),
           ),
           textStyle: GoogleFonts.plusJakartaSans(
             fontSize: 15,
@@ -166,11 +166,11 @@ class AppTheme {
         space: 24,
       ),
       textTheme: baseTextTheme.copyWith(
-        titleLarge: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.02),
+        titleLarge: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.02),
         titleMedium: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700, color: textPrimary, letterSpacing: -0.01),
-        bodyLarge: GoogleFonts.plusJakartaSans(fontSize: 16, color: textPrimary),
-        bodyMedium: GoogleFonts.plusJakartaSans(fontSize: 15, color: textSecondary),
-        bodySmall: GoogleFonts.plusJakartaSans(fontSize: 13.5, color: textMuted),
+        bodyLarge: GoogleFonts.plusJakartaSans(fontSize: 15, color: textPrimary),
+        bodyMedium: GoogleFonts.plusJakartaSans(fontSize: 13, color: textSecondary),
+        bodySmall: GoogleFonts.plusJakartaSans(fontSize: 13, color: textMuted),
       ),
     );
   }

@@ -173,7 +173,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                           'Submit Requirement (${item.code})',
                           style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontSize: 15,
                               color: AppTheme.textPrimary),
                         ),
                         Text(
@@ -245,16 +245,16 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   }) {
     return Material(
       color: AppTheme.lightSurface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             border: Border.all(color: AppTheme.lightBorder),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
@@ -262,7 +262,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                     color: iconColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: iconColor, size: 22),
               ),
               const SizedBox(width: 12),
@@ -273,12 +273,12 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                     Text(title,
                         style: GoogleFonts.plusJakartaSans(
                             fontWeight: FontWeight.w700,
-                            fontSize: 14,
+                            fontSize: 15,
                             color: AppTheme.textPrimary)),
                     const SizedBox(height: 3),
                     Text(subtitle,
                         style: GoogleFonts.inter(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             height: 1.35,
                             color: AppTheme.textSecondary)),
                   ],
@@ -367,7 +367,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 Text(
                   'Select Verified 201 Document',
                   style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.bold, fontSize: 16),
+                      fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(ctx).pop(),
@@ -563,7 +563,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 fontWeight: FontWeight.w600, color: Colors.white)),
         backgroundColor: const Color(0xFFDC2626),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -577,7 +577,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         backgroundColor: AppTheme.emeraldGreen,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -601,7 +601,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w800,
                   color: AppTheme.textPrimary),
             ),
@@ -681,7 +681,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                     color: submittedCount >= 5
                         ? AppTheme.emeraldGreen.withOpacity(0.15)
                         : AppTheme.accentGold.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                         color: submittedCount >= 5
                             ? AppTheme.emeraldGreen.withOpacity(0.3)
@@ -717,7 +717,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 margin: const EdgeInsets.only(bottom: 14),
                 decoration: BoxDecoration(
                   color: AppTheme.lightBgCard,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppTheme.lightBorder),
                 ),
                 child: Column(
@@ -725,14 +725,14 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   children: [
                     Text(_statusMessage,
                         style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.5, fontWeight: FontWeight.bold)),
+                            fontSize: 12, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
                       value: _uploadProgress,
                       backgroundColor: AppTheme.lightSurface,
                       color: AppTheme.primaryLight,
                       minHeight: 6,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ],
                 ),
@@ -750,7 +750,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   disabledBackgroundColor: AppTheme.lightBorder,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
                 icon: _isSubmitting
@@ -766,7 +766,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                       ? 'Submitting Application...'
                       : 'Submit Promotion Application (Annex C)',
                   style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: Colors.white),
                 ),
@@ -788,10 +788,6 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         color: AppTheme.lightBgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.lightBorder),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 2))
-        ],
       ),
       child: Row(
         children: [
@@ -816,12 +812,12 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFF7C3AED).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         type,
                         style: GoogleFonts.inter(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: const Color(0xFF7C3AED)),
                       ),
@@ -855,12 +851,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.lightBgCard,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.lightBorder),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 2))
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,7 +865,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               Text(
                 'Applicant Information (Annex C)',
                 style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary),
               ),
@@ -964,7 +956,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
             child: Text(
               label,
               style: GoogleFonts.inter(
-                  fontSize: 11.5, height: 1.25, fontWeight: FontWeight.w600),
+                  fontSize: 11, height: 1.25, fontWeight: FontWeight.w600),
             ),
           ),
           Switch(
@@ -996,10 +988,10 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: AppTheme.lightBorder)),
             enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: AppTheme.lightBorder)),
           ),
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
@@ -1025,10 +1017,6 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   : AppTheme.lightBorder),
           width: hasDoc ? 1.4 : 1.0,
         ),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2))
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1072,7 +1060,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                           child: Text(
                             item.title,
                             style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textPrimary),
                           ),
@@ -1084,10 +1072,10 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                             margin: const EdgeInsets.only(left: 6),
                             decoration: BoxDecoration(
                                 color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(6)),
+                                borderRadius: BorderRadius.circular(8)),
                             child: Text('Required',
                                 style: GoogleFonts.inter(
-                                    fontSize: 9,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF92400E))),
                           )
@@ -1098,10 +1086,10 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                             margin: const EdgeInsets.only(left: 6),
                             decoration: BoxDecoration(
                                 color: AppTheme.lightSurface,
-                                borderRadius: BorderRadius.circular(6)),
+                                borderRadius: BorderRadius.circular(8)),
                             child: Text('If applicable',
                                 style: GoogleFonts.inter(
-                                    fontSize: 9, color: AppTheme.textMuted)),
+                                    fontSize: 11, color: AppTheme.textMuted)),
                           ),
                       ],
                     ),
@@ -1109,7 +1097,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                     Text(
                       item.description,
                       style: GoogleFonts.inter(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           color: AppTheme.textSecondary,
                           height: 1.35),
                     ),
@@ -1147,7 +1135,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                           item.attachedDocument!.name,
                           style: GoogleFonts.plusJakartaSans(
                               fontWeight: FontWeight.bold,
-                              fontSize: 12.5,
+                              fontSize: 12,
                               color: AppTheme.textPrimary),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1156,7 +1144,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              fontSize: 10.5,
+                              fontSize: 11,
                               height: 1.3,
                               color: AppTheme.textSecondary),
                         ),
@@ -1195,7 +1183,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: const Icon(LucideIcons.camera,
                     size: 15, color: AppTheme.brandDark),
@@ -1221,12 +1209,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.lightBgCard,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.lightBorder),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x06000000), blurRadius: 10, offset: Offset(0, 2))
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1239,7 +1223,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               Text(
                 'Omnibus Sworn Statement & Consent',
                 style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary),
               ),
@@ -1259,7 +1243,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 Text(
                   'CERTIFICATION OF AUTHENTICITY AND VERACITY',
                   style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary),
                 ),
@@ -1302,7 +1286,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 Text(
                   'DATA PRIVACY CONSENT',
                   style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary),
                 ),
@@ -1337,7 +1321,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
           Text(
             'In consonance with Republic Act No. 8792 or the "Electronic Commerce Act of 2000", electronic documents submitted herein shall have the legal effect, validity or enforceability as any other legal writing.',
             style: GoogleFonts.inter(
-                fontSize: 10,
+                fontSize: 11,
                 color: AppTheme.textMuted,
                 fontStyle: FontStyle.italic,
                 height: 1.3),

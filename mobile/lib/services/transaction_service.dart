@@ -4,6 +4,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import 'api_service.dart';
 
+class TransactionUnavailableException implements Exception {
+  final String message;
+
+  const TransactionUnavailableException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class TransactionService {
   final ApiService _apiService;
   static final List<TransactionModel> _localStore = [];
@@ -15,10 +24,30 @@ class TransactionService {
   bool isOffline = false;
 
   Future<TransactionModel> getTransaction(int id) async {
-    final response = await _apiService.dio.get<dynamic>('/transactions/$id');
-    final tx = TransactionModel.fromJson(Map<String, dynamic>.from(response.data['data']));
-    saveLocalTransaction(tx);
-    return tx;
+    try {
+      final response = await _apiService.dio.get<dynamic>('/transactions/$id');
+      final tx = TransactionModel.fromJson(
+          Map<String, dynamic>.from(response.data['data']));
+      saveLocalTransaction(tx);
+      return tx;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        await removeLocalTransaction(id);
+        throw const TransactionUnavailableException(
+          'This transaction is no longer available in your account.',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  static Future<void> removeLocalTransaction(int id) async {
+    _localStore.removeWhere((transaction) => transaction.id == id);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = jsonEncode(_localStore.map((t) => t.toJson()).toList());
+      await prefs.setString(_prefKey, jsonStr);
+    } catch (_) {}
   }
 
   static Future<void> clearLocalStore() async {
