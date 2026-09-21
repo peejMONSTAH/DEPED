@@ -225,11 +225,9 @@ class PersonnelDocumentService {
 
   /// Deletes a personnel document
   Future<void> deleteDocument(int documentId) async {
-    try {
-      await _apiService.dio.delete<dynamic>('/personnel/documents/$documentId');
-    } catch (e) {
-      rethrow;
-    }
+    // Let the failure propagate: the cache must not drop a document the server
+    // still holds, and the caller reports the outcome.
+    await _apiService.dio.delete<dynamic>('/personnel/documents/$documentId');
 
     _localCache.removeWhere((d) => d.id == documentId);
     await _saveToDisk();

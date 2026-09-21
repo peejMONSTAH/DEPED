@@ -6,6 +6,7 @@ import '../../services/acquisition/document_acquisition_service.dart';
 import '../../services/api_service.dart';
 import '../../services/personnel_document_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/errors.dart';
 import '../../theme/tokens.dart';
 import '../../utils/display.dart';
 import '../../widgets/ui_kit.dart';
@@ -131,17 +132,33 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed != true) return;
+
+    // A failed delete used to throw out of here uncaught: the document stayed
+    // on screen, no message appeared, and the only trace was a stack in the
+    // logs. Report the outcome either way, and only claim success once the
+    // server has actually accepted it.
+    try {
       await _documentService.deleteDocument(doc.id);
-      _loadDocuments();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Document "${doc.documentTypeName}" deleted.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      await _loadDocuments(forceRefresh: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Deleted "${doc.documentTypeName}".'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyError(error,
+              fallback:
+                  'This document could not be deleted. Check your connection and try again.')),
+          backgroundColor: AppTheme.statusReturned,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
