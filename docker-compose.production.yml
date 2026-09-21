@@ -45,7 +45,10 @@ services:
       retries: 10
 
   web:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:5000/api/v1}
     restart: unless-stopped
     depends_on:
       backend:
