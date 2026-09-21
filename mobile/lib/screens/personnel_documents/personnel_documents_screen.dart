@@ -10,7 +10,7 @@ import '../../theme/tokens.dart';
 import '../../utils/display.dart';
 import '../../widgets/ui_kit.dart';
 import 'add_document_sheet.dart';
-import 'document_viewer_dialog.dart';
+import 'document_preview_screen.dart';
 
 class PersonnelDocumentsScreen extends StatefulWidget {
   const PersonnelDocumentsScreen({Key? key, this.embedded = false})
@@ -78,12 +78,15 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
   }
 
   void _viewDocument(PersonnelDocument doc) {
-    showDialog(
-      context: context,
-      builder: (ctx) => DocumentViewerDialog(
-        document: doc,
-        onReplaceRequested: () => _openAddDocumentSheet(documentToReplace: doc),
-        onDeleteRequested: () => _confirmDeleteDocument(doc),
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (ctx) => DocumentPreviewScreen(
+          document: doc,
+          documentService: _documentService,
+          onReplaceRequested: () => _openAddDocumentSheet(documentToReplace: doc),
+          onDeleteRequested: () => _confirmDeleteDocument(doc),
+        ),
       ),
     );
   }
@@ -192,7 +195,13 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
           color: AppTheme.primaryLight,
           backgroundColor: AppTheme.lightBgCard,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.lg,
+              AppSpace.lg,
+              AppSpace.lg,
+              // Clear the action button, and the dashboard nav bar on top of it.
+              widget.embedded ? 190 : 110,
+            ),
             children: [
               // Top Summary Hero Card
               _buildSummaryHeroCard(),
@@ -264,7 +273,10 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                 elevation: 2,
                 icon: const Icon(LucideIcons.plus, size: 18),
                 label: Text('Add document',
-                    style: AppText.heading.copyWith(color: Colors.white)),
+                    style: AppText.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    )),
               ),
             ),
     );

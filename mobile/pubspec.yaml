@@ -29,6 +29,8 @@ dependencies:
   path_provider: ^2.1.2
   lucide_icons_flutter: ^3.1.15
   google_mlkit_document_scanner: ^0.6.1
+  pdfx: ^2.11.0
+  open_file: ^4.0.0
 
 dev_dependencies:
   flutter_test:

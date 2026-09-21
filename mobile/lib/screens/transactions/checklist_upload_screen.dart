@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/errors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_picker/file_picker.dart';
@@ -91,7 +92,11 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $error')),
+          SnackBar(
+            content: Text(friendlyError(error,
+                fallback:
+                    'That file could not be uploaded. Please try again.')),
+          ),
         );
       }
     } finally {

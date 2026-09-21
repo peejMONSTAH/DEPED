@@ -13,6 +13,24 @@ class PersonnelDocumentService {
 
   PersonnelDocumentService(this._apiService);
 
+  /// Fetches the stored file itself, so a document can be previewed rather than
+  /// only described.
+  ///
+  /// The endpoint checks ownership and role, so the request must carry the
+  /// session — that is why this goes through the authenticated client instead
+  /// of handing a bare URL to Image.network.
+  Future<Uint8List> getDocumentBytes(int documentId) async {
+    final response = await _apiService.dio.get<List<int>>(
+      '/personnel/documents/$documentId/file',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final data = response.data;
+    if (data == null || data.isEmpty) {
+      throw Exception('This document is empty or could not be retrieved.');
+    }
+    return Uint8List.fromList(data);
+  }
+
   Future<void> _loadFromDiskIfEmpty() async {
     if (_localCache.isNotEmpty) return;
     try {

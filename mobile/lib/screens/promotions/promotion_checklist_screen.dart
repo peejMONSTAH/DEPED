@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import '../../utils/errors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/personnel_document_model.dart';
@@ -309,7 +311,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
             'Document scanned and attached for requirement (${item.code.toUpperCase()}).');
       }
     } catch (e) {
-      _showErrorSnackBar(e.toString().replaceAll('Exception:', '').trim());
+      _showErrorSnackBar(friendlyError(e,
+          fallback: 'That document could not be attached. Please try again.'));
     }
   }
 
@@ -328,13 +331,17 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
             'File attached for requirement (${item.code.toUpperCase()}).');
       }
     } catch (e) {
-      _showErrorSnackBar(e.toString().replaceAll('Exception:', '').trim());
+      _showErrorSnackBar(friendlyError(e,
+          fallback: 'That document could not be attached. Please try again.'));
     }
   }
 
-  Future<void> _uploadAcquiredDocument(PromotionChecklistItem item, AcquiredDocument doc) async {
+  Future<void> _uploadAcquiredDocument(
+      PromotionChecklistItem item, AcquiredDocument doc) async {
     final saved = await _personnelDocumentService.uploadDocument(
-      document: doc, documentTypeId: 'OTHER', customDocumentName: 'Annex C ${item.code}: ${item.title}',
+      document: doc,
+      documentTypeId: 'OTHER',
+      customDocumentName: 'Annex C ${item.code}: ${item.title}',
     );
     if (!mounted) return;
     setState(() {
@@ -547,11 +554,21 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       );
 
       Navigator.of(context).pop(true);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      // The API explains exactly why an application was rejected - the cycle is
+      // no longer active, you have already applied, you are not eligible. That
+      // message is what the applicant needs; the exception text is not.
+      _showErrorSnackBar(friendlyError(e,
+          fallback:
+              'Your application could not be submitted. Check your connection and try again.'));
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
+      debugPrint('[Annex C] Unexpected submit failure: $e');
       _showErrorSnackBar(
-          'Submission failed: ${e.toString().replaceAll('Exception:', '').trim()}');
+          'Your application could not be submitted. Please try again.');
     }
   }
 
