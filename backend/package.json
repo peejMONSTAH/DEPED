@@ -12,7 +12,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "test:email": "ts-node scripts/test-deficiency-email.ts",
     "test": "node --test tests/*.cjs",
-    "check": "npm run build && npm test"
+    "check": "npm run build && npm test",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@google-cloud/documentai": "^10.1.0",
@@ -32,6 +33,7 @@
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "pizzip": "^3.2.0",
+    "prisma": "^5.7.0",
     "uuid": "^11.1.1",
     "zod": "^3.22.4"
   },
@@ -44,7 +46,6 @@
     "@types/node": "^20.19.43",
     "@types/nodemailer": "^8.0.1",
     "@types/uuid": "^9.0.7",
-    "prisma": "^5.7.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
@@ -61,5 +62,8 @@
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=20 <25"
   }
 }
