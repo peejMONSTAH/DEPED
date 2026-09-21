@@ -68,6 +68,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
       take: limit,
       select: {
         id: true, email: true, accountStatus: true, createdAt: true, lastLogin: true,
+        mustChangePassword: true, lockedUntil: true,
         role: { select: { name: true } },
         personnel: { select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, district: true } },
       },
@@ -81,6 +82,8 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     email: u.email,
     role: u.role.name,
     accountStatus: u.accountStatus,
+    mustChangePassword: u.mustChangePassword,
+    lockedUntil: u.lockedUntil,
     lastLogin: u.lastLogin,
     createdAt: u.createdAt,
     personnel: u.personnel,

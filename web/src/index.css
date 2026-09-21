@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Fonts are self-hosted and imported from src/fonts.ts, not fetched from Google. */
 
 /* ═══════════════════════════════════════════════════════════════════
    DIGITAL 201 — PERFECTED SOFT BRUTALIST DESIGN SYSTEM
@@ -1381,7 +1381,7 @@ tr:hover td {
 
 .metrics-grid-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   padding: 0 36px 24px 36px;
   align-items: stretch;
@@ -1458,6 +1458,18 @@ tr:hover td {
   line-height: 1.2;
 }
 
+.metric-action-pill {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #FDE68A;
+  color: #713F12;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .metric-card-body {
   display: flex;
   flex-direction: column;
@@ -1493,6 +1505,43 @@ tr:hover td {
   margin-top: 10px;
   display: flex;
   align-items: center;
+}
+
+.metric-context-note {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.metric-role-breakdown {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.metric-role-item {
+  min-width: 0;
+  padding-top: 7px;
+  border-top: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.metric-role-item span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-role-item strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-primary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric-dot-matrix {
@@ -1898,7 +1947,19 @@ tr:hover td {
 
 /* ─── RESPONSIVE BREAKPOINTS ────────────────────────────────────────── */
 @media (max-width: 1400px) {
-  .metrics-grid-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+  .metrics-grid-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@container (max-width: 1050px) {
+  .metrics-grid-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 560px) {
+  .metrics-grid-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @container (max-width: 1180px) {

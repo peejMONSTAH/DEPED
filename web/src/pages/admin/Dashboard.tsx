@@ -50,8 +50,6 @@ export const AdminDashboard: React.FC = () => {
   const [accountRequests, setAccountRequests] = useState<any[]>([]);
   const [recentAuditLogs, setRecentAuditLogs] = useState<any[]>([]);
   const [totalUsersCount, setTotalUsersCount] = useState<number>(0);
-  const [teachingUsersCount, setTeachingUsersCount] = useState<number>(0);
-  const [nonTeachingUsersCount, setNonTeachingUsersCount] = useState<number>(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [totalAuditCount, setTotalAuditCount] = useState<number>(0);
   const [sysAdminViewTab, setSysAdminViewTab] = useState<'USERS' | 'REQUESTS'>('USERS');
@@ -105,10 +103,6 @@ export const AdminDashboard: React.FC = () => {
           const total = usersRes.data.pagination?.totalItems ?? uList.length;
           setTotalUsersCount(total);
 
-          const teaching = uList.filter((u: any) => u.role === 'TEACHING_PERSONNEL').length;
-          const nonTeaching = uList.filter((u: any) => u.role === 'NON_TEACHING_PERSONNEL').length;
-          setTeachingUsersCount(teaching);
-          setNonTeachingUsersCount(nonTeaching);
         }
 
         if (reqRes?.data) {
@@ -319,6 +313,25 @@ export const AdminDashboard: React.FC = () => {
   const teachingPercent = totalPersonnel > 0 ? ((teachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
   const nonTeachingPercent = totalPersonnel > 0 ? ((nonTeachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
   const attendanceRate = totalPersonnel > 0 ? Math.round(((totalPersonnel - onLeaveCount) / totalPersonnel) * 100) + '%' : '100%';
+
+  const activeAccountsCount = usersList.filter((account: any) => account.accountStatus === 'ACTIVE').length;
+  const accountsRequiringAction = usersList.filter((account: any) => {
+    const isLocked = account.lockedUntil && new Date(account.lockedUntil).getTime() > Date.now();
+    return account.accountStatus !== 'ACTIVE' || account.mustChangePassword || isLocked;
+  }).length;
+  const roleCounts = usersList.reduce<Record<string, number>>((counts, account: any) => {
+    const role = String(account.role || 'UNASSIGNED');
+    counts[role] = (counts[role] || 0) + 1;
+    return counts;
+  }, {});
+  const representedRoleCount = Object.values(roleCounts).filter(count => count > 0).length;
+  const roleDistributionSummary = [
+    ['Admin', roleCounts.SYSTEM_ADMIN || 0],
+    ['AO II', roleCounts.AO_II || 0],
+    ['HRMO', roleCounts.HRMO || 0],
+    ['Teaching', roleCounts.TEACHING_PERSONNEL || 0],
+    ['Staff', roleCounts.NON_TEACHING_PERSONNEL || 0],
+  ];
 
   const userFullName = user?.firstName
     ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}`.trim()
@@ -548,29 +561,18 @@ export const AdminDashboard: React.FC = () => {
         <>
           {/* ─── 3. SYSADMIN METRICS ROW ──────────────────────────────── */}
           <div className="metrics-grid-row">
-            {/* Metric 1: Total Provisioned Accounts */}
+            {/* Metric 1: Active Accounts */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">TOTAL ACCOUNTS</span>
-                <span className="metric-lime-pill">ACTIVE</span>
+                <span className="metric-label">ACTIVE ACCOUNTS</span>
+                <span className="metric-lime-pill">USABLE</span>
               </div>
               <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : totalUsersCount}</div>
-                <div className="metric-footer-note">Provisioned Users in DB</div>
+                <div className="metric-value-num">{loading ? '...' : activeAccountsCount}</div>
+                <div className="metric-footer-note">Can currently access Digital 201</div>
               </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-dot-matrix">
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                </div>
+              <div className="metric-bottom-slot metric-context-note">
+                {loading ? '' : `${activeAccountsCount} of ${totalUsersCount} provisioned`}
               </div>
             </div>
 
@@ -589,74 +591,39 @@ export const AdminDashboard: React.FC = () => {
               <div className="metric-bottom-slot" />
             </div>
 
-            {/* Metric 3: Teaching Accounts */}
+            {/* Metric 3: Accounts Requiring Action */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">TEACHING</span>
-                <span className="metric-lavender-pill">
-                  {totalUsersCount > 0 ? Math.round((teachingUsersCount / totalUsersCount) * 100) + '%' : '0%'}
+                <span className="metric-label">REQUIRES ACTION</span>
+                <span className={accountsRequiringAction > 0 ? 'metric-action-pill' : 'metric-lime-pill'}>
+                  {accountsRequiringAction > 0 ? 'REVIEW' : 'CLEAR'}
                 </span>
               </div>
               <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : teachingUsersCount}</div>
-                <div className="metric-footer-note">Licensed Faculty Accounts</div>
+                <div className="metric-value-num">{loading ? '...' : accountsRequiringAction}</div>
+                <div className="metric-footer-note">Locked, inactive, pending, or temporary</div>
               </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-bar-visualizer">
-                  <div
-                    className="bar-fill fill-lavender"
-                    style={{ width: totalUsersCount > 0 ? `${(teachingUsersCount / totalUsersCount) * 100}%` : '0%' }}
-                  />
-                </div>
-              </div>
+              <div className="metric-bottom-slot metric-context-note">Review account access conditions</div>
             </div>
 
-            {/* Metric 4: Non-Teaching & Staff */}
+            {/* Metric 4: Role Distribution */}
             <div className="soft-card metric-card">
               <div className="metric-card-top">
-                <span className="metric-label">STAFF</span>
-                <span className="metric-gray-pill">
-                  {totalUsersCount > 0 ? Math.round((nonTeachingUsersCount / totalUsersCount) * 100) + '%' : '0%'}
-                </span>
+                <span className="metric-label">ROLE DISTRIBUTION</span>
+                <span className="metric-gray-pill">{representedRoleCount} ROLES</span>
               </div>
               <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : nonTeachingUsersCount}</div>
-                <div className="metric-footer-note">Administrative & Support Roles</div>
+                <div className="metric-value-num">{loading ? '...' : totalUsersCount}</div>
+                <div className="metric-footer-note">Provisioned accounts by system role</div>
               </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-bar-visualizer">
-                  <div
-                    className="bar-fill fill-charcoal"
-                    style={{ width: totalUsersCount > 0 ? `${(nonTeachingUsersCount / totalUsersCount) * 100}%` : '0%' }}
-                  />
-                </div>
+              <div className="metric-role-breakdown" aria-label="Account distribution by role">
+                {roleDistributionSummary.map(([label, count]) => (
+                  <div className="metric-role-item" key={String(label)}>
+                    <span>{label}</span>
+                    <strong>{count}</strong>
+                  </div>
+                ))}
               </div>
-            </div>
-
-            {/* Metric 5: Audit Log Events */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">SECURITY AUDIT</span>
-                <span className="metric-lime-pill">RECORDED</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : totalAuditCount}</div>
-                <div className="metric-footer-note">System Security Entries</div>
-              </div>
-              <div className="metric-bottom-slot" />
-            </div>
-
-            {/* Metric 6: System Integrity */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">SYSTEM INTEGRITY</span>
-                <span className="metric-lime-pill">SECURE</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num lime-text">100%</div>
-                <div className="metric-footer-note">All Core Services Operational</div>
-              </div>
-              <div className="metric-bottom-slot" />
             </div>
           </div>
 
