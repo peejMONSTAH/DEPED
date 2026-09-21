@@ -49,13 +49,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
       { id: 'nav-approvals', title: 'HRMO Approvals', category: 'Navigation' as const, icon: 'approvals', path: '/admin/approvals' },
       { id: 'nav-documents', title: 'AO II Document Validation', category: 'Navigation' as const, icon: 'validation', path: '/admin/documents' },
       { id: 'nav-credentials', title: 'Credential Distribution', category: 'Navigation' as const, icon: 'credentials', path: '/admin/credentials' },
-      ...(userRole === 'HRMO' ? [
+      ...(userRole === 'HRMO' || userRole === 'AO_II' ? [
         { id: 'nav-promotions', title: 'Promotions Management', category: 'Navigation' as const, icon: 'promotions', path: '/admin/promotions' },
+      ] : []),
+      ...(userRole === 'HRMO' ? [
         { id: 'nav-plantilla', title: 'Plantilla Registry', category: 'Navigation' as const, icon: 'employment', path: '/admin/plantilla' },
       ] : []),
-      { id: 'nav-reports', title: 'HR Analytics & Reports', category: 'Navigation' as const, icon: 'reports', path: '/admin/reports' },
-      { id: 'nav-audit', title: 'Audit Trail Logs', category: 'Navigation' as const, icon: 'audit', path: '/admin/audit' },
-      { id: 'nav-settings', title: 'Settings & Roles', category: 'Navigation' as const, icon: 'settings', path: '/admin/settings' },
+      ...(userRole === 'SYSTEM_ADMIN' ? [
+        { id: 'nav-reports', title: 'System Reports & Compliance', category: 'Navigation' as const, icon: 'reports', path: '/admin/reports' },
+        { id: 'nav-audit', title: 'Audit Trail Logs', category: 'Navigation' as const, icon: 'audit', path: '/admin/audit' },
+        { id: 'nav-settings', title: 'Settings & Roles', category: 'Navigation' as const, icon: 'settings', path: '/admin/settings' },
+      ] : []),
     ] : [
       { id: 'nav-home', title: 'Personnel Home', category: 'Navigation' as const, icon: 'home', path: '/personnel/home' },
       { id: 'nav-my-transactions', title: 'My Submissions', category: 'Navigation' as const, icon: 'transactions', path: '/personnel/transactions' },
@@ -99,7 +103,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
 
   return (
     <ModalPortal>
-    <ModalOverlay className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 10000 }}>
+    <ModalOverlay onDismiss={onClose} className="modal-overlay animate-fade-in" onClick={onClose} style={{ zIndex: 10000 }}>
       <div
         className="modal animate-scale-in"
         style={{
@@ -123,6 +127,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         }}>
           <AppIcon name="search" size={20} color="var(--color-primary)" />
           <input
+            aria-label="Type a command or search 201 records"
             ref={inputRef}
             type="text"
             className="form-input"
@@ -153,7 +158,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
         </div>
 
         {/* Command Items List */}
-        <div style={{ maxHeight: 360, overflowY: 'auto', padding: '8px' }}>
+        <div role="listbox" aria-label="Commands and records" style={{ maxHeight: 360, overflowY: 'auto', padding: '8px' }}>
           {filtered.length === 0 ? (
             <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 14 }}>
               No matching commands or 201 HRIS records found.
@@ -164,6 +169,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
               return (
                 <div
                   key={item.id}
+                  role="option"
+                  aria-selected={isSelected}
                   onClick={() => handleSelect(item)}
                   onMouseEnter={() => setSelectedIndex(idx)}
                   style={{

@@ -1,4 +1,5 @@
 import prisma from '../config/prisma';
+import { logger } from './logger';
 
 export interface AuditLogOptions {
   userId: number;
@@ -132,6 +133,6 @@ export const recordAuditLog = async (options: AuditLogOptions): Promise<void> =>
       },
     });
   } catch (error) {
-    console.error('[AuditTrail] Failed to write validation log:', error);
+    logger.error({ err: error }, '[AuditTrail] Failed to write validation log');
   }
 };

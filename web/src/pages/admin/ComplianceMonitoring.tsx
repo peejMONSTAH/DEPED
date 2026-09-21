@@ -324,6 +324,7 @@ export const ComplianceMonitoring: React.FC = () => {
                   <AppIcon name="search" size={15} color="var(--color-text-muted)" />
                 </span>
                 <input
+                  aria-label="Search personnel by name or employee ID"
                   type="text"
                   className="search-input"
                   style={{ paddingLeft: '44px' }}
@@ -503,6 +504,7 @@ export const ComplianceMonitoring: React.FC = () => {
                   <AppIcon name="search" size={15} color="var(--color-text-muted)" />
                 </span>
                 <input
+                  aria-label="Search personnel by name or employee ID"
                   type="text"
                   className="search-input"
                   style={{ paddingLeft: '44px' }}

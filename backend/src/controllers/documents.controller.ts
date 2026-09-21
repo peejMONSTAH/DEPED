@@ -2,23 +2,21 @@ import { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import prisma from '../config/prisma';
-import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden } from '../utils/response.util';
+import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden , sendError} from '../utils/response.util';
 import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 
 import { notifyTransactionChange } from './transactions.controller';
-import { getAOSchoolScope } from '../utils/scope.util';
+import { getStationScope, isWithinStation } from '../utils/scope.util';
 import { pdsComparison, readStructuredData } from '../utils/pds-profile.util';
 import { documentAiConfigured, extractPdsWithDocumentAi } from '../services/document-ai.service';
 import { recordAuditLog } from '../utils/audit.util';
+import { logger } from '../utils/logger';
 
-const canAccessPersonnel = async (req: Request, personnel: { id: number; address: string | null; designation: string }): Promise<boolean> => {
+const canAccessPersonnel = async (req: Request, personnel: { id: number; school: string | null; district: string | null }): Promise<boolean> => {
   if (req.user?.personnelId === personnel.id || req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO') return true;
   if (req.user?.role !== 'AO_II') return false;
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.aoPersonnelId === personnel.id) return true;
-  const text = `${personnel.address || ''} ${personnel.designation || ''}`.toLowerCase();
-  return Boolean(scope.schoolName && text.includes(scope.schoolName.toLowerCase()));
+  return isWithinStation(await getStationScope(req.user), personnel);
 };
 
 /**
@@ -60,7 +58,7 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
 
   const transaction = await prisma.transaction.findUnique({
     where: { id: transactionId },
-    include: { transactionType: true, personnel: { select: { id: true, address: true, designation: true } } },
+    include: { transactionType: true, personnel: { select: { id: true, school: true, district: true } } },
   });
   if (!transaction) {
     sendNotFound(res, 'Transaction not found.');
@@ -137,7 +135,7 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
         data: { entityType: 'Transaction', entityId: transactionId, action: 'PDS_OCR_COMPLETED', detailsJson: { provider: extracted.provider, detectedFields: Object.keys(extracted.fields).length, rawFieldCount: extracted.rawFields.length, confidence: extracted.confidence }, userId: req.user!.userId },
       });
     } catch (error: any) {
-      console.warn('Document AI extraction failed; upload will continue to manual review:', error?.message || error);
+      logger.warn({ err: error?.message || error }, 'Document AI extraction failed; upload will continue to manual review');
     }
   }
 
@@ -216,7 +214,7 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
     });
     res.locals.auditLogged = true;
   } catch (logErr) {
-    console.warn('Could not write upload validation log:', logErr);
+    logger.warn({ err: logErr }, 'Could not write upload validation log');
   }
 
   notifyTransactionChange();
@@ -233,8 +231,8 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
       isDuplicate: false,
     }, 'Document uploaded and persisted successfully.');
   } catch (error: any) {
-    console.error('Failed to upload document:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to upload document.' });
+    logger.error({ err: error }, 'Failed to upload document');
+    sendError(res, 'Failed to upload document.', 500);
   }
 };
 
@@ -251,7 +249,7 @@ export const getDocument = async (req: Request, res: Response): Promise<void> =>
     const doc = await prisma.uploadedDocument.findUnique({
       where: { id },
       include: {
-        transaction: { select: { personnelId: true, personnel: { select: { id: true, address: true, designation: true } } } },
+        transaction: { select: { personnelId: true, personnel: { select: { id: true, school: true, district: true } } } },
         requirementTemplate: { select: { name: true } },
         uploadedBy: { select: { email: true } },
         validatedBy: { select: { email: true } },
@@ -280,7 +278,7 @@ export const getDocument = async (req: Request, res: Response): Promise<void> =>
       correctedData: doc.correctedOcrDataJson,
     });
   } catch (error: any) {
-    console.error('Failed to get document:', error);
+    logger.error({ err: error }, 'Failed to get document');
     res.status(500).json({ status: 'error', message: 'Failed to retrieve document metadata.' });
   }
 };
@@ -348,7 +346,7 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
 
   const doc = await prisma.uploadedDocument.findUnique({
     where: { id },
-    include: { transaction: { select: { personnelId: true, personnel: { select: { id: true, address: true, designation: true } } } } },
+    include: { transaction: { select: { personnelId: true, personnel: { select: { id: true, school: true, district: true } } } } },
   });
 
   if (!doc) {
@@ -394,7 +392,7 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
       ipAddress: (req.headers['x-forwarded-for'] as string) || req.ip || null,
       userAgent: (req.headers['user-agent'] as string) || null,
       status: 'SUCCESS',
-    }).catch(err => console.error('Failed to log document access:', err));
+    }).catch(err => logger.error({ err }, 'Failed to log document access'));
     res.locals.auditLogged = true;
   }
 

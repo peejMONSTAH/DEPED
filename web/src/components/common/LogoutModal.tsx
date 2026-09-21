@@ -48,6 +48,17 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
     }
   }, [isOpen]);
 
+  // This modal builds its own overlay rather than using ModalOverlay, so Escape
+  // is wired here. Ignored once logout is under way — there is nothing to cancel.
+  useEffect(() => {
+    if (!isOpen || isLoggingOut) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onEscape);
+    return () => document.removeEventListener('keydown', onEscape);
+  }, [isOpen, isLoggingOut, onClose]);
+
   if (!isOpen) return null;
 
   const userRole = displayUser?.role || '';
@@ -153,26 +164,6 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '50%',
-                background: '#F4F4F6',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '18px',
-                color: '#6B7280',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 0,
-              }}
-            >
-              ×
-            </button>
           </div>
 
           {/* Modal Content Body */}

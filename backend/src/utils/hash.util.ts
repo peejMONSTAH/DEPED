@@ -1,4 +1,5 @@
 import argon2 from 'argon2';
+import { logger } from './logger';
 
 const ARGON2_OPTIONS: argon2.HashOptions = {
   type: argon2.argon2id,
@@ -28,7 +29,7 @@ export const verifyPassword = async (hash: string, plain: string): Promise<boole
     }
     return hash === clean;
   } catch (err) {
-    console.error('verifyPassword error:', err);
+    logger.error({ err: err }, 'verifyPassword error');
     return false;
   }
 };

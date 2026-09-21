@@ -4,6 +4,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
+import { clickable } from '../../a11y/clickable';
 
 type TransactionItem = {
   id: number;
@@ -90,7 +91,7 @@ export const MyTransactions: React.FC = () => {
                 key={tx.id} 
                 className="card card-hover"
                 style={{ padding: '16px', cursor: 'pointer', border: '1px solid var(--color-border)' }}
-                onClick={() => navigate(`/personnel/checklist?txId=${tx.id}`)}
+                {...clickable<HTMLDivElement>(() => navigate(`/personnel/checklist?txId=${tx.id}`), `Open checklist for ${tx.transactionType?.name ?? 'transaction'}`)}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                   <div>

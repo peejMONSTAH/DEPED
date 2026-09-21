@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/personnel_profile_model.dart';
 import '../../theme/app_theme.dart';
+import '../personnel_documents/personnel_documents_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final PersonnelProfileModel? profile;
@@ -29,19 +30,19 @@ class ProfileScreen extends StatelessWidget {
       SnackBar(
         content: Row(
           children: [
-            const Icon(LucideIcons.checkCheck, color: AppTheme.brandDark, size: 18),
+            const Icon(LucideIcons.checkCheck, color: Colors.white, size: 18),
             const SizedBox(width: 8),
             Text(
               '$label copied to clipboard',
               style: GoogleFonts.plusJakartaSans(
                 fontWeight: FontWeight.w700,
-                color: AppTheme.brandDark,
+                color: Colors.white,
                 fontSize: 13,
               ),
             ),
           ],
         ),
-        backgroundColor: AppTheme.accentLime,
+        backgroundColor: AppTheme.brandDark,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -58,14 +59,14 @@ class ProfileScreen extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(28.0),
             decoration: BoxDecoration(
-              color: AppTheme.darkBgCard,
+              color: AppTheme.lightBgCard,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.darkBorder),
+              border: Border.all(color: AppTheme.lightBorder),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -78,8 +79,8 @@ class ProfileScreen extends StatelessWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppTheme.darkSurface,
-                    border: Border.all(color: AppTheme.darkBorder),
+                    color: AppTheme.lightSurface,
+                    border: Border.all(color: AppTheme.lightBorder),
                   ),
                   child: const Center(
                     child: Icon(LucideIcons.userX, size: 28, color: AppTheme.textMuted),
@@ -109,16 +110,16 @@ class ProfileScreen extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: onRefresh,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentLime,
-                    foregroundColor: AppTheme.brandDark,
+                    backgroundColor: AppTheme.brandDark,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                     elevation: 0,
                   ),
-                  icon: const Icon(LucideIcons.refreshCw, size: 16, color: AppTheme.brandDark),
+                  icon: const Icon(LucideIcons.refreshCw, size: 16, color: Colors.white),
                   label: Text(
                     'Sync Records Now',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 14),
+                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.white),
                   ),
                 ),
               ],
@@ -133,8 +134,8 @@ class ProfileScreen extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () async => onRefresh(),
-      color: AppTheme.accentLime,
-      backgroundColor: AppTheme.darkBgCard,
+      color: AppTheme.primaryLight,
+      backgroundColor: AppTheme.lightBgCard,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 120.0),
@@ -146,19 +147,14 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(22.0),
               decoration: BoxDecoration(
-                color: AppTheme.darkBgCard,
+                color: AppTheme.lightBgCard,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.darkBorder),
+                border: Border.all(color: AppTheme.lightBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: AppTheme.accentLime.withOpacity(0.06),
-                    blurRadius: 16,
-                    spreadRadius: -2,
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -167,7 +163,7 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Avatar Circle with Neon Lime Accent Ring
+                      // Avatar Circle with Soft Accent Ring
                       Stack(
                         children: [
                           Container(
@@ -175,12 +171,12 @@ class ProfileScreen extends StatelessWidget {
                             height: 68,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppTheme.darkSurface,
-                              border: Border.all(color: AppTheme.accentLime, width: 2.5),
+                              color: AppTheme.primaryLight.withOpacity(0.08),
+                              border: Border.all(color: AppTheme.primaryLight, width: 2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppTheme.accentLime.withOpacity(0.3),
-                                  blurRadius: 14,
+                                  color: AppTheme.primaryLight.withOpacity(0.12),
+                                  blurRadius: 10,
                                   spreadRadius: 1,
                                 ),
                               ],
@@ -189,7 +185,7 @@ class ProfileScreen extends StatelessWidget {
                               child: Text(
                                 initials,
                                 style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.accentLime,
+                                  color: AppTheme.primaryLight,
                                   fontSize: 22,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1,
@@ -247,14 +243,14 @@ class ProfileScreen extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.accentLime.withOpacity(0.16),
+                                    color: AppTheme.primaryLight.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.accentLime.withOpacity(0.4)),
+                                    border: Border.all(color: AppTheme.primaryLight.withOpacity(0.25)),
                                   ),
                                   child: Text(
                                     'SG ${p.salaryGrade} · Step ${p.stepIncrement}',
                                     style: GoogleFonts.jetBrainsMono(
-                                      color: AppTheme.accentLime,
+                                      color: AppTheme.primaryLight,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -263,9 +259,9 @@ class ProfileScreen extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.darkSurface,
+                                    color: AppTheme.lightSurface,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.darkBorder),
+                                    border: Border.all(color: AppTheme.lightBorder),
                                   ),
                                   child: Text(
                                     p.personnelType,
@@ -284,7 +280,7 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  const Divider(color: AppTheme.darkBorder, height: 1),
+                  const Divider(color: AppTheme.lightBorder, height: 1),
                   const SizedBox(height: 14),
 
                   // Quick Metadata Bar with Copyable Employee ID
@@ -297,13 +293,13 @@ class ProfileScreen extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppTheme.darkSurface,
+                            color: AppTheme.lightSurface,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.darkBorder),
+                            border: Border.all(color: AppTheme.lightBorder),
                           ),
                           child: Row(
                             children: [
-                              const Icon(LucideIcons.idCard, size: 14, color: AppTheme.accentLime),
+                              const Icon(LucideIcons.idCard, size: 14, color: AppTheme.primaryLight),
                               const SizedBox(width: 6),
                               Text(
                                 p.employeeId,
@@ -322,9 +318,9 @@ class ProfileScreen extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppTheme.emeraldGreen.withOpacity(0.12),
+                          color: AppTheme.emeraldGreen.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.3)),
+                          border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.25)),
                         ),
                         child: Row(
                           children: [
@@ -360,9 +356,16 @@ class ProfileScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
-                color: AppTheme.darkBgCard,
+                color: AppTheme.lightBgCard,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.darkBorder),
+                border: Border.all(color: AppTheme.lightBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -370,12 +373,12 @@ class ProfileScreen extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppTheme.darkSurface,
+                      color: AppTheme.primaryLight.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.darkBorder),
+                      border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
                     ),
                     child: const Center(
-                      child: Icon(LucideIcons.fileSpreadsheet, color: AppTheme.accentLime, size: 22),
+                      child: Icon(LucideIcons.fileSpreadsheet, color: AppTheme.primaryLight, size: 22),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -397,7 +400,7 @@ class ProfileScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
-                                color: AppTheme.accentLime.withOpacity(0.15),
+                                color: AppTheme.primaryLight.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -405,7 +408,7 @@ class ProfileScreen extends StatelessWidget {
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
-                                  color: AppTheme.accentLime,
+                                  color: AppTheme.primaryLight,
                                 ),
                               ),
                             ),
@@ -471,6 +474,96 @@ class ProfileScreen extends StatelessWidget {
                 _buildInfoRow('Personnel Status', 'Active in Service'),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // Section 4: Personnel 201 Documents & Credentials
+            Container(
+              padding: const EdgeInsets.all(18.0),
+              decoration: BoxDecoration(
+                color: AppTheme.lightBgCard,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.lightBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryLight.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(LucideIcons.fileBadge, size: 16, color: AppTheme.primaryLight),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'IV. Personnel 201 Documents',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.textPrimary,
+                              letterSpacing: -0.01,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.emeraldGreen.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          '201 Records',
+                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 22, color: AppTheme.lightBorder),
+                  Text(
+                    'Access, upload, and scan required 201 personnel documents including Government IDs, PRC Licenses, Diplomas, Medical & Clearance records.',
+                    style: GoogleFonts.inter(fontSize: 12.5, color: AppTheme.textSecondary, height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const PersonnelDocumentsScreen()),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.brandDark,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(LucideIcons.scanLine, size: 16, color: Colors.white),
+                      label: Text(
+                        'Open Personnel Documents & Scanner',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
 
             // Bottom Action Row
@@ -480,19 +573,19 @@ class ProfileScreen extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed: onRefresh,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentLime,
-                      foregroundColor: AppTheme.brandDark,
+                      backgroundColor: AppTheme.brandDark,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       elevation: 0,
                     ),
-                    icon: const Icon(LucideIcons.refreshCw, size: 16, color: AppTheme.brandDark),
+                    icon: const Icon(LucideIcons.refreshCw, size: 16, color: Colors.white),
                     label: Text(
                       'Synchronize 201 Records',
                       style: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.w800,
                         fontSize: 13.5,
-                        color: AppTheme.brandDark,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -513,14 +606,14 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18.0),
       decoration: BoxDecoration(
-        color: AppTheme.darkBgCard,
+        color: AppTheme.lightBgCard,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.darkBorder),
+        border: Border.all(color: AppTheme.lightBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -532,10 +625,10 @@ class ProfileScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentLime.withOpacity(0.12),
+                  color: AppTheme.primaryLight.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, size: 16, color: AppTheme.accentLime),
+                child: Icon(icon, size: 16, color: AppTheme.primaryLight),
               ),
               const SizedBox(width: 10),
               Text(
@@ -549,7 +642,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
-          const Divider(height: 22, color: AppTheme.darkBorder),
+          const Divider(height: 22, color: AppTheme.lightBorder),
           ...items,
         ],
       ),
@@ -590,8 +683,8 @@ class ProfileScreen extends StatelessWidget {
                       style: isMono
                           ? GoogleFonts.jetBrainsMono(
                               fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.accentLime,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.primaryLight,
                             )
                           : GoogleFonts.plusJakartaSans(
                               fontSize: 12.5,

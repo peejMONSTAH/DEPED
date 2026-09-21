@@ -30,7 +30,8 @@ class UserModel {
     final idVal = rawId is int ? rawId : (int.tryParse(rawId?.toString() ?? '') ?? 0);
     final rawPId = json['personnelId'];
     final pIdVal = rawPId == null ? null : (rawPId is int ? rawPId : int.tryParse(rawPId.toString()));
-    final rawFirstLogin = json['isFirstLogin'];
+    // Accepts the server field, falling back to the legacy key for older payloads.
+    final rawFirstLogin = json['mustChangePassword'] ?? json['isFirstLogin'];
     final isFirstLoginVal = rawFirstLogin is bool ? rawFirstLogin : (rawFirstLogin == true);
 
     return UserModel(

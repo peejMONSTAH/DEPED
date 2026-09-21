@@ -68,6 +68,17 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Server-side failures carry a request id. Fold it into the message so the many
+    // `err.response?.data?.message` call sites surface something support can trace.
+    const status = error.response?.status;
+    if (status >= 500 && error.response?.data) {
+      const requestId = error.response.data.requestId || error.response.headers?.['x-request-id'];
+      const message = error.response.data.message;
+      if (requestId && typeof message === 'string' && !message.includes(requestId)) {
+        error.response.data.message = `${message} (Reference: ${requestId})`;
+      }
+    }
+
     return Promise.reject(error);
   }
 );

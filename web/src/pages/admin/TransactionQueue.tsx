@@ -9,6 +9,7 @@ import { transactionsApi } from '../../api/transactions.api';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import type { Transaction } from '../../types';
+import { clickableRow } from '../../a11y/clickable';
 
 interface FilterTab {
   id: string;
@@ -167,6 +168,7 @@ export const TransactionQueue: React.FC = () => {
               <AppIcon name="search" size={16} />
             </span>
             <input
+              aria-label="Search by personnel, employee ID, or transaction type"
               type="text"
               className="tq-search-input"
               style={{ paddingLeft: '44px' }}
@@ -281,11 +283,11 @@ export const TransactionQueue: React.FC = () => {
                     <tr
                       key={tx.id}
                       style={{ cursor: 'pointer' }}
-                      onClick={() => {
+                      {...clickableRow(() => {
                         setSelectedTx(tx);
                         navigate(`/admin/transactions/${tx.id}`);
                         loadTransactionDetail(tx.id);
-                      }}
+                      })}
                     >
                       {/* ID Badge */}
                       <td>
@@ -451,7 +453,7 @@ export const TransactionQueue: React.FC = () => {
 
       {/* Transaction Dossier & Details Modal */}
       {selectedTx && (
-        <ModalOverlay
+        <ModalOverlay onDismiss={handleCloseModal}
           className="modal-overlay"
           style={{
             position: 'fixed',
@@ -968,13 +970,6 @@ export const TransactionQueue: React.FC = () => {
                 </Link>
               )}
 
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleCloseModal}
-              >
-                Close
-              </button>
             </div>
           </div>
         </ModalOverlay>

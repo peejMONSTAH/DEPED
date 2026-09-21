@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden } from '../utils/response.util';
-import { getAOSchoolScope } from '../utils/scope.util';
-import { getAutoSalaryGrade } from '../utils/deped.util';
+import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden , sendError} from '../utils/response.util';
+import { getStationScope, stationPlantillaFilter } from '../utils/scope.util';
+import { getAutoSalaryGrade, getPlantillaActivePromotionCycle } from '../utils/deped.util';
+import { logger } from '../utils/logger';
 
 /**
  * GET /api/v1/plantilla
@@ -46,11 +47,9 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
       where.division = { contains: String(district), mode: 'insensitive' };
     }
 
-    // AO II scope: filter to their station if applicable
-    const scope = await getAOSchoolScope(req.user);
-    if (scope.isAo && scope.schoolName) {
-      where.department = { contains: scope.schoolName, mode: 'insensitive' };
-    }
+    // AO II scope: an officer never sees plantilla items outside their own station
+    const scope = await getStationScope(req.user);
+    Object.assign(where, stationPlantillaFilter(scope));
 
     if (search) {
       const q = String(search).trim();
@@ -115,7 +114,7 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
         prisma.plantillaItem.update({
           where: { id: item.id },
           data: { isOccupied: actualIsOccupied },
-        }).catch((err: any) => console.error('Failed to auto-heal plantilla occupancy:', err));
+        }).catch((err: any) => logger.error({ err }, 'Failed to auto-heal plantilla occupancy'));
       }
 
       // Find matching cycle where targetPosition matches positionTitle and (school or district matches)
@@ -158,8 +157,8 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
       availabilityRate: totalCount > 0 ? Math.round((vacantCount / totalCount) * 100) : 0,
     } as any);
   } catch (error: any) {
-    console.error('Failed to get plantilla items:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to fetch plantilla items.' });
+    logger.error({ err: error }, 'Failed to get plantilla items');
+    sendError(res, 'Failed to fetch plantilla items.', 500);
   }
 };
 
@@ -193,13 +192,20 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
       },
     });
 
-    let appliedCycleIds: number[] = [];
+    const myAppsMap = new Map<number, any>();
     if (req.user?.personnelId) {
       const myApps = await prisma.promotionApplication.findMany({
         where: { personnelId: req.user.personnelId },
-        select: { promotionCycleId: true },
+        select: {
+          id: true,
+          promotionCycleId: true,
+          status: true,
+          finalRank: true,
+          applicationDate: true,
+          scoreDetailsJson: true,
+        },
       });
-      appliedCycleIds = myApps.map((a) => a.promotionCycleId);
+      myApps.forEach((a) => myAppsMap.set(a.promotionCycleId, a));
     }
 
     const available = items.map((item) => {
@@ -210,6 +216,9 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
         const schoolMatch = !rules.school || rules.school === 'All Schools in District' || item.department.toLowerCase().includes(rules.school.toLowerCase());
         return itemNumberMatch || (posMatch && schoolMatch);
       });
+
+      const userApp = matchingCycle ? myAppsMap.get(matchingCycle.id) : null;
+      const appDetails = (userApp?.scoreDetailsJson as Record<string, any>) || {};
 
       return {
         id: item.id,
@@ -229,16 +238,36 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
               startDate: matchingCycle.startDate,
               endDate: matchingCycle.endDate,
               applicantCount: matchingCycle._count.promotionApplications,
-              hasApplied: appliedCycleIds.includes(matchingCycle.id),
+              hasApplied: Boolean(userApp),
+              hasChecklist: Boolean(appDetails.annexCChecklist),
+              myApplication: userApp ? {
+                id: userApp.id,
+                status: userApp.status,
+                finalRank: userApp.finalRank,
+                applicationDate: userApp.applicationDate,
+                hasChecklist: Boolean(appDetails.annexCChecklist),
+                annexCChecklist: appDetails.annexCChecklist || null,
+                applicantNumber: appDetails.applicantNumber,
+                stageStatus: appDetails.stageStatus,
+                verificationStatus: appDetails.verificationStatus || appDetails.completenessStatus,
+                verificationRemarks: appDetails.verificationRemarks || appDetails.initialRating?.aoRemarks,
+                totalScore: appDetails.totalScore ?? appDetails.finalRating?.finalTotalScore ?? appDetails.initialTotalScore,
+                disqualificationReason: appDetails.disqualificationReason,
+                deliberationRemarks: appDetails.remarks || appDetails.finalRating?.hrmoRemarks,
+                forAppointment: appDetails.forAppointment,
+                cycleStatus: appDetails.cycleStatus || matchingCycle.status,
+              } : null,
             }
           : null,
       };
     });
 
-    sendSuccess(res, available);
+    const excludePromotions = req.query.excludePromotions === 'true' || req.query.forAssignment === 'true';
+    const filtered = excludePromotions ? available.filter(item => !item.isOpenForRanking) : available;
+    sendSuccess(res, filtered);
   } catch (error: any) {
-    console.error('Failed to get available plantilla items:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to fetch available plantilla items.' });
+    logger.error({ err: error }, 'Failed to get available plantilla items');
+    sendError(res, 'Failed to fetch available plantilla items.', 500);
   }
 };
 
@@ -309,12 +338,12 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
         await prisma.plantillaItem.update({
           where: { id: assignedPersonnel.plantillaItemId },
           data: { isOccupied: false },
-        }).catch((err: any) => console.error('Failed to vacate old plantilla on assignment:', err));
+        }).catch((err: any) => logger.error({ err }, 'Failed to vacate old plantilla on assignment'));
       }
 
       await prisma.personnel.update({
         where: { id: assignedPersonnel.id },
-        data: { plantillaItemId: newItem.id },
+        data: { plantillaItemId: newItem.id, school: newItem.department, district: newItem.division },
       });
 
       if (req.user?.userId) {
@@ -331,7 +360,7 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
             userId: req.user.userId,
             status: 'SUCCESS',
           },
-        }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_ASSIGNED:', err));
+        }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_ASSIGNED'));
       }
     }
 
@@ -345,14 +374,14 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
           userId: req.user.userId,
           status: 'SUCCESS',
         },
-      }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_CREATED:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_CREATED'));
     }
     res.locals.auditLogged = true;
 
     sendCreated(res, newItem, `Plantilla Item '${newItem.itemNumber}' created successfully.`);
   } catch (error: any) {
-    console.error('Failed to create plantilla item:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to create plantilla item.' });
+    logger.error({ err: error }, 'Failed to create plantilla item');
+    sendError(res, 'Failed to create plantilla item.', 500);
   }
 };
 
@@ -428,10 +457,16 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
                 userId: req.user.userId,
                 status: 'SUCCESS',
               },
-            }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_VACATED:', err));
+            }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_VACATED'));
           }
         }
       } else if (willBeOccupied && personnelId) {
+        const promoLock = await getPlantillaActivePromotionCycle(existing);
+        if (promoLock.isLocked) {
+          sendBadRequest(res, promoLock.reason || `Plantilla item '${existing.itemNumber}' is currently open for grab in an active promotion cycle.`);
+          return;
+        }
+
         // Assign new personnel
         const pId = parseInt(String(personnelId), 10);
         if (!isNaN(pId)) {
@@ -442,7 +477,7 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
               await prisma.plantillaItem.update({
                 where: { id: targetPersonnel.plantillaItemId },
                 data: { isOccupied: false },
-              }).catch((err: any) => console.error('Failed to vacate old plantilla on occupant reassign:', err));
+              }).catch((err: any) => logger.error({ err }, 'Failed to vacate old plantilla on occupant reassign'));
             }
 
             // Unbind previous occupant if different
@@ -459,6 +494,8 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
               data: {
                 plantillaItemId: id,
                 designation: positionTitle || existing.positionTitle,
+                school: updateData.department ?? existing.department,
+                district: updateData.division ?? existing.division,
               },
             });
             updateData.isOccupied = true;
@@ -477,7 +514,7 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
                   userId: req.user.userId,
                   status: 'SUCCESS',
                 },
-              }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_ASSIGNED on update:', err));
+              }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_ASSIGNED on update'));
             }
           }
         }
@@ -499,14 +536,14 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
           userId: req.user.userId,
           status: 'SUCCESS',
         },
-      }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_UPDATED:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_UPDATED'));
     }
     res.locals.auditLogged = true;
 
     sendSuccess(res, updated, 'Plantilla item updated successfully.');
   } catch (error: any) {
-    console.error('Failed to update plantilla item:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to update plantilla item.' });
+    logger.error({ err: error }, 'Failed to update plantilla item');
+    sendError(res, 'Failed to update plantilla item.', 500);
   }
 };
 
@@ -558,14 +595,14 @@ export const deletePlantillaItem = async (req: Request, res: Response): Promise<
           userId: req.user.userId,
           status: 'SUCCESS',
         },
-      }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_DELETED:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_DELETED'));
     }
     res.locals.auditLogged = true;
 
     sendSuccess(res, null, `Plantilla Item '${existing.itemNumber}' deleted successfully.`);
   } catch (error: any) {
-    console.error('Failed to delete plantilla item:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to delete plantilla item.' });
+    logger.error({ err: error }, 'Failed to delete plantilla item');
+    sendError(res, 'Failed to delete plantilla item.', 500);
   }
 };
 
@@ -629,7 +666,7 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
             userId: req.user.userId,
             status: 'SUCCESS',
           },
-        }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_VACATED on unassign:', err));
+        }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_VACATED on unassign'));
       }
 
       res.locals.auditLogged = true;
@@ -654,12 +691,18 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
       return;
     }
 
+    const promoLock = await getPlantillaActivePromotionCycle(plantilla);
+    if (promoLock.isLocked) {
+      sendBadRequest(res, promoLock.reason || `Plantilla item '${plantilla.itemNumber}' is currently open for grab in an active promotion cycle and cannot be manually assigned.`);
+      return;
+    }
+
     // If target personnel already held another plantilla item, vacate their old item
     if (targetPersonnel.plantillaItemId && targetPersonnel.plantillaItemId !== plantilla.id) {
       await prisma.plantillaItem.update({
         where: { id: targetPersonnel.plantillaItemId },
         data: { isOccupied: false },
-      }).catch((err: any) => console.error('Failed to vacate previous plantilla in assignPlantillaItem:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to vacate previous plantilla in assignPlantillaItem'));
     }
 
     // If another personnel was previously assigned to this plantilla, unbind them
@@ -676,6 +719,8 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
       data: {
         plantillaItemId: plantilla.id,
         designation: plantilla.positionTitle,
+        school: plantilla.department,
+        district: plantilla.division,
       },
     });
 
@@ -698,7 +743,7 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
           userId: req.user.userId,
           status: 'SUCCESS',
         },
-      }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_ASSIGNED on reassign:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_ASSIGNED on reassign'));
     }
     res.locals.auditLogged = true;
 
@@ -708,7 +753,7 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
       `Personnel ${targetPersonnel.firstName} ${targetPersonnel.lastName} successfully assigned to Plantilla Item '${plantilla.itemNumber}'.`
     );
   } catch (error: any) {
-    console.error('Failed to assign personnel to plantilla:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to assign personnel to plantilla.' });
+    logger.error({ err: error }, 'Failed to assign personnel to plantilla');
+    sendError(res, 'Failed to assign personnel to plantilla.', 500);
   }
 };

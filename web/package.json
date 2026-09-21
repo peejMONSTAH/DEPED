@@ -12,6 +12,7 @@
     "check": "npm run build && npm test"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.103.1",
     "@types/three": "^0.185.4",
     "axios": "^1.6.2",
     "framer-motion": "^13.1.1",

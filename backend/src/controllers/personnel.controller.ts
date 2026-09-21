@@ -2,12 +2,21 @@ import { Request, Response } from 'express';
 import { validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
 import prisma from '../config/prisma';
 import { sendSuccess, sendNotFound, sendBadRequest, sendForbidden, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
-import { getAOSchoolScope } from '../utils/scope.util';
+import {
+  getStationScope,
+  hasStationAssignment,
+  isWithinStation,
+  stationPersonnelFilter,
+  STATION_SUBJECT_ROLES,
+} from '../utils/scope.util';
+import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
+import { logger } from '../utils/logger';
 
 const personnelSelect = {
   id: true, employeeId: true, firstName: true, lastName: true, middleName: true,
   suffix: true, birthDate: true, gender: true, civilStatus: true, contactNumber: true,
-  address: true, designation: true, dateHired: true, status: true, profileComplete: true,
+  address: true, school: true, district: true, designation: true, dateHired: true,
+  status: true, profileComplete: true,
   createdAt: true, updatedAt: true,
   plantillaItem: {
     select: { id: true, itemNumber: true, positionTitle: true, salaryGrade: true, department: true, division: true },
@@ -79,6 +88,8 @@ export const personnelSelectLite = {
   civilStatus: true,
   contactNumber: true,
   address: true,
+  school: true,
+  district: true,
   designation: true,
   dateHired: true,
   status: true,
@@ -251,6 +262,8 @@ export const buildServiceRecordPayload = (p: any) => {
       dateHired: p.dateHired,
       plantillaItem: p.plantillaItem,
       status: p.status,
+      // Printed in the service record STATUS column. Null when not on file.
+      appointmentStatus: p.appointmentStatus,
     },
     serviceRecordDetails: [
       { label: 'Current Position', value: currentPosition, highlight: false },
@@ -295,7 +308,7 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
       await prisma.user.update({
         where: { id: req.user.userId },
         data: { personnelId: pRecord.id },
-      }).catch((err: any) => console.error('Failed to link user personnelId:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to link user personnelId'));
     }
   }
 
@@ -373,9 +386,16 @@ export const getMyServiceRecord = async (req: Request, res: Response): Promise<v
 /**
  * PUT /personnel/me — Update personal 201 file info and persist directly to database
  */
+/** A work-experience sheet longer than this is malformed input, not a career. */
+const MAX_WES_ENTRIES = 60;
+
 export const updateMyProfile = async (req: Request, res: Response): Promise<void> => {
   const inputError = validatePersonnelInput(req.body);
   if (inputError) { sendBadRequest(res, inputError); return; }
+  if (Array.isArray(req.body.wes) && req.body.wes.length > MAX_WES_ENTRIES) {
+    sendBadRequest(res, `A work experience sheet cannot contain more than ${MAX_WES_ENTRIES} entries.`, 'WES_TOO_LARGE');
+    return;
+  }
   let targetId = req.user?.personnelId;
 
   if (targetId) {
@@ -484,37 +504,46 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
     select: personnelSelect,
   });
 
-  // If WES entries are provided, persist them into CareerHistoryEntry records
+  // Persist WES entries as CareerHistoryEntry records. One read and one write for the
+  // whole sheet rather than a find-then-create round trip per row.
   if (isStaffUpdate && Array.isArray(req.body.wes) && req.body.wes.length > 0) {
+    const byDate = new Map<number, { entry: any; eventDate: Date }>();
     for (const entry of req.body.wes) {
-      if (entry && entry.positionTitle && entry.dateFrom) {
-        const parsedDate = new Date(entry.dateFrom);
-        if (!isNaN(parsedDate.getTime())) {
-          const existingCh = await prisma.careerHistoryEntry.findFirst({
-            where: {
-              personnelId: targetId,
-              eventDate: parsedDate,
-            },
-          });
-          if (!existingCh) {
-            await prisma.careerHistoryEntry.create({
-              data: {
-                personnelId: targetId,
-                eventType: 'DESIGNATION_CHANGE',
-                eventDate: parsedDate,
-                detailsJson: {
-                  title: entry.positionTitle,
-                  department: entry.department || 'DepEd',
-                  salary: entry.monthlySalary || '',
-                  salaryGrade: entry.salaryGrade || '',
-                  status: entry.status || 'Permanent',
-                  government: Boolean(entry.government),
-                  dateTo: entry.dateTo || 'Present',
-                },
-              },
-            }).catch((err: any) => console.error('Failed to create career history entry for WES:', err));
-          }
-        }
+      if (!entry?.positionTitle || !entry.dateFrom) continue;
+      const eventDate = new Date(entry.dateFrom);
+      if (isNaN(eventDate.getTime())) continue;
+      // An event date identifies the row, so the last entry for a date wins.
+      byDate.set(eventDate.getTime(), { entry, eventDate });
+    }
+
+    if (byDate.size > 0) {
+      const candidates = [...byDate.values()];
+      const existing = await prisma.careerHistoryEntry.findMany({
+        where: { personnelId: targetId, eventDate: { in: candidates.map(c => c.eventDate) } },
+        select: { eventDate: true },
+      });
+      const alreadyStored = new Set(existing.map(e => e.eventDate.getTime()));
+
+      const toCreate = candidates
+        .filter(c => !alreadyStored.has(c.eventDate.getTime()))
+        .map(({ entry, eventDate }) => ({
+          personnelId: targetId!,
+          eventType: 'DESIGNATION_CHANGE' as const,
+          eventDate,
+          detailsJson: {
+            title: entry.positionTitle,
+            department: entry.department || 'DepEd',
+            salary: entry.monthlySalary || '',
+            salaryGrade: entry.salaryGrade || '',
+            status: entry.status || 'Permanent',
+            government: Boolean(entry.government),
+            dateTo: entry.dateTo || 'Present',
+          },
+        }));
+
+      if (toCreate.length > 0) {
+        await prisma.careerHistoryEntry.createMany({ data: toCreate })
+          .catch((err: any) => logger.error({ err, personnelId: targetId }, 'Failed to create career history entries for WES'));
       }
     }
   }
@@ -555,28 +584,14 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<void
   }
 
   // Scope AO II to strictly see only Teaching and Non-Teaching personnel under their assigned school station/district
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo) {
-    where.user = {
-      role: {
-        name: {
-          in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'],
-        },
-      },
-    };
-
-    if (scope.schoolName) {
-      where.OR = [
-        { address: { contains: scope.schoolName, mode: 'insensitive' } },
-        { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-        { plantillaItem: { department: { contains: scope.schoolName, mode: 'insensitive' } } },
-      ];
-    } else if (scope.districtName) {
-      where.address = { contains: scope.districtName, mode: 'insensitive' };
-    } else {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped) {
+    if (!hasStationAssignment(scope)) {
       sendForbidden(res, 'No school assignment is configured for this account.');
       return;
     }
+    where.user = { role: { name: { in: STATION_SUBJECT_ROLES } } };
+    Object.assign(where, stationPersonnelFilter(scope));
   }
 
   if (search) {
@@ -621,14 +636,9 @@ export const getPersonnelById = async (req: Request, res: Response): Promise<voi
   });
   if (!personnel) { sendNotFound(res, 'Personnel not found.'); return; }
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo && scope.aoPersonnelId !== targetId) {
-    if (!isPersonnelRole(personnel.user?.role?.name)) {
-      sendForbidden(res, 'Access denied. You can only view personnel records under your assigned school station.');
-      return;
-    }
-    const text = `${personnel.address || ''} ${personnel.designation || ''} ${personnel.plantillaItem?.department || ''}`;
-    if (!scope.schoolName || !text.toLowerCase().includes(scope.schoolName.toLowerCase())) {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped && scope.personnelId !== targetId) {
+    if (!isPersonnelRole(personnel.user?.role?.name) || !isWithinStation(scope, personnel)) {
       sendForbidden(res, 'Access denied. You can only view personnel records under your assigned school station.');
       return;
     }
@@ -657,14 +667,9 @@ export const getPersonnelServiceRecord = async (req: Request, res: Response): Pr
     return;
   }
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo && scope.aoPersonnelId !== targetId) {
-    if (!isPersonnelRole(personnel.user?.role?.name)) {
-      sendForbidden(res, 'Access denied. You can only view service records under your assigned school station.');
-      return;
-    }
-    const scopeText = `${personnel.address || ''} ${personnel.designation || ''} ${personnel.plantillaItem?.department || ''}`.toLowerCase();
-    if (!scope.schoolName || !scopeText.includes(scope.schoolName.toLowerCase())) {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped && scope.personnelId !== targetId) {
+    if (!isPersonnelRole(personnel.user?.role?.name) || !isWithinStation(scope, personnel)) {
       sendForbidden(res, 'Access denied. You can only view service records under your assigned school station.');
       return;
     }
@@ -698,14 +703,9 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
     return;
   }
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo && scope.aoPersonnelId !== id) {
-    if (!isPersonnelRole(existingPersonnel.user?.role?.name)) {
-      sendForbidden(res, 'Access denied. You can only update personnel under your assigned school station.');
-      return;
-    }
-    const scopeText = `${existingPersonnel.address || ''} ${existingPersonnel.designation || ''} ${existingPersonnel.plantillaItem?.department || ''}`.toLowerCase();
-    if (!scope.schoolName || !scopeText.includes(scope.schoolName.toLowerCase())) {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped && scope.personnelId !== id) {
+    if (!isPersonnelRole(existingPersonnel.user?.role?.name) || !isWithinStation(scope, existingPersonnel)) {
       sendForbidden(res, 'Access denied. You can only update personnel under your assigned school station.');
       return;
     }
@@ -721,6 +721,11 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
   if (req.body.designation !== undefined) updateData.designation = String(req.body.designation).trim();
   if (req.body.contactNumber !== undefined) updateData.contactNumber = req.body.contactNumber ? String(req.body.contactNumber).trim() : null;
   if (req.body.address !== undefined) updateData.address = req.body.address ? String(req.body.address).trim() : null;
+  // Reassigning a station moves the record between AO II jurisdictions, so it stays division-level.
+  if (!scope.isScoped) {
+    if (req.body.school !== undefined) updateData.school = req.body.school ? String(req.body.school).trim() : null;
+    if (req.body.district !== undefined) updateData.district = req.body.district ? String(req.body.district).trim() : null;
+  }
 
   if (req.body.birthDate) {
     const d = new Date(req.body.birthDate);
@@ -766,6 +771,11 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
         sendBadRequest(res, `Plantilla item is already assigned to ${holder.employeeId}. Vacate it through the proper personnel action first.`, 'PLANTILLA_ALREADY_OCCUPIED');
         return;
       }
+      const promoLock = await getPlantillaActivePromotionCycle(item);
+      if (promoLock.isLocked) {
+        sendBadRequest(res, promoLock.reason || `Plantilla item '${item.itemNumber}' is currently open for grab in an active promotion cycle.`, 'PLANTILLA_IN_PROMOTION_CYCLE');
+        return;
+      }
     }
     updateData.plantillaItemId = requestedPlantillaId;
   }
@@ -802,7 +812,7 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
       userId: req.user?.userId || 0,
       status: 'SUCCESS',
     },
-  }).catch((err: any) => console.error('Failed to log 201_FILE_UPDATED:', err));
+  }).catch((err: any) => logger.error({ err }, 'Failed to log 201_FILE_UPDATED'));
   res.locals.auditLogged = true;
 
   sendSuccess(res, updated, 'Personnel 201 file changes applied and stored in database successfully.');

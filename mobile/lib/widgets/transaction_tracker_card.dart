@@ -27,18 +27,18 @@ class TransactionTrackerCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.darkBgCard,
+        color: AppTheme.lightBgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isReturned
               ? AppTheme.statusReturned.withOpacity(0.5)
-              : AppTheme.primaryLight.withOpacity(0.3),
+              : AppTheme.lightBorder,
         ),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Color(0x08000000),
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 3),
           ),
         ],
       ),
@@ -53,7 +53,7 @@ class TransactionTrackerCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryLight.withOpacity(0.15),
+                      color: AppTheme.primaryLight.withOpacity(0.12),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(LucideIcons.route, size: 16, color: AppTheme.primaryLight),
@@ -64,7 +64,7 @@ class TransactionTrackerCard extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ],
@@ -72,16 +72,16 @@ class TransactionTrackerCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentLime.withOpacity(0.15),
+                  color: AppTheme.lightSurface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.accentLime.withOpacity(0.35)),
+                  border: Border.all(color: AppTheme.lightBorder),
                 ),
                 child: Text(
                   transaction.referenceNo,
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.accentLime,
+                    color: AppTheme.primaryLight,
                   ),
                 ),
               ),
@@ -145,7 +145,7 @@ class TransactionTrackerCard extends StatelessWidget {
       margin: const EdgeInsets.only(left: 13, top: 2, bottom: 2),
       width: 2,
       height: 14,
-      color: isDone ? AppTheme.emeraldGreen : const Color(0xFF30363D),
+      color: isDone ? AppTheme.emeraldGreen : AppTheme.lightBorder,
     );
   }
 
@@ -157,21 +157,21 @@ class TransactionTrackerCard extends StatelessWidget {
     required bool isCurrent,
     required bool isFailed,
   }) {
-    Color iconBg = const Color(0xFF21262D);
-    Color iconFg = const Color(0xFF8B949E);
+    Color iconBg = AppTheme.lightSurface;
+    Color iconFg = AppTheme.textMuted;
     IconData icon = LucideIcons.circle;
 
     if (isFailed) {
-      iconBg = AppTheme.statusReturned.withOpacity(0.2);
+      iconBg = AppTheme.statusReturned.withOpacity(0.12);
       iconFg = AppTheme.statusReturned;
       icon = LucideIcons.alertTriangle;
     } else if (isDone) {
-      iconBg = AppTheme.emeraldGreen.withOpacity(0.2);
+      iconBg = AppTheme.emeraldGreen.withOpacity(0.12);
       iconFg = AppTheme.emeraldGreen;
       icon = LucideIcons.check;
     } else if (isCurrent) {
-      iconBg = AppTheme.accentLime.withOpacity(0.2);
-      iconFg = AppTheme.accentLime;
+      iconBg = AppTheme.primaryLight.withOpacity(0.12);
+      iconFg = AppTheme.primaryLight;
       icon = LucideIcons.clock;
     }
 
@@ -185,8 +185,8 @@ class TransactionTrackerCard extends StatelessWidget {
             color: iconBg,
             border: Border.all(
               color: isCurrent
-                  ? AppTheme.accentLime
-                  : (isDone ? AppTheme.emeraldGreen : Colors.transparent),
+                  ? AppTheme.primaryLight
+                  : (isDone ? AppTheme.emeraldGreen : AppTheme.lightBorder),
               width: 1.5,
             ),
           ),
@@ -205,8 +205,8 @@ class TransactionTrackerCard extends StatelessWidget {
                   color: isFailed
                       ? AppTheme.statusReturned
                       : (isCurrent
-                          ? AppTheme.accentLime
-                          : (isDone ? Colors.white : const Color(0xFF8B949E))),
+                          ? AppTheme.primaryLight
+                          : (isDone ? AppTheme.textPrimary : AppTheme.textMuted)),
                 ),
               ),
               Text(
@@ -215,7 +215,7 @@ class TransactionTrackerCard extends StatelessWidget {
                   fontSize: 10,
                   color: isFailed
                       ? AppTheme.statusReturned
-                      : (isCurrent ? AppTheme.accentLimeHover : const Color(0xFF6E7681)),
+                      : (isCurrent ? AppTheme.primaryLight : AppTheme.textMuted),
                 ),
               ),
             ],

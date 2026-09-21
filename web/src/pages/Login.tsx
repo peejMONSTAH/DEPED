@@ -7,6 +7,7 @@ import { LoadingSpinner } from '../components/shared/LoadingSpinner';
 import apiClient from '../api/client';
 import { LoginGlow } from '../components/login/LoginGlow';
 import { Digital201Logo } from '../components/common/Digital201Logo';
+import { AppIcon } from '../components/common/AppIcon';
 import '../components/login/login.css';
 import '../components/login/simple-login.css';
 import type { AuthUser } from '../types';
@@ -46,13 +47,6 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // First Login & Temporary Password Change Check
-    if (password.startsWith('Temp@')) {
-      setPendingLogin({ email });
-      setShowFirstTimeModal(true);
-      return;
-    }
-
     setIsLoading(true);
     try {
       await login(email.trim(), password);
@@ -60,6 +54,17 @@ export const LoginPage: React.FC = () => {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const loggedUser = JSON.parse(storedUser) as AuthUser;
+
+        // Whether a password must be replaced is the server's answer, not a guess
+        // from the text the user typed. The old check looked for a 'Temp@' prefix,
+        // which no issued password actually used, so nobody was ever prompted.
+        // The API refuses every other route until this is done.
+        if ((loggedUser as AuthUser & { mustChangePassword?: boolean }).mustChangePassword) {
+          setPendingLogin({ email });
+          setShowFirstTimeModal(true);
+          return;
+        }
+
         navigateToDashboard(loggedUser);
       } else {
         navigate('/admin/dashboard');
@@ -141,11 +146,7 @@ export const LoginPage: React.FC = () => {
                 <button type="button" className="simple-login-reveal"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
-                    <circle cx="12" cy="12" r="3" />
-                    {showPassword && <path d="m3 3 18 18" />}
-                  </svg>
+                  <AppIcon name={showPassword ? 'view-off' : 'view'} size={18} strokeWidth={1.8} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -156,14 +157,13 @@ export const LoginPage: React.FC = () => {
           </form>
 
         </section>
-        <div className="simple-login-brand"><Digital201Logo variant="wordmark" size="xs" tone="dark" /></div>
       </main>
 
       {/* ─── 3. MODALS & POPUPS (PRESERVED) ─────────────────────────── */}
       {/* First Login Password Reset Modal */}
       {showFirstTimeModal && (
         <ModalOverlay className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 460 }}>
+          <div className="modal" style={{ maxWidth: 460, width: '92%' }}>
             <div className="modal-header">
               <h3 className="modal-title">Welcome to Digital 201!</h3>
             </div>
@@ -177,6 +177,7 @@ export const LoginPage: React.FC = () => {
                   New Secure Password (min 12 chars)
                 </label>
                 <input
+                  aria-label="New Secure Password (min 12 chars)"
                   type="password"
                   className="modal form-input"
                   placeholder="Enter new password"
@@ -189,6 +190,7 @@ export const LoginPage: React.FC = () => {
               <div className="form-group">
                 <label className="modal-label">Confirm New Password</label>
                 <input
+                  aria-label="Confirm New Password"
                   type="password"
                   className="modal form-input"
                   placeholder="Confirm new password"

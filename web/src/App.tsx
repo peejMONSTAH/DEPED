@@ -1,8 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuthContext } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './api/queryClient';
+import { ConfirmProvider } from './contexts/ConfirmContext';
+import { RequireAuth, RootRedirect } from './routes/RequireAuth';
+import { ADMIN_PORTAL_ROLES, PERSONNEL_ROLES } from './auth/permissions';
 
 // Layouts
 import { AdminLayout } from './layouts/AdminLayout';
@@ -10,77 +15,48 @@ import { PersonnelLayout } from './layouts/PersonnelLayout';
 
 // Pages
 import { LoginPage } from './pages/Login';
-import { MagicLogin } from './pages/auth/MagicLogin';
+const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => ({ default: m.MagicLogin })));
 
 // Admin Pages
-import { AdminDashboard } from './pages/admin/Dashboard';
-import { AdminNotifications } from './pages/admin/Notifications';
-import { TransactionQueue } from './pages/admin/TransactionQueue';
-import { DocumentValidation } from './pages/admin/DocumentValidation';
-import { TransactionApproval } from './pages/admin/TransactionApproval';
-import { PersonnelManagement } from './pages/admin/PersonnelManagement';
-import { PromotionManagement } from './pages/admin/PromotionManagement';
-import { CredentialDistribution } from './pages/admin/CredentialDistribution';
-import { ComplianceMonitoring } from './pages/admin/ComplianceMonitoring';
-import { AuditLog } from './pages/admin/AuditLog';
-import { Reports } from './pages/admin/Reports';
-import { Settings } from './pages/admin/Settings';
-import { PlantillaManagement } from './pages/admin/PlantillaManagement';
+const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminNotifications = React.lazy(() => import('./pages/admin/Notifications').then(m => ({ default: m.AdminNotifications })));
+const TransactionQueue = React.lazy(() => import('./pages/admin/TransactionQueue').then(m => ({ default: m.TransactionQueue })));
+const DocumentValidation = React.lazy(() => import('./pages/admin/DocumentValidation').then(m => ({ default: m.DocumentValidation })));
+const TransactionApproval = React.lazy(() => import('./pages/admin/TransactionApproval').then(m => ({ default: m.TransactionApproval })));
+const PersonnelManagement = React.lazy(() => import('./pages/admin/PersonnelManagement').then(m => ({ default: m.PersonnelManagement })));
+const PromotionManagement = React.lazy(() => import('./pages/admin/PromotionManagement').then(m => ({ default: m.PromotionManagement })));
+const CredentialDistribution = React.lazy(() => import('./pages/admin/CredentialDistribution').then(m => ({ default: m.CredentialDistribution })));
+const ComplianceMonitoring = React.lazy(() => import('./pages/admin/ComplianceMonitoring').then(m => ({ default: m.ComplianceMonitoring })));
+const AuditLog = React.lazy(() => import('./pages/admin/AuditLog').then(m => ({ default: m.AuditLog })));
+const Reports = React.lazy(() => import('./pages/admin/Reports').then(m => ({ default: m.Reports })));
+const Settings = React.lazy(() => import('./pages/admin/Settings').then(m => ({ default: m.Settings })));
+const PlantillaManagement = React.lazy(() => import('./pages/admin/PlantillaManagement').then(m => ({ default: m.PlantillaManagement })));
 
 // Personnel Pages (Mobile Web Portal)
-import { PersonnelHome } from './pages/personnel/Home';
-import { MyTransactions } from './pages/personnel/MyTransactions';
-import { ProfileCompletion } from './pages/personnel/ProfileCompletion';
-import { Checklist } from './pages/personnel/Checklist';
-import { UploadDocument } from './pages/personnel/UploadDocument';
+const PersonnelHome = React.lazy(() => import('./pages/personnel/Home').then(m => ({ default: m.PersonnelHome })));
+const MyTransactions = React.lazy(() => import('./pages/personnel/MyTransactions').then(m => ({ default: m.MyTransactions })));
+const ProfileCompletion = React.lazy(() => import('./pages/personnel/ProfileCompletion').then(m => ({ default: m.ProfileCompletion })));
+const Checklist = React.lazy(() => import('./pages/personnel/Checklist').then(m => ({ default: m.Checklist })));
+const UploadDocument = React.lazy(() => import('./pages/personnel/UploadDocument').then(m => ({ default: m.UploadDocument })));
 const FillDocument = React.lazy(() => import('./pages/personnel/FillDocument'));
-import { PersonnelNotifications } from './pages/personnel/Notifications';
-import { CareerRecord } from './pages/personnel/CareerRecord';
+const PersonnelNotifications = React.lazy(() => import('./pages/personnel/Notifications').then(m => ({ default: m.PersonnelNotifications })));
+const CareerRecord = React.lazy(() => import('./pages/personnel/CareerRecord').then(m => ({ default: m.CareerRecord })));
 
-// Auth Guard component
-const RequireAuth: React.FC<{ children: React.ReactNode; allowedRoles?: string[] }> = ({ children, allowedRoles }) => {
-  const { user, isAuthenticated, isLoading } = useAuthContext();
-  const token = localStorage.getItem('accessToken');
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (!isAuthenticated || !user || !token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  const isPersonnel = ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(user.role);
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to={isPersonnel ? '/personnel/home' : '/admin/dashboard'} replace />;
-  }
-
-  return <>{children}</>;
-};
-
-// Root Redirect component based on login
-const RootRedirect: React.FC = () => {
-  const { user, isAuthenticated, isLoading } = useAuthContext();
-  const token = localStorage.getItem('accessToken');
-
-  if (isLoading) {
-    return null;
-  }
-
-  if (!isAuthenticated || !user || !token) {
-    return <Navigate to="/login" replace />;
-  }
-
-  const isPersonnel = ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(user.role);
-  return <Navigate to={isPersonnel ? '/personnel/home' : '/admin/dashboard'} replace />;
-};
+/** Shown while a route chunk downloads. Deliberately quiet: route chunks are
+ * small and usually arrive within a frame or two, so a spinner would flicker. */
+const RouteFallback: React.FC = () => (
+  <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading…</div>
+);
 
 export const App: React.FC = () => {
   return (
+    <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <ThemeProvider>
         <ToastProvider>
+          <ConfirmProvider>
           <AuthProvider>
+            <React.Suspense fallback={<RouteFallback />}>
             <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
@@ -90,7 +66,7 @@ export const App: React.FC = () => {
             <Route
               path="/admin"
               element={
-                <RequireAuth allowedRoles={['SYSTEM_ADMIN', 'AO_II', 'HRMO']}>
+                <RequireAuth allowedRoles={ADMIN_PORTAL_ROLES}>
                   <AdminLayout />
                 </RequireAuth>
               }
@@ -151,11 +127,11 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* HRMO only: Promotion Management */}
+              {/* HRMO and AO II: Promotion Management */}
               <Route
                 path="promotions"
                 element={
-                  <RequireAuth allowedRoles={['HRMO']}>
+                  <RequireAuth allowedRoles={['AO_II', 'HRMO']}>
                     <PromotionManagement />
                   </RequireAuth>
                 }
@@ -181,8 +157,15 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* Shared reports */}
-              <Route path="reports" element={<Reports />} />
+              {/* Sys Admin only: Reports */}
+              <Route
+                path="reports"
+                element={
+                  <RequireAuth allowedRoles={['SYSTEM_ADMIN']}>
+                    <Reports />
+                  </RequireAuth>
+                }
+              />
 
               {/* Sys Admin only: Settings + Roles & Permissions (Step 4) */}
               <Route
@@ -201,7 +184,7 @@ export const App: React.FC = () => {
             <Route
               path="/personnel"
               element={
-                <RequireAuth allowedRoles={['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL']}>
+                <RequireAuth allowedRoles={PERSONNEL_ROLES}>
                   <PersonnelLayout />
                 </RequireAuth>
               }
@@ -224,7 +207,7 @@ export const App: React.FC = () => {
               {/* Steps 5–8: Checklist → Upload → Compliance → Submit */}
               <Route path="checklist" element={<Checklist />} />
               <Route path="upload-document" element={<UploadDocument />} />
-              <Route path="fill-document" element={<React.Suspense fallback={<p>Loading form editor…</p>}><FillDocument /></React.Suspense>} />
+              <Route path="fill-document" element={<FillDocument />} />
 
               {/* My Transactions list */}
               <Route path="transactions" element={<MyTransactions />} />
@@ -235,11 +218,14 @@ export const App: React.FC = () => {
             {/* Wildcard / Fallback redirects */}
             <Route path="/" element={<RootRedirect />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            </Routes>
+            </React.Suspense>
         </AuthProvider>
+          </ConfirmProvider>
       </ToastProvider>
     </ThemeProvider>
   </BrowserRouter>
+    </QueryClientProvider>
 );
 };
 export default App;

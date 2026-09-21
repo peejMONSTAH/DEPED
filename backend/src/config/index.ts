@@ -10,8 +10,9 @@ export const config = {
   },
 
   jwt: {
-    accessSecret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret-change-in-production',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-in-production',
+    // No fallback: an unset secret must fail at boot, not silently sign real tokens.
+    accessSecret: process.env.JWT_ACCESS_SECRET || '',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || '',
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
@@ -67,32 +68,55 @@ export const config = {
   },
 };
 
-// Enforce strict security check at startup
-if (config.env === 'production') {
-  const insecureSecrets = [
-    'dev-access-secret-change-in-production',
-    'dev-refresh-secret-change-in-production',
-    'your-access-token-secret-here',
-    'your-refresh-token-secret-here',
-    'default',
-    'secret',
-  ];
-  if (!process.env.JWT_ACCESS_SECRET || insecureSecrets.includes(config.jwt.accessSecret)) {
-    throw new Error('FATAL: JWT_ACCESS_SECRET is unconfigured or using an insecure default value in production!');
-  }
-  if (!process.env.JWT_REFRESH_SECRET || insecureSecrets.includes(config.jwt.refreshSecret)) {
-    throw new Error('FATAL: JWT_REFRESH_SECRET is unconfigured or using an insecure default value in production!');
-  }
-  if (!config.db.url) {
-    throw new Error('FATAL: DATABASE_URL is required in production.');
-  }
+// ─── Startup configuration checks ──────────────────────────────────────────
+// Each requirement is asserted in the environment that actually needs it, so a
+// misconfigured deployment fails immediately instead of at the first request.
+const failures: string[] = [];
+const isProduction = config.env === 'production';
+
+const insecureSecrets = [
+  'dev-access-secret-change-in-production',
+  'dev-refresh-secret-change-in-production',
+  'your-access-token-secret-here',
+  'your-refresh-token-secret-here',
+  'default',
+  'secret',
+];
+
+// Required everywhere: these sign real sessions and address the real database.
+for (const [name, value] of [
+  ['JWT_ACCESS_SECRET', config.jwt.accessSecret],
+  ['JWT_REFRESH_SECRET', config.jwt.refreshSecret],
+] as const) {
+  if (!value) failures.push(`${name} is required.`);
+  else if (insecureSecrets.includes(value)) failures.push(`${name} is set to a known placeholder value.`);
+  else if (isProduction && value.length < 32) failures.push(`${name} must be at least 32 characters in production.`);
+}
+if (!config.db.url) failures.push('DATABASE_URL is required.');
+
+// Document storage falls back to local disk unless Supabase is selected.
+if (isProduction || process.env.DOCUMENT_STORAGE === 'supabase') {
+  if (!config.supabase.url) failures.push('SUPABASE_URL is required when document storage uses Supabase.');
+  if (!config.supabase.serviceKey) failures.push('SUPABASE_SERVICE_KEY is required when document storage uses Supabase.');
+}
+
+if (isProduction) {
+  if (!config.email.host) failures.push('SMTP_HOST is required in production.');
   if (!process.env.CORS_ORIGIN || !process.env.CLIENT_URL) {
-    throw new Error('FATAL: CORS_ORIGIN and CLIENT_URL must be explicitly configured in production.');
+    failures.push('CORS_ORIGIN and CLIENT_URL must be explicitly configured in production.');
   }
-  for (const [name, value] of [['CORS_ORIGIN', config.cors.origin], ['CLIENT_URL', config.clientUrl]]) {
-    const url = new URL(value);
-    if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) {
-      throw new Error(`FATAL: ${name} must use HTTPS outside localhost.`);
+  for (const [name, value] of [['CORS_ORIGIN', config.cors.origin], ['CLIENT_URL', config.clientUrl]] as const) {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) {
+        failures.push(`${name} must use HTTPS outside localhost.`);
+      }
+    } catch {
+      failures.push(`${name} is not a valid URL.`);
     }
   }
+}
+
+if (failures.length) {
+  throw new Error(`FATAL: invalid configuration.\n  - ${failures.join('\n  - ')}`);
 }

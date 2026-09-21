@@ -1,12 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../utils/logger';
 
 interface AppError extends Error {
   statusCode?: number;
   code?: string;
 }
 
+/** A 4xx thrown by our own code carries a message written for the user; 5xx never does. */
+const isClientError = (statusCode: number): boolean => statusCode >= 400 && statusCode < 500;
+
 /**
- * Global error handler — must be registered last in Express middleware chain
+ * Global error handler — must be registered last in Express middleware chain.
+ *
+ * Unexpected failures are logged in full and answered with a generic message plus the
+ * request id, so an operator can find the entry without the client ever seeing a stack,
+ * a Prisma message or a connection string.
  */
 export const errorHandler = (
   err: AppError,
@@ -16,18 +24,39 @@ export const errorHandler = (
   next: NextFunction
 ): void => {
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
-  const code = err.code || 'INTERNAL_ERROR';
+  const requestId = (req as Request & { id?: string }).id;
+  const log = (req as Request & { log?: typeof logger }).log || logger;
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  const context = {
+    requestId,
+    method: req.method,
+    path: req.path,
+    statusCode,
+    userId: req.user?.userId,
+    role: req.user?.role,
+    code: err.code,
+  };
+
+  if (isClientError(statusCode)) {
+    // Expected rejections (validation, permissions, conflicts) are not incidents.
+    log.warn({ ...context, err: { message: err.message } }, 'Request rejected');
+    res.status(statusCode).json({
+      status: 'error',
+      message: err.message || 'Request could not be completed.',
+      code: err.code || 'REQUEST_REJECTED',
+      ...(requestId && { requestId }),
+    });
+    return;
   }
 
+  log.error({ ...context, err }, 'Unhandled request failure');
   res.status(statusCode).json({
     status: 'error',
-    message,
-    code,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    message: 'Something went wrong on our side. Quote the request ID when reporting this.',
+    // Deliberately fixed: err.code here is internal (e.g. Prisma's P2002) and would
+    // disclose the storage engine and failure mode to the client.
+    code: 'INTERNAL_ERROR',
+    ...(requestId && { requestId }),
   });
 };
 

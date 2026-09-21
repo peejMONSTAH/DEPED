@@ -5,6 +5,7 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { clickable } from '../../a11y/clickable';
 
 type NotificationItem = {
   id: number;
@@ -172,7 +173,7 @@ export const AdminNotifications: React.FC = () => {
         </div>
       </div>
 
-      <div className="page-content" style={{ maxWidth: 900 }}>
+      <div className="page-content">
         {/* Filter Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           <button
@@ -225,7 +226,7 @@ export const AdminNotifications: React.FC = () => {
                 <div 
                   key={n.id} 
                   className="card"
-                  onClick={() => !n.isRead && handleMarkAsRead(n.id)}
+                  {...(n.isRead ? {} : clickable<HTMLDivElement>(() => handleMarkAsRead(n.id), 'Mark notification as read'))}
                   style={{
                     cursor: n.isRead ? 'default' : 'pointer',
                     background: n.type === 'SUCCESS' ? 'var(--color-success-light)' : n.type === 'WARNING' ? 'var(--color-warning-light)' : 'var(--color-info-light)',

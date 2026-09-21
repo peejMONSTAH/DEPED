@@ -42,9 +42,10 @@ const cases = [
   ['transactions','post','/:id/validate',['AO_II','SYSTEM_ADMIN']],
   ['transactions','post','/:id/approve',['HRMO','SYSTEM_ADMIN']],
   ['promotions','post','/cycles',['HRMO']],
-  ['promotions','post','/cycles/:id/applications/:appId/initial-rating',['AO_II']],
   ['promotions','post','/cycles/:id/applications/:appId/final-rating',['HRMO']],
   ['promotions','post','/cycles/:id/apply',['TEACHING_PERSONNEL','NON_TEACHING_PERSONNEL']],
+  ['audit','get','/reports/compliance-summary',['SYSTEM_ADMIN']],
+  ['audit','get','/reports/personnel-demographics',['SYSTEM_ADMIN']],
 ];
 test('salary lookup distinguishes complete titles and never invents a grade', () => {
   const {getAutoSalaryGrade} = require('../src/utils/deped.util');

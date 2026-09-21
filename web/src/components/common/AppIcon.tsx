@@ -43,6 +43,7 @@ import {
   CheckSquare,
   Upload,
   Eye,
+  EyeOff,
   Download,
   Trash2,
   X,
@@ -57,6 +58,11 @@ import {
   Menu,
   Sun,
   Moon,
+  Receipt,
+  BarChart3,
+  RefreshCw,
+  ChevronLeft,
+  BadgeCheck,
   LucideProps
 } from 'lucide-react';
 
@@ -213,6 +219,7 @@ const iconMap: Record<string, React.FC<LucideProps>> = {
   upload: Upload,
   '📤': Upload,
   view: Eye,
+  'view-off': EyeOff,
   '👁️': Eye,
   download: Download,
   '📥': Download,
@@ -226,6 +233,24 @@ const iconMap: Record<string, React.FC<LucideProps>> = {
   'chevron-down': ChevronDown,
   sun: Sun,
   moon: Moon,
+
+  // Names the app was already calling that had no entry here. Every one of them
+  // silently fell through to FileText, which is why unrelated statuses all
+  // rendered the same document glyph.
+  alert: AlertTriangle,
+  security: Shield,
+  receipt: Receipt,
+  clock: Clock,
+  document: FileText,
+  award: Award,
+  folder: Folder,
+  history: History,
+  verification: BadgeCheck,
+  'chevron-left': ChevronLeft,
+  plantilla: Building2,
+  users: Users,
+  chart: BarChart3,
+  sync: RefreshCw,
 };
 
 export const AppIcon: React.FC<AppIconProps> = ({
@@ -237,6 +262,12 @@ export const AppIcon: React.FC<AppIconProps> = ({
   ...props
 }) => {
   const IconComponent = iconMap[name] || FileText;
+
+  // IconName is widened with `| string`, so a typo type-checks and then renders
+  // a generic document. Surface it in dev instead of letting it look intentional.
+  if ((import.meta as any).env?.DEV && !iconMap[name]) {
+    console.warn(`[AppIcon] unknown icon "${name}" — falling back to FileText.`);
+  }
 
   return (
     <IconComponent

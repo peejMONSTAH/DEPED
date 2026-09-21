@@ -549,55 +549,12 @@ export const ProfileCompletion: React.FC = () => {
       <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>My Digital 201 File & Profile</div>
-          <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-            Personal Data Sheet (CS Form 212), Work Experience Sheet (WES), and official employment records (Database Synchronized)
-          </div>
         </div>
       </div>
 
-      {/* Official 201 Security & Active Editing Notice Banner */}
-      <div
-        style={{
-          background: isEditMode ? 'rgba(245, 158, 11, 0.08)' : 'rgba(37, 99, 235, 0.08)',
-          border: isEditMode ? '1px solid rgba(245, 158, 11, 0.25)' : '1px solid rgba(37, 99, 235, 0.25)',
-          borderRadius: 14,
-          padding: '14px 18px',
-          marginBottom: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 14,
-        }}
-      >
-        <div
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: '50%',
-            background: isEditMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(37, 99, 235, 0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <AppIcon name={isEditMode ? 'edit' : 'lock'} size={18} color={isEditMode ? '#f59e0b' : 'var(--color-primary-light)'} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--color-text-primary)' }}>
-            AO-maintained Digital 201 record
-          </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-            Account identity and employment data are maintained by AO II. Validated PDS and WES submissions synchronize into this read-only record; contact AO II to request a correction.
-          </div>
-        </div>
-      </div>
-
-      {/* System Result banner */}
+      {/* Tab Status Indicators */}
       <div className="card mb-4" style={{ background: 'var(--color-bg-secondary)', borderLeft: '4px solid var(--color-primary)', padding: 'var(--space-3) var(--space-4)' }}>
-        <div className="text-xs text-muted" style={{ lineHeight: 1.6 }}>
-          <strong>System Result:</strong> Personnel profile is verified · Official records are protected against tampering · Service milestones recorded.
-        </div>
-        <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {tabs.map(tab => (
             <span
               key={tab.id}
@@ -657,7 +614,7 @@ export const ProfileCompletion: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
             <div className="form-group">
               {renderFieldLabel('First Name', 'personal.firstName', true)}
-              <input
+              <input aria-label="First Name"
                 className="form-input"
                 value={personal.firstName}
                 readOnly={isFieldLocked('personal.firstName')}
@@ -669,7 +626,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Last Name', 'personal.lastName', true)}
-              <input
+              <input aria-label="Last Name"
                 className="form-input"
                 value={personal.lastName}
                 readOnly={isFieldLocked('personal.lastName')}
@@ -681,7 +638,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Middle Name', 'personal.middleName')}
-              <input
+              <input aria-label="Middle Name"
                 className="form-input"
                 value={personal.middleName}
                 readOnly={isFieldLocked('personal.middleName')}
@@ -692,7 +649,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Suffix (Jr., Sr., etc.)', 'personal.suffix')}
-              <select
+              <select aria-label="Suffix (Jr., Sr., etc.)"
                 className="form-input"
                 value={personal.suffix}
                 disabled={isFieldLocked('personal.suffix')}
@@ -709,7 +666,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Date of Birth', 'personal.birthDate', true)}
-              <input
+              <input aria-label="Date of Birth"
                 className="form-input"
                 type="date"
                 value={personal.birthDate}
@@ -722,7 +679,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Place of Birth', 'personal.birthPlace')}
-              <input
+              <input aria-label="Place of Birth"
                 className="form-input"
                 value={personal.birthPlace}
                 readOnly={isFieldLocked('personal.birthPlace')}
@@ -733,7 +690,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Civil Status', 'personal.civilStatus')}
-              <select
+              <select aria-label="Civil Status"
                 className="form-input"
                 value={personal.civilStatus}
                 disabled={isFieldLocked('personal.civilStatus')}
@@ -748,7 +705,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Sex', 'personal.sex')}
-              <select
+              <select aria-label="Sex"
                 className="form-input"
                 value={personal.sex}
                 disabled={isFieldLocked('personal.sex')}
@@ -762,6 +719,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Height (m)', 'personal.height')}
               <input
+                aria-label="Height (m)"
                 className="form-input"
                 placeholder="e.g. 1.65"
                 value={personal.height}
@@ -774,6 +732,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Weight (kg)', 'personal.weight')}
               <input
+                aria-label="Weight (kg)"
                 className="form-input"
                 placeholder="e.g. 60"
                 value={personal.weight}
@@ -785,7 +744,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Blood Type', 'personal.bloodType')}
-              <select
+              <select aria-label="Blood Type"
                 className="form-input"
                 value={personal.bloodType}
                 disabled={isFieldLocked('personal.bloodType')}
@@ -799,7 +758,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Religion', 'personal.religion')}
-              <input
+              <input aria-label="Religion"
                 className="form-input"
                 value={personal.religion}
                 readOnly={isFieldLocked('personal.religion')}
@@ -864,6 +823,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('GSIS ID Number', 'pds.gsisNumber')}
               <input
+                aria-label="GSIS Number"
                 className="form-input"
                 placeholder="GSIS Number"
                 value={pds.gsisNumber}
@@ -876,6 +836,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Pag-IBIG ID Number', 'pds.pagibigNumber')}
               <input
+                aria-label="Pag-IBIG Number"
                 className="form-input"
                 placeholder="Pag-IBIG Number"
                 value={pds.pagibigNumber}
@@ -888,6 +849,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('PhilHealth Number', 'pds.philhealthNumber')}
               <input
+                aria-label="PhilHealth Number"
                 className="form-input"
                 placeholder="PhilHealth Number"
                 value={pds.philhealthNumber}
@@ -900,6 +862,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('TIN Number', 'pds.tinNumber')}
               <input
+                aria-label="TIN Number"
                 className="form-input"
                 placeholder="TIN Number"
                 value={pds.tinNumber}
@@ -912,6 +875,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group" style={{ gridColumn: '1/-1' }}>
               {renderFieldLabel('Residential Address', 'pds.residentialAddress', true)}
               <input
+                aria-label="Residential Address"
                 className="form-input"
                 required
                 placeholder="House No., Street, Barangay, City/Municipality, Province"
@@ -925,6 +889,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group" style={{ gridColumn: '1/-1' }}>
               {renderFieldLabel('Permanent Address', 'pds.permanentAddress', true)}
               <input
+                aria-label="Permanent address (if different from residential)"
                 className="form-input"
                 required
                 placeholder="Permanent address (if different from residential)"
@@ -938,6 +903,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Telephone Number', 'pds.telephoneNo')}
               <input
+                aria-label="Telephone No"
                 className="form-input"
                 type="tel"
                 inputMode="numeric"
@@ -953,6 +919,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Mobile Number', 'pds.mobileNo', true)}
               <input
+                aria-label="Contact number"
                 className="form-input"
                 type="tel"
                 inputMode="numeric"
@@ -969,6 +936,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel("Spouse's Name", 'pds.spouseName')}
               <input
+                aria-label="Spouse's Name"
                 className="form-input"
                 value={pds.spouseName}
                 readOnly={isFieldLocked('pds.spouseName')}
@@ -980,6 +948,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel("Spouse's Occupation", 'pds.spouseOccupation')}
               <input
+                aria-label="Spouse's Occupation"
                 className="form-input"
                 value={pds.spouseOccupation}
                 readOnly={isFieldLocked('pds.spouseOccupation')}
@@ -991,6 +960,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel("Father's Name", 'pds.fathersName')}
               <input
+                aria-label="Father's Name"
                 className="form-input"
                 value={pds.fathersName}
                 readOnly={isFieldLocked('pds.fathersName')}
@@ -1002,6 +972,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel("Mother's Maiden Name", 'pds.mothersName')}
               <input
+                aria-label="Mother's Maiden Name"
                 className="form-input"
                 value={pds.mothersName}
                 readOnly={isFieldLocked('pds.mothersName')}
@@ -1013,6 +984,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group" style={{ gridColumn: '1/-1' }}>
               {renderFieldLabel('Civil Service Eligibility', 'pds.civilServiceEligibility')}
               <textarea
+                aria-label="Civil Service Eligibility"
                 className="form-input"
                 rows={2}
                 placeholder="e.g. Licensure Exam for Teachers (LET), Career Service Professional"
@@ -1025,7 +997,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group" style={{ gridColumn: '1/-1' }}>
               {renderFieldLabel('Educational Background & Graduate Units', 'pds.educationalBackground')}
-              <textarea
+              <textarea aria-label="Educational Background & Graduate Units"
                 className="form-input"
                 rows={3}
                 placeholder="Highest educational attainment (e.g., Bachelor of Secondary Education, 18 Masteral Units completed, Master of Arts in Education)..."
@@ -1134,6 +1106,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">Date From *</label>
                       <input
+                        aria-label="Date From"
                         className="form-input"
                         type="date"
                         value={entry.dateFrom}
@@ -1147,6 +1120,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">Date To (or "Present")</label>
                       <input
+                        aria-label="Date To (or &quot;Present&quot;)"
                         className="form-input"
                         type={entry.dateTo === 'Present' ? 'text' : 'date'}
                         value={entry.dateTo}
@@ -1159,6 +1133,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group" style={{ gridColumn: '1/-1' }}>
                       <label className="form-label">Position Title *</label>
                       <input
+                        aria-label="Position Title"
                         className="form-input"
                         placeholder="e.g. Teacher I"
                         value={entry.positionTitle}
@@ -1172,6 +1147,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group" style={{ gridColumn: '1/-1' }}>
                       <label className="form-label">Department / Agency / Office / Company</label>
                       <input
+                        aria-label="Department / Agency / Office / Company"
                         className="form-input"
                         placeholder="e.g. DepEd City Schools Division of Koronadal"
                         value={entry.department}
@@ -1184,6 +1160,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">Monthly Salary</label>
                       <input
+                        aria-label="Monthly Salary"
                         className="form-input"
                         placeholder="e.g. 25,439"
                         value={entry.monthlySalary}
@@ -1196,6 +1173,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">Salary Grade</label>
                       <input
+                        aria-label="Salary Grade"
                         className="form-input"
                         placeholder="e.g. 11"
                         value={entry.salaryGrade}
@@ -1208,6 +1186,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">Status of Appointment</label>
                       <select
+                        aria-label="Status of Appointment"
                         className="form-input"
                         value={entry.status}
                         disabled={entryLocked}
@@ -1225,6 +1204,7 @@ export const ProfileCompletion: React.FC = () => {
                     <div className="form-group">
                       <label className="form-label">Government Service?</label>
                       <select
+                        aria-label="Government Service?"
                         className="form-input"
                         value={entry.government ? 'Yes' : 'No'}
                         disabled={entryLocked}
@@ -1300,6 +1280,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Employee ID', 'employment.employeeId')}
               <input
+                aria-label="Employee ID"
                 className="form-input"
                 placeholder="e.g. EMP-001"
                 value={employment.employeeId}
@@ -1312,6 +1293,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Plantilla Item Number', 'employment.itemNumber')}
               <input
+                aria-label="Plantilla Item No"
                 className="form-input"
                 placeholder="Plantilla Item No."
                 value={employment.itemNumber}
@@ -1324,6 +1306,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group" style={{ gridColumn: '1/-1' }}>
               {renderFieldLabel('Position Title', 'employment.position', true)}
               <input
+                aria-label="Position Title"
                 className="form-input"
                 required
                 placeholder="e.g. Teacher I"
@@ -1337,6 +1320,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Salary Grade', 'employment.salaryGrade')}
               <input
+                aria-label="Salary Grade"
                 className="form-input"
                 placeholder="e.g. 11"
                 value={employment.salaryGrade}
@@ -1349,6 +1333,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Step Increment', 'employment.stepIncrement')}
               <input
+                aria-label="Step Increment"
                 className="form-input"
                 placeholder="e.g. 1"
                 value={employment.stepIncrement}
@@ -1360,7 +1345,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('Appointment Status', 'employment.appointmentStatus')}
-              <select
+              <select aria-label="Appointment Status"
                 className="form-input"
                 value={employment.appointmentStatus}
                 disabled={isFieldLocked('employment.appointmentStatus')}
@@ -1375,7 +1360,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('First Day of Service', 'employment.firstDayOfService', true)}
-              <input
+              <input aria-label="First Day of Service"
                 className="form-input"
                 type="date"
                 required
@@ -1390,6 +1375,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               <label className="form-label">Assigned District (District 1 & District 6) *</label>
               <select
+                aria-label="Assigned District (District 1 & District 6)"
                 className="form-input"
                 required
                 value={employment.districtId}
@@ -1410,7 +1396,7 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               {renderFieldLabel('School / Station Assignment', 'employment.schoolAssignment', true)}
-              <select
+              <select aria-label="School / Station Assignment"
                 className="form-input"
                 required
                 value={employment.schoolAssignment}
@@ -1425,11 +1411,11 @@ export const ProfileCompletion: React.FC = () => {
             </div>
             <div className="form-group">
               <label className="form-label">Division</label>
-              <input className="form-input" value={employment.divisionAssignment} readOnly disabled style={{ background: 'rgba(255,255,255,0.03)', opacity: 0.8, cursor: 'not-allowed' }} />
+              <input className="form-input" value={employment.divisionAssignment} readOnly disabled style={{ background: 'rgba(255,255,255,0.03)', opacity: 0.8, cursor: 'not-allowed' }} aria-label="Division" />
             </div>
             <div className="form-group">
               <label className="form-label">Region</label>
-              <input className="form-input" value={employment.region} readOnly disabled style={{ background: 'rgba(255,255,255,0.03)', opacity: 0.8, cursor: 'not-allowed' }} />
+              <input className="form-input" value={employment.region} readOnly disabled style={{ background: 'rgba(255,255,255,0.03)', opacity: 0.8, cursor: 'not-allowed' }} aria-label="Region" />
             </div>
 
             <div className="form-group" style={{ gridColumn: '1/-1' }}>
@@ -1440,6 +1426,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Contact Number', 'employment.contactNumber', true)}
               <input
+                aria-label="Region"
                 className="form-input"
                 required
                 placeholder="09XXXXXXXXX"
@@ -1453,6 +1440,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Emergency Contact Name', 'employment.emergencyContactName', true)}
               <input
+                aria-label="Full Name"
                 className="form-input"
                 required
                 placeholder="Full Name"
@@ -1466,6 +1454,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Emergency Contact Number', 'employment.emergencyContactNumber', true)}
               <input
+                aria-label="Contact number"
                 className="form-input"
                 required
                 placeholder="09XXXXXXXXX"
@@ -1479,6 +1468,7 @@ export const ProfileCompletion: React.FC = () => {
             <div className="form-group">
               {renderFieldLabel('Relationship', 'employment.emergencyContactRelationship')}
               <input
+                aria-label="Emergency Contact Relationship"
                 className="form-input"
                 placeholder="e.g. Spouse, Parent, Sibling"
                 value={employment.emergencyContactRelationship}

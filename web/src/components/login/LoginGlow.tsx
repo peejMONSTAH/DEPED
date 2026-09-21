@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { motion, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
 
 /** Decorative motion stays outside React's form-render cycle. */
 export const LoginGlow = () => {
+  const reduceMotion = useReducedMotion();
   const targetX = useMotionValue(0);
   const targetY = useMotionValue(0);
   const x = useSpring(targetX, { stiffness: 58, damping: 20, mass: 0.9 });
@@ -12,7 +13,7 @@ export const LoginGlow = () => {
     const pointerPreference = window.matchMedia('(hover: hover) and (pointer: fine)');
     const reset = () => { targetX.set(0); targetY.set(0); };
     const move = (event: PointerEvent) => {
-      if (!pointerPreference.matches || event.pointerType === 'touch') return;
+      if (reduceMotion || !pointerPreference.matches || event.pointerType === 'touch') return;
       targetX.set((event.clientX / window.innerWidth - 0.5) * 300);
       targetY.set((event.clientY / window.innerHeight - 0.5) * 210);
     };
@@ -26,7 +27,7 @@ export const LoginGlow = () => {
       window.removeEventListener('blur', reset);
       pointerPreference.removeEventListener('change', reset);
     };
-  }, [targetX, targetY]);
+  }, [reduceMotion, targetX, targetY]);
 
   return (
     <div className="login-glow-layer" aria-hidden="true">

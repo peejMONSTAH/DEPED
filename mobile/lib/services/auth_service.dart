@@ -37,10 +37,12 @@ class AuthService {
 
       final user = UserModel.fromJson(userJson);
 
-      // Check if temporary password force change is needed (starts with Temp@ or marked isFirstLogin)
-      final rawFirstLogin = userJson['isFirstLogin'];
-      final bool isFirstLoginVal = rawFirstLogin is bool ? rawFirstLogin : (rawFirstLogin == true);
-      final bool requiresChange = password.startsWith('Temp@') || isFirstLoginVal;
+      // Whether the password must be replaced is the server's answer. The old
+      // check looked for a 'Temp@' prefix no issued password ever had, and for an
+      // isFirstLogin field the API never sent, so it never once fired. The API now
+      // refuses every route but change-password while this is set.
+      final rawMustChange = userJson['mustChangePassword'] ?? userJson['isFirstLogin'];
+      final bool requiresChange = rawMustChange is bool ? rawMustChange : rawMustChange == true;
       
       return UserModel(
         id: user.id,

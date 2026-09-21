@@ -48,12 +48,12 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: AppTheme.lightBg,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.accentLime))
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryLight))
           : RefreshIndicator(
-              color: AppTheme.accentLime,
-              backgroundColor: AppTheme.darkBgCard,
+              color: AppTheme.primaryLight,
+              backgroundColor: AppTheme.lightBgCard,
               onRefresh: _loadCareerData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -61,23 +61,18 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Years of Service Banner Card (Web-matched Dark Surface with Lime Accent)
+                  // Years of Service Banner Card
                   Container(
                     padding: const EdgeInsets.all(20.0),
                     decoration: BoxDecoration(
-                      color: AppTheme.darkBgCard,
+                      color: AppTheme.lightBgCard,
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: AppTheme.darkBorder),
+                      border: Border.all(color: AppTheme.lightBorder),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.35),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
-                        ),
-                        BoxShadow(
-                          color: AppTheme.accentLime.withOpacity(0.06),
-                          blurRadius: 12,
-                          spreadRadius: -1,
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
@@ -86,11 +81,11 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: AppTheme.darkSurface,
+                            color: AppTheme.primaryLight.withOpacity(0.08),
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.darkBorder),
+                            border: Border.all(color: AppTheme.primaryLight.withOpacity(0.16)),
                           ),
-                          child: const Icon(LucideIcons.history, color: AppTheme.accentLime, size: 28),
+                          child: const Icon(LucideIcons.history, color: AppTheme.primaryLight, size: 28),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -147,9 +142,9 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: AppTheme.darkBgCard,
+                        color: AppTheme.lightBgCard,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.darkBorder),
+                        border: Border.all(color: AppTheme.lightBorder),
                       ),
                       child: Center(
                         child: Text(
@@ -177,43 +172,43 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: item.isPresent ? AppTheme.accentLime : AppTheme.darkSurface,
+                                        color: item.isPresent ? AppTheme.emeraldGreen : AppTheme.lightSurface,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: item.isPresent ? AppTheme.accentLime : AppTheme.darkBorder,
+                                          color: item.isPresent ? AppTheme.emeraldGreen : AppTheme.lightBorder,
                                           width: 1.5,
                                         ),
                                       ),
                                       child: Icon(
                                         item.isPresent ? LucideIcons.check : LucideIcons.briefcase,
                                         size: 13,
-                                        color: item.isPresent ? AppTheme.brandDark : AppTheme.textSecondary,
+                                        color: item.isPresent ? Colors.white : AppTheme.textSecondary,
                                       ),
                                     ),
                                     Expanded(
                                       child: Container(
                                         width: 2,
-                                        color: AppTheme.darkBorder,
+                                        color: AppTheme.lightBorder,
                                       ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(width: 14),
 
-                                // Record Details Card (Dark Card with Soft Brutalist styling)
+                                // Record Details Card
                                 Expanded(
                                   child: Container(
                                     margin: const EdgeInsets.only(bottom: 16),
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.darkBgCard,
+                                      color: AppTheme.lightBgCard,
                                       borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: AppTheme.darkBorder),
+                                      border: Border.all(color: AppTheme.lightBorder),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.2),
+                                          color: Colors.black.withOpacity(0.04),
                                           blurRadius: 10,
-                                          offset: const Offset(0, 3),
+                                          offset: const Offset(0, 2),
                                         ),
                                       ],
                                     ),
@@ -238,16 +233,16 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                                               decoration: BoxDecoration(
-                                                color: AppTheme.accentLime.withOpacity(0.12),
+                                                color: AppTheme.primaryLight.withOpacity(0.1),
                                                 borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: AppTheme.accentLime.withOpacity(0.25)),
+                                                border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
                                               ),
                                               child: Text(
                                                 'SG ${item.salaryGrade} Step ${item.stepIncrement}',
                                                 style: GoogleFonts.plusJakartaSans(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w800,
-                                                  color: AppTheme.accentLime,
+                                                  color: AppTheme.primaryLight,
                                                 ),
                                               ),
                                             ),

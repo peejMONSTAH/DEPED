@@ -15,8 +15,8 @@ router.use(authenticate);
 // Public / Personnel View: Available items open for ranking and application
 router.get('/available', getAvailablePlantillaItems);
 
-// Admin & Staff Management - Exclusive to HRMO only
-router.get('/', authorize('HRMO'), getPlantillaItems);
+// Admin & Staff Management - Exclusive to HRMO & SYSTEM_ADMIN (reports)
+router.get('/', authorize('HRMO', 'SYSTEM_ADMIN'), getPlantillaItems);
 router.post('/', authorize('HRMO'), createPlantillaItem);
 router.put('/:id', authorize('HRMO'), updatePlantillaItem);
 router.delete('/:id', authorize('HRMO'), deletePlantillaItem);

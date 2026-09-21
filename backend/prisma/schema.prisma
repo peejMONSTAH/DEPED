@@ -28,6 +28,10 @@ model User {
   updatedAt                DateTime                 @updatedAt @map("updated_at")
   lastLogin                DateTime?                @map("last_login")
   failedLoginAttempts      Int                      @default(0) @map("failed_login_attempts")
+  /// Set when an administrator issues or resets a password. The API refuses every
+  /// route except change-password until the holder sets their own, so an
+  /// administrator-known password cannot be used to work in the system.
+  mustChangePassword       Boolean                  @default(false) @map("must_change_password")
   lockedUntil              DateTime?                @map("locked_until")
   accountRequestsCreated   AccountCreationRequest[] @relation("AccountRequestCreatedUser")
   accountRequestsSubmitted AccountCreationRequest[] @relation("AccountRequestsSubmitted")
@@ -68,6 +72,7 @@ model UsedMagicToken {
 }
 
 model Personnel {
+  files                 PersonnelFile[]
   id                    Int                    @id @default(autoincrement())
   userId                Int                    @unique @map("user_id")
   employeeId            String                 @unique @map("employee_id")
@@ -80,8 +85,16 @@ model Personnel {
   civilStatus           CivilStatus?           @map("civil_status")
   contactNumber         String?                @map("contact_number")
   address               String?
+  // Station assignment. Authorization scope for AO II is resolved from these two
+  // columns only; never re-derive it from address/designation/lastName free text.
+  school                String?
+  district              String?
   designation           String
   dateHired             DateTime?              @map("date_hired")
+  /// Printed in the service record STATUS column. Null means not on file, which
+  /// prints as a blank for the issuing officer to complete rather than being
+  /// asserted as PERMANENT, which is what the form used to do for every row.
+  appointmentStatus     AppointmentStatus?  @map("appointment_status")
   status                PersonnelStatus
   plantillaItemId       Int?                   @unique @map("plantilla_item_id")
   profileComplete       Boolean                @default(false) @map("profile_complete")
@@ -94,6 +107,8 @@ model Personnel {
   transactions          Transaction[]
   userProfileBack       User?                  @relation("UserHasPersonnel")
 
+  @@index([school])
+  @@index([district])
   @@map("personnel")
 }
 
@@ -161,6 +176,7 @@ model RequirementTemplate {
 }
 
 model UploadedDocument {
+  revisions             DocumentRevision[]
   id                    Int                 @id @default(autoincrement())
   transactionId         Int                 @map("transaction_id")
   requirementTemplateId Int                 @map("requirement_template_id")
@@ -255,6 +271,7 @@ model PromotionCycle {
 }
 
 model PromotionApplication {
+  applicantNumber String? @unique @map("applicant_number")
   id               Int                        @id @default(autoincrement())
   personnelId      Int                        @map("personnel_id")
   promotionCycleId Int                        @map("promotion_cycle_id")
@@ -269,6 +286,41 @@ model PromotionApplication {
 
   @@unique([personnelId, promotionCycleId])
   @@map("promotion_applications")
+}
+
+model PersonnelFile {
+  id Int @id @default(autoincrement())
+  personnelId Int @map("personnel_id")
+  personnel Personnel @relation(fields: [personnelId], references: [id])
+  payload Json
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([personnelId])
+  @@map("personnel_files")
+}
+
+model DocumentRevision {
+  id String @id @default(uuid())
+  documentId Int @map("document_id")
+  document UploadedDocument @relation(fields: [documentId], references: [id])
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([documentId])
+  @@map("document_revisions")
+}
+
+model WorkflowOutbox {
+  id String @id @default(uuid())
+  eventKey String @unique @map("event_key")
+  kind String
+  payload Json
+  attempts Int @default(0)
+  availableAt DateTime @default(now()) @map("available_at")
+  processedAt DateTime? @map("processed_at")
+  lastError String? @map("last_error")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([processedAt, availableAt])
+  @@map("workflow_outbox")
 }
 
 model CareerHistoryEntry {
@@ -302,6 +354,7 @@ model AccountCreationRequest {
   role              UserRole
   designation       String
   school            String?
+  district          String?
   initialPassword   String               @map("initial_password")
   dateHired         DateTime?            @map("date_hired")
   status            AccountRequestStatus @default(PENDING)
@@ -321,7 +374,9 @@ enum UserRole {
   HRMO
   TEACHING_PERSONNEL
   NON_TEACHING_PERSONNEL
-  // Deprecated: RECORDS_PERSONNEL was decommissioned (per migration 20260812120000); retained only for DB enum compatibility
+  // Still present in the database. supabase/migrations/20260812120000 tried to remove it
+  // with ALTER TYPE ... DROP VALUE, which PostgreSQL does not support, so that statement
+  // never ran. No account holds this role; removing the value needs an enum rebuild.
   RECORDS_PERSONNEL
 }
 
@@ -403,6 +458,19 @@ enum CivilStatus {
   MARRIED
   WIDOWED
   SEPARATED
+}
+
+/// Employment status under CSC rules, as printed in the STATUS column of the
+/// CS Form 212 service record. Distinct from PersonnelStatus, which tracks
+/// whether a record is active in this system.
+enum AppointmentStatus {
+  PERMANENT
+  PROVISIONAL
+  TEMPORARY
+  SUBSTITUTE
+  CASUAL
+  CONTRACTUAL
+  COTERMINOUS
 }
 
 enum PersonnelStatus {

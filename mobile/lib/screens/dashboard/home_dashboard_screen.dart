@@ -18,8 +18,9 @@ import '../auth/login_screen.dart';
 import '../career/career_timeline_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
+import '../personnel_documents/personnel_documents_screen.dart';
+import '../promotions/promotion_checklist_screen.dart';
 import '../transactions/checklist_upload_screen.dart';
-import '../transactions/transaction_selection_screen.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
   final UserModel user;
@@ -71,7 +72,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _notifSub = _realtimeService.onNotificationReceived.listen((notif) {
       if (mounted) {
         _loadData();
-        final msg = notif['message']?.toString() ?? 'New transaction update received!';
+        final msg =
+            notif['message']?.toString() ?? 'New transaction update received!';
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -82,7 +84,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 Expanded(
                   child: Text(
                     msg,
-                    style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -90,7 +95,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             backgroundColor: AppTheme.primaryLight,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -116,7 +122,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     try {
       loadedProfile = await _profileService.getProfile();
     } catch (e, stack) {
-      debugPrint('[HRIS Profile] Failed to load personnel profile from server: $e\n$stack');
+      debugPrint(
+          '[HRIS Profile] Failed to load personnel profile from server: $e\n$stack');
     }
 
     // Fallback: If server profile is temporarily null, keep existing _profile if available
@@ -127,9 +134,15 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       final fName = (u.firstName != null && u.firstName!.isNotEmpty)
           ? u.firstName!
           : (u.email.split('@').first.replaceAll(RegExp(r'[\._]'), ' ').trim());
-      final lName = (u.lastName != null && u.lastName!.isNotEmpty) ? u.lastName! : 'Staff';
-      final roleCategory = u.role == UserRole.TEACHING_PERSONNEL ? 'Teaching Personnel' : 'Non-Teaching Personnel';
-      final roleTitle = u.role == UserRole.TEACHING_PERSONNEL ? 'Teacher I' : 'Administrative Officer';
+      final lName = (u.lastName != null && u.lastName!.isNotEmpty)
+          ? u.lastName!
+          : 'Staff';
+      final roleCategory = u.role == UserRole.TEACHING_PERSONNEL
+          ? 'Teaching Personnel'
+          : 'Non-Teaching Personnel';
+      final roleTitle = u.role == UserRole.TEACHING_PERSONNEL
+          ? 'Teacher I'
+          : 'Administrative Officer';
 
       loadedProfile = PersonnelProfileModel(
         id: u.personnelId ?? u.id,
@@ -153,10 +166,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
     try {
       loadedTx = await _transactionService.getMyTransactions();
-    } catch (_) {}
+    } catch (_) {
+      loadedTx = [];
+    }
+    if (mounted && _transactionService.syncError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_transactionService.syncError!),
+        duration: const Duration(seconds: 8),
+      ));
+    }
 
     try {
-      final res = await _apiService.dio.get<dynamic>('/promotions/cycles?status=ACTIVE,PLANNING');
+      final res = await _apiService.dio
+          .get<dynamic>('/promotions/cycles?status=ACTIVE,PLANNING');
       if (res.data != null && res.data['data'] is List) {
         loadedCycles = res.data['data'] as List<dynamic>;
       }
@@ -167,7 +189,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     } catch (_) {}
 
     try {
-      final res = await _apiService.dio.get<dynamic>('/notifications?status=unread');
+      final res =
+          await _apiService.dio.get<dynamic>('/notifications?status=unread');
       if (res.data != null && res.data['data'] is List) {
         unread = (res.data['data'] as List).length;
       }
@@ -186,33 +209,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   }
 
   Future<void> _handleApplyForCycle(Map<String, dynamic> cycle) async {
-    final cycleId = cycle['id'];
-    try {
-      await _apiService.dio.post<dynamic>('/promotions/cycles/$cycleId/apply');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Application for "${cycle['name'] ?? 'Position'}" submitted successfully!',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
-          ),
-          backgroundColor: AppTheme.emeraldGreen,
-          behavior: SnackBarBehavior.floating,
+    final applied = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PromotionChecklistScreen(
+          cycle: cycle,
+          user: widget.user,
+          profile: _profile,
         ),
-      );
+      ),
+    );
+
+    if (applied == true) {
       _loadData();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Already applied or application processed.',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white),
-          ),
-          backgroundColor: const Color(0xFFF85149),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -221,26 +229,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       context: context,
       barrierDismissible: true,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.darkBgCard,
+        backgroundColor: AppTheme.lightBgCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: AppTheme.darkBorder),
+          side: const BorderSide(color: AppTheme.lightBorder),
         ),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF85149).withOpacity(0.15),
+                color: const Color(0xFFF85149).withOpacity(0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.logOut, color: Color(0xFFF85149), size: 20),
+              child: const Icon(LucideIcons.logOut,
+                  color: Color(0xFFF85149), size: 20),
             ),
             const SizedBox(width: 10),
             Text(
               'Sign Out',
               style: GoogleFonts.plusJakartaSans(
-                color: Colors.white,
+                color: AppTheme.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -249,25 +258,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         ),
         content: Text(
           'Are you sure you want to sign out of Digital 201?',
-          style: GoogleFonts.inter(color: const Color(0xFF8B949E), fontSize: 13),
+          style: GoogleFonts.inter(color: AppTheme.textSecondary, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(color: const Color(0xFF8B949E), fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(
+                  color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFF85149),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: Text(
               'Sign Out',
-              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+              style: GoogleFonts.inter(
+                  color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -281,7 +293,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (_, a1, a2) => const LoginScreen(),
-          transitionsBuilder: (_, a1, a2, child) => FadeTransition(opacity: a1, child: child),
+          transitionsBuilder: (_, a1, a2, child) =>
+              FadeTransition(opacity: a1, child: child),
         ),
       );
     }
@@ -309,11 +322,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(LucideIcons.bell, size: 20, color: Color(0xFF8B949E)),
+            icon: const Icon(LucideIcons.bell,
+                size: 20, color: Color(0xFF8B949E)),
             onPressed: () => setState(() => _currentIndex = 3),
           ),
           IconButton(
-            icon: const Icon(LucideIcons.logOut, size: 20, color: Color(0xFFF85149)),
+            icon: const Icon(LucideIcons.logOut,
+                size: 20, color: Color(0xFFF85149)),
             onPressed: _handleLogout,
             tooltip: 'Sign Out',
           ),
@@ -334,117 +349,67 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           return false;
         },
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryLight))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppTheme.primaryLight))
             : pages[_currentIndex],
       ),
       bottomNavigationBar: _buildLiquidGlassNavBar(),
     );
   }
 
-  /// Floating Liquid Glass Navigation Bar & Detached Action Orb (Apple Glass aesthetic)
+  /// Floating liquid-glass navigation bar.
   Widget _buildLiquidGlassNavBar() {
     return SafeArea(
       child: AnimatedPadding(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        padding: EdgeInsets.fromLTRB(_isStretched ? 6 : 14, 0, _isStretched ? 6 : 14, _isStretched ? 6 : 12),
+        padding: EdgeInsets.fromLTRB(_isStretched ? 6 : 14, 0,
+            _isStretched ? 6 : 14, _isStretched ? 6 : 12),
         child: Row(
           children: [
-            // 1. Frosted Liquid Glass Navigation Pill (Tabs)
+            // Personnel transactions are assigned by the AO/HRMO workflow.
+            // The navigation therefore contains no manual transaction action.
             Expanded(
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOutCubic,
                 height: _isStretched ? 70 : 64,
                 decoration: BoxDecoration(
-                  color: AppTheme.darkBgCard,
+                  color: AppTheme.lightBgCard,
                   borderRadius: BorderRadius.circular(_isStretched ? 36 : 32),
                   border: Border.all(
-                    color: _isStretched ? AppTheme.accentLime.withOpacity(0.5) : AppTheme.darkBorder,
+                    color: _isStretched
+                        ? AppTheme.primaryLight.withOpacity(0.5)
+                        : AppTheme.lightBorder,
                     width: _isStretched ? 1.6 : 1.0,
                   ),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.45),
-                      blurRadius: _isStretched ? 24 : 18,
-                      offset: const Offset(0, 6),
+                      color: Color(0x14000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 4),
                     ),
                     BoxShadow(
-                      color: AppTheme.accentLime.withOpacity(_isStretched ? 0.12 : 0.04),
-                      blurRadius: 12,
-                      spreadRadius: -1,
+                      color: Color(0x08000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
                     ),
                   ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildNavTabItem(index: 0, icon: LucideIcons.home, label: 'Home'),
-                    _buildNavTabItem(index: 1, icon: LucideIcons.userCheck, label: 'Profile'),
-                    _buildNavTabItem(index: 2, icon: LucideIcons.award, label: 'Career'),
-                    _buildNavTabItem(index: 3, icon: LucideIcons.bell, label: 'Alerts'),
+                    _buildNavTabItem(
+                        index: 0, icon: LucideIcons.home, label: 'Home'),
+                    _buildNavTabItem(
+                        index: 1,
+                        icon: LucideIcons.userCheck,
+                        label: 'Profile'),
+                    _buildNavTabItem(
+                        index: 2, icon: LucideIcons.award, label: 'Career'),
+                    _buildNavTabItem(
+                        index: 3, icon: LucideIcons.bell, label: 'Alerts'),
                   ],
-                ),
-              ),
-            ),
-
-            const SizedBox(width: 10),
-
-            // 2. Standalone Floating Action Orb (New 201 Transaction - Electric Lime CTA)
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TransactionSelectionScreen()),
-                ).then((_) => _loadData());
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                width: _isStretched ? 70 : 64,
-                height: _isStretched ? 70 : 64,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.darkBgCard,
-                  border: Border.all(
-                    color: _isStretched ? AppTheme.accentLime : AppTheme.darkBorder,
-                    width: _isStretched ? 2.0 : 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accentLime.withOpacity(_isStretched ? 0.45 : 0.28),
-                      blurRadius: _isStretched ? 24 : 18,
-                      spreadRadius: _isStretched ? 2 : 1,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    width: _isStretched ? 48 : 44,
-                    height: _isStretched ? 48 : 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(_isStretched ? 16 : 14),
-                      color: AppTheme.accentLime,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.accentLime.withOpacity(0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      LucideIcons.plus,
-                      color: AppTheme.brandDark,
-                      size: _isStretched ? 26 : 24,
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -460,7 +425,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     required String label,
   }) {
     final isSelected = _currentIndex == index;
-    final color = isSelected ? AppTheme.primaryLight : const Color(0xFF6E7681);
+    final color = isSelected ? AppTheme.primaryLight : AppTheme.textMuted;
 
     return InkWell(
       onTap: () => setState(() => _currentIndex = index),
@@ -479,7 +444,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected ? AppTheme.primaryLight.withOpacity(0.15) : Colors.transparent,
+                    color: isSelected
+                        ? AppTheme.primaryLight.withOpacity(0.12)
+                        : Colors.transparent,
                   ),
                   child: Icon(
                     icon,
@@ -492,20 +459,22 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     top: -4,
                     right: -6,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF85149),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.darkBg, width: 1.5),
+                        border: Border.all(color: Colors.white, width: 1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFF85149).withOpacity(0.6),
-                            blurRadius: 6,
+                            color: const Color(0xFFF85149).withOpacity(0.4),
+                            blurRadius: 4,
                             spreadRadius: 1,
                           ),
                         ],
                       ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
                       child: Center(
                         child: Text(
                           _unreadCount > 99 ? '99+' : '$_unreadCount',
@@ -524,7 +493,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 10,
+                fontSize: 11.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: color,
               ),
@@ -538,9 +507,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Widget _buildHomeTab() {
     final fn = widget.user.firstName;
     final ln = widget.user.lastName;
-    final initials = (fn != null && fn.isNotEmpty && ln != null && ln.isNotEmpty)
-        ? '${fn[0]}${ln[0]}'.toUpperCase()
-        : 'P';
+    final initials =
+        (fn != null && fn.isNotEmpty && ln != null && ln.isNotEmpty)
+            ? '${fn[0]}${ln[0]}'.toUpperCase()
+            : 'P';
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -554,13 +524,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: AppTheme.darkBgCard,
-              border: Border.all(color: AppTheme.darkBorder),
-              boxShadow: [
+              color: AppTheme.lightBgCard,
+              border: Border.all(color: AppTheme.lightBorder),
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Color(0x0A000000),
                   blurRadius: 16,
-                  offset: const Offset(0, 6),
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
@@ -603,12 +573,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         children: [
                           Text(
                             'Welcome back,',
-                            style: GoogleFonts.plusJakartaSans(color: const Color(0xFF8B949E), fontSize: 12, fontWeight: FontWeight.w500),
+                            style: GoogleFonts.plusJakartaSans(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500),
                           ),
                           Text(
-                            _profile?.fullName ?? '${widget.user.firstName} ${widget.user.lastName}',
+                            _profile?.fullName ??
+                                '${widget.user.firstName} ${widget.user.lastName}',
                             style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
+                              color: AppTheme.textPrimary,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -618,17 +592,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
 
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryLight.withOpacity(0.15),
+                        color: AppTheme.primaryLight.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: AppTheme.primaryLight.withOpacity(0.3)),
+                        border: Border.all(
+                            color: AppTheme.primaryLight.withOpacity(0.25)),
                       ),
                       child: Text(
-                        _profile?.personnelType ?? widget.user.role.name.replaceAll('_', ' '),
+                        _profile?.personnelType ??
+                            widget.user.role.name.replaceAll('_', ' '),
                         style: GoogleFonts.plusJakartaSans(
                           color: AppTheme.primaryLight,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -636,22 +613,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-
-                const Divider(color: AppTheme.darkBorder),
+                const Divider(color: AppTheme.lightBorder),
                 const SizedBox(height: 10),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Row(
                         children: [
-                          const Icon(LucideIcons.briefcase, size: 14, color: AppTheme.accentGold),
+                          const Icon(LucideIcons.briefcase,
+                              size: 14, color: AppTheme.accentGold),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               _profile?.positionTitle ?? 'DepEd Personnel',
-                              style: GoogleFonts.inter(color: const Color(0xFFE6EDF3), fontSize: 12, fontWeight: FontWeight.w500),
+                              style: GoogleFonts.inter(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -662,12 +641,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     Expanded(
                       child: Row(
                         children: [
-                          const Icon(LucideIcons.building, size: 14, color: AppTheme.emeraldGreen),
+                          const Icon(LucideIcons.building,
+                              size: 14, color: AppTheme.emeraldGreen),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               _profile?.stationName ?? 'SDO Koronadal',
-                              style: GoogleFonts.inter(color: const Color(0xFF8B949E), fontSize: 12),
+                              style: GoogleFonts.inter(
+                                  color: AppTheme.textSecondary, fontSize: 12),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -690,7 +671,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               Expanded(
                 child: _buildStatTile(
                   title: 'Employee ID',
-                  value: _profile?.employeeId ?? (widget.user.personnelId != null ? 'EMP-${widget.user.personnelId}' : 'EMP-2026-${widget.user.id.toString().padLeft(4, '0')}'),
+                  value: _profile?.employeeId ??
+                      (widget.user.personnelId != null
+                          ? 'EMP-${widget.user.personnelId}'
+                          : 'EMP-2026-${widget.user.id.toString().padLeft(4, '0')}'),
                   icon: LucideIcons.contact,
                   color: AppTheme.primaryLight,
                 ),
@@ -706,37 +690,147 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
+
+          // Personnel 201 Documents Quick Action Card
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: AppTheme.lightBgCard,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.lightBorder),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x06000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 3),
+                ),
+              ],
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                final details = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.brandDark,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(LucideIcons.scanLine,
+                          color: AppTheme.accentLime, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Personnel documents',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Scan with camera or upload 201 records',
+                            style: GoogleFonts.inter(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+                final manageButton = ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const PersonnelDocumentsScreen()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.brandDark,
+                    foregroundColor: Colors.white,
+                    minimumSize: compact ? const Size.fromHeight(44) : null,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text(
+                    'Manage documents',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
+                );
+
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      details,
+                      const SizedBox(height: 14),
+                      manageButton
+                    ],
+                  );
+                }
+
+                return Row(children: [
+                  Expanded(child: details),
+                  const SizedBox(width: 12),
+                  manageButton
+                ]);
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
 
           // Open Promotion & Reclassification Positions Section
           if (_activeCycles.isNotEmpty) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Row(
                   children: [
-                    const Icon(LucideIcons.trophy, color: AppTheme.accentGold, size: 18),
+                    const Icon(LucideIcons.trophy,
+                        color: AppTheme.accentGold, size: 18),
                     const SizedBox(width: 8),
                     Text(
                       'Open Vacancies & Promotion Cycles',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppTheme.textPrimary,
                       ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.emeraldGreen.withOpacity(0.15),
+                    color: AppTheme.emeraldGreen.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.3)),
+                    border: Border.all(
+                        color: AppTheme.emeraldGreen.withOpacity(0.3)),
                   ),
                   child: Text(
                     'Active Now',
-                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.emeraldGreen),
                   ),
                 ),
               ],
@@ -754,9 +848,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppTheme.darkBgCard,
+                    color: AppTheme.lightBgCard,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: isActive ? const Color(0xFF8B5CF6).withOpacity(0.4) : AppTheme.darkBorder),
+                    border: Border.all(
+                        color: isActive
+                            ? const Color(0xFF8B5CF6).withOpacity(0.35)
+                            : AppTheme.lightBorder),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x06000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -767,32 +871,48 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           Expanded(
                             child: Text(
                               cycle['name']?.toString() ?? 'Promotion Vacancy',
-                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                              style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 13),
                             ),
                           ),
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 margin: const EdgeInsets.only(right: 6),
                                 decoration: BoxDecoration(
-                                  color: isActive ? AppTheme.emeraldGreen.withOpacity(0.2) : AppTheme.accentGold.withOpacity(0.2),
+                                  color: isActive
+                                      ? AppTheme.emeraldGreen.withOpacity(0.15)
+                                      : AppTheme.accentGold.withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   isActive ? 'OPEN' : 'UPCOMING',
-                                  style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.bold, color: isActive ? AppTheme.emeraldGreen : AppTheme.accentGold),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      color: isActive
+                                          ? AppTheme.emeraldGreen
+                                          : AppTheme.accentGold),
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                                  color:
+                                      const Color(0xFF8B5CF6).withOpacity(0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   cycle['type']?.toString() ?? 'VACANCY',
-                                  style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFFA78BFA)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF7C3AED)),
                                 ),
                               ),
                             ],
@@ -804,7 +924,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         isActive
                             ? 'DepEd Qualification Standards · Deadline: ${cycle['endDate'] != null ? cycle['endDate'].toString().split('T')[0] : 'Open'}'
                             : 'Starts: ${cycle['startDate'] != null ? cycle['startDate'].toString().split('T')[0] : 'Soon'} · DepEd Qualification Standards',
-                        style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8B949E)),
+                        style: GoogleFonts.inter(
+                            fontSize: 12.5, color: AppTheme.textSecondary),
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -812,43 +933,63 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         children: [
                           Text(
                             'Applicants: ${cycle['applicantCount'] ?? 0}',
-                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8B949E)),
+                            style: GoogleFonts.inter(
+                                fontSize: 12.5, color: AppTheme.textSecondary),
                           ),
                           hasApplied
                               ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.emeraldGreen.withOpacity(0.2),
+                                    color:
+                                        AppTheme.emeraldGreen.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     'Applied',
-                                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.emeraldGreen),
                                   ),
                                 )
                               : isActive
                                   ? ElevatedButton.icon(
-                                      onPressed: () => _handleApplyForCycle(cycle),
-                                      icon: const Icon(LucideIcons.zap, size: 13, color: Colors.white),
+                                      onPressed: () =>
+                                          _handleApplyForCycle(cycle),
+                                      icon: const Icon(LucideIcons.zap,
+                                          size: 14, color: Colors.white),
                                       label: Text(
                                         'Apply for Position',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white),
                                       ),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.primaryLight,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        backgroundColor: AppTheme.brandDark,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8)),
                                       ),
                                     )
                                   : Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.08),
+                                        color: AppTheme.lightSurface,
                                         borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                            color: AppTheme.lightBorder),
                                       ),
                                       child: Text(
                                         'Opening Soon',
-                                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF8B949E)),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.textMuted),
                                       ),
                                     ),
                         ],
@@ -862,30 +1003,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ],
 
           // Active Transactions Section Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'My 201 File Filings',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const TransactionSelectionScreen()),
-                  ).then((_) => _loadData());
-                },
-                icon: const Icon(LucideIcons.plusCircle, size: 14, color: AppTheme.primaryLight),
-                label: Text(
-                  'Initiate',
-                  style: GoogleFonts.inter(fontSize: 13, color: AppTheme.primaryLight, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+          Text(
+            'My assigned 201 transactions',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(height: 8),
 
@@ -894,23 +1018,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(28.0),
               decoration: BoxDecoration(
-                color: AppTheme.darkBgCard,
+                color: AppTheme.lightBgCard,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.darkBorder),
+                border: Border.all(color: AppTheme.lightBorder),
               ),
               child: Column(
                 children: [
-                  const Icon(LucideIcons.folderOpen, size: 44, color: Color(0xFF6E7681)),
+                  const Icon(LucideIcons.folderOpen,
+                      size: 44, color: AppTheme.textMuted),
                   const SizedBox(height: 12),
                   Text(
-                    'No Active 201 Transactions',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                    'No assigned transactions',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                        fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tap "+ New 201 Filing" to start a Promotion or Newly Hired Appointment filing.',
+                    'When the AO or HRMO assigns a hiring or promotion transaction, it will appear here automatically.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8B949E)),
+                    style: GoogleFonts.inter(
+                        fontSize: 12, color: AppTheme.textSecondary),
                   ),
                 ],
               ),
@@ -925,19 +1054,31 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.darkBgCard,
+                    color: AppTheme.lightBgCard,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppTheme.darkBorder),
+                    border: Border.all(color: AppTheme.lightBorder),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x06000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Material(
                     color: Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      leading: ComplianceGauge(score: item.complianceScore, radius: 24),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      leading: ComplianceGauge(
+                          score: item.complianceScore, radius: 24),
                       title: Text(
                         item.referenceNo,
-                        style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14),
+                        style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                            fontSize: 14),
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,19 +1086,24 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           const SizedBox(height: 4),
                           Text(
                             item.type.name.replaceAll('_', ' '),
-                            style: GoogleFonts.inter(color: const Color(0xFF8B949E), fontSize: 12),
+                            style: GoogleFonts.inter(
+                                color: AppTheme.textSecondary, fontSize: 12),
                           ),
                           const SizedBox(height: 6),
                           StatusBadge(status: item.status),
                         ],
                       ),
-                      trailing: const Icon(LucideIcons.chevronRight, size: 18, color: Color(0xFF8B949E)),
+                      trailing: const Icon(LucideIcons.chevronRight,
+                          size: 18, color: AppTheme.textMuted),
                       onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ChecklistUploadScreen(transaction: item),
-                          ),
-                        ).then((_) => _loadData());
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    ChecklistUploadScreen(transaction: item),
+                              ),
+                            )
+                            .then((_) => _loadData());
                       },
                     ),
                   ),
@@ -978,16 +1124,23 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(14.0),
       decoration: BoxDecoration(
-        color: AppTheme.darkBgCard,
+        color: AppTheme.lightBgCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.darkBorder),
+        border: Border.all(color: AppTheme.lightBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
+              color: color.withOpacity(0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -997,11 +1150,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF8B949E))),
+                Text(title,
+                    style: GoogleFonts.inter(
+                        fontSize: 12.5, color: AppTheme.textSecondary)),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary),
                 ),
               ],
             ),
@@ -1014,13 +1172,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Widget _buildPromotionStatusCard() {
     if (_promoStatus == null) return const SizedBox.shrink();
 
-    final bool isPending = _promoStatus!['isPendingApproval'] == true || _promoStatus!['promotionStage'] == 'SELECTED_PENDING_DOCUMENT_APPROVAL';
-    final bool isPromoted = _promoStatus!['isPromoted'] == true || _promoStatus!['promotionStage'] == 'OFFICIALLY_PROMOTED';
+    final bool isPending = _promoStatus!['isPendingApproval'] == true ||
+        _promoStatus!['promotionStage'] == 'SELECTED_PENDING_DOCUMENT_APPROVAL';
+    final bool isPromoted = _promoStatus!['isPromoted'] == true ||
+        _promoStatus!['promotionStage'] == 'OFFICIALLY_PROMOTED';
 
     if (!isPending && !isPromoted) return const SizedBox.shrink();
 
     final details = _promoStatus!['promotionDetails'] as Map<String, dynamic>?;
-    final targetPos = details?['targetPosition']?.toString() ?? 'Master Teacher I';
+    final targetPos =
+        details?['targetPosition']?.toString() ?? 'Master Teacher I';
     final txId = _promoStatus!['transactionId'];
 
     if (isPending) {
@@ -1028,14 +1189,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1C12),
+          color: const Color(0xFFFFFBEB),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.accentGold.withOpacity(0.5)),
-          boxShadow: [
+          border: Border.all(color: const Color(0xFFFDE68A)),
+          boxShadow: const [
             BoxShadow(
-              color: AppTheme.accentGold.withOpacity(0.1),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Color(0x08000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
             ),
           ],
         ),
@@ -1047,10 +1208,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentGold.withOpacity(0.2),
+                    color: const Color(0xFFFEF3C7),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(LucideIcons.sparkles, color: AppTheme.accentGold, size: 20),
+                  child: const Icon(LucideIcons.sparkles,
+                      color: AppTheme.accentGold, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1062,26 +1224,33 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                       Text(
                         'Target Position: $targetPos',
-                        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.accentGold, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: const Color(0xFFB45309),
+                            fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentGold.withOpacity(0.2),
+                    color: const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.accentGold.withOpacity(0.4)),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
                   ),
                   child: Text(
                     'DOCS PENDING',
-                    style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.accentGold),
+                    style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF92400E)),
                   ),
                 ),
               ],
@@ -1090,17 +1259,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
+                color: const Color(0xFFFEF3C7).withOpacity(0.6),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.info, color: Color(0xFF9CA3AF), size: 14),
+                  const Icon(LucideIcons.info,
+                      color: Color(0xFF92400E), size: 14),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'You are not officially promoted until HR validates and approves your appointment documents.',
-                      style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFD1D5DB), height: 1.3),
+                      style: GoogleFonts.inter(
+                          fontSize: 12.5,
+                          color: const Color(0xFF92400E),
+                          height: 1.35),
                     ),
                   ),
                 ],
@@ -1114,7 +1287,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   TransactionModel matchingTx;
                   try {
                     matchingTx = _transactions.firstWhere(
-                      (t) => (txId != null && t.id == txId) || t.type == TransactionType.PROMOTION,
+                      (t) =>
+                          (txId != null && t.id == txId) ||
+                          t.type == TransactionType.PROMOTION,
                     );
                   } catch (_) {
                     matchingTx = TransactionModel(
@@ -1129,19 +1304,28 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   }
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => ChecklistUploadScreen(transaction: matchingTx),
+                      builder: (_) =>
+                          ChecklistUploadScreen(transaction: matchingTx),
                     ),
                   );
                 },
-                icon: const Icon(LucideIcons.fileUp, size: 16, color: Colors.white),
+                icon: const Icon(LucideIcons.fileUp,
+                    size: 16, color: Colors.white),
                 label: Text(
-                  txId != null ? 'Upload Appointment Docs (TRX #$txId)' : 'Upload Promotion Appointment Documents',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                  txId != null
+                      ? 'Upload Appointment Docs (TRX #$txId)'
+                      : 'Upload Promotion Appointment Documents',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentGold,
+                  backgroundColor: AppTheme.brandDark,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
@@ -1155,19 +1339,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D2818),
+          color: const Color(0xFFECFDF5),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.5)),
+          border: Border.all(color: const Color(0xFFA7F3D0)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x08000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.emeraldGreen.withOpacity(0.2),
+                color: AppTheme.emeraldGreen.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.award, color: AppTheme.emeraldGreen, size: 24),
+              child: const Icon(LucideIcons.award,
+                  color: AppTheme.emeraldGreen, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1176,11 +1368,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 children: [
                   Text(
                     'Officially Promoted!',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary),
                   ),
                   Text(
                     'Your appointment documents were verified and approved by HR. Position: $targetPos',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.emeraldGreen, fontWeight: FontWeight.w500),
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF065F46),
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

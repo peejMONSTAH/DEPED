@@ -6,6 +6,7 @@ import apiClient from '../../api/client';
 import { templateForRequirement } from '../../components/forms/templateMatch';
 import { extractStructuredDataFromPdf } from '../../components/forms/formDataExtraction';
 import { fieldsForTemplate } from '../../components/forms/formFields';
+import { clickable } from '../../a11y/clickable';
 
 export const UploadDocument: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -128,7 +129,21 @@ export const UploadDocument: React.FC = () => {
     }
   };
 
-  const isTxLocked = txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED';
+  // Mirror the server rule (documents.controller.ts: DRAFT and DEFICIENCY only)
+  // as an allow-list. The previous deny-list omitted REJECTED, RETURNED and
+  // CANCELLED, so those let the user pick a file and submit only to get a 400.
+  const UPLOADABLE_STATUSES = ['DRAFT', 'DEFICIENCY'];
+  const isTxLocked = !UPLOADABLE_STATUSES.includes(txStatus || '');
+
+  // The lock now covers terminal states too, so 'under review' is not always true.
+  const lockReason =
+    txStatus === 'REJECTED'
+      ? 'This transaction was rejected, so its documents are final. Start a new transaction if you need to submit again.'
+      : txStatus === 'CANCELLED'
+        ? 'This transaction was cancelled, so no further documents can be attached.'
+        : txStatus === 'APPROVED' || txStatus === 'COMPLETED'
+          ? 'This transaction is complete. Its documents form part of your official 201 record and can no longer be changed.'
+          : `This transaction is under official review (${txStatus}). Documents cannot be modified until a reviewer returns it to you.`;
 
   return (
     <div className="animate-fade-in" style={{ padding: 'var(--space-4)', background: 'var(--color-bg-workspace)', minHeight: '100vh' }}>
@@ -143,9 +158,9 @@ export const UploadDocument: React.FC = () => {
         <div className="card mb-4" style={{ background: 'rgba(248, 81, 73, 0.08)', border: '1px solid rgba(248, 81, 73, 0.3)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <AppIcon name="lock" size={20} color="#f85149" />
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f85149' }}>Official Documents Locked</div>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f85149' }}>Uploads are closed</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-              This transaction is currently under official review or finalized ({txStatus}). Submitted documents cannot be modified or replaced.
+              {lockReason}
             </div>
           </div>
         </div>
@@ -159,8 +174,8 @@ export const UploadDocument: React.FC = () => {
       <div className="card">
         <form onSubmit={handleUpload} className="login-form">
           <div 
-            className="upload-area" 
-            onClick={() => !isTxLocked && document.getElementById('file-picker')?.click()}
+            className="upload-area"
+            {...(isTxLocked ? {} : clickable<HTMLDivElement>(() => document.getElementById('file-picker')?.click(), 'Choose a file to upload'))}
             style={isTxLocked ? { cursor: 'not-allowed', opacity: 0.6 } : {}}
           >
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>

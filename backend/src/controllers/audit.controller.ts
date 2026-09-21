@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendError, sendBadRequest, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
-import { getAOSchoolScope } from '../utils/scope.util';
+import { getStationScope, stationPersonnelFilter } from '../utils/scope.util';
 import { deriveAuditCategory } from '../utils/audit.util';
+import { logger } from '../utils/logger';
 
 export const getAuditLogs = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -29,19 +30,12 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
       };
     }
 
-    const scope = await getAOSchoolScope(req.user);
-    if (scope.isAo) {
+    const scope = await getStationScope(req.user);
+    if (scope.isScoped) {
       where.user = {
         OR: [
           { id: req.user!.userId },
-          ...(scope.schoolName ? [{
-            personnel: {
-              OR: [
-                { address: { contains: scope.schoolName, mode: 'insensitive' } },
-                { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-              ],
-            },
-          }] : []),
+          { personnel: stationPersonnelFilter(scope) },
         ],
       };
     }
@@ -73,27 +67,17 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
       status: log.status,
     })), undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {
-    console.error('Failed to retrieve audit logs:', error);
+    logger.error({ err: error }, 'Failed to retrieve audit logs');
     sendError(res, 'Failed to retrieve audit logs.', 500);
   }
 };
 
 export const getComplianceReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const scope = await getAOSchoolScope(req.user);
+    const scope = await getStationScope(req.user);
     const txWhere: any = {};
-    if (scope.isAo) {
-      if (scope.schoolName) {
-        txWhere.personnel = {
-          OR: [
-            { address: { contains: scope.schoolName, mode: 'insensitive' } },
-            { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-            ...(scope.aoPersonnelId ? [{ id: scope.aoPersonnelId }] : []),
-          ],
-        };
-      } else if (scope.aoPersonnelId) {
-        txWhere.personnelId = scope.aoPersonnelId;
-      }
+    if (scope.isScoped) {
+      txWhere.personnel = stationPersonnelFilter(scope);
     }
 
     const [total, approved, rejected, pending] = await Promise.all([
@@ -104,7 +88,7 @@ export const getComplianceReport = async (req: Request, res: Response): Promise<
     ]);
 
     sendSuccess(res, {
-      period: scope.isAo ? `School Scope: ${scope.schoolName || 'Assigned School'}` : 'Division Master',
+      period: scope.isScoped ? `School Scope: ${scope.school || 'Assigned School'}` : 'Division Master',
       totalTransactions: total,
       approvedTransactions: approved,
       rejectedTransactions: rejected,
@@ -112,26 +96,15 @@ export const getComplianceReport = async (req: Request, res: Response): Promise<
       complianceRate: total > 0 ? `${Math.round((approved / total) * 100)}%` : '0%',
     });
   } catch (error: any) {
-    console.error('Failed to generate compliance report:', error);
+    logger.error({ err: error }, 'Failed to generate compliance report');
     sendError(res, 'Failed to generate compliance report.', 500);
   }
 };
 
 export const getDemographicsReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const scope = await getAOSchoolScope(req.user);
-    const pWhere: any = {};
-    if (scope.isAo) {
-      if (scope.schoolName) {
-        pWhere.OR = [
-          { id: scope.aoPersonnelId },
-          { address: { contains: scope.schoolName, mode: 'insensitive' } },
-          { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-        ];
-      } else if (scope.aoPersonnelId) {
-        pWhere.id = scope.aoPersonnelId;
-      }
-    }
+    const scope = await getStationScope(req.user);
+    const pWhere: any = scope.isScoped ? stationPersonnelFilter(scope) : {};
 
     const [total, byStatus] = await Promise.all([
       prisma.personnel.count({ where: pWhere }),
@@ -143,12 +116,12 @@ export const getDemographicsReport = async (req: Request, res: Response): Promis
     ]);
 
     sendSuccess(res, {
-      scope: scope.isAo ? `School Scope: ${scope.schoolName || 'Assigned School'}` : 'Division Master',
+      scope: scope.isScoped ? `School Scope: ${scope.school || 'Assigned School'}` : 'Division Master',
       totalPersonnel: total,
       breakdownByStatus: Object.fromEntries(byStatus.map(g => [g.status, g._count.status])),
     });
   } catch (error: any) {
-    console.error('Failed to generate demographics report:', error);
+    logger.error({ err: error }, 'Failed to generate demographics report');
     sendError(res, 'Failed to generate demographics report.', 500);
   }
 };

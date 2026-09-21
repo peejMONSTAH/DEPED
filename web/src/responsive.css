@@ -259,14 +259,52 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   }
 }
 
+/* ─── Table → card reflow ──────────────────────────────────────────────────
+   A roster is a list of people, so on a phone each row becomes a card with its
+   column name beside the value, instead of a 720px table dragged sideways.
+   Opt in by adding `table-cards` to the table and `data-label` to every cell.
+   Dense comparison grids (e.g. the promotion leaderboard) deliberately keep
+   horizontal scrolling — side-by-side columns are the point there.          */
 @media (max-width: 768px) {
-  .personnel-records-table { min-width: 720px; }
-  .personnel-records-table th,
-  .personnel-records-table td { padding-inline: 12px !important; }
-  .personnel-records-table .personnel-records-action-cell {
-    width: 108px;
-    min-width: 108px;
+  .table-cards { min-width: 0 !important; display: block; }
+  .table-cards thead { display: none; }
+  .table-cards tbody,
+  .table-cards tr { display: block; width: 100%; }
+
+  .table-cards tr {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: var(--color-bg-card, var(--color-bg-secondary));
   }
+
+  .table-cards td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    width: auto !important;
+    min-width: 0 !important;
+    border: none !important;
+    padding: 6px 0 !important;
+    text-align: right;
+  }
+
+  .table-cards td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted);
+  }
+
+  /* Cells with no label (e.g. a colSpan empty state) stay full width. */
+  .table-cards td:not([data-label]) { display: block; text-align: center; }
+  .table-cards td:not([data-label])::before { content: none; }
 }
 .topbar, .topbar-actions, .card-header-flex, .modal-header, .modal-footer { flex-wrap: wrap; gap: 12px; }
 .topbar > *, .card-header-flex > * { min-width: 0; }

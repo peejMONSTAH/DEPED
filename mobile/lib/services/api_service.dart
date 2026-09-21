@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/app_config.dart';
 
@@ -61,6 +62,8 @@ class ApiService {
       final refreshToken = await _storage.read(key: AppConfig.keyRefreshToken);
       if (refreshToken == null) return false;
 
+      // A bare Dio instance on purpose: the interceptor above must not attach the
+      // expired access token, or re-enter itself when this call is the one that 401s.
       final response = await Dio().post<dynamic>(
         '$baseUrl/auth/refresh-token',
         data: {'refreshToken': refreshToken},
@@ -71,7 +74,18 @@ class ApiService {
         await _storage.write(key: AppConfig.keyAccessToken, value: newAccessToken);
         return true;
       }
-    } catch (_) {}
+    } on DioException catch (error) {
+      // A rejected refresh token means the session is genuinely over. Clear it so the
+      // app stops retrying with a credential the server has already refused.
+      final status = error.response?.statusCode;
+      if (status == 401 || status == 403) {
+        await _storage.delete(key: AppConfig.keyAccessToken);
+        await _storage.delete(key: AppConfig.keyRefreshToken);
+      }
+      debugPrint('Token refresh failed (${status ?? 'network'}): ${error.message}');
+    } catch (error) {
+      debugPrint('Token refresh failed unexpectedly: $error');
+    }
     return false;
   }
 }

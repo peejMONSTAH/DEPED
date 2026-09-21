@@ -4,6 +4,7 @@ import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useToast } from '../../contexts/ToastContext';
+import { clickable } from '../../a11y/clickable';
 
 type NotificationItem = {
   id: number;
@@ -153,7 +154,7 @@ export const PersonnelNotifications: React.FC = () => {
         )}
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <div className="page-content" style={{ padding: 0 }}>
         {/* Filter Tabs matching HR Admin */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           <button
@@ -204,7 +205,7 @@ export const PersonnelNotifications: React.FC = () => {
               return (
                 <div
                   key={n.id}
-                  onClick={() => !n.isRead && handleMarkAsRead(n.id)}
+                  {...(n.isRead ? {} : clickable<HTMLDivElement>(() => handleMarkAsRead(n.id), 'Mark notification as read'))}
                   className={`personnel-notif-card hover-lift ${!n.isRead ? 'unread' : ''}`}
                   style={{
                     background: 'var(--color-bg-card)',

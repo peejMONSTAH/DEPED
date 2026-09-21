@@ -5,6 +5,8 @@ export interface ApiResponse<T = unknown> {
   message?: string;
   data?: T;
   code?: string;
+  /** Correlates a 5xx response with its server log entry. */
+  requestId?: string;
   pagination?: PaginationMeta;
 }
 
@@ -39,6 +41,11 @@ export const sendError = (
 ): Response => {
   const response: ApiResponse = { status: 'error', message };
   if (code) response.code = code;
+  // Server-side failures get the same traceable reference the error middleware returns.
+  if (statusCode >= 500) {
+    const requestId = (res.req as { id?: string } | undefined)?.id;
+    if (requestId) response.requestId = requestId;
+  }
   return res.status(statusCode).json(response);
 };
 

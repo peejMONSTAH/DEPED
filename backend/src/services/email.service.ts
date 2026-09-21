@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { config } from '../config';
+import { logger } from '../utils/logger';
 
 export interface DeficientDocItem {
   name: string;
@@ -19,6 +20,114 @@ export interface DeficiencyEmailOptions {
 
 let transporter: Transporter | null = null;
 
+export interface TransactionalEmailOptions {
+  recipientEmail: string;
+  recipientName: string;
+  subject: string;
+  heading: string;
+  message: string;
+  reference?: string;
+  actionLabel?: string;
+  actionUrl?: string;
+  credentials?: {
+    username: string;
+    initialPassword: string;
+  };
+}
+
+const escapeHtml = (value: string): string => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+type EmailTone = 'success' | 'warning' | 'danger' | 'info';
+
+const toneFor = (options: TransactionalEmailOptions): EmailTone => {
+  const copy = `${options.subject} ${options.heading} ${options.message}`.toLowerCase();
+  if (/rejected|disqualified|not approved|deficien/.test(copy)) return 'danger';
+  if (/action required|correction|returned|escalat/.test(copy)) return 'warning';
+  if (/approved|ready|created|selected|success/.test(copy)) return 'success';
+  return 'info';
+};
+
+const toneTokens: Record<EmailTone, { accent: string; tint: string; ink: string; label: string }> = {
+  success: { accent: '#18864B', tint: '#EAF7EF', ink: '#116138', label: 'Confirmed' },
+  warning: { accent: '#C47610', tint: '#FFF6E5', ink: '#8A4D08', label: 'Needs attention' },
+  danger: { accent: '#C63D3D', tint: '#FFF0F0', ink: '#8F2929', label: 'Decision issued' },
+  info: { accent: '#286D9E', tint: '#EDF6FC', ink: '#1E557A', label: 'Update' },
+};
+
+const plainTextFor = (options: TransactionalEmailOptions): string => [
+  options.heading,
+  '',
+  `Dear ${options.recipientName},`,
+  '',
+  options.message,
+  options.reference ? `Reference: ${options.reference}` : '',
+  options.credentials ? `Username: ${options.credentials.username}` : '',
+  options.credentials ? `Initial password: ${options.credentials.initialPassword}` : '',
+  options.credentials ? 'Change this password immediately after your first sign-in.' : '',
+  options.actionUrl ? `${options.actionLabel || 'Open Digital 201'}: ${options.actionUrl}` : '',
+  '',
+  'Digital 201 | DepEd Schools Division of Koronadal City',
+  'This is an automated notification. Do not reply with passwords or personnel documents.',
+].filter(Boolean).join('\n');
+
+const renderTransactionalEmail = (options: TransactionalEmailOptions): string => {
+  const tone = toneTokens[toneFor(options)];
+  const safeHeading = escapeHtml(options.heading);
+  const safeMessage = escapeHtml(options.message);
+  const safeName = escapeHtml(options.recipientName);
+  const reference = options.reference ? escapeHtml(options.reference) : '';
+  const actionUrl = options.actionUrl ? escapeHtml(options.actionUrl) : '';
+  const actionLabel = escapeHtml(options.actionLabel || 'Open Digital 201');
+  const credentials = options.credentials;
+  const preheader = `${options.heading}. ${options.message}`.slice(0, 145);
+
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeHeading}</title></head>
+<body style="margin:0;padding:0;background:#EEF2F5;color:#1B2B3A;font-family:Arial,'Helvetica Neue',sans-serif;-webkit-text-size-adjust:100%;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#EEF2F5;">
+    <tr><td align="center" style="padding:36px 14px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:620px;background:#FFFFFF;border:1px solid #D7E0E7;border-radius:16px;overflow:hidden;">
+        <tr><td style="height:6px;background:${tone.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+        <tr><td style="padding:24px 30px;background:#12283D;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
+            <td width="52" valign="middle"><div style="width:44px;height:44px;line-height:44px;text-align:center;border-radius:10px;background:#C7F13A;color:#10263A;font-size:14px;font-weight:800;letter-spacing:-.3px;">201</div></td>
+            <td valign="middle" style="padding-left:12px;"><div style="font-size:18px;line-height:22px;font-weight:800;color:#FFFFFF;">Digital 201</div><div style="padding-top:3px;font-size:11px;line-height:15px;color:#B7C5D1;">Personnel Records Management System</div></td>
+          </tr></table>
+        </td></tr>
+        <tr><td style="padding:30px 30px 10px;">
+          <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:${tone.tint};color:${tone.ink};font-size:11px;line-height:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">${tone.label}</div>
+          <h1 style="margin:15px 0 0;color:#14283D;font-size:25px;line-height:32px;font-weight:800;letter-spacing:-.4px;">${safeHeading}</h1>
+        </td></tr>
+        <tr><td style="padding:14px 30px 30px;">
+          <p style="margin:0 0 16px;color:#263B4D;font-size:15px;line-height:24px;">Dear <strong>${safeName}</strong>,</p>
+          <p style="margin:0;color:#536779;font-size:15px;line-height:25px;">${safeMessage}</p>
+          ${reference ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;background:#F5F8FA;border:1px solid #DCE4EA;border-radius:10px;"><tr><td style="padding:14px 16px;"><div style="font-size:11px;line-height:14px;color:#718292;text-transform:uppercase;letter-spacing:.7px;font-weight:700;">Reference</div><div style="padding-top:5px;color:#17324D;font-family:Consolas,'Courier New',monospace;font-size:14px;line-height:20px;font-weight:700;">${reference}</div></td></tr></table>` : ''}
+          ${credentials ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;background:#F5F8FA;border:1px solid #D6E0E7;border-radius:10px;">
+            <tr><td colspan="2" style="padding:14px 16px 8px;color:#17324D;font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;">Initial login credentials</td></tr>
+            <tr><td style="padding:8px 16px;width:34%;color:#6A7C8B;font-size:12px;line-height:18px;">Username</td><td style="padding:8px 16px;color:#14283D;font-family:Consolas,'Courier New',monospace;font-size:13px;line-height:18px;font-weight:700;word-break:break-all;">${escapeHtml(credentials.username)}</td></tr>
+            <tr><td style="padding:8px 16px 14px;color:#6A7C8B;font-size:12px;line-height:18px;">Initial password</td><td style="padding:8px 16px 14px;color:#14283D;font-family:Consolas,'Courier New',monospace;font-size:13px;line-height:18px;font-weight:700;word-break:break-all;">${escapeHtml(credentials.initialPassword)}</td></tr>
+            <tr><td colspan="2" style="padding:12px 16px;background:#FFF6E5;border-top:1px solid #E9D9B8;color:#80500D;font-size:11px;line-height:17px;">For your security, change this password immediately after your first sign-in. Do not forward this email.</td></tr>
+          </table>` : ''}
+          ${actionUrl ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;"><tr><td bgcolor="#17324D" style="border-radius:9px;"><a href="${actionUrl}" target="_blank" style="display:inline-block;padding:13px 22px;color:#FFFFFF;text-decoration:none;font-size:14px;line-height:18px;font-weight:700;white-space:nowrap;">${actionLabel}</a></td></tr></table><p style="margin:15px 0 0;color:#82909D;font-size:11px;line-height:17px;word-break:break-all;">If the button does not open, copy this address into your browser:<br><a href="${actionUrl}" style="color:#286D9E;text-decoration:underline;">${actionUrl}</a></p>` : ''}
+        </td></tr>
+        <tr><td style="padding:20px 30px;background:#F5F8FA;border-top:1px solid #DCE4EA;">
+          <p style="margin:0;color:#506476;font-size:12px;line-height:18px;font-weight:700;">DepEd Schools Division of Koronadal City</p>
+          <p style="margin:5px 0 0;color:#8493A0;font-size:11px;line-height:17px;">This automated notice was generated by Digital 201. Do not reply with passwords or personnel documents.</p>
+        </td></tr>
+      </table>
+      <p style="margin:16px 0 0;color:#8795A1;font-size:10px;line-height:15px;">Official personnel transaction notification</p>
+    </td></tr>
+  </table>
+</body></html>`;
+};
+
 const getTransporter = (): Transporter | null => {
   if (transporter) return transporter;
 
@@ -33,14 +142,39 @@ const getTransporter = (): Transporter | null => {
           pass: config.email.pass,
         },
       });
-      console.log(`[EmailService] Configured SMTP transporter (${config.email.host}:${config.email.port})`);
+      logger.info(`[EmailService] Configured SMTP transporter (${config.email.host}:${config.email.port})`);
     } catch (err) {
-      console.error('[EmailService] Failed to initialize SMTP transporter:', err);
+      logger.error({ err: err }, '[EmailService] Failed to initialize SMTP transporter');
       transporter = null;
     }
   }
 
   return transporter;
+};
+
+export const sendTransactionalEmail = async (options: TransactionalEmailOptions): Promise<boolean> => {
+  const mailer = getTransporter();
+  if (!mailer) {
+    logger.warn(`[EmailService] SMTP is not configured; "${options.subject}" was not delivered to ${options.recipientEmail}.`);
+    return false;
+  }
+
+  const html = renderTransactionalEmail(options);
+
+  try {
+    await mailer.sendMail({
+      from: config.email.from,
+      to: options.recipientEmail,
+      subject: options.subject,
+      text: plainTextFor(options),
+      html,
+    });
+    logger.info(`[EmailService] Transactional email sent to ${options.recipientEmail}: ${options.subject}`);
+    return true;
+  } catch (error) {
+    logger.error({ err: error }, `[EmailService] Transactional email delivery failed: ${options.subject}`);
+    return false;
+  }
 };
 
 export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions): Promise<boolean> => {
@@ -64,9 +198,9 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
         .map(
           (doc, i) => `
           <tr style="border-bottom: 1px solid #E2E8F0; background-color: ${i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'};">
-            <td style="padding: 12px 16px; font-size: 14px; font-weight: 600; color: #1E293B;">${doc.name}</td>
+            <td style="padding: 12px 16px; font-size: 14px; font-weight: 600; color: #1E293B;">${escapeHtml(doc.name)}</td>
             <td style="padding: 12px 16px; font-size: 13px; color: #DC2626; font-weight: 700;">Action Required / Deficient</td>
-            <td style="padding: 12px 16px; font-size: 13px; color: #475569;">${doc.remarks || aoRemarks || 'Document returned for revision.'}</td>
+            <td style="padding: 12px 16px; font-size: 13px; color: #475569;">${escapeHtml(doc.remarks || aoRemarks || 'Document returned for revision.')}</td>
           </tr>`
         )
         .join('')
@@ -125,11 +259,11 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
           <tr>
             <td style="padding: 24px 32px;">
               <p style="font-size: 15px; color: #1E293B; margin: 0 0 16px 0;">
-                Dear <strong>${recipientName}</strong>,
+                Dear <strong>${escapeHtml(recipientName)}</strong>,
               </p>
               <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 20px 0;">
                 This is an official automated advisory regarding your personnel transaction 
-                <strong style="color: #0F172A;">TRX-${transactionId}</strong> (<em>${transactionType}</em>). 
+                <strong style="color: #0F172A;">TRX-${transactionId}</strong> (<em>${escapeHtml(transactionType)}</em>).
                 Please inspect the feedback below and re-upload only the deficient items.
               </p>
 
@@ -141,12 +275,12 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
                 </tr>
                 <tr style="border-top: 1px solid #E2E8F0;">
                   <td style="padding: 12px 16px; font-size: 13px; font-weight: 600; color: #64748B;">Transaction Type:</td>
-                  <td style="padding: 12px 16px; font-size: 13px; font-weight: 600; color: #0F172A;">${transactionType}</td>
+                  <td style="padding: 12px 16px; font-size: 13px; font-weight: 600; color: #0F172A;">${escapeHtml(transactionType)}</td>
                 </tr>
                 ${aoRemarks ? `
                 <tr style="border-top: 1px solid #E2E8F0;">
                   <td style="padding: 12px 16px; font-size: 13px; font-weight: 600; color: #64748B;">AO II Evaluator Remarks:</td>
-                  <td style="padding: 12px 16px; font-size: 13px; color: #0F172A; font-weight: 500;">${aoRemarks}</td>
+                  <td style="padding: 12px 16px; font-size: 13px; color: #0F172A; font-weight: 500;">${escapeHtml(aoRemarks)}</td>
                 </tr>` : ''}
               </table>
 
@@ -218,18 +352,20 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
 </html>
   `;
 
-  // 1. Console Simulation Banner (Always visible in dev/test)
-  console.log('\n' + '='.repeat(80));
-  console.log('✉️  [DIGITAL 201] DEFICIENCY NOTIFICATION EMAIL TRIGGERED');
-  console.log('='.repeat(80));
-  console.log(`To:            ${recipientName} <${recipientEmail}>`);
-  console.log(`Subject:       ${subject}`);
-  console.log(`Transaction:   TRX-${transactionId} (${transactionType})`);
-  console.log(`AO Remarks:    ${aoRemarks || '(None specified)'}`);
-  console.log(`Deficiencies:  ${deficientDocuments.map(d => d.name).join(', ') || 'General documentation'}`);
-  console.log(`\n🔗 1-CLICK MAGIC LOGIN LINK (Valid 48h):`);
-  console.log(`   ${magicLoginUrl}`);
-  console.log('='.repeat(80) + '\n');
+  // Delivery metadata only. The magic login URL carries a working 48-hour
+  // credential, so it is never written to logs — anyone with log access could
+  // otherwise sign in as the recipient. The link goes to the recipient by email
+  // and nowhere else.
+  logger.info(
+    {
+      recipient: recipientEmail,
+      transactionId,
+      transactionType,
+      deficiencyCount: deficientDocuments.length,
+      magicLinkIssued: true,
+    },
+    '[EmailService] Deficiency notification prepared',
+  );
 
   // 2. SMTP Delivery if configured
   const mailer = getTransporter();
@@ -239,16 +375,26 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
         from: config.email.from,
         to: recipientEmail,
         subject,
+        text: [
+          'Document correction required',
+          '',
+          `Dear ${recipientName},`,
+          `Your ${transactionType} transaction TRX-${transactionId} requires document corrections.`,
+          aoRemarks ? `AO II remarks: ${aoRemarks}` : '',
+          ...deficientDocuments.map(doc => `- ${doc.name}: ${doc.remarks || 'Revision required'}`),
+          '',
+          `Open Digital 201: ${magicLoginUrl}`,
+        ].filter(Boolean).join('\n'),
         html: htmlContent,
       });
-      console.log(`[EmailService] Deficiency email successfully dispatched via SMTP to ${recipientEmail}`);
+      logger.info(`[EmailService] Deficiency email successfully dispatched via SMTP to ${recipientEmail}`);
       return true;
     } catch (smtpErr) {
-      console.error('[EmailService] Failed to send email via SMTP, logged to console fallback:', smtpErr);
+      logger.error({ err: smtpErr }, '[EmailService] Failed to send email via SMTP, logged to console fallback');
       return false;
     }
   }
 
-  console.warn('[EmailService] SMTP is not configured; email was not delivered.');
+  logger.warn('[EmailService] SMTP is not configured; email was not delivered.');
   return false;
 };

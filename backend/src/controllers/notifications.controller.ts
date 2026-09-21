@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { EventEmitter } from 'events';
 import prisma from '../config/prisma';
 import { sendSuccess, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
+import { logger } from '../utils/logger';
 
 export const notificationEvents = new EventEmitter();
 
@@ -66,7 +67,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
     ]);
     sendSuccess(res, data, undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {
-    console.error('Failed to get notifications:', error);
+    logger.error({ err: error }, 'Failed to get notifications');
     res.status(500).json({ status: 'error', message: 'Failed to retrieve notifications.' });
   }
 };
@@ -85,7 +86,7 @@ export const markAsRead = async (req: Request, res: Response): Promise<void> => 
     });
     sendSuccess(res, { id, isRead: true }, 'Notification marked as read.');
   } catch (error: any) {
-    console.error('Failed to mark notification as read:', error);
+    logger.error({ err: error }, 'Failed to mark notification as read');
     res.status(500).json({ status: 'error', message: 'Failed to mark notification as read.' });
   }
 };
@@ -98,7 +99,7 @@ export const markAllRead = async (req: Request, res: Response): Promise<void> =>
     });
     sendSuccess(res, null, 'All notifications marked as read.');
   } catch (error: any) {
-    console.error('Failed to mark all notifications as read:', error);
+    logger.error({ err: error }, 'Failed to mark all notifications as read');
     res.status(500).json({ status: 'error', message: 'Failed to mark notifications as read.' });
   }
 };

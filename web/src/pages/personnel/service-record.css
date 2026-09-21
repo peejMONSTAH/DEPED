@@ -1,0 +1,214 @@
+/* Official DepEd Service Record (CS Form 212).
+   This is a document first and a modal second: it renders on white with print
+   styles that take it out of the app shell entirely. */
+
+.svc-doc {
+  max-width: 1040px;
+  width: 100%;
+  padding: 28px 32px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1e293b;
+}
+
+/* ── letterhead ───────────────────────────────────────────── */
+.svc-head {
+  text-align: center;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid #0284c7;
+}
+
+.svc-head-republic {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.svc-head-region { font-size: 16px; font-weight: 800; color: #0f172a; }
+.svc-head-division { font-size: 13px; font-weight: 700; color: #0284c7; }
+
+.svc-head-title {
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.svc-head-legal { font-size: 11px; color: #64748b; }
+
+/* ── identity block ───────────────────────────────────────── */
+.svc-identity {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 24px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  font-size: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.svc-identity dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.svc-identity dd {
+  margin: 1px 0 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.svc-identity dd.is-mono { font-family: var(--font-mono, monospace); }
+
+/* ── record table ─────────────────────────────────────────── */
+.svc-table-wrap { overflow-x: auto; margin-bottom: 22px; }
+
+.svc-table {
+  width: 100%;
+  min-width: 860px;
+  font-size: 11px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.svc-table th {
+  padding: 7px 8px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #334155;
+  vertical-align: bottom;
+}
+
+.svc-table td {
+  padding: 7px 8px;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  line-height: 1.4;
+  color: #1e293b;
+}
+
+.svc-table td.is-mono { font-family: var(--font-mono, monospace); white-space: nowrap; }
+.svc-table td.is-strong { font-weight: 600; }
+.svc-table td.is-empty { color: #94a3b8; text-align: center; }
+.svc-table tbody tr:nth-child(even) td { background: #fbfdff; }
+
+.svc-empty {
+  padding: 22px;
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+}
+
+/* ── certification ────────────────────────────────────────── */
+.svc-certify {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.svc-provenance { font-size: 10px; line-height: 1.6; color: #64748b; }
+.svc-provenance strong { color: #334155; }
+
+.svc-sign { text-align: center; min-width: 230px; }
+
+/* Space to sign above the rule, name and title below it. */
+.svc-sign-line {
+  height: 34px;
+  border-bottom: 1px solid #0f172a;
+}
+
+.svc-sign-name {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.svc-sign-role { font-size: 10px; color: #475569; }
+
+.svc-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ── print ────────────────────────────────────────────────────
+   Without these the Print button rendered the whole app — sidebar,
+   topbar and the dimmed modal backdrop — instead of the record. */
+@media print {
+  @page { size: A4 landscape; margin: 12mm; }
+
+  body * { visibility: hidden !important; }
+  .svc-doc, .svc-doc * { visibility: visible !important; }
+
+  /* The document lives in a portal inside a fixed overlay; flatten it so the
+     record prints as an ordinary page and can break across pages. Safe to apply
+     to any overlay here because everything but .svc-doc is hidden above.
+     Plain selector rather than :has() so older engines still honour it. */
+  .modal-overlay {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    overflow: visible !important;
+  }
+
+  .svc-doc {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible !important;
+  }
+
+  .svc-actions { display: none !important; }
+  .svc-table-wrap { overflow: visible !important; }
+  .svc-table { min-width: 0; }
+  .svc-table thead { display: table-header-group; }  /* repeat header per page */
+  .svc-table tr { break-inside: avoid; }
+  .svc-certify { break-inside: avoid; }
+
+  /* Keep the tints from printing as muddy grey on a mono printer. */
+  .svc-identity { background: none; }
+  .svc-table tbody tr:nth-child(even) td { background: none; }
+}
+
+@media (max-width: 720px) {
+  .svc-doc { padding: 18px 16px; }
+  .svc-identity { grid-template-columns: 1fr; }
+  .svc-certify { flex-direction: column; align-items: stretch; }
+  .svc-sign { min-width: 0; }
+}

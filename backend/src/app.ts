@@ -3,7 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import pinoHttp from 'pino-http';
+import { randomUUID } from 'crypto';
 import { config } from './config';
+import { logger } from './utils/logger';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import prisma from './config/prisma';
 
@@ -18,10 +21,11 @@ import notificationsRoutes from './routes/notifications.routes';
 import auditRoutes from './routes/audit.routes';
 import plantillaRoutes from './routes/plantilla.routes';
 import formDraftRoutes from './routes/form-drafts.routes';
+import personnelDocumentsRoutes from './routes/personnel-documents.routes';
 import { forwardAsyncErrors } from './middleware/async-routes';
 import { auditMiddleware } from './middleware/audit.middleware';
 
-for (const router of [authRoutes, usersRoutes, personnelRoutes, transactionsRoutes, documentsRoutes, promotionsRoutes, notificationsRoutes, auditRoutes, plantillaRoutes, formDraftRoutes]) {
+for (const router of [authRoutes, usersRoutes, personnelRoutes, transactionsRoutes, documentsRoutes, promotionsRoutes, notificationsRoutes, auditRoutes, plantillaRoutes, formDraftRoutes, personnelDocumentsRoutes]) {
   forwardAsyncErrors(router);
 }
 
@@ -29,6 +33,20 @@ const app = express();
 
 // Required for correct client IPs and rate limiting behind a production reverse proxy.
 if (config.env === 'production') app.set('trust proxy', 1);
+
+// Attaches req.id and req.log so every later log line can be traced to one request.
+// Request/response lines themselves stay with morgan; this logs failures only.
+app.use(pinoHttp({
+  logger,
+  genReqId: (req, res) => {
+    const existing = req.headers['x-request-id'];
+    const id = (Array.isArray(existing) ? existing[0] : existing) || randomUUID();
+    res.setHeader('X-Request-Id', id);
+    return id;
+  },
+  autoLogging: false,
+  customLogLevel: (_req, res, err) => (err || res.statusCode >= 500 ? 'error' : 'silent'),
+}));
 
 // Disable ETag and prevent stale HTTP 304 caching on API responses
 app.set('etag', false);
@@ -92,6 +110,7 @@ const API_PREFIX = '/api/v1';
 
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`, usersRoutes);
+app.use(`${API_PREFIX}/personnel/documents`, personnelDocumentsRoutes);
 app.use(`${API_PREFIX}/personnel`, personnelRoutes);
 app.use(`${API_PREFIX}/transactions`, transactionsRoutes);
 app.use(`${API_PREFIX}/documents`, documentsRoutes);

@@ -86,13 +86,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: AppTheme.lightBg,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkBgCard,
+        backgroundColor: AppTheme.lightBgCard,
         elevation: 0,
         title: Text(
           'Notifications & Alerts',
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
         ),
         actions: [
           IconButton(
@@ -114,21 +114,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(LucideIcons.bellOff, size: 48, color: Color(0xFF6E7681)),
+                            const Icon(LucideIcons.bellOff, size: 48, color: AppTheme.textMuted),
                             const SizedBox(height: 16),
                             Text(
                               'No Notifications Yet',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppTheme.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               'System updates, filing approvals, and status alerts will appear here.',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF8B949E)),
+                              style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary),
                             ),
                           ],
                         ),
@@ -183,11 +183,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
-                            color: AppTheme.darkBgCard,
+                            color: AppTheme.lightBgCard,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isRead ? AppTheme.darkBorder : AppTheme.primaryLight.withOpacity(0.4),
+                              color: isRead ? AppTheme.lightBorder : AppTheme.primaryLight.withOpacity(0.4),
                             ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x06000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Padding(
                             padding: const EdgeInsets.all(14),
@@ -200,7 +207,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: iconColor.withOpacity(0.15),
+                                        color: iconColor.withOpacity(0.12),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(iconData, color: iconColor, size: 20),
@@ -215,14 +222,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             style: GoogleFonts.inter(
                                               fontSize: 13,
                                               fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
-                                              color: Colors.white,
+                                              color: AppTheme.textPrimary,
                                               height: 1.4,
                                             ),
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
                                             item['createdAt']?.toString().split('T')[0] ?? '',
-                                            style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF6E7681)),
+                                            style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
                                           ),
                                         ],
                                       ),
@@ -242,6 +249,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       ),
                                     ),
                                     onPressed: () async {
+                                       final navigator = Navigator.of(context);
+                                       final messenger = ScaffoldMessenger.of(context);
                                        final rawTxId = item['relatedEntityId'] ?? item['related_entity_id'];
                                        final txId = rawTxId is int ? rawTxId : (int.tryParse(rawTxId?.toString() ?? '') ?? 0);
                                        
@@ -262,27 +271,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                              ),
                                            );
                                            
-                                           if (mounted) {
-                                             Navigator.push(
-                                               context,
-                                               MaterialPageRoute(
-                                                 builder: (ctx) => ChecklistUploadScreen(transaction: foundTx),
-                                               ),
-                                             );
-                                             return;
-                                           }
+                                           if (!mounted) return;
+                                           navigator.push(
+                                             MaterialPageRoute(
+                                               builder: (ctx) => ChecklistUploadScreen(transaction: foundTx),
+                                             ),
+                                           );
+                                           return;
                                          } catch (_) {}
                                        }
 
-                                       if (mounted) {
-                                         ScaffoldMessenger.of(context).showSnackBar(
-                                           SnackBar(
-                                             content: Text('Redirecting to: $actionLabel'),
-                                             duration: const Duration(seconds: 2),
-                                             backgroundColor: AppTheme.primaryLight,
-                                           ),
-                                         );
-                                       }
+                                       if (!mounted) return;
+                                       messenger.showSnackBar(
+                                         SnackBar(
+                                           content: Text('Redirecting to: $actionLabel'),
+                                           duration: const Duration(seconds: 2),
+                                           backgroundColor: AppTheme.primaryLight,
+                                         ),
+                                       );
                                      },
                                     icon: Icon(actionIcon, size: 14),
                                     label: Text(

@@ -124,7 +124,7 @@ export const AuditLog: React.FC = () => {
       document.body.removeChild(link);
       addToast('Audit trail exported successfully as CSV!', 'SUCCESS');
     } catch (_) {
-      addToast('Exported audit trail log summary.', 'INFO');
+      addToast('Could not export the audit trail. Please try again.', 'ERROR');
     }
   };
 
@@ -251,6 +251,7 @@ export const AuditLog: React.FC = () => {
                 <AppIcon name="search" size={16} />
               </span>
               <input
+                aria-label="Search by user, role, action, or operation details"
                 type="text"
                 className="audit-search-input search-input"
                 placeholder="Search by user, role, action, or operation details…"

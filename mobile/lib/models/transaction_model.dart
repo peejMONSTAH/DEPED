@@ -59,60 +59,22 @@ class TransactionModel {
         [];
 
     final parsedType = _parseType(typeStr);
-    final defaultReqs = RequirementItemModel.generateDefaultRequirements(parsedType);
-    List<RequirementItemModel> reqs = defaultReqs;
-
-    if (json['uploadedDocuments'] is List && (json['uploadedDocuments'] as List).isNotEmpty) {
-      final uploadedDocs = json['uploadedDocuments'] as List<dynamic>;
-      final Map<int, Map<String, dynamic>> docMapByTemplate = {};
-
-      for (final doc in uploadedDocs) {
-        if (doc is Map<String, dynamic>) {
-          final tId = doc['requirementTemplateId'] ?? doc['requirement_template_id'];
-          if (tId is int) docMapByTemplate[tId] = doc;
-        }
-      }
-
-      reqs = defaultReqs.asMap().entries.map((entry) {
-        final idx = entry.key;
-        final defaultItem = entry.value;
-
-        Map<String, dynamic>? uploadedDoc = docMapByTemplate[defaultItem.id];
-        if (uploadedDoc == null && idx < uploadedDocs.length) {
-          uploadedDoc = uploadedDocs[idx] as Map<String, dynamic>?;
-        }
-
-        if (uploadedDoc != null) {
-          final statusStr = uploadedDoc['status']?.toString() ?? 'VERIFIED';
-          return RequirementItemModel(
-            id: defaultItem.id,
-            documentName: defaultItem.documentName,
-            isMandatory: defaultItem.isMandatory,
-            description: defaultItem.description,
-            uploadedFilePath: uploadedDoc['fileName']?.toString() ?? 'Verified_Document.pdf',
-            fileStatus: statusStr,
-            rejectionReason: uploadedDoc['validationNotes']?.toString() ?? uploadedDoc['validation_notes']?.toString(),
-          );
-        }
-        return defaultItem;
-      }).toList();
-    } else if (parsedRequirements.isNotEmpty) {
-      reqs = parsedRequirements;
-    }
-
+    final templates = rawType is Map ? rawType['requirementTemplates'] : null;
+    final docs = (json['uploadedDocuments'] as List?) ?? [];
+    final reqs = templates is List
+        ? templates.map((t) {
+            final matches = docs.where((d) => d['requirementTemplateId'] == t['id']);
+            final doc = matches.isEmpty ? null : matches.first;
+            return RequirementItemModel(
+              id: t['id'], documentName: t['name'], isMandatory: t['isMandatory'] == true,
+              description: t['description'],
+              uploadedFilePath: doc?['fileName'], fileStatus: doc?['status'],
+              rejectionReason: doc?['validationNotes'],
+            );
+          }).toList()
+        : parsedRequirements;
     final parsedStatus = _parseStatus((json['status'] ?? 'DRAFT').toString());
-    double computedScore = scoreVal;
-
-    if (reqs.isNotEmpty) {
-      final mandatoryList = reqs.where((r) => r.isMandatory).toList();
-      if (mandatoryList.isNotEmpty) {
-        final validUploaded = mandatoryList.where((r) => r.isUploaded && r.fileStatus != 'REJECTED' && r.fileStatus != 'DEFICIENT').length;
-        computedScore = (validUploaded / mandatoryList.length) * 100.0;
-      }
-    }
-    if (computedScore == 0.0 && (parsedStatus == TransactionStatus.SUBMITTED_TO_AO2 || parsedStatus == TransactionStatus.FORWARDED_TO_HRMO || parsedStatus == TransactionStatus.APPROVED_BY_HRMO)) {
-      computedScore = 100.0;
-    }
+    final computedScore = scoreVal;
 
     return TransactionModel(
       id: idVal,

@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
@@ -31,6 +32,7 @@ import {
   RefreshCw,
   X,
 } from 'lucide-react';
+import { clickable } from '../../a11y/clickable';
 
 interface OccupantPersonnel {
   id: number;
@@ -74,6 +76,7 @@ interface CandidatePersonnel {
 export const PlantillaManagement: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const { theme } = useTheme();
   const navigate = useNavigate();
 
@@ -334,14 +337,20 @@ export const PlantillaManagement: React.FC = () => {
       return;
     }
 
-    if (window.confirm(`Are you sure you want to permanently delete Plantilla Item '${item.itemNumber}'?`)) {
-      try {
-        await apiClient.delete(`/plantilla/${item.id}`);
-        addToast(`Plantilla Item '${item.itemNumber}' deleted from inventory.`, 'INFO');
-        fetchPlantillas();
-      } catch (err: any) {
-        addToast(err.response?.data?.message || 'Failed to delete plantilla item.', 'ERROR');
-      }
+    const { confirmed } = await confirm({
+      title: 'Delete plantilla item',
+      message: `Permanently delete Plantilla Item '${item.itemNumber}' (${item.positionTitle})? This cannot be undone.`,
+      confirmLabel: 'Delete item',
+      icon: 'delete',
+    });
+    if (!confirmed) return;
+
+    try {
+      await apiClient.delete(`/plantilla/${item.id}`);
+      addToast(`Plantilla Item '${item.itemNumber}' deleted from inventory.`, 'INFO');
+      fetchPlantillas();
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Failed to delete plantilla item.', 'ERROR');
     }
   };
 
@@ -364,6 +373,13 @@ export const PlantillaManagement: React.FC = () => {
 
     try {
       const pId = selectedPersonnelId === '' ? null : Number(selectedPersonnelId);
+      if (selectedPlantillaForAssign.isOpenForRanking && pId !== null) {
+        addToast(
+          `Cannot manually assign occupant: Plantilla Item '${selectedPlantillaForAssign.itemNumber}' is currently open for grab in active promotion cycle "${selectedPlantillaForAssign.activePromotionCycle?.name || 'Ongoing Cycle'}".`,
+          'ERROR'
+        );
+        return;
+      }
       await apiClient.post(`/plantilla/${selectedPlantillaForAssign.id}/assign`, {
         personnelId: pId,
       });
@@ -394,15 +410,20 @@ export const PlantillaManagement: React.FC = () => {
       ? `${item.occupiedByPersonnel.firstName} ${item.occupiedByPersonnel.lastName}`
       : 'current occupant';
 
-    if (window.confirm(`Are you sure you want to vacate Plantilla Item '${item.itemNumber}' and unbind ${occupantName}? The item will become Vacant and Ready for Ranking.`)) {
-      try {
-        await apiClient.post(`/plantilla/${item.id}/assign`, { personnelId: null });
-        addToast(`Plantilla Item '${item.itemNumber}' has been vacated.`, 'INFO');
-        fetchPlantillas();
-        fetchPersonnel();
-      } catch (err: any) {
-        addToast(err.response?.data?.message || 'Failed to vacate plantilla item.', 'ERROR');
-      }
+    const { confirmed } = await confirm({
+      title: 'Vacate plantilla item',
+      message: `Vacate Plantilla Item '${item.itemNumber}' and unbind ${occupantName}? The item becomes Vacant and Ready for Ranking.`,
+      confirmLabel: 'Vacate item',
+    });
+    if (!confirmed) return;
+
+    try {
+      await apiClient.post(`/plantilla/${item.id}/assign`, { personnelId: null });
+      addToast(`Plantilla Item '${item.itemNumber}' has been vacated.`, 'INFO');
+      fetchPlantillas();
+      fetchPersonnel();
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Failed to vacate plantilla item.', 'ERROR');
     }
   };
 
@@ -589,24 +610,61 @@ export const PlantillaManagement: React.FC = () => {
       <div className="card" style={{ padding: '16px 20px', borderRadius: '14px', marginBottom: '20px', border: '1px solid var(--color-border)' }}>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Keyword Search */}
-          <div style={{ flex: '1 1 280px', position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+          <div style={{ flex: '1 1 320px', position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
             <input
+              aria-label="Search item number, position title, school, occupant name, or employee ID"
               type="text"
-              className="form-control"
+              className="form-control has-icon-left"
               placeholder="Search item number, position title, school, occupant name, or employee ID…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '38px', borderRadius: '10px', fontSize: '0.875rem' }}
+              style={{
+                width: '100%',
+                height: '42px',
+                paddingLeft: '38px',
+                paddingRight: searchQuery ? '36px' : '14px',
+                borderRadius: '10px',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-secondary)',
+                color: 'var(--color-text-primary)',
+                fontSize: '0.875rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {/* Status Filter */}
           <select
+            aria-label="Filter by status"
             className="form-control"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            style={{ width: 'auto', minWidth: '160px', borderRadius: '10px', fontSize: '0.8125rem' }}
+            style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
           >
             <option value="ALL">All Statuses ({plantillas.length})</option>
             <option value="VACANT">Vacant Only ({plantillas.filter(p => !p.occupiedByPersonnel && !p.isOccupied).length})</option>
@@ -616,10 +674,11 @@ export const PlantillaManagement: React.FC = () => {
 
           {/* Track Filter */}
           <select
+            aria-label="Filter by track"
             className="form-control"
             value={trackFilter}
             onChange={(e) => setTrackFilter(e.target.value as any)}
-            style={{ width: 'auto', minWidth: '150px', borderRadius: '10px', fontSize: '0.8125rem' }}
+            style={{ width: 'auto', minWidth: '150px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
           >
             <option value="ALL">All Tracks</option>
             <option value="TEACHING">Teaching Track</option>
@@ -628,10 +687,11 @@ export const PlantillaManagement: React.FC = () => {
 
           {/* District Filter */}
           <select
+            aria-label="Filter by district"
             className="form-control"
             value={districtFilter}
             onChange={(e) => setDistrictFilter(e.target.value)}
-            style={{ width: 'auto', minWidth: '160px', borderRadius: '10px', fontSize: '0.8125rem' }}
+            style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
           >
             <option value="ALL">All Districts</option>
             <option value="District 1">District 1</option>
@@ -698,33 +758,64 @@ export const PlantillaManagement: React.FC = () => {
                 </tr>
               ) : filteredPlantillas.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '64px 24px', textAlign: 'center' }}>
-                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--color-bg-tertiary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '12px' }}>
-                      <Building2 size={26} style={{ color: 'var(--color-text-muted)' }} />
+                  <td colSpan={5} style={{ padding: '72px 24px', textAlign: 'center' }}>
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#FFFFFF',
+                      border: '1px solid var(--color-border)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: '16px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
+                    }}>
+                      <Building2 size={30} style={{ color: 'var(--color-text-muted)' }} />
                     </div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '6px' }}>
                       No Plantilla Items Found
                     </div>
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 16px 0', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: '0 0 20px 0', maxWidth: '440px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.55 }}>
                       {plantillas.length === 0
                         ? 'No plantilla items have been registered yet. HR (HRMO) can register official items using the button below.'
-                        : 'No items match your active filters. Try adjusting your search term or status filter.'}
+                        : 'No items match your active filters. Try adjusting your search query, status, or district filters.'}
                     </p>
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={handleOpenAdd}
-                        style={{
-                          fontWeight: 800,
-                          background: theme === 'dark' ? '#D7F84A' : '#141416',
-                          color: theme === 'dark' ? '#141416' : '#FFFFFF',
-                          border: 'none',
-                        }}
-                      >
-                        + Add Plantilla Item (HRMO)
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {(searchQuery || statusFilter !== 'ALL' || trackFilter !== 'ALL' || districtFilter !== 'ALL') && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setStatusFilter('ALL');
+                            setTrackFilter('ALL');
+                            setDistrictFilter('ALL');
+                          }}
+                          style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
+                        >
+                          Reset Filters
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={handleOpenAdd}
+                          style={{
+                            fontSize: '0.8125rem',
+                            fontWeight: 700,
+                            padding: '8px 18px',
+                            borderRadius: '10px',
+                            background: theme === 'dark' ? '#D7F84A' : '#141416',
+                            color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                            border: 'none',
+                          }}
+                        >
+                          + Add Plantilla Item (HRMO)
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -816,7 +907,7 @@ export const PlantillaManagement: React.FC = () => {
                                 <span
                                   className="badge badge-info"
                                   style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 8px', cursor: 'pointer' }}
-                                  onClick={() => navigate('/admin/promotions')}
+                                  {...clickable<HTMLSpanElement>(() => navigate('/admin/promotions'), 'View promotion ranking for this cycle')}
                                   title="Active cycle — click to view promotion ranking"
                                 >
                                   🎯 Open in: {item.activePromotionCycle.name?.slice(0, 24)}…
@@ -962,7 +1053,7 @@ export const PlantillaManagement: React.FC = () => {
 
       {/* MODAL 1: ADD / EDIT PLANTILLA ITEM */}
       {showAddModal && (
-        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay onDismiss={() => setShowAddModal(false)} className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal animate-scale-in" style={{ maxWidth: '560px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -985,6 +1076,7 @@ export const PlantillaManagement: React.FC = () => {
                     Plantilla Item Number (CSC / DBM Code) *
                   </label>
                   <input
+                    aria-label="Plantilla Item Number (CSC / DBM Code)"
                     type="text"
                     required
                     className="form-control"
@@ -1004,6 +1096,7 @@ export const PlantillaManagement: React.FC = () => {
                       Authorized Position Title *
                     </label>
                     <select
+                      aria-label="Authorized Position Title"
                       className="form-control"
                       value={formPositionTitle}
                       onChange={(e) => {
@@ -1052,7 +1145,7 @@ export const PlantillaManagement: React.FC = () => {
                       <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>(Fixed by DBM)</span>
                     </label>
                     <div style={{ position: 'relative' }}>
-                      <input
+                      <input aria-label="Salary Grade (fixed by DBM)"
                         type="text"
                         readOnly
                         disabled
@@ -1076,6 +1169,7 @@ export const PlantillaManagement: React.FC = () => {
                     Station / School Assignment *
                   </label>
                   <select
+                    aria-label="Station / School Assignment"
                     className="form-control"
                     value={formDepartment}
                     onChange={(e) => {
@@ -1098,6 +1192,7 @@ export const PlantillaManagement: React.FC = () => {
                     Division & District
                   </label>
                   <input
+                    aria-label="Division & District"
                     type="text"
                     className="form-control"
                     value={formDivision}
@@ -1232,15 +1327,28 @@ export const PlantillaManagement: React.FC = () => {
                               top: '50%',
                               transform: 'translateY(-50%)',
                               color: 'var(--color-text-muted)',
+                              pointerEvents: 'none',
                             }}
                           />
                           <input
+                            aria-label="Search by name, employee ID, or designation"
                             type="text"
-                            className="form-control"
+                            className="form-control has-icon-left"
                             placeholder="Search by name, employee ID, or designation..."
                             value={formPersonnelSearch}
                             onChange={(e) => setFormPersonnelSearch(e.target.value)}
-                            style={{ paddingLeft: '32px', fontSize: '0.8125rem' }}
+                            style={{
+                              width: '100%',
+                              height: '38px',
+                              paddingLeft: '34px',
+                              fontSize: '0.875rem',
+                              borderRadius: '8px',
+                              border: '1px solid var(--color-border)',
+                              background: 'var(--color-bg-secondary)',
+                              color: 'var(--color-text-primary)',
+                              outline: 'none',
+                              boxSizing: 'border-box',
+                            }}
                           />
                         </div>
 
@@ -1267,7 +1375,8 @@ export const PlantillaManagement: React.FC = () => {
                               return (
                                 <div
                                   key={p.id}
-                                  onClick={() => setFormPersonnelId(p.id)}
+                                  aria-pressed={isCurrentOccupant}
+                                  {...clickable<HTMLDivElement>(() => setFormPersonnelId(p.id))}
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -1365,9 +1474,6 @@ export const PlantillaManagement: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>
-                  Cancel
-                </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
@@ -1388,7 +1494,7 @@ export const PlantillaManagement: React.FC = () => {
 
       {/* MODAL 2: ASSIGN PERSONNEL OCCUPANT */}
       {showAssignModal && selectedPlantillaForAssign && (
-        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay onDismiss={() => setShowAssignModal(false)} className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal animate-scale-in" style={{ maxWidth: '580px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -1415,26 +1521,47 @@ export const PlantillaManagement: React.FC = () => {
                 </div>
               </div>
 
+              {selectedPlantillaForAssign.isOpenForRanking && (
+                <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <AlertCircle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-primary)', lineHeight: 1.4 }}>
+                    <strong style={{ color: '#D97706' }}>Plantilla Open for Grab in Promotion Cycle:</strong> This item is currently tied to active promotion cycle <em>"{selectedPlantillaForAssign.activePromotionCycle?.name}"</em>. Direct manual assignment is locked to protect the official ranking and deliberation process.
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
                   Search & Select Personnel to Assign:
                 </label>
                 <div style={{ position: 'relative', marginBottom: '10px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
                   <input
+                    aria-label="Search & Select Personnel to Assign"
                     type="text"
-                    className="form-control"
+                    className="form-control has-icon-left"
                     placeholder="Search by name, employee ID, designation…"
                     value={assignSearchQuery}
                     onChange={(e) => setAssignSearchQuery(e.target.value)}
-                    style={{ paddingLeft: '32px', fontSize: '0.8125rem' }}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      paddingLeft: '34px',
+                      fontSize: '0.875rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-bg-secondary)',
+                      color: 'var(--color-text-primary)',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
                   />
                 </div>
 
                 <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '6px' }}>
                   {/* Option to Vacate */}
                   <div
-                    onClick={() => setSelectedPersonnelId('')}
+                    {...clickable<HTMLDivElement>(() => setSelectedPersonnelId(''), 'Vacate this plantilla item')}
                     style={{
                       padding: '8px 12px',
                       borderRadius: '8px',
@@ -1451,9 +1578,6 @@ export const PlantillaManagement: React.FC = () => {
                       <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#EF4444' }}>
                         — Vacate Item (No Assigned Occupant) —
                       </div>
-                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                        Makes this plantilla item available for merit ranking and external applications.
-                      </div>
                     </div>
                     {selectedPersonnelId === '' && <CheckCircle2 size={16} color="#EF4444" />}
                   </div>
@@ -1465,7 +1589,8 @@ export const PlantillaManagement: React.FC = () => {
                     return (
                       <div
                         key={p.id}
-                        onClick={() => setSelectedPersonnelId(p.id)}
+                        aria-pressed={isSelected}
+                        {...clickable<HTMLDivElement>(() => setSelectedPersonnelId(p.id))}
                         style={{
                           padding: '8px 12px',
                           borderRadius: '8px',
@@ -1494,20 +1619,22 @@ export const PlantillaManagement: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAssignModal(false)}>
-                  Cancel
-                </button>
                 <button
                   type="submit"
+                  disabled={Boolean(selectedPlantillaForAssign.isOpenForRanking && selectedPersonnelId !== '')}
                   className="btn btn-primary"
                   style={{
                     fontWeight: 800,
                     background: theme === 'dark' ? '#D7F84A' : '#141416',
                     color: theme === 'dark' ? '#141416' : '#FFFFFF',
                     border: 'none',
+                    opacity: (selectedPlantillaForAssign.isOpenForRanking && selectedPersonnelId !== '') ? 0.45 : 1,
+                    cursor: (selectedPlantillaForAssign.isOpenForRanking && selectedPersonnelId !== '') ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  Confirm Assignment
+                  {selectedPlantillaForAssign.isOpenForRanking && selectedPersonnelId !== ''
+                    ? 'Assignment Locked (Open for Promotion)'
+                    : 'Confirm Assignment'}
                 </button>
               </div>
             </form>
@@ -1517,7 +1644,7 @@ export const PlantillaManagement: React.FC = () => {
 
       {/* MODAL 3: LAUNCH MERIT PROMOTION CYCLE FOR VACANT PLANTILLA */}
       {showLaunchCycleModal && selectedPlantillaForCycle && (
-        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay onDismiss={() => setShowLaunchCycleModal(false)} className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal animate-scale-in" style={{ maxWidth: '580px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -1552,6 +1679,7 @@ export const PlantillaManagement: React.FC = () => {
                     Promotion Cycle Title *
                   </label>
                   <input
+                    aria-label="Promotion Cycle Title"
                     type="text"
                     required
                     className="form-control"
@@ -1567,6 +1695,7 @@ export const PlantillaManagement: React.FC = () => {
                       Application Start Date *
                     </label>
                     <input
+                      aria-label="Application Start Date"
                       type="date"
                       required
                       className="form-control"
@@ -1581,6 +1710,7 @@ export const PlantillaManagement: React.FC = () => {
                       Submission Deadline *
                     </label>
                     <input
+                      aria-label="Submission Deadline"
                       type="date"
                       required
                       className="form-control"
@@ -1596,6 +1726,7 @@ export const PlantillaManagement: React.FC = () => {
                     Max Applicants Capacity
                   </label>
                   <input
+                    aria-label="Max Applicants Capacity"
                     type="number"
                     min={1}
                     max={50}
@@ -1608,9 +1739,6 @@ export const PlantillaManagement: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--color-border)' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowLaunchCycleModal(false)}>
-                  Cancel
-                </button>
                 <button
                   type="submit"
                   className="btn btn-primary"

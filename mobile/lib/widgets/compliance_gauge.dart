@@ -40,7 +40,7 @@ class ComplianceGauge extends StatelessWidget {
       animationDuration: 800,
       circularStrokeCap: CircularStrokeCap.round,
       progressColor: progressColor,
-      backgroundColor: const Color(0xFF21262D), // High-contrast dark charcoal ring track
+      backgroundColor: AppTheme.lightBorder, // Crisp light ring track
       center: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -49,7 +49,7 @@ class ComplianceGauge extends StatelessWidget {
             style: GoogleFonts.jetBrainsMono(
               fontSize: fontSize,
               fontWeight: FontWeight.w800,
-              color: Colors.white, // Ultra clear visible white text
+              color: AppTheme.textPrimary, // Visible dark charcoal text
               letterSpacing: -0.5,
             ),
           ),

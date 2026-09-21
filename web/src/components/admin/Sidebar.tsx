@@ -11,6 +11,7 @@ import { AccountSetupModal } from '../common/AccountSetupModal';
 import { CommandPalette } from '../common/CommandPalette';
 import { OfflineSyncBanner } from '../common/OfflineSyncBanner';
 import { personnelDisplayName } from '../../utils/personnel-display';
+import { clickable } from '../../a11y/clickable';
 
 interface NavItem {
   label: string;
@@ -43,13 +44,13 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { label: 'Plantilla Registry', icon: 'employment',   path: '/admin/plantilla',    roles: ['HRMO'] },
       { label: 'Credentials',        icon: 'credentials',  path: '/admin/credentials',  roles: ['SYSTEM_ADMIN', 'AO_II'] },
       { label: 'Compliance & YOS',   icon: 'compliance',   path: '/admin/compliance',   roles: ['HRMO'] },
-      { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['HRMO'] },
+      { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['AO_II', 'HRMO'] },
     ],
   },
   {
     label: 'System Administration',
     items: [
-      { label: 'Reports',            icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN', 'AO_II', 'HRMO'] },
+      { label: 'Reports',            icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
       { label: 'Audit Trail',        icon: 'audit',        path: '/admin/audit',        roles: ['SYSTEM_ADMIN'] },
       { label: 'Settings & Roles',   icon: 'settings',     path: '/admin/settings',     roles: ['SYSTEM_ADMIN'] },
     ],
@@ -250,7 +251,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
           <div
             className="shell-user-card"
-            onClick={() => setShowUserMenu(prev => !prev)}
+            aria-haspopup="menu"
+            aria-expanded={showUserMenu}
+            {...clickable<HTMLDivElement>(() => setShowUserMenu(prev => !prev), 'Account menu')}
           >
             <div className="user-avatar-circle">{initials}</div>
             <div className="user-meta">

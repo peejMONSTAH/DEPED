@@ -2,6 +2,7 @@ import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { StatusBadge } from '../../components/shared/StatusBadge';
@@ -10,13 +11,17 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
 import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { Search, Filter, CheckCircle2, Clock, XCircle, AlertCircle, PlayCircle, Layers, RefreshCw, Archive, ChevronDown, ChevronUp, Building2, Check, X, Sparkles, Plus, Edit3, Trash2 } from 'lucide-react';
+import { clickable, clickableRow } from '../../a11y/clickable';
+import { deliberationBlockReason, isRequirementsVerified } from '../../promotions/stageGate';
+import { usePending } from '../../hooks/usePending';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const { user } = useAuthContext();
   const { theme } = useTheme();
 
-  if (user?.role !== 'HRMO') {
+  if (user?.role === 'SYSTEM_ADMIN') {
     return (
       <div className="p-8 max-w-3xl mx-auto">
         <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-2xl p-8 text-center space-y-4 shadow-sm">
@@ -25,7 +30,7 @@ export const PromotionManagement: React.FC = () => {
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Access Restricted: Promotion Management</h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-            Promotion Management and Comparative Assessment Results (CAR) are exclusive to HR (HRMO) only. Neither Administrative Officer II (AO II) nor System Administrator accounts have access to promotion cycles or applicant evaluation.
+            System Administrator accounts are strictly scoped to user provisioning, credentials, security audits, and system configuration. Promotion cycles and CAR evaluations are restricted to HRMO and Administrative Officers.
           </p>
           <div className="pt-2">
             <a
@@ -40,7 +45,7 @@ export const PromotionManagement: React.FC = () => {
     );
   }
 
-  const isHR = true;
+  const isHR = user?.role === 'HRMO';
 
   const [cycles, setCycles] = useState<any[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<any | null>(null);
@@ -237,12 +242,29 @@ export const PromotionManagement: React.FC = () => {
 
 
   // AO & HRMO Workspace Filters
-  const [aoFilter, setAoFilter] = useState<'ALL' | 'PENDING' | 'RATED'>('ALL');
+  const [aoFilter, setAoFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'DEFICIENT'>('ALL');
   const [hrmoFilter, setHrmoFilter] = useState<'ALL' | 'PENDING' | 'FINALIZED'>('ALL');
 
-  const aoRatedApps = filteredSubmittedApps.filter(a => a.status === 'INITIAL_RATED' || a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.initialRating));
-  const aoPendingApps = filteredSubmittedApps.filter(a => !(a.status === 'INITIAL_RATED' || a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.initialRating)));
-  const displayedAoApps = aoFilter === 'PENDING' ? aoPendingApps : aoFilter === 'RATED' ? aoRatedApps : filteredSubmittedApps;
+  const isApplicantReqVerified = (a: any) =>
+    a.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED' ||
+    a.scoreDetailsJson?.requirementsCheck?.status === 'COMPLETE' ||
+    a.status === 'INITIAL_RATED' ||
+    a.status === 'RANKED' ||
+    a.status === 'APPROVED' ||
+    a.status === 'PROMOTED';
+
+  const isApplicantReqDeficient = (a: any) =>
+    a.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT' ||
+    a.scoreDetailsJson?.requirementsCheck?.status === 'INCOMPLETE';
+
+  const aoVerifiedApps = filteredSubmittedApps.filter(a => isApplicantReqVerified(a));
+  const aoDeficientApps = filteredSubmittedApps.filter(a => isApplicantReqDeficient(a));
+  const aoPendingApps = filteredSubmittedApps.filter(a => !isApplicantReqVerified(a) && !isApplicantReqDeficient(a));
+  const displayedAoApps =
+    aoFilter === 'PENDING' ? aoPendingApps :
+    aoFilter === 'VERIFIED' ? aoVerifiedApps :
+    aoFilter === 'DEFICIENT' ? aoDeficientApps :
+    filteredSubmittedApps;
 
   const hrmoFinalizedApps = filteredSubmittedApps.filter(a => a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating));
   const hrmoPendingApps = filteredSubmittedApps.filter(a => !(a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating)));
@@ -292,26 +314,63 @@ export const PromotionManagement: React.FC = () => {
   const [modalTrack, setModalTrack] = useState<'TEACHING' | 'NON_TEACHING'>('TEACHING');
   const [carViewMode, setCarViewMode] = useState<'TEACHING' | 'NON_TEACHING' | 'ALL'>('ALL');
 
-  // AO II Initial Rating Form State (Official DepEd CAR Criteria)
-  const [aoEduScore, setAoEduScore] = useState<number | ''>(10); // Max 10
-  const [aoTrainScore, setAoTrainScore] = useState<number | ''>(10); // Max 10
-  const [aoExpScore, setAoExpScore] = useState<number | ''>(10); // Max 10
-  const [aoPerfScore, setAoPerfScore] = useState<number | ''>(30); // Max 30 for Teaching (Max 20 for Non-Teaching)
-  // Non-Teaching Specific AO II fields
-  const [aoAccomplishmentsScore, setAoAccomplishmentsScore] = useState<number | ''>(5); // Max 5
-  const [aoAppEduScore, setAoAppEduScore] = useState<number | ''>(15); // Max 15
-  const [aoAppLdScore, setAoAppLdScore] = useState<number | ''>(10); // Max 10
-  const [aoRemarks, setAoRemarks] = useState<string>('Meets basic standards.');
+  // Official DepEd Annex C Standard Documentary Requirements
+  const DEFAULT_ANNEX_C_ITEMS = [
+    { code: 'a', title: 'Letter of Intent', description: 'Addressed to Head of Office with information on vacancy', isMandatory: true },
+    { code: 'b', title: 'Duly Accomplished PDS & WES', description: 'Personal Data Sheet (CS Form 212 Revised 2017) and Work Experience Sheet', isMandatory: true },
+    { code: 'c', title: 'PRC License / Identification Card', description: 'Photocopy of Valid and Updated PRC License/ID, if applicable', isMandatory: false },
+    { code: 'd', title: 'Certificate of Eligibility / Rating', description: 'Photocopy of Certificate of Eligibility / Rating, if applicable', isMandatory: false },
+    { code: 'e', title: 'Scholastic / Academic Records', description: 'Transcript of Records (TOR) & Diploma (including Masteral/Doctorate completion)', isMandatory: true },
+    { code: 'f', title: 'Certificates of Training', description: 'Certificates of Training within 5 years or since last promotion', isMandatory: false },
+    { code: 'g', title: 'Certificate of Employment / Service Record', description: 'Certificate of Employment, Contract of Service, or duly signed Service Record', isMandatory: true },
+    { code: 'h', title: 'Latest Appointment', description: 'Photocopy of Latest Appointment, if applicable', isMandatory: false },
+    { code: 'i', title: 'Performance Ratings (IPCR / OPCR)', description: 'Performance Rating in the last rating period covering 1 year in current/previous position', isMandatory: true },
+    { code: 'j', title: 'Checklist & Omnibus Sworn Statement / Consent', description: 'Checklist of Requirements, Omnibus Sworn Statement on Authenticity & Data Privacy Consent', isMandatory: true },
+    { code: 'k', title: 'Other MOVs / Relevant Documents', description: 'Other Means of Verification relevant to the position applied for', isMandatory: false },
+  ];
 
-  // HRMO Staff Final Rating Form State (Official DepEd CAR Criteria)
-  // Teaching Specific HRMO fields (40 pts total: 25 COIs + 15 NCOIs)
-  const [hrmoPpstCoiScore, setHrmoPpstCoiScore] = useState<number | ''>(25); // Max 25 (Classroom Observation / Demo Teaching)
-  const [hrmoPpstNcoiScore, setHrmoPpstNcoiScore] = useState<number | ''>(15); // Max 15 (Portfolio Annotation / BEI)
-  // Non-Teaching Specific HRMO fields (20 pts total)
+  // AO II Requirements Completeness Verification Form State (Annex C Checklist)
+  const [reqCompletenessStatus, setReqCompletenessStatus] = useState<'COMPLETE' | 'INCOMPLETE'>('COMPLETE');
+  const [reqVerificationRemarks, setReqVerificationRemarks] = useState<string>('');
+  const [reqVerificationItems, setReqVerificationItems] = useState<Array<{
+    code: string;
+    title: string;
+    description: string;
+    isMandatory: boolean;
+    submitted: boolean;
+    documentName?: string;
+    documentType?: string;
+    personnelDocumentId?: number;
+    status: 'VERIFIED' | 'INCOMPLETE' | 'NOT_APPLICABLE';
+    remarks?: string;
+  }>>([]);
+
+  // Retain legacy score variables for backward-compatibility or display fallbacks
+  const [aoEduScore, setAoEduScore] = useState<number | ''>(10);
+  const [aoTrainScore, setAoTrainScore] = useState<number | ''>(10);
+  const [aoExpScore, setAoExpScore] = useState<number | ''>(10);
+  const [aoPerfScore, setAoPerfScore] = useState<number | ''>(30);
+  const [aoAccomplishmentsScore, setAoAccomplishmentsScore] = useState<number | ''>(5);
+  const [aoAppEduScore, setAoAppEduScore] = useState<number | ''>(15);
+  const [aoAppLdScore, setAoAppLdScore] = useState<number | ''>(10);
+  const [aoRemarks, setAoRemarks] = useState<string>('Qualifications verified against DepEd CAR standards.');
+
+  // HRMO Staff Final Deliberation Form State (Official DepEd CAR Criteria - 100 pts Deliberation)
+  const [hrmoEduScore, setHrmoEduScore] = useState<number | ''>(10); // Max 10
+  const [hrmoTrainScore, setHrmoTrainScore] = useState<number | ''>(10); // Max 10
+  const [hrmoExpScore, setHrmoExpScore] = useState<number | ''>(10); // Max 10
+  const [hrmoPerfScore, setHrmoPerfScore] = useState<number | ''>(30); // Max 30 for Teaching, 20 for Non-Teaching
+  // Non-Teaching Specific HRMPSB Criteria
+  const [hrmoAccomplishmentsScore, setHrmoAccomplishmentsScore] = useState<number | ''>(5); // Max 5
+  const [hrmoAppEduScore, setHrmoAppEduScore] = useState<number | ''>(15); // Max 15
+  const [hrmoAppLdScore, setHrmoAppLdScore] = useState<number | ''>(10); // Max 10
   const [hrmoWrittenScore, setHrmoWrittenScore] = useState<number | ''>(5); // Max 5
   const [hrmoBeiScore, setHrmoBeiScore] = useState<number | ''>(5); // Max 5
   const [hrmoSkillsScore, setHrmoSkillsScore] = useState<number | ''>(10); // Max 10
   const [hrmoPotentialScore, setHrmoPotentialScore] = useState<number | ''>(20); // Max 20 Total Potential
+  // Teaching Specific HRMPSB Criteria
+  const [hrmoPpstCoiScore, setHrmoPpstCoiScore] = useState<number | ''>(25); // Max 25 (Classroom Observation / Demo Teaching)
+  const [hrmoPpstNcoiScore, setHrmoPpstNcoiScore] = useState<number | ''>(15); // Max 15 (Teacher Reflection / Portfolio)
   // CAR Governance Fields
   const [hrmoRemarks, setHrmoRemarks] = useState<string>('Deliberated and qualified for appointment.');
   const [forBackgroundInvestigation, setForBackgroundInvestigation] = useState<'YES' | 'NO'>('YES');
@@ -424,6 +483,16 @@ export const PromotionManagement: React.FC = () => {
       addToast('Access denied: System Administrator cannot modify promotion cycles. Only HR (HRMO) can update cycle status.', 'ERROR');
       return;
     }
+    // CANCELLED and FINALIZED close the cycle to applicants and reviewers alike.
+    if (newStatus === 'CANCELLED' || newStatus === 'FINALIZED' || newStatus === 'CLOSED') {
+      const { confirmed } = await confirm({
+        title: `Set cycle to ${newStatus}`,
+        message: `Change this promotion cycle to ${newStatus}? Applicants and reviewers lose access to it in its current state.`,
+        confirmLabel: `Set ${newStatus}`,
+      });
+      if (!confirmed) return;
+    }
+
     try {
       await apiClient.patch(`/promotions/cycles/${cycleId}`, { status: newStatus });
       addToast(`Promotion cycle status updated to "${newStatus}"! Real-time synchronization active.`, 'SUCCESS');
@@ -614,10 +683,10 @@ export const PromotionManagement: React.FC = () => {
     setLeaderboard(ranked);
   };
 
-  // AO II Initial Rating Handler (Official DepEd CAR Criteria)
+  // AO II Requirements Completeness Verification Handler (Official DepEd Annex C)
   const handleOpenAoRating = (app: any) => {
-    if (user?.role !== 'AO_II' && user?.role !== 'SYSTEM_ADMIN') {
-      addToast('Forbidden: Only Administrative Officer II (AO II) officers can submit or revise initial ratings.', 'ERROR');
+    if (user?.role !== 'AO_II' && user?.role !== 'HRMO' && user?.role !== 'SYSTEM_ADMIN') {
+      addToast('Forbidden: Only Administrative Officer II (AO II) and HRMO officers can verify requirements completeness.', 'ERROR');
       return;
     }
     if (!isAoDistrictAllowed) {
@@ -625,67 +694,79 @@ export const PromotionManagement: React.FC = () => {
       return;
     }
     setSelectedAppForModal(app);
-    const existing = app.scoreDetailsJson?.initialRating || {};
-    const desig = (app.designation || '').toLowerCase();
-    const isNonTeaching = app.track === 'NON_TEACHING' || app.scoreDetailsJson?.track === 'NON_TEACHING' || desig.includes('administrative') || desig.includes('registrar') || desig.includes('officer') || desig.includes('assistant');
-    
-    setModalTrack(isNonTeaching ? 'NON_TEACHING' : 'TEACHING');
-    setAoEduScore(Number(existing.educationScore ?? 10));
-    setAoTrainScore(Number(existing.trainingScore ?? 10));
-    setAoExpScore(Number(existing.experienceScore ?? 10));
-    setAoPerfScore(Number(existing.performanceScore ?? (isNonTeaching ? 20 : 30)));
-    setAoAccomplishmentsScore(Number(existing.outstandingAccomplishmentsScore ?? 5));
-    setAoAppEduScore(Number(existing.applicationOfEducationScore ?? 15));
-    setAoAppLdScore(Number(existing.applicationOfLdScore ?? 10));
-    setAoRemarks(existing.aoRemarks || 'Qualifications verified against DepEd CAR standards.');
+
+    const annexC = app.scoreDetailsJson?.annexCChecklist || {};
+    const existingItems = Array.isArray(annexC.items) ? annexC.items : [];
+
+    const mappedItems = DEFAULT_ANNEX_C_ITEMS.map(def => {
+      const found = existingItems.find((it: any) => it.code === def.code);
+      const isSubmitted = Boolean(found?.submitted);
+      const prevVerification = found?.verificationStatus || (found?.status === 'VERIFIED' ? 'VERIFIED' : (isSubmitted ? 'VERIFIED' : (def.isMandatory ? 'INCOMPLETE' : 'NOT_APPLICABLE')));
+      return {
+        code: def.code,
+        title: found?.title || def.title,
+        description: found?.description || def.description,
+        isMandatory: found?.isMandatory ?? def.isMandatory,
+        submitted: isSubmitted,
+        documentName: found?.documentName,
+        documentType: found?.documentType,
+        personnelDocumentId: found?.personnelDocumentId,
+        status: (prevVerification as 'VERIFIED' | 'INCOMPLETE' | 'NOT_APPLICABLE') || 'VERIFIED',
+        remarks: found?.verificationRemarks || found?.remarks || '',
+      };
+    });
+
+    setReqVerificationItems(mappedItems);
+
+    const reqCheck = app.scoreDetailsJson?.requirementsCheck || {};
+    const isComplete = reqCheck.status === 'COMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
+    setReqCompletenessStatus(reqCheck.status || (isComplete ? 'COMPLETE' : 'COMPLETE'));
+    setReqVerificationRemarks(reqCheck.remarks || (isComplete ? 'All documentary requirements verified complete and authentic.' : ''));
+
     setShowAoModal(true);
   };
 
-  const handleSubmitAoRating = async (e: React.FormEvent) => {
+    const savingAoRating = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleSubmitAoRating = (e: React.FormEvent) => {
+    e.preventDefault();
+    void savingAoRating.run(() => handleSubmitAoRatingUnguarded(e));
+  };
+
+  const handleSubmitAoRatingUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAppForModal || !selectedCycle) return;
-    if (user?.role !== 'AO_II' && user?.role !== 'SYSTEM_ADMIN') {
-      addToast('Forbidden: Only Administrative Officer II (AO II) officers can submit or revise initial ratings.', 'ERROR');
+    if (user?.role !== 'AO_II' && user?.role !== 'HRMO' && user?.role !== 'SYSTEM_ADMIN') {
+      addToast('Forbidden: Only Administrative Officer II (AO II) and HRMO officers can verify requirements completeness.', 'ERROR');
       return;
     }
 
-    const isNonTeaching = modalTrack === 'NON_TEACHING';
-    const maxPossible = isNonTeaching ? 80 : 60;
-    let initialTotal = Number(aoEduScore) + Number(aoTrainScore) + Number(aoExpScore) + Number(aoPerfScore);
-    if (isNonTeaching) {
-      initialTotal += Number(aoAccomplishmentsScore) + Number(aoAppEduScore) + Number(aoAppLdScore);
-    }
-    initialTotal = parseFloat(initialTotal.toFixed(2));
-    const isResubmission = selectedAppForModal.status === 'INITIAL_RATED' || !!selectedAppForModal.scoreDetailsJson?.initialRating;
-
     try {
-      await apiClient.post(`/promotions/cycles/${selectedCycle.id}/applications/${selectedAppForModal.id}/initial-rating`, {
-        track: modalTrack,
-        educationScore: aoEduScore,
-        trainingScore: aoTrainScore,
-        experienceScore: aoExpScore,
-        performanceScore: aoPerfScore,
-        outstandingAccomplishmentsScore: isNonTeaching ? aoAccomplishmentsScore : undefined,
-        applicationOfEducationScore: isNonTeaching ? aoAppEduScore : undefined,
-        applicationOfLdScore: isNonTeaching ? aoAppLdScore : undefined,
-        remarks: aoRemarks,
+      await apiClient.post(`/promotions/cycles/${selectedCycle.id}/applications/${selectedAppForModal.id}/verify-requirements`, {
+        status: reqCompletenessStatus,
+        remarks: reqVerificationRemarks || (reqCompletenessStatus === 'COMPLETE' ? 'All documentary requirements verified complete and authentic by AO II.' : 'Documentary requirements incomplete or deficient.'),
+        itemVerifications: reqVerificationItems.map(it => ({
+          code: it.code,
+          status: it.status,
+          remarks: it.remarks,
+        })),
       });
+
       addToast(
-        isResubmission
-          ? `Revised Initial Rating (${initialTotal}/${maxPossible} pts) resubmitted by AO II for ${selectedAppForModal.name}. Leaderboard updated live!`
-          : `Initial Rating (${initialTotal}/${maxPossible} pts) submitted by AO II for ${selectedAppForModal.name}. Passed to HRMO Staff!`,
-        'SUCCESS'
+        reqCompletenessStatus === 'COMPLETE'
+          ? `Requirements for ${selectedAppForModal.name} verified as COMPLETE. Endorsed for HRMPSB score deliberation!`
+          : `Requirements for ${selectedAppForModal.name} marked INCOMPLETE / DEFICIENT.`,
+        reqCompletenessStatus === 'COMPLETE' ? 'SUCCESS' : 'WARNING'
       );
     } catch (err: any) {
+      // Keep the modal open so the officer can retry rather than assume it saved.
       addToast(
-        isResubmission
-          ? `Revised Initial Rating (${initialTotal}/${maxPossible} pts) resubmitted for ${selectedAppForModal.name}.`
-          : `Initial Rating (${initialTotal}/${maxPossible} pts) recorded for ${selectedAppForModal.name}.`,
-        'SUCCESS'
+        err.response?.data?.message || `Could not record the requirements verification for ${selectedAppForModal.name}. Please try again.`,
+        'ERROR'
       );
+      return;
     }
 
-    // Refresh cycle data from backend
     await fetchApplicationsForCycle(selectedCycle.id);
     await fetchLeaderboard(selectedCycle.id);
     setShowAoModal(false);
@@ -697,32 +778,59 @@ export const PromotionManagement: React.FC = () => {
       addToast('Forbidden: System Administrator cannot perform HR ratings. Only HRMO staff can finalize promotion ratings.', 'ERROR');
       return;
     }
+
+    // The server enforces this too (REQUIREMENTS_NOT_VERIFIED); checking here
+    // means HR is told before filling in the whole assessment, not after.
+    const blocked = deliberationBlockReason(app.scoreDetailsJson);
+    if (blocked) {
+      addToast(blocked, 'ERROR');
+      return;
+    }
     const desig = (app.designation || '').toLowerCase();
     const isNonTeaching = selectedCycle?.rulesConfigurationJson?.track === 'NON_TEACHING' || app.track === 'NON_TEACHING' || app.scoreDetailsJson?.track === 'NON_TEACHING' || (!isCycleTeaching && (desig.includes('administrative') || desig.includes('registrar') || desig.includes('officer') || desig.includes('assistant')));
     
     setModalTrack(isNonTeaching ? 'NON_TEACHING' : 'TEACHING');
 
-    const aoScore = getApplicantAoScore(app, !isNonTeaching);
-    setSelectedAppForModal({ ...app, aoSubtotal: aoScore, initialTotalScore: aoScore });
+    setSelectedAppForModal(app);
 
-    const existing = app.scoreDetailsJson?.finalRating || {};
-    // Teaching PPST COIs (25) & NCOIs (15) -> 40 pts total
-    setHrmoPpstCoiScore(Number(existing.ppstCoiScore ?? 25));
-    setHrmoPpstNcoiScore(Number(existing.ppstNcoiScore ?? 15));
-    // Non-Teaching Potential (20)
-    setHrmoWrittenScore(Number(existing.potentialWrittenScore ?? 5));
-    setHrmoBeiScore(Number(existing.potentialBeiScore ?? 5));
-    setHrmoSkillsScore(Number(existing.potentialSkillsScore ?? 10));
-    setHrmoPotentialScore(Number(existing.potentialScore ?? 20));
+    const existingFinal = app.scoreDetailsJson?.finalRating || {};
+    const existingInitial = app.scoreDetailsJson?.initialRating || {};
+
+    // Common qualification criteria (HRMPSB Deliberation)
+    setHrmoEduScore(Number(existingFinal.educationScore ?? existingInitial.educationScore ?? 10));
+    setHrmoTrainScore(Number(existingFinal.trainingScore ?? existingInitial.trainingScore ?? 10));
+    setHrmoExpScore(Number(existingFinal.experienceScore ?? existingInitial.experienceScore ?? 10));
+    setHrmoPerfScore(Number(existingFinal.performanceScore ?? existingInitial.performanceScore ?? (isNonTeaching ? 20 : 30)));
+
+    // Non-Teaching Specific Criteria
+    setHrmoAccomplishmentsScore(Number(existingFinal.outstandingAccomplishmentsScore ?? existingInitial.outstandingAccomplishmentsScore ?? 5));
+    setHrmoAppEduScore(Number(existingFinal.applicationOfEducationScore ?? existingInitial.applicationOfEducationScore ?? 15));
+    setHrmoAppLdScore(Number(existingFinal.applicationOfLdScore ?? existingInitial.applicationOfLdScore ?? 10));
+    setHrmoWrittenScore(Number(existingFinal.potentialWrittenScore ?? 5));
+    setHrmoBeiScore(Number(existingFinal.potentialBeiScore ?? 5));
+    setHrmoSkillsScore(Number(existingFinal.potentialSkillsScore ?? 10));
+    setHrmoPotentialScore(Number(existingFinal.potentialScore ?? 20));
+
+    // Teaching Specific Criteria
+    setHrmoPpstCoiScore(Number(existingFinal.ppstCoiScore ?? 25));
+    setHrmoPpstNcoiScore(Number(existingFinal.ppstNcoiScore ?? 15));
+
     // CAR Governance
-    setHrmoRemarks(existing.hrmoRemarks || 'Deliberated and qualified in accordance with DepEd CAR standards.');
+    setHrmoRemarks(existingFinal.hrmoRemarks || 'Deliberated and qualified in accordance with DepEd CAR standards.');
     setForBackgroundInvestigation(app.forBackgroundInvestigation || app.scoreDetailsJson?.forBackgroundInvestigation || 'YES');
     setForAppointment(app.forAppointment || app.scoreDetailsJson?.forAppointment || 'Recommended for Appointment');
     setForProbation(app.forProbation || app.scoreDetailsJson?.forProbation || '6 months');
     setShowHrmoModal(true);
   };
 
-  const handleSubmitHrmoRating = async (e: React.FormEvent) => {
+    const savingHrmoRating = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleSubmitHrmoRating = (e: React.FormEvent) => {
+    e.preventDefault();
+    void savingHrmoRating.run(() => handleSubmitHrmoRatingUnguarded(e));
+  };
+
+  const handleSubmitHrmoRatingUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAppForModal || !selectedCycle) return;
     if (!isHR) {
@@ -731,20 +839,41 @@ export const PromotionManagement: React.FC = () => {
     }
 
     const isNonTeaching = modalTrack === 'NON_TEACHING';
-    const hrmoTotal = isNonTeaching
-      ? parseFloat((Number(hrmoWrittenScore) + Number(hrmoBeiScore) + Number(hrmoSkillsScore)).toFixed(2))
-      : parseFloat((Number(hrmoPpstCoiScore) + Number(hrmoPpstNcoiScore)).toFixed(2));
+    const edu = Number(hrmoEduScore);
+    const train = Number(hrmoTrainScore);
+    const exp = Number(hrmoExpScore);
+    const perf = Number(hrmoPerfScore);
 
-    const initTotal = getApplicantAoScore(selectedAppForModal, !isNonTeaching);
-    const combinedTotal = parseFloat((initTotal + hrmoTotal).toFixed(2));
+    let totalCar = 0;
+    if (isNonTeaching) {
+      const outAcc = Number(hrmoAccomplishmentsScore);
+      const appEdu = Number(hrmoAppEduScore);
+      const appLd = Number(hrmoAppLdScore);
+      const written = Number(hrmoWrittenScore);
+      const bei = Number(hrmoBeiScore);
+      const skills = Number(hrmoSkillsScore);
+      totalCar = parseFloat((edu + train + exp + perf + outAcc + appEdu + appLd + written + bei + skills).toFixed(2));
+    } else {
+      const coi = Number(hrmoPpstCoiScore);
+      const ncoi = Number(hrmoPpstNcoiScore);
+      totalCar = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
+    }
+
     const isResubmission = selectedAppForModal.status === 'FINAL_RANKED' || !!selectedAppForModal.scoreDetailsJson?.finalRating;
 
     try {
       await apiClient.post(`/promotions/cycles/${selectedCycle.id}/applications/${selectedAppForModal.id}/final-rating`, {
         track: modalTrack,
+        educationScore: edu,
+        trainingScore: train,
+        experienceScore: exp,
+        performanceScore: perf,
+        outstandingAccomplishmentsScore: isNonTeaching ? hrmoAccomplishmentsScore : undefined,
+        applicationOfEducationScore: isNonTeaching ? hrmoAppEduScore : undefined,
+        applicationOfLdScore: isNonTeaching ? hrmoAppLdScore : undefined,
         ppstCoiScore: isNonTeaching ? undefined : hrmoPpstCoiScore,
         ppstNcoiScore: isNonTeaching ? undefined : hrmoPpstNcoiScore,
-        potentialScore: isNonTeaching ? hrmoTotal : undefined,
+        potentialScore: isNonTeaching ? Number(hrmoWrittenScore) + Number(hrmoBeiScore) + Number(hrmoSkillsScore) : undefined,
         potentialWrittenScore: isNonTeaching ? hrmoWrittenScore : undefined,
         potentialBeiScore: isNonTeaching ? hrmoBeiScore : undefined,
         potentialSkillsScore: isNonTeaching ? hrmoSkillsScore : undefined,
@@ -755,15 +884,17 @@ export const PromotionManagement: React.FC = () => {
       });
       addToast(
         isResubmission
-          ? `Comparative Assessment Result (${combinedTotal}/100) revised by HRMO Board for ${selectedAppForModal.name}!`
-          : `Comparative Assessment Result (${combinedTotal}/100) finalized by HRMO Board for ${selectedAppForModal.name}!`,
+          ? `Comparative Assessment Result (${totalCar}/100) revised by HRMPSB Board for ${selectedAppForModal.name}!`
+          : `Comparative Assessment Result (${totalCar}/100) finalized by HRMPSB Board for ${selectedAppForModal.name}!`,
         'SUCCESS'
       );
     } catch (err: any) {
+      // Keep the modal open so the board can retry rather than assume the score saved.
       addToast(
-        `Comparative Assessment Result (${combinedTotal}/100) recorded for ${selectedAppForModal.name}.`,
-        'SUCCESS'
+        err.response?.data?.message || `Could not save the Comparative Assessment Result for ${selectedAppForModal.name}. Please try again.`,
+        'ERROR'
       );
+      return;
     }
 
     // Refresh cycle data from backend
@@ -820,7 +951,14 @@ export const PromotionManagement: React.FC = () => {
     }
   };
 
-  const handleCreateCycle = async (e: React.FormEvent) => {
+    const creatingCycle = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleCreateCycle = (e: React.FormEvent) => {
+    e.preventDefault();
+    void creatingCycle.run(() => handleCreateCycleUnguarded(e));
+  };
+
+  const handleCreateCycleUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isHR) {
       addToast('Access denied: System Administrator cannot create promotions. Promotion cycles can only be created by HR (HRMO).', 'ERROR');
@@ -881,7 +1019,14 @@ export const PromotionManagement: React.FC = () => {
     }
   };
 
-  const handleSubmitApplicationForm = async (e: React.FormEvent) => {
+    const savingApplication = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleSubmitApplicationForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    void savingApplication.run(() => handleSubmitApplicationFormUnguarded(e));
+  };
+
+  const handleSubmitApplicationFormUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCycle) return;
 
@@ -1042,9 +1187,11 @@ export const PromotionManagement: React.FC = () => {
 
           {/* Quick Search */}
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
             <input
+              aria-label="Search cycles"
               type="text"
+              className="has-icon-left"
               placeholder="Search cycles..."
               value={cycleSearchQuery}
               onChange={(e) => handleCycleSearchChange(e.target.value)}
@@ -1122,30 +1269,84 @@ export const PromotionManagement: React.FC = () => {
           {/* Cycle Cards List */}
           <div className="promotion-cycle-grid" style={{ display: 'grid', gap: '10px', paddingRight: '2px' }}>
             {cycles.length === 0 ? (
-              <div style={{
-                padding: '24px 16px',
-                textAlign: 'center',
-                background: 'var(--color-bg-tertiary)',
-                borderRadius: '12px',
-                border: '1px dashed var(--color-border)',
-              }}>
-                <Archive size={28} style={{ color: 'var(--color-text-muted)', margin: '0 auto 8px auto', display: 'block', opacity: 0.6 }} />
-                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                  No {cycleStatusFilter !== 'ALL' ? cycleStatusFilter.toLowerCase() : ''} cycles found
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  width: '100%',
+                  padding: '56px 24px',
+                  textAlign: 'center',
+                  background: 'var(--color-bg-tertiary)',
+                  borderRadius: '16px',
+                  border: '1.5px dashed var(--color-border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '50%',
+                    background: theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
+                    border: '1px solid var(--color-border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '16px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
+                  }}
+                >
+                  <Archive size={30} style={{ color: 'var(--color-text-muted)' }} />
                 </div>
-                <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', margin: '0 0 12px 0' }}>
-                  Try changing your status filter or clearing your search term.
+                <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
+                  No {cycleStatusFilter !== 'ALL' ? `${cycleStatusFilter.toLowerCase()} ` : ''}cycles found
+                </div>
+                <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: '0 0 20px 0', maxWidth: '440px', lineHeight: 1.55 }}>
+                  {cycleSearchQuery
+                    ? `No promotion cycles match "${cycleSearchQuery}". Try clearing your search query or switching status filters.`
+                    : cycleStatusFilter !== 'ALL'
+                      ? `There are no ${cycleStatusFilter.toLowerCase()} promotion cycles at this time. Switch back to view all cycles.`
+                      : 'No promotion cycles have been registered yet. HR administrators can create a new cycle to get started.'}
                 </p>
-                {cycleStatusFilter !== 'ALL' && (
-                  <button
-                    type="button"
-                    onClick={() => handleCycleFilterChange('ALL')}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.6875rem', padding: '4px 12px', margin: '0 auto' }}
-                  >
-                    Reset to All Cycles
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {(cycleStatusFilter !== 'ALL' || cycleSearchQuery) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleCycleFilterChange('ALL');
+                        handleCycleSearchChange('');
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
+                    >
+                      Reset to All Cycles
+                    </button>
+                  )}
+                  {isHR && (
+                    <button
+                      type="button"
+                      onClick={() => setShowConfigModal(true)}
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        fontSize: '0.8125rem',
+                        fontWeight: 700,
+                        padding: '8px 18px',
+                        borderRadius: '10px',
+                        background: theme === 'dark' ? '#D7F84A' : '#141416',
+                        color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                        border: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <AppIcon name="new-transaction" size={14} />
+                      Create Promotion Cycle
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               cycles.map(cycle => {
@@ -1323,6 +1524,7 @@ export const PromotionManagement: React.FC = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
                             <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Status:</span>
                             <select
+                              aria-label="Promotion cycle status"
                               value={selectedCycle.status}
                               onChange={(e) => handleUpdateCycleStatus(selectedCycle.id, e.target.value)}
                               style={{
@@ -1548,7 +1750,7 @@ export const PromotionManagement: React.FC = () => {
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    AO II Rating Workspace
+                    AO II Requirements Desk
                   </button>
                 )}
 
@@ -1628,7 +1830,9 @@ export const PromotionManagement: React.FC = () => {
                         {/* Integrated Candidate Filter Input */}
                         <div style={{ position: 'relative', width: '210px' }}>
                           <input
+                            aria-label="Filter applicants"
                             type="text"
+                            className="has-icon-left"
                             placeholder="Filter applicants..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -1781,7 +1985,10 @@ export const PromotionManagement: React.FC = () => {
                           ) : (
                             filteredLeaderboard.map((item, index) => {
                               const isPromoted = Boolean(item.isPromoted || item.status === 'OFFICIALLY_PROMOTED' || item.scoreDetailsJson?.appointmentApproved);
-                              const hasAoRating = Boolean(item.hasAoRating || item.scoreDetailsJson?.initialRating || item.initialDetails || (item.aoSubtotal && item.aoSubtotal > 0));
+                              const reqCheck = item.scoreDetailsJson?.requirementsCheck;
+                              const isComplete = reqCheck?.status === 'COMPLETE' || item.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
+                              const isDeficient = reqCheck?.status === 'INCOMPLETE' || item.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
+                              const hasAoRating = isComplete || Boolean(item.hasAoRating || item.scoreDetailsJson?.initialRating || item.initialDetails || (item.aoSubtotal && item.aoSubtotal > 0));
                               const hasHrmoRating = Boolean(item.hasHrmoRating || item.scoreDetailsJson?.finalRating || item.finalDetails || (item.hrmoSubtotal && item.hrmoSubtotal > 0));
 
                               const totalScore = Number(item.overallTotalScore || item.totalScore || 0);
@@ -1819,7 +2026,8 @@ export const PromotionManagement: React.FC = () => {
                                 <React.Fragment key={item.id}>
                                   <tr
                                     className="table-row-hover"
-                                    onClick={() => toggleParticipantExpand(item.id)}
+                                    aria-expanded={isExpanded}
+                                    {...clickableRow(() => toggleParticipantExpand(item.id))}
                                     style={{
                                       borderBottom: isExpanded ? 'none' : '1px solid var(--color-border)',
                                       borderLeft: isWithinQuota ? '3px solid #10B981' : '3px solid transparent',
@@ -1976,7 +2184,7 @@ export const PromotionManagement: React.FC = () => {
                                     {/* Total CAR Score & Direct Subtotal Breakdown */}
                                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                                       <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '160px' }}>
-                                        {hasAoRating || hasHrmoRating ? (
+                                        {hasHrmoRating ? (
                                           <>
                                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px' }}>
                                               <span style={{
@@ -1989,8 +2197,8 @@ export const PromotionManagement: React.FC = () => {
                                               </span>
                                               <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>/ 100</span>
                                             </div>
-                                            <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)', marginTop: '1px' }}>
-                                              AO: {aoSubtotal.toFixed(1)} · HRMO: {hrmoSubtotal.toFixed(1)}
+                                            <div style={{ fontSize: '0.6875rem', color: '#059669', fontFamily: 'var(--font-mono)', marginTop: '1px', fontWeight: 600 }}>
+                                              HRMPSB Deliberated
                                             </div>
                                             <div style={{ width: '100%', height: '3px', background: 'var(--color-border)', borderRadius: '2px', marginTop: '4px', overflow: 'hidden' }}>
                                               <div style={{
@@ -2006,16 +2214,24 @@ export const PromotionManagement: React.FC = () => {
                                             <span style={{
                                               fontSize: '0.75rem',
                                               fontWeight: 700,
-                                              color: '#D97706',
-                                              background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FEF3C7',
+                                              color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706',
+                                              background: isComplete
+                                                ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#D1FAE5')
+                                                : isDeficient
+                                                ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2')
+                                                : (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FEF3C7'),
                                               padding: '2px 8px',
                                               borderRadius: '9999px',
-                                              border: '1px solid rgba(217, 119, 6, 0.3)',
+                                              border: isComplete
+                                                ? '1px solid rgba(5, 150, 105, 0.3)'
+                                                : isDeficient
+                                                ? '1px solid rgba(220, 38, 38, 0.3)'
+                                                : '1px solid rgba(217, 119, 6, 0.3)',
                                             }}>
-                                              Unrated
+                                              {isComplete ? 'Reqs Complete' : isDeficient ? 'Reqs Deficient' : 'Unverified'}
                                             </span>
                                             <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '3px' }}>
-                                              Pending AO II Rating
+                                              {isComplete ? 'Ready for Deliberation' : 'Pending AO II Check'}
                                             </span>
                                           </div>
                                         )}
@@ -2025,7 +2241,7 @@ export const PromotionManagement: React.FC = () => {
                                     {/* Actions */}
                                     <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                        {/* Direct Rate / Revise Rating Button for AO II / Admin */}
+                                        {/* Requirements Check Button for AO II / Admin */}
                                         {(user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN') && (
                                           <button
                                             type="button"
@@ -2037,7 +2253,7 @@ export const PromotionManagement: React.FC = () => {
                                               fontSize: '0.6875rem',
                                               color: '#ffffff',
                                               border: 'none',
-                                              background: hasAoRating ? '#D97706' : 'var(--color-primary)',
+                                              background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
                                               padding: '4px 10px',
                                               borderRadius: '6px',
                                               fontWeight: 700,
@@ -2047,10 +2263,10 @@ export const PromotionManagement: React.FC = () => {
                                               cursor: 'pointer',
                                               boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                                             }}
-                                            title={hasAoRating ? 'Revise AO II Initial Rating' : 'Evaluate and Rate Candidate as AO II'}
+                                            title={isComplete ? 'Annex C Requirements Complete & Verified' : isDeficient ? 'Annex C Requirements Deficient' : 'Check & Verify Annex C Requirements as AO II'}
                                           >
-                                            <AppIcon name="edit" size={12} color="#ffffff" />
-                                            {hasAoRating ? 'Revise Rating' : 'Rate (AO II)'}
+                                            <AppIcon name={isComplete ? 'check' : 'checklist'} size={12} color="#ffffff" />
+                                            {isComplete ? 'Reqs Verified' : isDeficient ? 'Deficient' : 'Check Reqs'}
                                           </button>
                                         )}
 
@@ -2137,7 +2353,7 @@ export const PromotionManagement: React.FC = () => {
                                     <tr style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
                                       <td colSpan={6} style={{ padding: '14px 18px 18px 18px' }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
-                                          {/* Stage 1: AO II Initial Evaluation Card */}
+                                          {/* Stage 1: AO II Documentary Requirements Check (Annex C) */}
                                           <div style={{
                                             background: 'var(--color-bg-card)',
                                             border: '1px solid var(--color-border)',
@@ -2146,68 +2362,63 @@ export const PromotionManagement: React.FC = () => {
                                           }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border)' }}>
                                               <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                                Stage 1 • AO II Evaluation
+                                                Stage 1 • AO II Documentary Check (Annex C)
                                               </span>
-                                              <span style={{ fontSize: '0.8125rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: hasAoRating ? 'var(--color-text-primary)' : '#D97706' }}>
-                                                {hasAoRating ? `${aoSubtotal.toFixed(2)} / ${isCycleTeaching ? '60.00' : '80.00'}` : 'Pending Rating'}
+                                              <span style={{
+                                                fontSize: '0.75rem',
+                                                fontWeight: 800,
+                                                color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706',
+                                                background: isComplete
+                                                  ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#D1FAE5')
+                                                  : isDeficient
+                                                  ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2')
+                                                  : (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FEF3C7'),
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                              }}>
+                                                {isComplete ? 'Complete / Verified' : isDeficient ? 'Deficient' : 'Pending Check'}
                                               </span>
                                             </div>
 
-                                            {hasAoRating ? (
-                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                  <span>Education:</span>
-                                                  <strong style={{ color: 'var(--color-text-primary)' }}>{eduScore.toFixed(2)} / 10.00</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                  <span>Training & Seminars:</span>
-                                                  <strong style={{ color: 'var(--color-text-primary)' }}>{trainScore.toFixed(2)} / 10.00</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                  <span>Experience:</span>
-                                                  <strong style={{ color: 'var(--color-text-primary)' }}>{expScore.toFixed(2)} / 10.00</strong>
-                                                </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                  <span>Performance:</span>
-                                                  <strong style={{ color: 'var(--color-text-primary)' }}>{perfScore.toFixed(2)} / {isCycleTeaching ? '30.00' : '20.00'}</strong>
-                                                </div>
-                                                {!isCycleTeaching && (
-                                                  <>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                      <span>Accomplishments:</span>
-                                                      <strong style={{ color: 'var(--color-text-primary)' }}>{accomplishmentsScore.toFixed(2)} / 5.00</strong>
-                                                    </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                      <span>App of Education:</span>
-                                                      <strong style={{ color: 'var(--color-text-primary)' }}>{appEduScore.toFixed(2)} / 15.00</strong>
-                                                    </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
-                                                      <span>App of L&D:</span>
-                                                      <strong style={{ color: 'var(--color-text-primary)' }}>{appLdScore.toFixed(2)} / 10.00</strong>
-                                                    </div>
-                                                  </>
-                                                )}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
+                                              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
+                                                <span>Verification Status:</span>
+                                                <strong style={{ color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706' }}>
+                                                  {isComplete ? 'All Requirements Verified' : isDeficient ? 'Incomplete / Deficient' : 'Pending AO II Verification'}
+                                                </strong>
                                               </div>
-                                            ) : (
-                                              <div style={{ padding: '10px 0', textAlign: 'center' }}>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '0 0 10px 0' }}>
-                                                  Awaiting Initial Qualification Evaluation by Administrative Officer II.
-                                                </p>
-                                                {(user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN') && (
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleOpenAoRating(item);
-                                                    }}
-                                                    className="btn btn-primary btn-sm"
-                                                    style={{ fontSize: '0.6875rem', padding: '4px 12px', borderRadius: '6px' }}
-                                                  >
-                                                    Evaluate Applicant Now
-                                                  </button>
-                                                )}
-                                              </div>
-                                            )}
+                                              {reqCheck?.verifiedByName && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
+                                                  <span>Verified By:</span>
+                                                  <strong style={{ color: 'var(--color-text-primary)' }}>{reqCheck.verifiedByName}</strong>
+                                                </div>
+                                              )}
+                                              {reqCheck?.verifiedAt && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
+                                                  <span>Date Verified:</span>
+                                                  <strong style={{ color: 'var(--color-text-primary)' }}>{new Date(reqCheck.verifiedAt).toLocaleDateString()}</strong>
+                                                </div>
+                                              )}
+                                              {reqCheck?.remarks && (
+                                                <div style={{ marginTop: '4px', padding: '6px 8px', background: 'var(--color-bg-tertiary)', borderRadius: '6px', fontSize: '0.6875rem', fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
+                                                  "{reqCheck.remarks}"
+                                                </div>
+                                              )}
+
+                                              {(user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN') && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenAoRating(item);
+                                                  }}
+                                                  className="btn btn-primary btn-sm"
+                                                  style={{ fontSize: '0.6875rem', padding: '5px 12px', borderRadius: '6px', marginTop: '6px' }}
+                                                >
+                                                  {isComplete ? 'Review / Update Verification' : 'Check Requirements (Annex C)'}
+                                                </button>
+                                              )}
+                                            </div>
                                           </div>
 
                                           {/* Stage 2: HRMO Final Deliberation Card */}
@@ -2267,19 +2478,26 @@ export const PromotionManagement: React.FC = () => {
                                                 <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '0 0 10px 0' }}>
                                                   {hasAoRating ? 'Awaiting Final Deliberation by HRMO Board.' : 'Stage 2 deliberation opens once AO II evaluation is complete.'}
                                                 </p>
-                                                {isHR && (
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleOpenHrmoRating(item);
-                                                    }}
-                                                    className="btn btn-primary btn-sm"
-                                                    style={{ fontSize: '0.6875rem', padding: '4px 12px', borderRadius: '6px' }}
-                                                  >
-                                                    Deliberate Candidate
-                                                  </button>
-                                                )}
+                                                {isHR && (() => {
+                                                  // Deliberation is gated on AO II verification server-side; show
+                                                  // that state here instead of offering a button that will 400.
+                                                  const awaitingAo = !isRequirementsVerified(item.scoreDetailsJson);
+                                                  return (
+                                                    <button
+                                                      type="button"
+                                                      disabled={awaitingAo}
+                                                      title={awaitingAo ? 'Deliberation opens once the Administrative Officer II verifies the documentary requirements.' : undefined}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleOpenHrmoRating(item);
+                                                      }}
+                                                      className={awaitingAo ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
+                                                      style={{ fontSize: '0.6875rem', padding: '4px 12px', borderRadius: '6px', cursor: awaitingAo ? 'not-allowed' : 'pointer' }}
+                                                    >
+                                                      {awaitingAo ? 'Awaiting AO II verification' : 'Deliberate Candidate'}
+                                                    </button>
+                                                  );
+                                                })()}
                                               </div>
                                             )}
                                           </div>
@@ -2728,7 +2946,7 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                 )}
 
-              {/* TAB 2: AO II INITIAL RATING WORKSPACE */}
+              {/* TAB 2: AO II DOCUMENTARY REQUIREMENTS VERIFICATION DESK */}
               {activeTab === 'AO_RATING' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   {/* Hero Stats & KPI Header */}
@@ -2743,13 +2961,13 @@ export const PromotionManagement: React.FC = () => {
                       <div>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.4)', marginBottom: '8px' }}>
                           <AppIcon name="checklist" size={13} color="var(--color-primary)" />
-                          Stage 1 • AO II Initial Qualification Evaluation
+                          Stage 1 • AO II Documentary Completeness Verification
                         </div>
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                          Administrative Officer II Scoring & Credential Verification Desk
+                          Administrative Officer II Requirements Desk (Annex C Checklist)
                         </h3>
                         <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', margin: '4px 0 0 0' }}>
-                          Audit applicant dossiers, evaluate 201 qualifications, and compute the initial CAR rating ({isCycleTeaching ? 'Max 60.00 pts' : 'Max 80.00 pts'}).
+                          Inspect submitted documents for items a–k, verify authenticity and completeness, and endorse applicants for HRMPSB score deliberation.
                         </p>
                         
                         {/* District Jurisdiction Status Pill */}
@@ -2796,7 +3014,7 @@ export const PromotionManagement: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setAoFilter('RATED')}
+                          onClick={() => setAoFilter('VERIFIED')}
                           style={{
                             padding: '6px 14px',
                             fontSize: '0.75rem',
@@ -2804,11 +3022,27 @@ export const PromotionManagement: React.FC = () => {
                             borderRadius: '6px',
                             border: 'none',
                             cursor: 'pointer',
-                            background: aoFilter === 'RATED' ? '#059669' : 'transparent',
-                            color: aoFilter === 'RATED' ? '#FFFFFF' : 'var(--color-text-secondary)',
+                            background: aoFilter === 'VERIFIED' ? '#059669' : 'transparent',
+                            color: aoFilter === 'VERIFIED' ? '#FFFFFF' : 'var(--color-text-secondary)',
                           }}
                         >
-                          Screened ({aoRatedApps.length})
+                          Complete ({aoVerifiedApps.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAoFilter('DEFICIENT')}
+                          style={{
+                            padding: '6px 14px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            borderRadius: '6px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            background: aoFilter === 'DEFICIENT' ? '#DC2626' : 'transparent',
+                            color: aoFilter === 'DEFICIENT' ? '#FFFFFF' : 'var(--color-text-secondary)',
+                          }}
+                        >
+                          Deficient ({aoDeficientApps.length})
                         </button>
                       </div>
                     </div>
@@ -2820,45 +3054,37 @@ export const PromotionManagement: React.FC = () => {
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{filteredSubmittedApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Initial Screened</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#34D399' : '#059669' }}>{aoRatedApps.length}</div>
+                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Complete / Verified</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#34D399' : '#059669' }}>{aoVerifiedApps.length}</div>
+                      </div>
+                      <div style={{ background: theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid #FECACA' }}>
+                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#F87171' : '#DC2626', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Incomplete / Deficient</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#F87171' : '#DC2626' }}>{aoDeficientApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Screening</div>
+                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Verification</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#D97706' }}>{aoPendingApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Track Scoring Target</div>
-                        <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-primary)' }}>
-                          {isCycleTeaching ? 'Teaching • Max 60 pts' : 'Non-Teaching • Max 80 pts'}
-                        </div>
                       </div>
                     </div>
 
                     {/* Criteria Reference Strip */}
                     <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 800, color: 'var(--color-primary)' }}>Official AO Point Weight Distribution:</span>
-                      {isCycleTeaching ? (
-                        <span>Education (10) + Training (10) + Experience (10) + Performance (30) = <strong style={{ color: '#059669' }}>60.00 pts AO Subtotal</strong> (Remaining 40 pts Deliberated by HRMO Board)</span>
-                      ) : (
-                        <span>Education (10) + Training (10) + Experience (10) + Performance (20) + Accomplishments (5) + App of Edu (15) + App of L&D (10) = <strong style={{ color: '#D97706' }}>80.00 pts AO Subtotal</strong> (Remaining 20 pts by HRMO)</span>
-                      )}
+                      <span style={{ fontWeight: 800, color: 'var(--color-primary)' }}>Official DepEd Mandate (DepEd Order No. 007, s. 2023 / DepEd Order No. 19, s. 2022):</span>
+                      <span>Administrative Officer II verifies completeness and authenticity of Annex C documentary requirements (items a–k). Score deliberation (100 pts) is conducted by the HRMPSB Board.</span>
                     </div>
                   </div>
 
-                  {/* Candidate Scoring Cards Grid */}
+                  {/* Candidate Requirements Cards Grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '18px' }}>
                     {displayedAoApps.map((app) => {
-                      const initialRating = app.scoreDetailsJson?.initialRating || {};
-                      const isRated = Boolean(app.status === 'INITIAL_RATED' || app.status === 'RANKED' || app.status === 'APPROVED' || app.status === 'PROMOTED' || initialRating.initialTotalScore !== undefined);
-                      
-                      const edu = initialRating.educationScore ?? 10;
-                      const train = initialRating.trainingScore ?? 10;
-                      const exp = initialRating.experienceScore ?? 10;
-                      const perf = initialRating.performanceScore ?? (isCycleTeaching ? 30 : 20);
-                      const subtotal = initialRating.initialTotalScore ?? (isCycleTeaching ? (edu + train + exp + perf) : (edu + train + exp + perf + (initialRating.outstandingAccomplishmentsScore ?? 5) + (initialRating.applicationOfEducationScore ?? 15) + (initialRating.applicationOfLdScore ?? 10)));
-                      const maxScore = isCycleTeaching ? 60 : 80;
-                      const pct = Math.min(100, Math.round((Number(subtotal) / maxScore) * 100));
+                      const reqCheck = app.scoreDetailsJson?.requirementsCheck;
+                      const isComplete = reqCheck?.status === 'COMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
+                      const isDeficient = reqCheck?.status === 'INCOMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
+                      const isPending = !isComplete && !isDeficient;
+                      const checklist = app.scoreDetailsJson?.annexCChecklist;
+                      const totalItems = checklist?.items?.length || 11;
+                      const attachedDocsCount = (checklist?.items || []).filter((it: any) => it.documentId || it.fileUrl || it.fileName).length;
+                      const swornStatement = checklist?.applicantInfo?.omnibusSwornStatement ? 'Certified' : 'Pending Certification';
 
                       return (
                         <div
@@ -2868,7 +3094,11 @@ export const PromotionManagement: React.FC = () => {
                             padding: '20px',
                             borderRadius: '14px',
                             background: 'var(--color-bg-card)',
-                            border: isRated ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid var(--color-border)',
+                            border: isComplete
+                              ? '1px solid rgba(5, 150, 105, 0.4)'
+                              : isDeficient
+                              ? '1px solid rgba(220, 38, 38, 0.4)'
+                              : '1px solid var(--color-border)',
                             boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
                             display: 'flex',
                             flexDirection: 'column',
@@ -2883,7 +3113,11 @@ export const PromotionManagement: React.FC = () => {
                                   width: '42px',
                                   height: '42px',
                                   borderRadius: '10px',
-                                  background: isRated ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                                  background: isComplete
+                                    ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                                    : isDeficient
+                                    ? 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)'
+                                    : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -2909,18 +3143,32 @@ export const PromotionManagement: React.FC = () => {
                                 padding: '3px 8px',
                                 borderRadius: '6px',
                                 fontWeight: 700,
-                                background: isRated ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FFFBEB'),
-                                color: isRated ? (theme === 'dark' ? '#34D399' : '#059669') : (theme === 'dark' ? '#FBBF24' : '#D97706'),
-                                border: isRated ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(217, 119, 6, 0.4)',
+                                background: isComplete
+                                  ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5')
+                                  : isDeficient
+                                  ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.2)' : '#FEF2F2')
+                                  : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FFFBEB'),
+                                color: isComplete
+                                  ? (theme === 'dark' ? '#34D399' : '#059669')
+                                  : isDeficient
+                                  ? (theme === 'dark' ? '#F87171' : '#DC2626')
+                                  : (theme === 'dark' ? '#FBBF24' : '#D97706'),
+                                border: isComplete
+                                  ? '1px solid rgba(5, 150, 105, 0.4)'
+                                  : isDeficient
+                                  ? '1px solid rgba(220, 38, 38, 0.4)'
+                                  : '1px solid rgba(217, 119, 6, 0.4)',
                                 whiteSpace: 'nowrap',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '4px',
                               }}>
-                                {isRated ? (
-                                  <><AppIcon name="check" size={10} color={theme === 'dark' ? '#34D399' : '#059669'} /> Scored: {subtotal}/{maxScore}</>
+                                {isComplete ? (
+                                  <><AppIcon name="check" size={10} color={theme === 'dark' ? '#34D399' : '#059669'} /> Reqs Complete</>
+                                ) : isDeficient ? (
+                                  <><AppIcon name="close" size={10} color={theme === 'dark' ? '#F87171' : '#DC2626'} /> Deficient</>
                                 ) : (
-                                  <><AppIcon name="pending" size={10} color={theme === 'dark' ? '#FBBF24' : '#D97706'} /> Pending AO</>
+                                  <><AppIcon name="pending" size={10} color={theme === 'dark' ? '#FBBF24' : '#D97706'} /> Pending Check</>
                                 )}
                               </span>
                             </div>
@@ -2931,43 +3179,28 @@ export const PromotionManagement: React.FC = () => {
                               <span>Date: {app.dateSubmitted || '2026 Active'}</span>
                             </div>
 
-                            {/* Criteria Score Breakdown Cards */}
+                            {/* Annex C Requirements Summary Cards */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, 1fr))', gap: '8px', marginBottom: '14px' }}>
                               <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Education (10)</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{edu} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ 10</span></div>
+                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Annex C Items</div>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{totalItems} items <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>(a to k)</span></div>
                               </div>
                               <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Training (10)</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{train} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ 10</span></div>
+                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Scanned / Attached</div>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: attachedDocsCount > 0 ? '#059669' : 'var(--color-text-muted)' }}>{attachedDocsCount} documents</div>
                               </div>
-                              <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Experience (10)</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{exp} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ 10</span></div>
-                              </div>
-                              <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Performance ({isCycleTeaching ? '30' : '20'})</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{perf} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ {isCycleTeaching ? '30' : '20'}</span></div>
-                              </div>
-                            </div>
-
-                            {/* Subtotal Progress Bar */}
-                            <div style={{ background: 'var(--color-bg-tertiary)', padding: '10px 12px', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--color-border)' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '6px' }}>
-                                <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>AO Evaluated Subtotal:</span>
-                                <strong style={{ color: isRated ? '#059669' : '#D97706', fontSize: '0.875rem', fontFamily: 'var(--font-mono)', fontWeight: 800 }}>
-                                  {subtotal} / {maxScore} pts ({pct}%)
-                                </strong>
-                              </div>
-                              <div style={{ width: '100%', height: '6px', background: 'var(--color-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                                <div style={{ width: `${pct}%`, height: '100%', background: isRated ? 'linear-gradient(90deg, #10b981 0%, #34d399 100%)' : 'linear-gradient(90deg, #d97706 0%, #f59e0b 100%)', borderRadius: '3px', transition: 'width 0.4s ease' }} />
+                              <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px', gridColumn: 'span 2' }}>
+                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Omnibus Sworn Statement</div>
+                                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: checklist?.applicantInfo?.omnibusSwornStatement ? '#059669' : '#D97706' }}>
+                                  {swornStatement}
+                                </div>
                               </div>
                             </div>
 
                             {/* Remarks Snippet */}
-                            {initialRating.aoRemarks && (
-                              <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', borderLeft: '3px solid var(--color-primary)' }}>
-                                "{initialRating.aoRemarks}"
+                            {reqCheck?.remarks && (
+                              <div style={{ fontSize: '0.6875rem', color: isDeficient ? '#DC2626' : 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', borderLeft: isDeficient ? '3px solid #DC2626' : '3px solid #059669' }}>
+                                "{reqCheck.remarks}"
                               </div>
                             )}
                           </div>
@@ -3016,7 +3249,7 @@ export const PromotionManagement: React.FC = () => {
                                 style={{
                                   flex: 2,
                                   fontSize: '0.75rem',
-                                  background: isRated ? '#d97706' : 'var(--color-primary)',
+                                  background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
                                   color: '#ffffff',
                                   border: 'none',
                                   borderRadius: '9999px',
@@ -3027,8 +3260,8 @@ export const PromotionManagement: React.FC = () => {
                                   gap: '6px',
                                 }}
                               >
-                                <AppIcon name={isRated ? 'history' : 'checklist'} size={14} color="#ffffff" />
-                                {isRated ? 'Revise AO Rating' : 'Evaluate & Score'}
+                                <AppIcon name={isComplete ? 'check' : 'checklist'} size={14} color="#ffffff" />
+                                {isComplete ? 'Review Requirements' : isDeficient ? 'Re-check Requirements' : 'Check Requirements'}
                               </button>
                             )}
                           </div>
@@ -3139,11 +3372,11 @@ export const PromotionManagement: React.FC = () => {
 
                     {/* Criteria Reference Strip */}
                     <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 800, color: '#059669' }}>Official DepEd Deliberation Criteria:</span>
+                      <span style={{ fontWeight: 800, color: '#059669' }}>Official DepEd Deliberation Criteria (100.00 pts HR Deliberation):</span>
                       {isCycleTeaching ? (
-                        <span>AO Subtotal (60 pts) + PPST COIs Demo (25 pts) + PPST NCOIs Portfolio (15 pts) = <strong style={{ color: '#059669' }}>100.00 pts CAR Total</strong></span>
+                        <span>Education (10) + Training (10) + Experience (10) + Performance (30) + PPST COIs Demo (25) + PPST NCOIs (15) = <strong style={{ color: '#059669' }}>100.00 pts CAR Deliberation Total</strong></span>
                       ) : (
-                        <span>AO Subtotal (80 pts) + Potential [Written (5) + BEI (5) + Skills (10) = 20 pts] = <strong style={{ color: '#D97706' }}>100.00 pts CAR Total</strong></span>
+                        <span>Education (10) + Training (10) + Experience (10) + Performance (20) + Accomplishments (5) + App Edu (15) + App L&D (10) + Potential/Exams (20) = <strong style={{ color: '#D97706' }}>100.00 pts CAR Deliberation Total</strong></span>
                       )}
                     </div>
                   </div>
@@ -3152,13 +3385,13 @@ export const PromotionManagement: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '18px' }}>
                     {displayedHrmoApps.map((app) => {
                       const finalRating = app.scoreDetailsJson?.finalRating || {};
-                      const isFinalized = Boolean(app.status === 'RANKED' || app.status === 'APPROVED' || app.status === 'PROMOTED' || finalRating.finalTotalScore !== undefined);
+                      const isFinalized = Boolean(app.status === 'RANKED' || app.status === 'APPROVED' || app.status === 'PROMOTED' || finalRating.finalTotalScore !== undefined || finalRating.overallTotalScore !== undefined);
                       
-                      const aoSubtotal = getApplicantAoScore(app, isCycleTeaching);
-                      const maxAo = isCycleTeaching ? 60 : 80;
-                      const maxHr = isCycleTeaching ? 40 : 20;
-                      const hrSubtotal = Number(finalRating.finalTotalScore ?? (isCycleTeaching ? 40 : 20));
-                      const overallScore = Number(app.overallTotalScore || (isFinalized ? (aoSubtotal + hrSubtotal) : aoSubtotal));
+                      const reqCheck = app.scoreDetailsJson?.requirementsCheck;
+                      const isReqComplete = reqCheck?.status === 'COMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
+                      const isReqDeficient = reqCheck?.status === 'INCOMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
+
+                      const overallScore = Number(finalRating.overallTotalScore ?? app.overallTotalScore ?? app.totalScore ?? 0);
                       const biStatus = app.forBackgroundInvestigation || app.scoreDetailsJson?.forBackgroundInvestigation || 'YES';
                       const probation = app.forProbation || app.scoreDetailsJson?.forProbation || '6 months';
                       const appointment = app.forAppointment || app.scoreDetailsJson?.forAppointment || 'Recommended for Appointment';
@@ -3221,30 +3454,34 @@ export const PromotionManagement: React.FC = () => {
                                 gap: '4px',
                               }}>
                                 {isFinalized ? (
-                                  <><AppIcon name="promotions" size={10} color={theme === 'dark' ? '#34D399' : '#059669'} /> CAR Total: {overallScore.toFixed(2)}/100</>
+                                  <><AppIcon name="promotions" size={10} color={theme === 'dark' ? '#34D399' : '#059669'} /> Deliberated: {overallScore.toFixed(2)}/100</>
                                 ) : (
                                   <><AppIcon name="pending" size={10} color="var(--color-primary)" /> Awaiting Board</>
                                 )}
                               </span>
                             </div>
 
-                            {/* Two-Stage Score Gauge Card */}
+                            {/* Requirements & Score Overview Card */}
                             <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '10px', marginBottom: '14px' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px', marginBottom: '10px' }}>
-                                <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '8px 10px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
-                                  <div style={{ fontSize: '0.625rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 1 • AO II Score</div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary)' }}>{aoSubtotal.toFixed(2)} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ {maxAo}</span></div>
+                                <div style={{ background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : isReqDeficient ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB'), padding: '8px 10px', borderRadius: '8px', border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.3)' : isReqDeficient ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)' }}>
+                                  <div style={{ fontSize: '0.625rem', color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', textTransform: 'uppercase', fontWeight: 700 }}>Stage 1 • AO Reqs</div>
+                                  <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', marginTop: '2px' }}>
+                                    {isReqComplete ? 'Verified Complete' : isReqDeficient ? 'Deficient' : 'Pending Check'}
+                                  </div>
                                 </div>
-                                <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '8px 10px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
-                                  <div style={{ fontSize: '0.625rem', color: '#059669', textTransform: 'uppercase', fontWeight: 700 }}>Stage 2 • HRMO Score</div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>{isFinalized ? hrSubtotal.toFixed(2) : '—'} <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>/ {maxHr}</span></div>
+                                <div style={{ background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF'), padding: '8px 10px', borderRadius: '8px', border: isFinalized ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(37, 99, 235, 0.3)' }}>
+                                  <div style={{ fontSize: '0.625rem', color: isFinalized ? '#059669' : 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 2 • HR Deliberation</div>
+                                  <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: isFinalized ? '#059669' : 'var(--color-primary)', marginTop: '2px' }}>
+                                    {isFinalized ? `${overallScore.toFixed(2)} / 100` : 'Pending Board'}
+                                  </div>
                                 </div>
                               </div>
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', padding: '10px 14px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A' }}>
-                                <span style={{ fontSize: '0.75rem', color: '#D97706', fontWeight: 700 }}>Combined CAR Total:</span>
-                                <strong style={{ fontSize: '1.125rem', color: '#D97706', fontFamily: 'var(--font-mono)', fontWeight: 900 }}>
-                                  {overallScore.toFixed(2)} / 100.00 pts
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EFF6FF', padding: '10px 14px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>Combined CAR Total:</span>
+                                <strong style={{ fontSize: '1.125rem', color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', fontWeight: 900 }}>
+                                  {isFinalized ? `${overallScore.toFixed(2)} / 100.00 pts` : 'Awaiting Deliberation'}
                                 </strong>
                               </div>
                             </div>
@@ -3544,161 +3781,390 @@ export const PromotionManagement: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL 1: AO II INITIAL RATING FORM (OFFICIAL DEPED CAR CRITERIA) */}
+      {/* MODAL 1: AO II REQUIREMENTS COMPLETENESS VERIFICATION (ANNEX C CHECKLIST) */}
       {showAoModal && selectedAppForModal && (
-        <ModalOverlay className="modal-overlay">
-          <div className="modal animate-scale-in" style={{ maxWidth: '560px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.2)' }}>
-            <div className="modal-header" style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)', padding: '16px 20px', borderRadius: '16px 16px 0 0' }}>
+        <ModalOverlay onDismiss={() => setShowAoModal(false)} className="modal-overlay">
+          <div className="modal animate-scale-in" style={{ maxWidth: '840px', width: 'calc(100vw - 32px)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
+            <div className="modal-header" style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <h3 className="modal-title" style={{ color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
+                    Stage 1 • Administrative Officer II (AO II)
+                  </span>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                    DepEd Order No. 007, s. 2023 Guidelines
+                  </span>
+                </div>
+                <h3 className="modal-title" style={{ color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, margin: 0, fontSize: '1.15rem' }}>
                   <AppIcon name="checklist" size={18} color="var(--color-primary)" />
-                  AO II Initial Qualification Rating (CAR)
+                  Requirements Completeness Verification (Annex C)
                 </h3>
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', margin: '3px 0 0 0' }}>
-                  Applicant: <strong style={{ color: 'var(--color-text-primary)' }}>{selectedAppForModal.name}</strong> ({selectedAppForModal.employeeId}) • <span style={{ color: modalTrack === 'NON_TEACHING' ? '#D97706' : '#059669', fontWeight: 700 }}>{modalTrack === 'NON_TEACHING' ? 'Non-Teaching Track (80 pts max)' : 'Teaching Track (60 pts max)'}</span>
-                </p>
               </div>
               <button className="modal-close" onClick={() => setShowAoModal(false)} style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', width: '32px', height: '32px', borderRadius: '8px', color: 'var(--color-text-primary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
 
-            <form onSubmit={handleSubmitAoRating} style={{ padding: '20px' }}>
-              {/* Common AO II Criteria */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px', marginBottom: '12px' }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Education Score (Max 10)</label>
-                  <input
-                    type="number"
-                    max={10} min={0} step="0.01"
-                    className="form-input"
-                    value={aoEduScore}
-                    onChange={(e) => setAoEduScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                    required
-                  />
+            <form onSubmit={handleSubmitAoRating} style={{ padding: '20px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Applicant Header Information Card */}
+              <div style={{
+                background: 'var(--color-bg-tertiary)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '12px',
+                fontSize: '0.8125rem',
+              }}>
+                <div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Name of Applicant</span>
+                  <strong style={{ color: 'var(--color-text-primary)', fontSize: '0.9375rem' }}>{selectedAppForModal.name}</strong>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'block' }}>ID: {selectedAppForModal.employeeId}</span>
                 </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Training Score (Max 10)</label>
-                  <input
-                    type="number"
-                    max={10} min={0} step="0.01"
-                    className="form-input"
-                    value={aoTrainScore}
-                    onChange={(e) => setAoTrainScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                    required
-                  />
+                <div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Position Applied For</span>
+                  <strong style={{ color: 'var(--color-primary)' }}>{selectedCycle?.name || selectedAppForModal.designation || 'Teacher Position'}</strong>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'block' }}>Track: {modalTrack === 'NON_TEACHING' ? 'Non-Teaching' : 'Teaching'}</span>
                 </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Experience Score (Max 10)</label>
-                  <input
-                    type="number"
-                    max={10} min={0} step="0.01"
-                    className="form-input"
-                    value={aoExpScore}
-                    onChange={(e) => setAoExpScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                    required
-                  />
+                <div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Office / School Unit</span>
+                  <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{selectedAppForModal.station || selectedCycle?.rulesConfigurationJson?.officeUnit || 'Division of Koronadal City'}</span>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'block' }}>Region XII</span>
                 </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                    Performance Score (Max {modalTrack === 'NON_TEACHING' ? '20' : '30'})
-                  </label>
-                  <input
-                    type="number"
-                    max={modalTrack === 'NON_TEACHING' ? 20 : 30} min={0} step="0.01"
-                    className="form-input"
-                    value={aoPerfScore}
-                    onChange={(e) => setAoPerfScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                    required
-                  />
+                <div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Application Code</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(37, 99, 235, 0.3)', display: 'inline-block' }}>
+                    {selectedAppForModal.scoreDetailsJson?.applicantNumber || selectedAppForModal.scoreDetailsJson?.annexCChecklist?.applicationCode || `APP-${String(selectedAppForModal.id).padStart(4, '0')}`}
+                  </span>
                 </div>
               </div>
 
-              {/* Non-Teaching Specific AO II items */}
-              {modalTrack === 'NON_TEACHING' && (
-                <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A', padding: '14px', borderRadius: '10px', marginBottom: '14px' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#D97706', marginBottom: '8px' }}>
-                    Non-Teaching Specific Criteria (30 pts)
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '10px' }}>
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Accomplishments (Max 5)</label>
-                      <input
-                        type="number"
-                        max={5} min={0} step="0.01"
-                        className="form-input"
-                        value={aoAccomplishmentsScore}
-                        onChange={(e) => setAoAccomplishmentsScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of Education (Max 15)</label>
-                      <input
-                        type="number"
-                        max={15} min={0} step="0.01"
-                        className="form-input"
-                        value={aoAppEduScore}
-                        onChange={(e) => setAoAppEduScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of L&D (Max 10)</label>
-                      <input
-                        type="number"
-                        max={10} min={0} step="0.01"
-                        className="form-input"
-                        value={aoAppLdScore}
-                        onChange={(e) => setAoAppLdScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Computed Subtotal Display */}
-              <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', border: theme === 'dark' ? '1.5px solid rgba(5, 150, 105, 0.4)' : '1.5px solid #A7F3D0', padding: '14px 18px', borderRadius: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8125rem', color: theme === 'dark' ? '#34D399' : '#15803D', fontWeight: 700 }}>
-                  Computed AO II Initial Rating Subtotal:
+              {/* Checklist Action Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Annex C Documentary Requirements Checklist ({reqVerificationItems.length} items)
                 </span>
-                <span style={{ fontSize: '1.35rem', fontWeight: 900, color: '#059669', fontFamily: 'var(--font-mono)' }}>
-                  {modalTrack === 'NON_TEACHING'
-                    ? (Number(aoEduScore) + Number(aoTrainScore) + Number(aoExpScore) + Number(aoPerfScore) + Number(aoAccomplishmentsScore) + Number(aoAppEduScore) + Number(aoAppLdScore)).toFixed(2) + ' / 80'
-                    : (Number(aoEduScore) + Number(aoTrainScore) + Number(aoExpScore) + Number(aoPerfScore)).toFixed(2) + ' / 60'
-                  } pts
-                </span>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>AO II Verification Remarks</label>
-                <textarea
-                  className="form-input"
-                  rows={2}
-                  value={aoRemarks}
-                  onChange={(e) => setAoRemarks(e.target.value)}
-                  placeholder="Enter initial qualification and authentication findings..."
-                />
-              </div>
-
-              <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowAoModal(false)} style={{ borderRadius: '9999px', fontWeight: 700 }}>Cancel</button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => {
+                    setReqVerificationItems(prev => prev.map(it => ({
+                      ...it,
+                      status: it.submitted ? 'VERIFIED' : (it.isMandatory ? 'INCOMPLETE' : 'NOT_APPLICABLE'),
+                    })));
+                    setReqCompletenessStatus('COMPLETE');
+                  }}
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 700,
+                    color: 'var(--color-primary)',
+                    background: 'var(--color-bg-tertiary)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '6px',
+                    padding: '4px 10px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✓ Mark Submitted as Verified
+                </button>
+              </div>
+
+              {/* Checklist Items List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {reqVerificationItems.map((item, idx) => {
+                  const isVerified = item.status === 'VERIFIED';
+                  const isIncomplete = item.status === 'INCOMPLETE';
+                  const isNA = item.status === 'NOT_APPLICABLE';
+
+                  return (
+                    <div
+                      key={item.code}
+                      style={{
+                        background: 'var(--color-bg-card)',
+                        border: isIncomplete
+                          ? '1.5px solid #F87171'
+                          : isVerified
+                            ? '1.5px solid rgba(16, 185, 129, 0.4)'
+                            : '1px solid var(--color-border)',
+                        borderRadius: '10px',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '240px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                            <span style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '6px',
+                              background: 'var(--color-bg-tertiary)',
+                              color: 'var(--color-primary)',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid var(--color-border)',
+                            }}>
+                              {item.code}
+                            </span>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                              {item.title}
+                            </span>
+                            {item.isMandatory ? (
+                              <span style={{ fontSize: '0.625rem', fontWeight: 800, color: '#DC2626', background: theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(220, 38, 38, 0.3)' }}>
+                                Mandatory
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--color-text-muted)', background: 'var(--color-bg-tertiary)', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                                If Applicable
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', margin: '0 0 6px 0', lineHeight: 1.35 }}>
+                            {item.description}
+                          </p>
+
+                          {/* Attached Document Reference Indicator */}
+                          {item.submitted || item.documentName ? (
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '0.6875rem',
+                              background: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#ECFDF5',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              color: theme === 'dark' ? '#34D399' : '#059669',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                            }}>
+                              <AppIcon name="document" size={12} color={theme === 'dark' ? '#34D399' : '#059669'} />
+                              <span>Attached: {item.documentName || `${item.title}.pdf`}</span>
+                              {item.personnelDocumentId && (
+                                <a
+                                  href={`${apiClient.defaults.baseURL || '/api/v1'}/personnel/documents/${item.personnelDocumentId}/file`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    marginLeft: '4px',
+                                    color: 'var(--color-primary)',
+                                    textDecoration: 'underline',
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  View
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{
+                              fontSize: '0.6875rem',
+                              color: item.isMandatory ? '#DC2626' : 'var(--color-text-muted)',
+                              fontStyle: 'italic',
+                              display: 'inline-block',
+                            }}>
+                              {item.isMandatory ? '⚠️ No document attached by applicant' : 'No document attached'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Status Selection Buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReqVerificationItems(prev => {
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], status: 'VERIFIED' };
+                                return next;
+                              });
+                            }}
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              border: isVerified ? '1.5px solid #10B981' : '1px solid var(--color-border)',
+                              background: isVerified ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5') : 'var(--color-bg-tertiary)',
+                              color: isVerified ? (theme === 'dark' ? '#34D399' : '#059669') : 'var(--color-text-secondary)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✓ Verified
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReqVerificationItems(prev => {
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], status: 'INCOMPLETE' };
+                                return next;
+                              });
+                              setReqCompletenessStatus('INCOMPLETE');
+                            }}
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              border: isIncomplete ? '1.5px solid #EF4444' : '1px solid var(--color-border)',
+                              background: isIncomplete ? (theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : 'var(--color-bg-tertiary)',
+                              color: isIncomplete ? (theme === 'dark' ? '#F87171' : '#DC2626') : 'var(--color-text-secondary)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✗ Deficient
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReqVerificationItems(prev => {
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], status: 'NOT_APPLICABLE' };
+                                return next;
+                              });
+                            }}
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 600,
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              border: isNA ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                              background: isNA ? (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF') : 'var(--color-bg-tertiary)',
+                              color: isNA ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            N/A
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Optional Item-specific deficiency remark */}
+                      {isIncomplete && (
+                        <input
+                          aria-label={`Deficiency remark for item ${item.code}`}
+                          type="text"
+                          className="form-input"
+                          style={{ fontSize: '0.75rem', padding: '4px 10px', borderColor: '#FCA5A5' }}
+                          placeholder={`Specify deficiency for item (${item.code})...`}
+                          value={item.remarks || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setReqVerificationItems(prev => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], remarks: val };
+                              return next;
+                            });
+                          }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Omnibus Sworn Statement Status */}
+              <div style={{
+                background: 'var(--color-bg-tertiary)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '10px',
+                padding: '12px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AppIcon name="check" size={16} color="#059669" />
+                  <div>
+                    <strong style={{ fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>
+                      Omnibus Sworn Statement & Data Privacy Consent
+                    </strong>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                      Certified and digitally signed under Republic Act No. 8792 (E-Commerce Act of 2000)
+                    </div>
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#059669', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.3)' }}>
+                  Acknowledged
+                </span>
+              </div>
+
+              {/* AO II Overall Finding & Remarks */}
+              <div style={{
+                background: reqCompletenessStatus === 'COMPLETE'
+                  ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5')
+                  : (theme === 'dark' ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2'),
+                border: reqCompletenessStatus === 'COMPLETE'
+                  ? '1.5px solid rgba(16, 185, 129, 0.3)'
+                  : '1.5px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+              }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: reqCompletenessStatus === 'COMPLETE' ? '#059669' : '#DC2626', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                  AO II Overall Requirements Verification Finding
+                </span>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="reqFinding"
+                      value="COMPLETE"
+                      checked={reqCompletenessStatus === 'COMPLETE'}
+                      onChange={() => setReqCompletenessStatus('COMPLETE')}
+                    />
+                    <span style={{ color: '#059669' }}>Complete & Verified</span> (Endorsed for HRMPSB Deliberation)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="reqFinding"
+                      value="INCOMPLETE"
+                      checked={reqCompletenessStatus === 'INCOMPLETE'}
+                      onChange={() => setReqCompletenessStatus('INCOMPLETE')}
+                    />
+                    <span style={{ color: '#DC2626' }}>Incomplete / Deficient</span> (Flagged for Deficiency)
+                  </label>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
+                    AO II Verification Remarks / Notes for HRMPSB
+                  </label>
+                  <textarea
+                    aria-label="AO II Verification Remarks / Notes for HRMPSB"
+                    className="form-input"
+                    rows={2}
+                    value={reqVerificationRemarks}
+                    onChange={(e) => setReqVerificationRemarks(e.target.value)}
+                    placeholder={reqCompletenessStatus === 'COMPLETE' ? 'All documentary requirements verified complete and authentic...' : 'Specify missing or deficient requirements...'}
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="submit" disabled={savingAoRating.pending}
                   className="btn btn-primary"
                   style={{
-                    background: 'var(--color-primary)',
+                    background: reqCompletenessStatus === 'COMPLETE' ? '#059669' : '#DC2626',
                     color: '#ffffff',
                     border: 'none',
                     borderRadius: '9999px',
-                    padding: '9px 20px',
+                    padding: '9px 22px',
                     fontWeight: 800,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
                   }}
                 >
-                  <AppIcon name="checklist" size={14} color="#ffffff" /> Submit Initial Rating to HRMO
+                  <AppIcon name="check" size={14} color="#ffffff" />
+                  {reqCompletenessStatus === 'COMPLETE' ? 'Confirm Requirements Complete' : 'Record Deficiencies'}
                 </button>
               </div>
             </form>
@@ -3708,7 +4174,7 @@ export const PromotionManagement: React.FC = () => {
 
       {/* MODAL 2: HRMO STAFF FINAL RATING FORM (OFFICIAL DEPED CAR DELIBERATION) */}
       {showHrmoModal && selectedAppForModal && isHR && createPortal((
-        <ModalOverlay className="modal-overlay hrmo-deliberation-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1050 }}>
+        <ModalOverlay onDismiss={() => setShowHrmoModal(false)} className="modal-overlay hrmo-deliberation-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1050 }}>
           <div className="modal animate-scale-in hrmo-deliberation-modal" style={{
             maxWidth: '1240px',
             width: 'calc(100vw - 48px)',
@@ -3816,37 +4282,162 @@ export const PromotionManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Stage 1 AO II Locked Foundation Card */}
+              {/* Stage 1 AO II Requirements Completeness Verification Card */}
+              {(() => {
+                const reqCheck = selectedAppForModal.scoreDetailsJson?.requirementsCheck;
+                const isReqComplete = reqCheck?.status === 'COMPLETE' || selectedAppForModal.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
+                const isReqDeficient = reqCheck?.status === 'INCOMPLETE' || selectedAppForModal.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
+
+                return (
+                  <div style={{
+                    background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.12)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.12)' : '#FFFBEB'),
+                    border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)',
+                    borderRadius: '10px',
+                    padding: '14px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.6875rem', color: isReqComplete ? '#059669' : '#D97706', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
+                        Stage 1 • AO II Documentary Requirements Check
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                        {reqCheck?.remarks || (isReqComplete ? 'All Annex C documentary requirements verified complete and authentic.' : isReqDeficient ? 'Requirements incomplete / deficient.' : 'Awaiting AO II completeness verification.')}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7'),
+                        color: isReqComplete ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#D97706'),
+                        fontSize: '0.75rem',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontWeight: 800,
+                        border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(217, 119, 6, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}>
+                        <AppIcon name={isReqComplete ? 'check' : 'pending'} size={12} color={isReqComplete ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#D97706')} />
+                        {isReqComplete ? 'Requirements Complete' : isReqDeficient ? 'Requirements Deficient' : 'Pending Verification'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* HRMPSB Core Qualifications Deliberation (Education, Training, Experience, Performance) */}
               <div style={{
-                background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF',
-                border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE',
-                borderRadius: '10px',
-                padding: '14px 18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
+                background: 'var(--color-bg-tertiary)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '12px',
+                padding: '16px',
               }}>
-                <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
-                    Stage 1 • Administrative Officer II (AO II) Rating
+                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                  HRMPSB Deliberation • Basic Qualification Criteria ({modalTrack === 'NON_TEACHING' ? '50.00 pts Max' : '60.00 pts Max'})
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Education (Max 10)</label>
+                    <input
+                      aria-label="Education (Max 10)"
+                      type="number"
+                      max={10} min={0} step="0.25"
+                      className="form-input"
+                      style={{ textAlign: 'center', fontWeight: 700 }}
+                      value={hrmoEduScore}
+                      onChange={(e) => setHrmoEduScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                      required
+                    />
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                    {modalTrack === 'NON_TEACHING' 
-                      ? 'Education (10) + Training (10) + Experience (10) + Performance (20) + Accomplishments (5) + App Edu (15) + App L&D (10)'
-                      : 'Education (10) + Training (10) + Experience (10) + Performance (30)'}
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Training (Max 10)</label>
+                    <input
+                      aria-label="Training (Max 10)"
+                      type="number"
+                      max={10} min={0} step="0.25"
+                      className="form-input"
+                      style={{ textAlign: 'center', fontWeight: 700 }}
+                      value={hrmoTrainScore}
+                      onChange={(e) => setHrmoTrainScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Experience (Max 10)</label>
+                    <input
+                      aria-label="Experience (Max 10)"
+                      type="number"
+                      max={10} min={0} step="0.25"
+                      className="form-input"
+                      style={{ textAlign: 'center', fontWeight: 700 }}
+                      value={hrmoExpScore}
+                      onChange={(e) => setHrmoExpScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                      required
+                    />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                      Performance ({modalTrack === 'NON_TEACHING' ? 'Max 20' : 'Max 30'})
+                    </label>
+                    <input aria-label="Performance Score"
+                      type="number"
+                      max={modalTrack === 'NON_TEACHING' ? 20 : 30} min={0} step="0.25"
+                      className="form-input"
+                      style={{ textAlign: 'center', fontWeight: 700 }}
+                      value={hrmoPerfScore}
+                      onChange={(e) => setHrmoPerfScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                      required
+                    />
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--color-primary)', fontFamily: 'var(--font-mono)' }}>
-                    {getApplicantAoScore(selectedAppForModal, modalTrack === 'TEACHING').toFixed(2)}
-                  </span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 700 }}>/ {modalTrack === 'NON_TEACHING' ? '80' : '60'} pts</span>
-                  <span style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', fontSize: '0.6875rem', padding: '2px 8px', borderRadius: '4px', fontWeight: 800, border: '1px solid rgba(5, 150, 105, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <AppIcon name="check" size={10} color={theme === 'dark' ? '#34D399' : '#15803D'} /> AO Verified
-                  </span>
-                </div>
+
+                {modalTrack === 'NON_TEACHING' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '12px' }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Accomplishments (Max 5)</label>
+                      <input
+                        aria-label="Accomplishments (Max 5)"
+                        type="number"
+                        max={5} min={0} step="0.25"
+                        className="form-input"
+                        style={{ textAlign: 'center', fontWeight: 700 }}
+                        value={hrmoAccomplishmentsScore}
+                        onChange={(e) => setHrmoAccomplishmentsScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of Education (Max 15)</label>
+                      <input
+                        aria-label="App of Education (Max 15)"
+                        type="number"
+                        max={15} min={0} step="0.25"
+                        className="form-input"
+                        style={{ textAlign: 'center', fontWeight: 700 }}
+                        value={hrmoAppEduScore}
+                        onChange={(e) => setHrmoAppEduScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                        required
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of L&D (Max 10)</label>
+                      <input
+                        aria-label="App of L&D (Max 10)"
+                        type="number"
+                        max={10} min={0} step="0.25"
+                        className="form-input"
+                        style={{ textAlign: 'center', fontWeight: 700 }}
+                        value={hrmoAppLdScore}
+                        onChange={(e) => setHrmoAppLdScore(e.target.value === '' ? '' as any : Number(e.target.value))}
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Stage 2 HRMO Evaluation Section */}
@@ -3886,6 +4477,7 @@ export const PromotionManagement: React.FC = () => {
                       </div>
                       <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <input
+                          aria-label="1. PPST COIs — Demonstration Teaching / Classroom Observation"
                           type="range"
                           min={0} max={25} step="0.25"
                           value={hrmoPpstCoiScore}
@@ -3894,6 +4486,7 @@ export const PromotionManagement: React.FC = () => {
                         />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <input
+                            aria-label="PPST COIs score"
                             type="number"
                             max={25} min={0} step="0.01"
                             className="form-input"
@@ -3926,6 +4519,7 @@ export const PromotionManagement: React.FC = () => {
                       </div>
                       <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <input
+                          aria-label="2. PPST NCOIs — Portfolio Annotation & Behavioral Event Interview (BEI)"
                           type="range"
                           min={0} max={15} step="0.25"
                           value={hrmoPpstNcoiScore}
@@ -3934,6 +4528,7 @@ export const PromotionManagement: React.FC = () => {
                         />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <input
+                            aria-label="PPST NCOIs score"
                             type="number"
                             max={15} min={0} step="0.01"
                             className="form-input"
@@ -3969,6 +4564,7 @@ export const PromotionManagement: React.FC = () => {
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
                       <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Written Examination (Max 5)</label>
                       <input
+                        aria-label="Written Examination (Max 5)"
                         type="number"
                         max={5} min={0} step="0.25"
                         className="form-input"
@@ -3981,6 +4577,7 @@ export const PromotionManagement: React.FC = () => {
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
                       <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>BEI Interview (Max 5)</label>
                       <input
+                        aria-label="BEI Interview (Max 5)"
                         type="number"
                         max={5} min={0} step="0.25"
                         className="form-input"
@@ -3993,6 +4590,7 @@ export const PromotionManagement: React.FC = () => {
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
                       <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Skills Test (Max 10)</label>
                       <input
+                        aria-label="Skills Test (Max 10)"
                         type="number"
                         max={10} min={0} step="0.25"
                         className="form-input"
@@ -4008,33 +4606,50 @@ export const PromotionManagement: React.FC = () => {
 
               {/* Combined Total Live Score Display Gauge */}
               {(() => {
-                const aoSub = getApplicantAoScore(selectedAppForModal, modalTrack === 'TEACHING');
-                const hrSub = modalTrack === 'NON_TEACHING'
-                  ? (Number(hrmoWrittenScore) + Number(hrmoBeiScore) + Number(hrmoSkillsScore))
-                  : (Number(hrmoPpstCoiScore) + Number(hrmoPpstNcoiScore));
-                const combined = parseFloat((aoSub + hrSub).toFixed(2));
+                const edu = Number(hrmoEduScore) || 0;
+                const train = Number(hrmoTrainScore) || 0;
+                const exp = Number(hrmoExpScore) || 0;
+                const perf = Number(hrmoPerfScore) || 0;
+
+                let combined = 0;
+                if (modalTrack === 'NON_TEACHING') {
+                  const outAcc = Number(hrmoAccomplishmentsScore) || 0;
+                  const appEdu = Number(hrmoAppEduScore) || 0;
+                  const appLd = Number(hrmoAppLdScore) || 0;
+                  const written = Number(hrmoWrittenScore) || 0;
+                  const bei = Number(hrmoBeiScore) || 0;
+                  const skills = Number(hrmoSkillsScore) || 0;
+                  combined = parseFloat((edu + train + exp + perf + outAcc + appEdu + appLd + written + bei + skills).toFixed(2));
+                } else {
+                  const coi = Number(hrmoPpstCoiScore) || 0;
+                  const ncoi = Number(hrmoPpstNcoiScore) || 0;
+                  combined = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
+                }
+
                 const isOutstanding = combined >= 90;
 
                 return (
                   <div style={{
-                    background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB',
-                    border: theme === 'dark' ? '1.5px solid rgba(217, 119, 6, 0.3)' : '1.5px solid #FDE68A',
+                    background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5',
+                    border: theme === 'dark' ? '1.5px solid rgba(5, 150, 105, 0.3)' : '1.5px solid #A7F3D0',
                     borderRadius: '12px',
                     padding: '16px 20px',
                     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
                       <div>
-                        <div style={{ fontSize: '0.6875rem', color: '#D97706', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
-                          Comparative Assessment Result (CAR) Combined Total
+                        <div style={{ fontSize: '0.6875rem', color: '#059669', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
+                          HRMPSB Deliberated Comparative Assessment Result (CAR) Total
                         </div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                          Stage 1 (AO Subtotal: {aoSub.toFixed(2)}) + Stage 2 (HRMO Subtotal: {hrSub.toFixed(2)})
+                          {modalTrack === 'NON_TEACHING'
+                            ? `Education (${edu}) + Training (${train}) + Experience (${exp}) + Perf (${perf}) + Accomp (${hrmoAccomplishmentsScore}) + AppEdu (${hrmoAppEduScore}) + AppLD (${hrmoAppLdScore}) + Potential (${(Number(hrmoWrittenScore) + Number(hrmoBeiScore) + Number(hrmoSkillsScore)).toFixed(1)})`
+                            : `Education (${edu}) + Training (${train}) + Experience (${exp}) + Perf (${perf}) + PPST COT (${hrmoPpstCoiScore}) + Portfolio (${hrmoPpstNcoiScore})`}
                         </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                        <span style={{ fontSize: '1.75rem', fontWeight: 900, color: '#D97706', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: '1.75rem', fontWeight: 900, color: '#059669', fontFamily: 'var(--font-mono)' }}>
                           {combined.toFixed(2)}
                         </span>
                         <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 700 }}>/ 100.00 pts</span>
@@ -4122,6 +4737,7 @@ export const PromotionManagement: React.FC = () => {
                       2. Probation Period
                     </label>
                     <select
+                      aria-label="2. Probation Period"
                       className="form-input"
                       value={forProbation}
                       onChange={(e) => setForProbation(e.target.value)}
@@ -4139,6 +4755,7 @@ export const PromotionManagement: React.FC = () => {
                       3. For Appointment Status
                     </label>
                     <input
+                      aria-label="3. For Appointment Status"
                       type="text"
                       className="form-input"
                       value={forAppointment}
@@ -4173,6 +4790,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
                   </div>
                   <textarea
+                    aria-label="Enter board deliberation notes and findings"
                     className="form-input"
                     rows={2}
                     placeholder="Enter board deliberation notes and findings..."
@@ -4201,7 +4819,7 @@ export const PromotionManagement: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={savingHrmoRating.pending}
                   className="btn btn-primary"
                   style={{
                     background: 'var(--color-primary)',
@@ -4229,7 +4847,7 @@ export const PromotionManagement: React.FC = () => {
 
       {/* MODAL 3: APPLICATION FORM FILL (COMPLETE PDS FORM 212) */}
       {showAppModal && (
-        <ModalOverlay className="modal-overlay">
+        <ModalOverlay onDismiss={() => setShowAppModal(false)} className="modal-overlay">
           <div className="modal animate-scale-in" style={{
             maxWidth: 'min(980px, 95vw)',
             width: '95vw',
@@ -4374,6 +4992,7 @@ export const PromotionManagement: React.FC = () => {
                         First Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input
+                        aria-label="First Name"
                         type="text"
                         className="form-input"
                         placeholder="e.g. Maria"
@@ -4394,6 +5013,7 @@ export const PromotionManagement: React.FC = () => {
                         Middle Name
                       </label>
                       <input
+                        aria-label="Middle Name"
                         type="text"
                         className="form-input"
                         placeholder="e.g. Bautista"
@@ -4407,6 +5027,7 @@ export const PromotionManagement: React.FC = () => {
                         Last Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input
+                        aria-label="Last Name"
                         type="text"
                         className="form-input"
                         placeholder="e.g. Santos"
@@ -4427,6 +5048,7 @@ export const PromotionManagement: React.FC = () => {
                         Suffix
                       </label>
                       <select
+                        aria-label="Suffix"
                         className="form-input"
                         value={appSuffix}
                         onChange={(e) => setAppSuffix(e.target.value)}
@@ -4444,7 +5066,7 @@ export const PromotionManagement: React.FC = () => {
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
                         Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
-                      <input
+                      <input aria-label="Date of Birth"
                         type="date"
                         className="form-input"
                         value={appBirthDate}
@@ -4457,7 +5079,7 @@ export const PromotionManagement: React.FC = () => {
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
                         Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
-                      <select
+                      <select aria-label="Sex / Gender"
                         className="form-input"
                         value={appGender}
                         onChange={(e) => setAppGender(e.target.value as any)}
@@ -4472,7 +5094,7 @@ export const PromotionManagement: React.FC = () => {
                       <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
                         Civil Status <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
-                      <select
+                      <select aria-label="Civil Status"
                         className="form-input"
                         value={appCivilStatus}
                         onChange={(e) => setAppCivilStatus(e.target.value as any)}
@@ -4507,6 +5129,7 @@ export const PromotionManagement: React.FC = () => {
                         Email Address (Portal Account) <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input
+                        aria-label="Email Address (Portal Account)"
                         type="email"
                         className="form-input"
                         placeholder="maria.santos@deped.gov.ph"
@@ -4521,6 +5144,7 @@ export const PromotionManagement: React.FC = () => {
                         Mobile / Contact Number
                       </label>
                       <input
+                        aria-label="Mobile / Contact Number"
                         type="tel"
                         inputMode="numeric"
                         maxLength={13}
@@ -4536,6 +5160,7 @@ export const PromotionManagement: React.FC = () => {
                         Residential Address
                       </label>
                       <input
+                        aria-label="Residential Address"
                         type="text"
                         className="form-input"
                         placeholder="Barangay, Municipality / City, Province"
@@ -4621,15 +5246,7 @@ export const PromotionManagement: React.FC = () => {
                 flexShrink: 0,
               }}>
                 <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setShowAppModal(false)}
-                  style={{ borderRadius: '10px', fontWeight: 700, padding: '9px 18px' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
+                  type="submit" disabled={savingApplication.pending}
                   className="btn btn-primary"
                   style={{
                     background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
@@ -4655,7 +5272,7 @@ export const PromotionManagement: React.FC = () => {
 
       {/* MODAL 4: CREATE PROMOTION CYCLE */}
       {showConfigModal && isHR && (
-        <ModalOverlay className="modal-overlay">
+        <ModalOverlay onDismiss={() => setShowConfigModal(false)} className="modal-overlay">
           <div className="modal animate-scale-in" style={{
             maxWidth: '780px',
             width: '92vw',
@@ -4718,6 +5335,7 @@ export const PromotionManagement: React.FC = () => {
                       Max Applicants Capacity <span style={{ color: 'var(--color-danger)' }}>*</span>
                     </label>
                     <input
+                      aria-label="Max Applicants Capacity"
                       type="number"
                       min={1} max={500}
                       className="form-input"
@@ -4743,6 +5361,7 @@ export const PromotionManagement: React.FC = () => {
                       Applicants That Will Be Chosen <span style={{ color: 'var(--color-danger)' }}>*</span>
                     </label>
                     <input
+                      aria-label="Applicants That Will Be Chosen"
                       type="number"
                       min={1} max={50}
                       className="form-input"
@@ -5041,9 +5660,11 @@ export const PromotionManagement: React.FC = () => {
                               {/* Search Bar + Quick Track Filters */}
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                                 <div style={{ position: 'relative', flex: '1 1 200px' }}>
-                                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)' }} />
+                                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-secondary)', pointerEvents: 'none' }} />
                                   <input
+                                    aria-label="Search by Item No, Position Title, Station, or SG"
                                     type="text"
+                                    className="has-icon-left"
                                     autoFocus
                                     placeholder="Search by Item No, Position Title, Station, or SG..."
                                     value={plantillaPickerSearch}
@@ -5100,14 +5721,33 @@ export const PromotionManagement: React.FC = () => {
                                 {filteredAvailable.length === 0 ? (
                                   <div style={{
                                     textAlign: 'center',
-                                    padding: '20px 12px',
+                                    padding: '32px 16px',
                                     color: 'var(--color-text-secondary)',
-                                    fontSize: '0.75rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
                                   }}>
-                                    <Building2 size={24} style={{ margin: '0 auto 6px', opacity: 0.4 }} />
-                                    <div>No vacant plantilla items found matching your filter.</div>
-                                    <div style={{ fontSize: '0.6875rem', marginTop: '4px', opacity: 0.8 }}>
-                                      Try clearing your search query or switching to All tracks.
+                                    <div style={{
+                                      width: '48px',
+                                      height: '48px',
+                                      borderRadius: '50%',
+                                      background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9',
+                                      border: '1px solid var(--color-border)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      marginBottom: '10px',
+                                    }}>
+                                      <Building2 size={24} style={{ color: 'var(--color-text-muted)' }} />
+                                    </div>
+                                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                                      No vacant plantilla items found
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '280px', lineHeight: 1.4 }}>
+                                      {plantillaPickerSearch || plantillaPickerTrack !== 'ALL'
+                                        ? 'Try clearing your search query or switching to All tracks.'
+                                        : 'There are currently no vacant plantilla items available in inventory.'}
                                     </div>
                                   </div>
                                 ) : (
@@ -5116,11 +5756,12 @@ export const PromotionManagement: React.FC = () => {
                                     return (
                                       <div
                                         key={p.id}
-                                        onClick={() => {
+                                        aria-pressed={isItemChosen}
+                                        {...clickable<HTMLDivElement>(() => {
                                           handleDesignatedPlantillaChange(idx, p.itemNumber);
                                           setOpenPlantillaPickerIdx(null);
                                           setPlantillaPickerSearch('');
-                                        }}
+                                        })}
                                         style={{
                                           display: 'flex',
                                           alignItems: 'center',
@@ -5200,10 +5841,10 @@ export const PromotionManagement: React.FC = () => {
                           {/* Case C: No Plantilla Chosen and Picker is closed -> Sleek Empty Trigger */}
                           {!currentValue && !isPickerOpen && (
                             <div
-                              onClick={() => {
+                              {...clickable<HTMLDivElement>(() => {
                                 setOpenPlantillaPickerIdx(idx);
                                 setPlantillaPickerSearch('');
-                              }}
+                              }, 'Choose a plantilla item')}
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -5323,7 +5964,7 @@ export const PromotionManagement: React.FC = () => {
                   <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
                     Cycle Title <span style={{ color: 'var(--color-danger)' }}>*</span>
                   </label>
-                  <input
+                  <input aria-label="Cycle Title"
                     type="text"
                     className="form-input"
                     placeholder={newCycleTrack === 'TEACHING' ? "e.g. 2026 Division Master Teacher Promotion" : "e.g. 2026 Administrative Officer Promotion"}
@@ -5338,6 +5979,7 @@ export const PromotionManagement: React.FC = () => {
                     Promotion Type
                   </label>
                   <select
+                    aria-label="Promotion Type"
                     className="form-input"
                     value={newCycleType}
                     onChange={(e) => setNewCycleType(e.target.value)}
@@ -5352,6 +5994,7 @@ export const PromotionManagement: React.FC = () => {
                     Application Start Date
                   </label>
                   <input
+                    aria-label="Application Start Date"
                     type="date"
                     className="form-input"
                     value={newStartDate}
@@ -5365,6 +6008,7 @@ export const PromotionManagement: React.FC = () => {
                     Application Deadline / End Date
                   </label>
                   <input
+                    aria-label="Application Deadline / End Date"
                     type="date"
                     className="form-input"
                     value={newEndDate}
@@ -5378,6 +6022,7 @@ export const PromotionManagement: React.FC = () => {
                     Initial Cycle Status
                   </label>
                   <select
+                    aria-label="Initial Cycle Status"
                     className="form-input"
                     value={newCycleStatus}
                     onChange={(e) => setNewCycleStatus(e.target.value)}
@@ -5392,7 +6037,7 @@ export const PromotionManagement: React.FC = () => {
 
               <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button type="button" className="btn btn-ghost" onClick={() => setShowConfigModal(false)} style={{ borderRadius: '9999px', fontWeight: 700 }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ background: 'var(--color-primary)', color: '#ffffff', border: 'none', borderRadius: '9999px', padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 800 }}>
+                <button type="submit" disabled={creatingCycle.pending} className="btn btn-primary" style={{ background: 'var(--color-primary)', color: '#ffffff', border: 'none', borderRadius: '9999px', padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 800 }}>
                   <AppIcon name="new-transaction" size={14} color="#ffffff" /> Create Promotion Cycle
                 </button>
               </div>
@@ -5404,47 +6049,57 @@ export const PromotionManagement: React.FC = () => {
       {/* MODAL 5: APPLICANT SCORE BREAKDOWN & CAR DOSSIER INFO */}
       {showApplicantInfoModal && selectedApplicantInfo && (() => {
         const isTeachingTrack = isCycleTeaching || selectedApplicantInfo.track === 'TEACHING' || selectedCycle?.rulesConfigurationJson?.track === 'TEACHING';
-        const initialRating = selectedApplicantInfo.scoreDetailsJson?.initialRating || {};
         const finalRating = selectedApplicantInfo.scoreDetailsJson?.finalRating || {};
+        const initialRating = selectedApplicantInfo.scoreDetailsJson?.initialRating || {};
+        const reqCheck = selectedApplicantInfo.scoreDetailsJson?.requirementsCheck;
+        const isReqComplete = reqCheck?.status === 'COMPLETE' || selectedApplicantInfo.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
+        const isReqDeficient = reqCheck?.status === 'INCOMPLETE' || selectedApplicantInfo.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
         
-        // AO Criteria
-        const edu = Number(selectedApplicantInfo.educationScore ?? initialRating.educationScore ?? 10);
-        const train = Number(selectedApplicantInfo.trainingScore ?? initialRating.trainingScore ?? 10);
-        const exp = Number(selectedApplicantInfo.experienceScore ?? initialRating.experienceScore ?? 10);
-        const perf = Number(selectedApplicantInfo.performanceScore ?? initialRating.performanceScore ?? (isTeachingTrack ? 30 : 20));
+        // Qualification criteria deliberated by HR / HRMPSB
+        const edu = Number(finalRating.educationScore ?? selectedApplicantInfo.educationScore ?? initialRating.educationScore ?? 0);
+        const train = Number(finalRating.trainingScore ?? selectedApplicantInfo.trainingScore ?? initialRating.trainingScore ?? 0);
+        const exp = Number(finalRating.experienceScore ?? selectedApplicantInfo.experienceScore ?? initialRating.experienceScore ?? 0);
+        const perf = Number(finalRating.performanceScore ?? selectedApplicantInfo.performanceScore ?? initialRating.performanceScore ?? 0);
         
-        // Non-Teaching AO Criteria
-        const accomp = Number(selectedApplicantInfo.outstandingAccomplishmentsScore ?? initialRating.outstandingAccomplishmentsScore ?? 5);
-        const appEdu = Number(selectedApplicantInfo.applicationOfEducationScore ?? initialRating.applicationOfEducationScore ?? 15);
-        const appLd = Number(selectedApplicantInfo.applicationOfLdScore ?? initialRating.applicationOfLdScore ?? 10);
+        // Non-Teaching HR Criteria
+        const accomp = Number(finalRating.outstandingAccomplishmentsScore ?? selectedApplicantInfo.outstandingAccomplishmentsScore ?? initialRating.outstandingAccomplishmentsScore ?? 0);
+        const appEdu = Number(finalRating.applicationOfEducationScore ?? selectedApplicantInfo.applicationOfEducationScore ?? initialRating.applicationOfEducationScore ?? 0);
+        const appLd = Number(finalRating.applicationOfLdScore ?? selectedApplicantInfo.applicationOfLdScore ?? initialRating.applicationOfLdScore ?? 0);
 
-        const aoSubtotal = Number(selectedApplicantInfo.aoSubtotal || selectedApplicantInfo.initialTotalScore || initialRating.initialTotalScore || (isTeachingTrack ? (edu + train + exp + perf) : (edu + train + exp + perf + accomp + appEdu + appLd)));
-        const maxAo = isTeachingTrack ? 60 : 80;
+        // Track Criteria scored by HRMO
+        const coi = Number(finalRating.ppstCoiScore ?? selectedApplicantInfo.ppstCoiScore ?? 0);
+        const ncoi = Number(finalRating.ppstNcoiScore ?? selectedApplicantInfo.ppstNcoiScore ?? 0);
+        const written = Number(finalRating.potentialWrittenScore ?? selectedApplicantInfo.potentialWrittenScore ?? 0);
+        const bei = Number(finalRating.potentialBeiScore ?? selectedApplicantInfo.potentialBeiScore ?? 0);
+        const skills = Number(finalRating.potentialSkillsScore ?? selectedApplicantInfo.potentialSkillsScore ?? 0);
 
-        // HRMO Criteria
-        const coi = Number(selectedApplicantInfo.ppstCoiScore ?? finalRating.ppstCoiScore ?? 25);
-        const ncoi = Number(selectedApplicantInfo.ppstNcoiScore ?? finalRating.ppstNcoiScore ?? 15);
-        const written = Number(selectedApplicantInfo.potentialWrittenScore ?? finalRating.potentialWrittenScore ?? 5);
-        const bei = Number(selectedApplicantInfo.potentialBeiScore ?? finalRating.potentialBeiScore ?? 5);
-        const skills = Number(selectedApplicantInfo.potentialSkillsScore ?? finalRating.potentialSkillsScore ?? 10);
+        const basicSubtotal = isTeachingTrack ? (edu + train + exp + perf) : (edu + train + exp + perf + accomp + appEdu + appLd);
+        const basicMax = isTeachingTrack ? 60 : 80;
 
-        const hrSubtotal = Number(selectedApplicantInfo.hrmoSubtotal || selectedApplicantInfo.finalTotalScore || finalRating.finalTotalScore || (isTeachingTrack ? (coi + ncoi) : (written + bei + skills)));
-        const maxHr = isTeachingTrack ? 40 : 20;
+        const trackSubtotal = isTeachingTrack ? (coi + ncoi) : (written + bei + skills);
+        const trackMax = isTeachingTrack ? 40 : 20;
 
-        const totalScore = Number(selectedApplicantInfo.overallTotalScore || selectedApplicantInfo.totalScore || (aoSubtotal + hrSubtotal));
+        const hasBeenDeliberated = Boolean(
+          selectedApplicantInfo.hasHrmoRating ||
+          finalRating.overallTotalScore !== undefined ||
+          finalRating.finalTotalScore !== undefined ||
+          (selectedApplicantInfo.overallTotalScore && Number(selectedApplicantInfo.overallTotalScore) > 0)
+        );
+
+        const totalScore = Number(finalRating.overallTotalScore ?? selectedApplicantInfo.overallTotalScore ?? (basicSubtotal + trackSubtotal));
         const rank = selectedApplicantInfo.rank || 1;
 
         const biStatus = selectedApplicantInfo.forBackgroundInvestigation || selectedApplicantInfo.scoreDetailsJson?.forBackgroundInvestigation || 'YES';
         const appointmentStatus = selectedApplicantInfo.forAppointment || selectedApplicantInfo.scoreDetailsJson?.forAppointment || 'Recommended for Appointment';
         const probationPeriod = selectedApplicantInfo.forProbation || selectedApplicantInfo.scoreDetailsJson?.forProbation || '6 months';
-        const aoRemarksText = selectedApplicantInfo.initialDetails?.aoRemarks || initialRating.aoRemarks || 'Authenticated and verified in accordance with DepEd Order standards.';
+        const aoRemarksText = reqCheck?.remarks || selectedApplicantInfo.initialDetails?.aoRemarks || initialRating.aoRemarks || 'Documentary requirements verified against Annex C standards.';
         const hrmoRemarksText = selectedApplicantInfo.remarks || selectedApplicantInfo.finalDetails?.hrmoRemarks || finalRating.hrmoRemarks || 'Deliberated and qualified by Merit Promotion Selection Board.';
         const isDark = theme === 'dark';
         const primaryActionBg = 'var(--color-primary)';
         const primaryActionColor = '#FFFFFF';
 
         return (
-          <ModalOverlay
+          <ModalOverlay onDismiss={() => setShowApplicantInfoModal(false)}
             className="modal-overlay"
             style={{
               position: 'fixed',
@@ -5706,10 +6361,10 @@ export const PromotionManagement: React.FC = () => {
                           letterSpacing: '0.06em',
                         }}
                       >
-                        Comparative Assessment Result (CAR) Master Total
+                        Comparative Assessment Result (CAR) • Official HRMPSB Rating
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        Stage 1 (AO Subtotal: {aoSubtotal.toFixed(2)}) + Stage 2 (HRMO Subtotal: {hrSubtotal.toFixed(2)})
+                        Deliberated Rating (Basic: {basicSubtotal.toFixed(2)} / {basicMax} pts + Track: {trackSubtotal.toFixed(2)} / {trackMax} pts)
                       </div>
                     </div>
 
@@ -5790,11 +6445,19 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Stage 1: AO II Initial Rating Breakdown */}
+                {/* Stage 1: AO II Documentary Requirements Check (Annex C) */}
                 <div
                   style={{
-                    backgroundColor: isDark ? 'rgba(16, 185, 129, 0.08)' : '#F0FDF4',
-                    border: isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #BBF7D0',
+                    backgroundColor: isReqComplete
+                      ? (isDark ? 'rgba(16, 185, 129, 0.08)' : '#F0FDF4')
+                      : isReqDeficient
+                      ? (isDark ? 'rgba(220, 38, 38, 0.08)' : '#FEF2F2')
+                      : (isDark ? 'rgba(217, 119, 6, 0.08)' : '#FFFBEB'),
+                    border: isReqComplete
+                      ? (isDark ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid #BBF7D0')
+                      : isReqDeficient
+                      ? (isDark ? '1px solid rgba(220, 38, 38, 0.25)' : '1px solid #FECACA')
+                      : (isDark ? '1px solid rgba(217, 119, 6, 0.25)' : '1px solid #FDE68A'),
                     borderRadius: '14px',
                     padding: '18px',
                   }}
@@ -5813,32 +6476,127 @@ export const PromotionManagement: React.FC = () => {
                       style={{
                         fontSize: '0.8125rem',
                         fontWeight: 800,
-                        color: isDark ? '#34D399' : '#166534',
+                        color: isReqComplete
+                          ? (isDark ? '#34D399' : '#166534')
+                          : isReqDeficient
+                          ? (isDark ? '#F87171' : '#B91C1C')
+                          : (isDark ? '#FBBF24' : '#B45309'),
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
                       }}
                     >
-                      Stage 1 • AO II Qualification Scoring ({maxAo}.00 pts Max)
+                      Stage 1 • AO II Documentary Check (Annex C Checklist)
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        color: isReqComplete ? (isDark ? '#34D399' : '#059669') : isReqDeficient ? '#DC2626' : '#D97706',
+                        backgroundColor: isReqComplete
+                          ? (isDark ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7')
+                          : isReqDeficient
+                          ? (isDark ? 'rgba(220, 38, 38, 0.2)' : '#FEE2E2')
+                          : (isDark ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7'),
+                        padding: '3px 10px',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      {isReqComplete ? 'Complete / Verified' : isReqDeficient ? 'Deficient' : 'Pending Verification'}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
+                      gap: '10px',
+                      marginBottom: '12px',
+                    }}
+                  >
+                    <div style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '10px 12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px' }}>Verified By</div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{reqCheck?.verifiedByName || 'Administrative Officer II'}</div>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '10px 12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px' }}>Annex C Items</div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>11 Items (a to k)</div>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '10px 12px', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, marginBottom: '4px' }}>Omnibus Sworn Statement</div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 800, color: selectedApplicantInfo.scoreDetailsJson?.annexCChecklist?.applicantInfo?.omnibusSwornStatement ? '#059669' : '#D97706' }}>
+                        {selectedApplicantInfo.scoreDetailsJson?.annexCChecklist?.applicantInfo?.omnibusSwornStatement ? 'Certified / Notarized' : 'Pending Certification'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--color-text-secondary)',
+                      fontStyle: 'italic',
+                      padding: '10px 14px',
+                      backgroundColor: 'var(--color-bg-card)',
+                      borderRadius: '8px',
+                      border: '1px solid var(--color-border)',
+                      borderLeft: isReqComplete ? '3.5px solid #10B981' : isReqDeficient ? '3.5px solid #DC2626' : '3.5px solid #D97706',
+                    }}
+                  >
+                    AO II Verification Remarks: "{aoRemarksText}"
+                  </div>
+                </div>
+
+                {/* Stage 2: HRMPSB / HR Score Deliberation (100.00 pts Max) */}
+                <div
+                  style={{
+                    backgroundColor: isDark ? 'rgba(37, 99, 235, 0.08)' : '#EFF6FF',
+                    border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #BFDBFE',
+                    borderRadius: '14px',
+                    padding: '18px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '14px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '0.8125rem',
+                        fontWeight: 800,
+                        color: isDark ? '#60A5FA' : '#1D4ED8',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      Stage 2 • HRMPSB Qualification Score Deliberation (100.00 pts Max)
                     </div>
                     <span
                       style={{
                         fontSize: '0.875rem',
                         fontWeight: 800,
-                        color: isDark ? '#34D399' : '#059669',
+                        color: isDark ? '#60A5FA' : '#2563EB',
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
-                      Subtotal: {aoSubtotal.toFixed(2)} / {maxAo}.00 pts
+                      Total Deliberated: {totalScore.toFixed(2)} / 100.00 pts
                     </span>
                   </div>
 
-                  {/* Individual AO Criteria Grid */}
+                  {/* Section A: Basic Qualification Criteria deliberated by HR */}
+                  <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    A. Basic Qualifications ({basicMax}.00 pts Max) • Subtotal: {basicSubtotal.toFixed(2)} / {basicMax}.00
+                  </div>
                   <div
                     style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))',
                       gap: '10px',
-                      marginBottom: '14px',
+                      marginBottom: '16px',
                     }}
                   >
                     {[
@@ -5891,65 +6649,10 @@ export const PromotionManagement: React.FC = () => {
                     ))}
                   </div>
 
-                  <div
-                    style={{
-                      fontSize: '0.75rem',
-                      color: 'var(--color-text-secondary)',
-                      fontStyle: 'italic',
-                      padding: '10px 14px',
-                      backgroundColor: 'var(--color-bg-card)',
-                      borderRadius: '8px',
-                      border: '1px solid var(--color-border)',
-                      borderLeft: '3.5px solid #10B981',
-                    }}
-                  >
-                    AO II Evaluation Notes: "{aoRemarksText}"
+                  {/* Section B: Track Criteria deliberated by HR */}
+                  <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                    B. {isTeachingTrack ? 'PPST Classroom Observations & Portfolio' : 'Potential & Examinations'} ({trackMax}.00 pts Max) • Subtotal: {trackSubtotal.toFixed(2)} / {trackMax}.00
                   </div>
-                </div>
-
-                {/* Stage 2: HRMO Merit Deliberation Breakdown */}
-                <div
-                  style={{
-                    backgroundColor: isDark ? 'rgba(37, 99, 235, 0.08)' : '#EFF6FF',
-                    border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #BFDBFE',
-                    borderRadius: '14px',
-                    padding: '18px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '14px',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.8125rem',
-                        fontWeight: 800,
-                        color: isDark ? '#60A5FA' : '#1D4ED8',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      Stage 2 • HRMO Board Deliberation ({maxHr}.00 pts Max)
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '0.875rem',
-                        fontWeight: 800,
-                        color: isDark ? '#60A5FA' : '#2563EB',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      Subtotal: {hrSubtotal.toFixed(2)} / {maxHr}.00 pts
-                    </span>
-                  </div>
-
-                  {/* Individual HRMO Criteria Grid */}
                   <div
                     style={{
                       display: 'grid',
@@ -6144,7 +6847,7 @@ export const PromotionManagement: React.FC = () => {
                       borderLeft: '3.5px solid #2563EB',
                     }}
                   >
-                    HRMO Board Remarks: "{hrmoRemarksText}"
+                    HRMPSB Deliberation Remarks: "{hrmoRemarksText}"
                   </div>
                 </div>
 
@@ -6267,20 +6970,46 @@ export const PromotionManagement: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
+                {isHR && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const app = selectedApplicantInfo;
+                      setShowApplicantInfoModal(false);
+                      handleOpenHrmoRating(app);
+                    }}
+                    className="btn btn-primary"
+                    style={{
+                      fontSize: '0.8125rem',
+                      background: '#2563EB',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '9999px',
+                      padding: '9px 22px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                    }}
+                  >
+                    <AppIcon name="check" size={14} color="#ffffff" />
+                    {hasBeenDeliberated ? 'Revise Deliberation (HR)' : 'Deliberate & Score (HR)'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowApplicantInfoModal(false)}
                   style={{
                     fontSize: '0.8125rem',
-                    backgroundColor: primaryActionBg,
-                    color: primaryActionColor,
-                    border: 'none',
+                    backgroundColor: 'var(--color-bg-card)',
+                    color: 'var(--color-text-primary)',
+                    border: '1px solid var(--color-border)',
                     borderRadius: '9999px',
-                    padding: '9px 24px',
+                    padding: '9px 20px',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
                   }}
                 >
                   Close Dossier
@@ -6293,7 +7022,7 @@ export const PromotionManagement: React.FC = () => {
 
       {/* MODAL 6: PROMOTION SELECTION CONFIRMATION */}
       {showConfirmPromotionModal && selectedCandidateForConfirm && isHR && (
-        <ModalOverlay className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1060 }}>
+        <ModalOverlay onDismiss={() => setShowConfirmPromotionModal(false)} className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1060 }}>
           <div className="modal animate-scale-in" style={{
             maxWidth: '520px',
             width: '95%',
@@ -6320,13 +7049,6 @@ export const PromotionManagement: React.FC = () => {
                   Confirm Candidate Selection for Promotion
                 </h3>
               </div>
-              <button
-                className="modal-close"
-                onClick={() => setShowConfirmPromotionModal(false)}
-                style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', width: '32px', height: '32px', borderRadius: '8px', color: 'var(--color-text-primary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                ×
-              </button>
             </div>
 
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -6392,7 +7114,7 @@ export const PromotionManagement: React.FC = () => {
 
                     {cyclePlantillas.length > 0 ? (
                       <div>
-                        <select
+                        <select aria-label="Designated plantilla item for this candidate"
                           className="form-input"
                           value={selectedPlantillaForCandidate}
                           onChange={(e) => setSelectedPlantillaForCandidate(e.target.value)}
@@ -6424,7 +7146,7 @@ export const PromotionManagement: React.FC = () => {
                       </div>
                     ) : (
                       <div>
-                        <select
+                        <select aria-label="Vacant plantilla item from registry"
                           className="form-input"
                           value={selectedPlantillaForCandidate}
                           onChange={(e) => setSelectedPlantillaForCandidate(e.target.value)}

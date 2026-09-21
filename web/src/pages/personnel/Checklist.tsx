@@ -161,30 +161,21 @@ export const Checklist: React.FC = () => {
             return next;
           });
         } else {
-          // If personnel has no transactions yet, initialize one
-          const initRes = await apiClient.post('/transactions', {
-            type: 'Promotion Appointment',
-            notes: 'Initialized promotion application transaction',
-          });
-          if (initRes.data?.data?.id) {
-            const newId = String(initRes.data.data.id);
-            setTxId(newId);
-            setSearchParams(prev => {
-              const next = new URLSearchParams(prev);
-              next.set('txId', newId);
-              return next;
-            });
-          }
+          setTxId('');
+          setLoading(false);
+          addToast('No assigned transaction. Your hiring or promotion transaction will appear after assignment.', 'INFO');
         }
       } catch (_) {
-        setTxId('8');
+        setTxId('');
+        setLoading(false);
+        addToast('Unable to load your assigned transactions. Please retry.', 'ERROR');
       }
     };
     resolveTxId();
   }, [rawTxId, setSearchParams]);
 
   const fetchTransactionData = useCallback(async (overrideId?: string | number) => {
-    const targetId = overrideId || txId || (rawTxId !== '101' ? rawTxId : '') || '8';
+    const targetId = overrideId || txId || (rawTxId !== '101' ? rawTxId : '');
     const numId = Number(targetId);
     if (!targetId || isNaN(numId) || numId <= 0) {
       setLoading(false);
@@ -666,6 +657,7 @@ export const Checklist: React.FC = () => {
       </div>
 
       <input
+        aria-label="Choose a document file to upload"
         type="file"
         ref={fileInputRef}
         style={{ display: 'none' }}

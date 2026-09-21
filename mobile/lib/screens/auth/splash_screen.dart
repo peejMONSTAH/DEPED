@@ -101,7 +101,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: AppTheme.lightBg,
       body: Stack(
         children: [
           // Ambient Radial Light Aura (Top center glow)
@@ -115,7 +115,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTheme.accentLime.withOpacity(0.12),
+                    AppTheme.primaryLight.withOpacity(0.06),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.7],
@@ -135,7 +135,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppTheme.accentLavender.withOpacity(0.1),
+                    AppTheme.accentLavender.withOpacity(0.08),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.7],
@@ -175,13 +175,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppTheme.darkBgCard,
-                              border: Border.all(color: AppTheme.accentLime.withOpacity(0.4), width: 2),
-                              boxShadow: [
+                              color: AppTheme.lightBgCard,
+                              border: Border.all(color: AppTheme.lightBorder, width: 1.5),
+                              boxShadow: const [
                                 BoxShadow(
-                                  color: AppTheme.accentLime.withOpacity(0.25),
-                                  blurRadius: 28,
-                                  spreadRadius: 2,
+                                  color: Color(0x0E000000),
+                                  blurRadius: 20,
+                                  offset: Offset(0, 4),
                                 ),
                               ],
                             ),
@@ -207,7 +207,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF8B949E),
+                              color: AppTheme.textSecondary,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -217,7 +217,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: const Color(0xFF6E7681),
+                              color: AppTheme.textMuted,
                             ),
                           ),
                         ],
@@ -231,14 +231,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: AppTheme.darkBgCard,
+                        color: AppTheme.lightBgCard,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.darkBorder),
-                        boxShadow: [
+                        border: Border.all(color: AppTheme.lightBorder),
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
+                            color: Color(0x0C000000),
                             blurRadius: 20,
-                            offset: const Offset(0, 10),
+                            offset: Offset(0, 4),
                           ),
                         ],
                       ),
@@ -253,7 +253,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                                  color: AppTheme.textPrimary,
                                 ),
                               ),
                               AnimatedBuilder(
@@ -283,7 +283,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                 child: Container(
                                   height: 6,
                                   width: double.infinity,
-                                  color: AppTheme.darkSurface,
+                                  color: AppTheme.lightBorder,
                                   child: Align(
                                     alignment: Alignment.centerLeft,
                                     child: FractionallySizedBox(
@@ -291,7 +291,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                       child: Container(
                                         decoration: const BoxDecoration(
                                           gradient: LinearGradient(
-                                            colors: [AppTheme.accentLime, AppTheme.accentLavender],
+                                            colors: [AppTheme.accentLime, Color(0xFF10B981)],
                                           ),
                                         ),
                                       ),
@@ -317,9 +317,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                     height: 16,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: isDone ? const Color(0xFF10B981).withOpacity(0.2) : Colors.transparent,
+                                      color: isDone ? const Color(0xFF10B981).withOpacity(0.15) : Colors.transparent,
                                       border: Border.all(
-                                        color: isDone ? const Color(0xFF10B981) : AppTheme.darkBorder,
+                                        color: isDone ? const Color(0xFF10B981) : AppTheme.lightBorder,
                                       ),
                                     ),
                                     child: isDone
@@ -333,7 +333,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                       style: GoogleFonts.inter(
                                         fontSize: 11,
                                         fontWeight: isDone ? FontWeight.w600 : FontWeight.w400,
-                                        color: isDone ? Colors.white : const Color(0xFF6E7681),
+                                        color: isDone ? AppTheme.textPrimary : AppTheme.textMuted,
                                       ),
                                     ),
                                   ),
@@ -348,7 +348,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     const SizedBox(height: 24),
                     Text(
                       'Digital 201 v1.0 · Protected by DepEd Data Privacy',
-                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF6E7681)),
+                      style: GoogleFonts.inter(fontSize: 10, color: AppTheme.textMuted),
                     ),
                     const SizedBox(height: 16),
                   ],

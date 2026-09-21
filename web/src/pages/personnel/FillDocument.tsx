@@ -9,6 +9,7 @@ import { fieldEntryId, fieldsForTemplate } from '../../components/forms/formFiel
 import { mapEntries } from '../../components/forms/fieldLayout';
 import { FieldOverlay } from '../../components/forms/FieldOverlay';
 import { structuredDataFromEntries } from '../../components/forms/formDataExtraction';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import './fill-document.css';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -18,6 +19,7 @@ type Draft = { pages: number[]; entries: FormEntry[]; version: string; updatedAt
 export default function FillDocument() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const txId = params.get('txId') || '';
   const name = params.get('name') || '';
   const templateId = templateForRequirement(name);
@@ -39,6 +41,21 @@ export default function FillDocument() {
   const [confirmed, setConfirmed] = useState(false);
   const [preview, setPreview] = useState<string>();
   const canvas = useRef<HTMLCanvasElement>(null);
+
+  /** Leaves the editor, asking first when the draft has unsaved edits. */
+  const leaveTo = async (destination: string) => {
+    if (dirty) {
+      const outcome = await confirm({
+        title: 'Leave without saving?',
+        message: 'This form has changes you have not saved. Leaving now discards them.',
+        confirmLabel: 'Discard changes',
+        cancelLabel: 'Keep editing',
+      });
+      if (!outcome.confirmed) return;
+    }
+    navigate(destination);
+  };
+
   const mappedIds = new Set(draft.pages.flatMap((sourcePage, page) => detectedFields.filter(field => field.page === sourcePage).map(field => fieldEntryId(field, page, draft.pages))));
   const previousAnswers = draft.entries.filter(entry => !mappedIds.has(entry.id));
   const pageFields = detectedFields.filter(field => field.page === draft.pages[pageIndex]);
@@ -139,7 +156,7 @@ export default function FillDocument() {
   return <main className="form-workspace">
     <header className="form-heading">
       <div><p className="form-eyebrow">Personnel documents</p><h1>{template?.title || 'Fill out a document'}</h1><p>{template?.edition}</p></div>
-      <button className="btn btn-secondary" onClick={() => { if (!dirty || window.confirm('Leave without saving your latest changes?')) navigate(`/personnel/checklist?txId=${txId}`); }}>Back to checklist</button>
+      <button className="btn btn-secondary" onClick={() => leaveTo(`/personnel/checklist?txId=${txId}`)}>Back to checklist</button>
     </header>
     {error && <p className="form-error" role="alert">{error}</p>}
     {loading ? <p role="status">Loading your template and saved draft…</p> : template && <>
@@ -193,7 +210,7 @@ export default function FillDocument() {
       <section className="form-submit"><h2>Attach to this requirement</h2><p>This attaches a PDF to “{name}”. It does not submit the entire transaction or approve the document. AO/HRMO review remains required.</p>
         <label className="form-confirm"><input type="checkbox" disabled={locked || busy || !preview} checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>I reviewed the PDF, confirmed the accepted template edition, and completed all required signatures and officer certifications. If these are still missing, I will download the draft and upload the completed copy instead.</label>
         <button className="btn btn-primary" disabled={locked || busy || !confirmed || !preview} onClick={() => perform('attach')}>Attach PDF for review</button>
-        <button className="btn btn-secondary" onClick={() => { if (!dirty || window.confirm('Leave without saving your latest changes?')) navigate(`/personnel/upload-document?${params.toString()}`); }}>Upload a signed / completed file instead</button>
+        <button className="btn btn-secondary" onClick={() => leaveTo(`/personnel/upload-document?${params.toString()}`)}>Upload a signed / completed file instead</button>
       </section>
     </>}
   </main>;

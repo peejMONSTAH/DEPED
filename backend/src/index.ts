@@ -4,6 +4,8 @@ dotenv.config();
 import app from './app';
 import { config } from './config';
 import prisma from './config/prisma';
+import { logger } from './utils/logger';
+import { startWorkflowOutboxWorker } from './services/workflow-outbox.service';
 
 const PORT = config.port;
 
@@ -11,9 +13,9 @@ const startServer = async () => {
   // Do not advertise a healthy production service until its database is reachable.
   try {
     await prisma.$connect();
-    console.log('✅ Database connected successfully.');
+    logger.info('✅ Database connected successfully.');
   } catch (error) {
-    console.error('❌ Database connection failed during startup.', error);
+    logger.error({ err: error }, '❌ Database connection failed during startup.');
     process.exitCode = 1;
     return;
   }
@@ -31,13 +33,15 @@ const startServer = async () => {
 ╚══════════════════════════════════════════════════════╝
     `);
   });
+  const outboxTimer = startWorkflowOutboxWorker();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    console.log(`\n🛑 Received ${signal}. Gracefully shutting down...`);
+    logger.info('\n🛑 Received ${signal}. Gracefully shutting down...');
+    clearInterval(outboxTimer);
     server.close(async () => {
       await prisma.$disconnect();
-      console.log('✅ Database disconnected. Bye!');
+      logger.info('✅ Database disconnected. Bye!');
       process.exit(0);
     });
   };

@@ -7,7 +7,7 @@ import prisma from '../config/prisma';
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload & { personnelId?: number | null };
+      user?: JwtPayload & { personnelId?: number | null; mustChangePassword?: boolean };
     }
   }
 }
@@ -18,12 +18,19 @@ interface CachedUserRecord {
   accountStatus: any;
   personnelId: number | null;
   passwordHash: string;
+  mustChangePassword: boolean;
   role: { name: any };
   cachedAt: number;
 }
 
 const authUserCache = new Map<number, CachedUserRecord>();
 const AUTH_CACHE_TTL_MS = 30_000; // 30s cache eliminates redundant round-trips for parallel requests
+
+/** Routes that remain reachable while a forced password change is outstanding. */
+const isPasswordChangeRoute = (req: Request): boolean => {
+  const path = req.baseUrl + req.path;
+  return path.includes('/auth/change-password') || path.includes('/auth/logout') || path.includes('/auth/me');
+};
 
 export const invalidateAuthUserCache = (userId?: number): void => {
   if (userId) {
@@ -78,6 +85,7 @@ export const authenticate = async (
           accountStatus: true,
           personnelId: true,
           passwordHash: true,
+          mustChangePassword: true,
           role: { select: { name: true } },
         },
       });
@@ -111,12 +119,27 @@ export const authenticate = async (
       return;
     }
 
+    // An administrator-issued password is known to somebody other than the
+    // account holder, so it must not be usable for real work. Everything except
+    // changing it (and signing out) is refused until the holder sets their own.
+    // Enforced here rather than in the client, which could simply be skipped.
+    if (user.mustChangePassword && !isPasswordChangeRoute(req)) {
+      sendError(
+        res,
+        'You must set your own password before using Digital 201. Please change your password to continue.',
+        403,
+        'PASSWORD_CHANGE_REQUIRED',
+      );
+      return;
+    }
+
     req.user = {
       userId: user.id,
       email: user.email,
       role: user.role.name,
       personnelId: user.personnelId,
       pwdv: payload.pwdv,
+      mustChangePassword: user.mustChangePassword,
     };
 
     next();

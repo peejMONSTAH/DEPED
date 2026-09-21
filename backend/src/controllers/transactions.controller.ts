@@ -2,11 +2,19 @@ import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendBadRequest, sendNotFound, sendForbidden, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { notifyUserNotifications } from './notifications.controller';
-import { getAOSchoolScope } from '../utils/scope.util';
+import {
+  getStationScope,
+  isWithinStation,
+  stationPersonnelFilter,
+  STATION_SUBJECT_ROLES,
+} from '../utils/scope.util';
 import { generateMagicToken, passwordTokenVersion } from '../utils/jwt.util';
-import { sendDeficiencyAlertEmail } from '../services/email.service';
+import { config } from '../config';
+import { processWorkflowOutbox, queueDeficiencyEmail, queueTransactionalEmail } from '../services/workflow-outbox.service';
 import { EventEmitter } from 'events';
 import { isConfirmedPdsData, pdsProfileProposal } from '../utils/pds-profile.util';
+import { logger } from '../utils/logger';
+import { getSubmissionTransition } from '../utils/transaction-workflow.util';
 
 const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
 export const transactionEvents = new EventEmitter();
@@ -45,37 +53,12 @@ export const getTransactions = async (req: Request, res: Response) => {
     where.personnelId = req.user.personnelId;
   } else if (req.user?.role === 'AO_II') {
     // AO II can only see transactions of Teaching and Non-Teaching personnel under their school
-    const scope = await getAOSchoolScope(req.user);
-    if (scope.isAo) {
-      if (scope.schoolName) {
-        where.personnel = {
-          user: {
-            role: {
-              name: {
-                in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'],
-              },
-            },
-          },
-          OR: [
-            { address: { contains: scope.schoolName, mode: 'insensitive' } },
-            { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-            { plantillaItem: { department: { contains: scope.schoolName, mode: 'insensitive' } } },
-          ],
-        };
-      } else if (scope.districtName) {
-        where.personnel = {
-          user: {
-            role: {
-              name: {
-                in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'],
-              },
-            },
-          },
-          address: { contains: scope.districtName, mode: 'insensitive' },
-        };
-      } else {
-        where.id = -1;
-      }
+    const scope = await getStationScope(req.user);
+    if (scope.isScoped) {
+      where.personnel = {
+        user: { role: { name: { in: STATION_SUBJECT_ROLES } } },
+        ...stationPersonnelFilter(scope),
+      };
     }
   }
 
@@ -166,7 +149,7 @@ export const getMyTransactions = async (req: Request, res: Response) => {
       await prisma.user.update({
         where: { id: req.user.userId },
         data: { personnelId: pRecord.id },
-      }).catch((err: any) => console.error('Failed to link user personnelId in transactions:', err));
+      }).catch((err: any) => logger.error({ err }, 'Failed to link user personnelId in transactions'));
     }
   }
 
@@ -298,23 +281,27 @@ export const createTransaction = async (req: Request, res: Response) => {
 
   const transactionType = await prisma.transactionType.findFirst({ where: { name: { equals: type, mode: 'insensitive' } } });
   if (!transactionType) { sendBadRequest(res, `Transaction type "${type}" not found.`); return; }
-  const transaction = await prisma.transaction.create({
-    data: {
-      personnelId: req.user.personnelId,
-      transactionTypeId: transactionType.id,
-      status: 'DRAFT',
-      remarks: notes,
-    },
-    include: { transactionType: { select: { name: true } } },
-  });
-  await prisma.validationLog.create({
-    data: {
-      entityType: 'Transaction',
-      entityId: transaction.id,
-      action: 'TRANSACTION_INITIATED',
-      userId: req.user?.userId ?? 0,
-      status: 'SUCCESS',
-    },
+  // The audit entry is part of initiating the transaction, not a side effect of it.
+  const transaction = await prisma.$transaction(async tx => {
+    const created = await tx.transaction.create({
+      data: {
+        personnelId: req.user!.personnelId!,
+        transactionTypeId: transactionType.id,
+        status: 'DRAFT',
+        remarks: notes,
+      },
+      include: { transactionType: { select: { name: true } } },
+    });
+    await tx.validationLog.create({
+      data: {
+        entityType: 'Transaction',
+        entityId: created.id,
+        action: 'TRANSACTION_INITIATED',
+        userId: req.user?.userId ?? 0,
+        status: 'SUCCESS',
+      },
+    });
+    return created;
   });
   res.locals.auditLogged = true;
   notifyTransactionChange();
@@ -407,16 +394,21 @@ export const submitTransaction = async (req: Request, res: Response) => {
   if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
   const transaction = await prisma.transaction.findUnique({
     where: { id },
-    include: { uploadedDocuments: true, transactionType: { include: { requirementTemplates: true } } },
+    include: {
+      uploadedDocuments: true,
+      transactionType: { include: { requirementTemplates: true } },
+      personnel: { select: { school: true, district: true } },
+    },
   });
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
   if (transaction.personnelId !== req.user?.personnelId) { sendForbidden(res, 'Forbidden'); return; }
-  const allowedStatuses = ['DRAFT', 'SUBMITTED_TO_AO2', 'DEFICIENCY', 'RETURNED_BY_AO2', 'RETURNED'];
+  const allowedStatuses = ['DRAFT', 'DEFICIENCY'];
   if (!allowedStatuses.includes(transaction.status as string)) {
     sendSuccess(res, { id: transaction.id, referenceNo: `TRX-${transaction.id}`, type: transaction.transactionType.name, status: transaction.status, submissionDate: transaction.submissionDate }, 'Transaction already submitted.');
     return;
   }
-  if (transaction.resubmissionCount >= 3) { sendBadRequest(res, 'Maximum re-submission limit (3) reached. This transaction has been escalated to HRMO.', 'MAX_RESUBMISSIONS_REACHED'); return; }
+  const submissionTransition = getSubmissionTransition(transaction.status, transaction.resubmissionCount);
+  const { isResubmission, shouldEscalate, nextStatus } = submissionTransition;
   const mandatoryTemplates = transaction.transactionType.requirementTemplates.filter(t => t.isMandatory);
   // DI-H3: Enforce genuine document uploads — do not auto-create fake validated placeholder documents
   if (transaction.uploadedDocuments.length === 0) {
@@ -439,24 +431,71 @@ export const submitTransaction = async (req: Request, res: Response) => {
     sendBadRequest(res, 'Review and confirm the fields detected from your PDS before submitting the transaction.', 'PDS_CONFIRMATION_REQUIRED');
     return;
   }
-  const updated = await prisma.transaction.update({
-    where: { id },
-    data: { status: 'PENDING_VALIDATION', submissionDate: new Date(), resubmissionCount: { increment: 1 } },
-    include: { personnel: { select: { firstName: true, lastName: true } }, transactionType: { select: { name: true } } },
+  // The status change and its audit entry must land together; notifying AO II is a
+  // post-commit side effect and stays outside so its latency cannot abort the write.
+  const updated = await prisma.$transaction(async tx => {
+    const claimed = await tx.transaction.updateMany({
+      where: { id, status: transaction.status },
+      data: {
+        status: nextStatus,
+        submissionDate: new Date(),
+        ...(submissionTransition.incrementResubmissionCount ? { resubmissionCount: { increment: 1 } } : {}),
+        ...(shouldEscalate ? { remarks: 'Escalated to HRMO after three correction cycles. Review the submission and prior AO II findings.' } : {}),
+      },
+    });
+    if (claimed.count !== 1) throw new Error(`Transaction #${id} changed in another session. Refresh before submitting again.`);
+    const row = await tx.transaction.findUniqueOrThrow({
+      where: { id },
+      include: { personnel: { select: { firstName: true, lastName: true, user: { select: { email: true } } } }, transactionType: { select: { name: true } } },
+    });
+    await tx.validationLog.create({
+      data: {
+        entityType: 'Transaction', entityId: id,
+        action: shouldEscalate ? 'TRANSACTION_ESCALATED_TO_HRMO' : (isResubmission ? 'TRANSACTION_RESUBMITTED' : 'TRANSACTION_SUBMITTED'),
+        detailsJson: { previousStatus: transaction.status, nextStatus, correctionCycle: transaction.resubmissionCount },
+        userId: req.user!.userId, status: 'SUCCESS',
+      },
+    });
+    if (row.personnel.user?.email) {
+      await queueTransactionalEmail(`transaction:${id}:submitted:${row.submissionDate?.toISOString()}`, {
+        recipientEmail: row.personnel.user.email,
+        recipientName: `${row.personnel.firstName} ${row.personnel.lastName}`,
+        subject: `Transaction submitted: TRX-${id}`,
+        heading: 'Your documents were submitted',
+        message: shouldEscalate
+          ? `Your ${row.transactionType.name} transaction reached the correction limit and was escalated to HRMO for review.`
+          : `Your ${row.transactionType.name} documents are now queued for AO II validation. Digital 201 will notify you if a correction is required.`,
+        reference: `TRX-${id}`,
+        actionLabel: 'View transaction',
+        actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
+      }, tx);
+    }
+    return row;
   });
-  await prisma.validationLog.create({ data: { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_SUBMITTED', userId: req.user!.userId, status: 'SUCCESS' } });
   res.locals.auditLogged = true;
   const applicantName = updated.personnel ? `${updated.personnel.firstName} ${updated.personnel.lastName}` : 'Personnel Staff';
   const targetNotifyUsers = await prisma.user.findMany({
-    where: { role: { name: 'AO_II' }, accountStatus: 'ACTIVE' },
+    where: shouldEscalate
+      ? { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' }
+      : {
+          role: { name: 'AO_II' }, accountStatus: 'ACTIVE',
+          personnel: transaction.personnelId ? {
+            OR: [
+              ...(transaction.personnel?.school ? [{ school: { equals: transaction.personnel.school, mode: 'insensitive' as const } }] : []),
+              ...(!transaction.personnel?.school && transaction.personnel?.district ? [{ district: { equals: transaction.personnel.district, mode: 'insensitive' as const } }] : []),
+            ],
+          } : undefined,
+        },
     select: { id: true },
   });
   if (targetNotifyUsers.length > 0) {
     await prisma.notification.createMany({
       data: targetNotifyUsers.map(u => ({
         userId: u.id,
-        message: `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for validation.`,
-        type: 'INFO' as const,
+        message: shouldEscalate
+          ? `Transaction #${id} (${updated.transactionType.name}) for ${applicantName} reached three correction cycles and requires HRMO review.`
+          : `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for validation.`,
+        type: shouldEscalate ? 'WARNING' as const : 'INFO' as const,
         relatedEntityId: id,
         relatedEntityType: 'Transaction',
       })),
@@ -464,7 +503,12 @@ export const submitTransaction = async (req: Request, res: Response) => {
     notifyUserNotifications(targetNotifyUsers.map(u => u.id));
   }
   notifyTransactionChange();
-  sendSuccess(res, { id: updated.id, status: updated.status, submissionDate: updated.submissionDate }, 'Transaction submitted for validation.');
+  void processWorkflowOutbox();
+  sendSuccess(
+    res,
+    { id: updated.id, status: updated.status, submissionDate: updated.submissionDate },
+    shouldEscalate ? 'Correction limit reached. Transaction escalated to HRMO review.' : 'Transaction submitted for validation.',
+  );
 };
 
 /** POST /transactions/:id/validate */
@@ -475,7 +519,12 @@ export const validateTransaction = async (req: Request, res: Response) => {
   const transaction = await prisma.transaction.findUnique({
     where: { id },
     include: {
-      personnel: { select: { id: true, address: true, designation: true, user: { select: { role: { select: { name: true } } } } } },
+      personnel: {
+        select: {
+          id: true, firstName: true, lastName: true, address: true, school: true, district: true, designation: true,
+          user: { select: { email: true, role: { select: { name: true } } } },
+        },
+      },
       uploadedDocuments: { include: { requirementTemplate: { select: { id: true, name: true, isMandatory: true } } } },
       transactionType: { include: { requirementTemplates: true } },
     },
@@ -486,15 +535,14 @@ export const validateTransaction = async (req: Request, res: Response) => {
     return;
   }
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo && scope.aoPersonnelId !== transaction.personnelId) {
-    const roleName = transaction.personnel?.user?.role?.name;
-    if (roleName !== 'TEACHING_PERSONNEL' && roleName !== 'NON_TEACHING_PERSONNEL') {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped && scope.personnelId !== transaction.personnelId) {
+    const roleName = transaction.personnel?.user?.role?.name as typeof STATION_SUBJECT_ROLES[number];
+    if (!STATION_SUBJECT_ROLES.includes(roleName)) {
       sendForbidden(res, 'Access denied. You can only validate transactions of school personnel.');
       return;
     }
-    const scopeText = `${transaction.personnel?.address || ''} ${transaction.personnel?.designation || ''}`.toLowerCase();
-    if (!scope.schoolName || !scopeText.includes(scope.schoolName.toLowerCase())) {
+    if (!isWithinStation(scope, transaction.personnel)) {
       sendForbidden(res, 'Access denied. You can only validate transactions under your assigned school station.'); return;
     }
   }
@@ -531,6 +579,11 @@ export const validateTransaction = async (req: Request, res: Response) => {
   const newStatus: any = isRejected ? 'REJECTED' : hasDeficiencies ? 'DEFICIENCY' : 'FOR_APPROVAL';
 
   await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(201, ${id})`;
+    const current = await tx.transaction.findUnique({ where: { id }, select: { status: true } });
+    if (current?.status !== transaction.status) {
+      throw new Error(`Transaction #${id} changed in another review session. Refresh before submitting a decision.`);
+    }
     const deficientDocNames: string[] = [];
 
     for (const dv of documentValidations) {
@@ -596,7 +649,10 @@ export const validateTransaction = async (req: Request, res: Response) => {
       let notifMsg = '';
       let notifType: 'WARNING' | 'INFO' | 'SUCCESS' = 'INFO';
 
-      if (hasDeficiencies || isRejected) {
+      if (isRejected) {
+        notifType = 'WARNING';
+        notifMsg = `Transaction #${id} was disqualified by AO II. Reason: "${remarks}". This decision is final for this transaction; no document re-upload is requested.`;
+      } else if (hasDeficiencies) {
         notifType = 'WARNING';
         if (deficientDocNames.length > 0) {
           notifMsg = `⚠️ Deficiency Alert on TRX-${id}: The document "${deficientDocNames.join(', ')}" was returned due to: "${remarks || 'Validation error'}". Only this document needs to be re-uploaded.`;
@@ -620,7 +676,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
       notifyUserNotifications([txWithPersonnel.personnel.user.id]);
 
       // Automated Deficiency Notification Email with 1-Click Magic Login
-      if ((hasDeficiencies || isRejected) && txWithPersonnel.personnel.user.email) {
+      if (hasDeficiencies && !isRejected && txWithPersonnel.personnel.user.email) {
         try {
           const userObj = txWithPersonnel.personnel.user;
           const magicToken = generateMagicToken({
@@ -636,8 +692,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
             remarks: remarks || 'Returned for compliance revision by Administrative Officer (AO II).',
           }));
 
-          // Send asynchronously so response stays instant
-          sendDeficiencyAlertEmail({
+          await queueDeficiencyEmail(`transaction:${id}:deficiency:${transaction.resubmissionCount}`, {
             recipientEmail: userObj.email,
             recipientName: `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}`,
             transactionId: id,
@@ -645,12 +700,22 @@ export const validateTransaction = async (req: Request, res: Response) => {
             aoRemarks: remarks || undefined,
             deficientDocuments: docItems,
             magicToken,
-          }).catch(err => {
-            console.error(`[validateTransaction] Background deficiency email dispatch failed for TRX-${id}:`, err);
-          });
+          }, tx);
         } catch (emailErr) {
-          console.error(`[validateTransaction] Could not generate deficiency email for TRX-${id}:`, emailErr);
+          logger.error({ err: emailErr }, '[validateTransaction] Could not generate deficiency email for TRX-${id}');
         }
+      }
+      if (isRejected && txWithPersonnel.personnel.user.email) {
+        await queueTransactionalEmail(`transaction:${id}:ao-rejected`, {
+          recipientEmail: txWithPersonnel.personnel.user.email,
+          recipientName: `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}`,
+          subject: `AO II decision issued: TRX-${id}`,
+          heading: 'Your transaction was disqualified',
+          message: `AO II disqualified this transaction. Review the recorded reason in Digital 201: ${remarks}. This is a final decision for this transaction; no document re-upload is requested.`,
+          reference: `TRX-${id}`,
+          actionLabel: 'View decision',
+          actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
+        }, tx);
       }
     }
 
@@ -672,6 +737,8 @@ export const validateTransaction = async (req: Request, res: Response) => {
       }
     }
   });
+  void processWorkflowOutbox();
+
 
   notifyTransactionChange({
     type: 'TRANSACTION_VALIDATED',
@@ -839,7 +906,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
                   userId: req.user!.userId,
                   status: 'SUCCESS',
                 },
-              }).catch((err: any) => console.error('Failed to log PLANTILLA_ITEM_OCCUPIED:', err));
+              }).catch((err: any) => logger.error({ err }, 'Failed to log PLANTILLA_ITEM_OCCUPIED'));
             } else throw new Error(`Configured plantilla item "${targetPlantillaNumber}" was not found.`);
           }
         }
@@ -851,7 +918,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
           where: { id: transaction.personnelId },
           data: {
             designation: finalDesignation,
-            ...(isNewHireAppointment ? { status: 'ACTIVE', dateHired: new Date() } : {}),
+            ...(isNewHireAppointment ? { status: 'ACTIVE' } : {}),
           },
         });
 
@@ -907,10 +974,25 @@ export const approveTransaction = async (req: Request, res: Response) => {
           relatedEntityType: 'Transaction',
         },
       });
+      if (transaction.personnel.user.email) {
+        await queueTransactionalEmail(`transaction:${id}:hrmo:${newStatus}`, {
+          recipientEmail: transaction.personnel.user.email,
+          recipientName: `${transaction.personnel.firstName} ${transaction.personnel.lastName}`,
+          subject: `${isApproved ? 'Approved' : 'Decision issued'}: TRX-${id}`,
+          heading: isApproved ? 'Your transaction was approved' : 'Your transaction was not approved',
+          message: isApproved
+            ? `HRMO approved your ${transaction.transactionType.name} transaction. Your Digital 201 record will reflect the finalized appointment information.`
+            : `HRMO did not approve your ${transaction.transactionType.name} transaction. Review the recorded reason in Digital 201: ${notes || 'No additional remarks were provided.'}`,
+          reference: `TRX-${id}`,
+          actionLabel: 'View transaction',
+          actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
+        }, tx);
+      }
     }
   });
 
   if (transaction.personnel.user) notifyUserNotifications([transaction.personnel.user.id]);
+  void processWorkflowOutbox();
   notifyTransactionChange({
     type: isApproved ? 'TRANSACTION_APPROVED' : 'TRANSACTION_REJECTED',
     transactionId: id,

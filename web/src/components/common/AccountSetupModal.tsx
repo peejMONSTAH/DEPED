@@ -132,6 +132,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
     <ModalOverlay
       className="modal-overlay"
       onClick={onClose}
+      onDismiss={onClose}
       style={{
         position: 'fixed',
         inset: 0,
@@ -344,6 +345,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     First Name *
                   </label>
                   <input
+                    aria-label="First Name"
                     type="text"
                     value={firstName}
                     disabled
@@ -374,6 +376,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     Last Name *
                   </label>
                   <input
+                    aria-label="Last Name"
                     type="text"
                     value={lastName}
                     disabled
@@ -431,6 +434,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   </span>
                 </div>
                 <input
+                  aria-label="Email address (read-only)"
                   type="email"
                   value={email}
                   disabled
@@ -488,6 +492,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     </label>
                   </div>
                   <input
+                    aria-label="Contact Number"
                     type="text"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
@@ -526,6 +531,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     Position / Designation
                   </label>
                   <input
+                    aria-label="Position / Designation"
                     type="text"
                     value={designation}
                     disabled
@@ -630,23 +636,6 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 }}
               >
                 <button
-                  type="button"
-                  onClick={onClose}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: 9999,
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
                   type="submit"
                   style={{
                     padding: '9px 22px',
@@ -703,6 +692,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   Current Password *
                 </label>
                 <input
+                  aria-label="Current Password"
                   type="password"
                   placeholder="Enter current password"
                   value={currentPassword}
@@ -735,6 +725,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   New Password *
                 </label>
                 <input
+                  aria-label="New Password"
                   type="password"
                   placeholder="Minimum 12 characters"
                   value={newPassword}
@@ -835,6 +826,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   Confirm New Password *
                 </label>
                 <input
+                  aria-label="Confirm New Password"
                   type="password"
                   placeholder="Re-enter new password"
                   value={confirmPassword}
@@ -866,23 +858,6 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   borderTop: '1px solid var(--color-border)',
                 }}
               >
-                <button
-                  type="button"
-                  onClick={onClose}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: 9999,
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Cancel
-                </button>
                 <button
                   type="submit"
                   disabled={newPassword.length > 0 && !isPasswordValid}
@@ -1024,23 +999,6 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   borderTop: '1px solid var(--color-border)',
                 }}
               >
-                <button
-                  type="button"
-                  onClick={onClose}
-                  style={{
-                    padding: '9px 18px',
-                    borderRadius: 9999,
-                    backgroundColor: 'var(--color-bg-secondary)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Cancel
-                </button>
                 <button
                   type="submit"
                   style={{

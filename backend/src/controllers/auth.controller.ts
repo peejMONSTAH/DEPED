@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
+import { invalidateAuthUserCache } from '../middleware/auth.middleware';
 import { verifyPassword, hashPassword } from '../utils/hash.util';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMagicToken, passwordTokenVersion } from '../utils/jwt.util';
 import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound } from '../utils/response.util';
 import { config } from '../config';
+import { logger } from '../utils/logger';
 
 /**
  * POST /auth/login
@@ -48,7 +50,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       });
     }
   } catch (err) {
-    console.warn('DB Connection retry for login user query...');
+    logger.warn('DB Connection retry for login user query...');
     try {
       user = await prisma.user.findFirst({
         where: {
@@ -60,7 +62,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         include: userInclude,
       });
     } catch (retryErr) {
-      console.error('Database connection unreachable during login:', retryErr);
+      logger.error({ err: retryErr }, 'Database connection unreachable during login');
       sendError(res, 'Database connection temporary timeout. Please try logging in again.', 503);
       return;
     }
@@ -105,7 +107,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       });
       res.locals.auditLogged = true;
     } catch (logErr) {
-      console.error('Failed to log failed login attempt:', logErr);
+      logger.error({ err: logErr }, 'Failed to log failed login attempt');
     }
 
     sendUnauthorized(res, 'Invalid email or password.');
@@ -114,6 +116,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   // Generate tokens
   const tokenPayload = { userId: user.id, email: user.email, role: user.role.name, pwdv: passwordTokenVersion(user.passwordHash) };
+  // Surfaced so the client can go straight to the change screen; the API enforces
+  // it regardless of what the client does with this.
+  const mustChangePassword = user.mustChangePassword === true;
   const accessToken = generateAccessToken(tokenPayload);
   const refreshToken = generateRefreshToken(tokenPayload);
 
@@ -143,11 +148,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     ]);
     res.locals.auditLogged = true;
   } catch (txErr) {
-    console.warn('Non-fatal login transaction notice:', (txErr as Error).message);
+    logger.warn({ err: txErr }, 'Login succeeded but its transaction failed; refresh token written via fallback');
     try {
       await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id, expiresAt } });
     } catch (rfErr) {
-      console.error('Failed to persist refresh token on fallback:', rfErr);
+      logger.error({ err: rfErr }, 'Failed to persist refresh token on fallback');
     }
   }
 
@@ -164,6 +169,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       designation: user.personnel?.designation,
       address: user.personnel?.address,
       personnelId: user.personnelId,
+      mustChangePassword,
     },
   });
 };
@@ -282,11 +288,18 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   const newHash = await hashPassword(newPassword);
 
   await prisma.$transaction([
-    prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash, accountStatus: 'ACTIVE' } }),
+    // Setting their own password is what clears the forced-change gate.
+    prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash, accountStatus: 'ACTIVE', mustChangePassword: false } }),
     prisma.refreshToken.updateMany({ where: { userId, revoked: false }, data: { revoked: true } }),
     prisma.validationLog.create({ data: { entityType: 'User', entityId: userId, action: 'PASSWORD_CHANGED', userId, ipAddress: req.ip, status: 'SUCCESS' } }),
   ]);
   res.locals.auditLogged = true;
+
+  // authenticate() caches the user for 30s, including the password hash it
+  // compares tokens against and the mustChangePassword flag. Without this the
+  // freshly issued token is rejected as stale for up to half a minute, right
+  // after the change the user was forced to make.
+  invalidateAuthUserCache(userId);
 
   sendSuccess(res, { accountStatus: 'ACTIVE' }, 'Password changed successfully. Your account is now ACTIVE.');
 };
@@ -327,6 +340,15 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
 
     if (!user || user.accountStatus !== 'ACTIVE') {
       sendUnauthorized(res, 'User account is inactive or not found.');
+      return;
+    }
+
+    // A password change must invalidate outstanding magic links the same way it
+    // invalidates refresh tokens (see refreshToken above). The token already
+    // carries pwdv; it was simply never compared, so a link minted before a
+    // reset stayed usable for the rest of its 48h life.
+    if (payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
+      sendUnauthorized(res, 'This access link is no longer valid because the account password has changed. Please log in with your credentials.');
       return;
     }
 

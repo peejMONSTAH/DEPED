@@ -3,13 +3,25 @@ import prisma from '../config/prisma';
 import { notifyTransactionChange } from './transactions.controller';
 import { notifyUserNotifications } from './notifications.controller';
 import {
-  sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden,
+  sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden, sendError,
   getPaginationParams, buildPaginationMeta,
 } from '../utils/response.util';
 import { PromotionCycleStatus, PromotionCycleType } from '@prisma/client';
-import { getAOSchoolScope } from '../utils/scope.util';
+import {
+  getStationScope,
+  isWithinDistrict,
+  isWithinStation,
+  stationPersonnelFilter,
+} from '../utils/scope.util';
 import { generateEmployeeNumber } from './users.controller';
+import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
+import { config } from '../config';
 import { hashPassword, validatePasswordComplexity } from '../utils/hash.util';
+import { checkPromotionEligibility, resolveCanonicalPosition } from '../utils/deped.util';
+import { logger } from '../utils/logger';
+import { computeCycleRanking } from '../services/promotion-ranking.service';
+import { deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
+import { ANNEX_C_REQUIREMENTS } from '../utils/annex-c.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
 
@@ -31,10 +43,10 @@ const getCycleTargetPosition = (cycle: { name?: string | null; rulesConfiguratio
 };
 
 export const getPromotionCycles = async (req: Request, res: Response): Promise<void> => {
-  if (req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'AO_II') {
+  if (req.user?.role === 'SYSTEM_ADMIN') {
     res.status(403).json({
       status: 'error',
-      message: 'Access denied: Promotion cycles and Comparative Assessment Results are managed exclusively by HR (HRMO).',
+      message: 'Access denied: System Administrator cannot access promotions. Promotion cycles and Comparative Assessment Results are managed by HRMO and AO officers.',
       code: 'FORBIDDEN',
     });
     return;
@@ -70,6 +82,15 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
     where.name = { contains: String(search), mode: 'insensitive' };
   }
 
+  if (req.user?.personnelId && (req.query.includeMyApplications === 'true' || req.query.forPersonnel === 'true')) {
+    where = {
+      OR: [
+        where,
+        { promotionApplications: { some: { personnelId: req.user.personnelId } } },
+      ],
+    };
+  }
+
   const [data, total] = await Promise.all([
     prisma.promotionCycle.findMany({
       where,
@@ -83,32 +104,71 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
     prisma.promotionCycle.count({ where }),
   ]);
 
-  let appliedCycleIds: number[] = [];
+  let myApplications: any[] = [];
   let currentPosition = '';
   if (req.user?.personnelId) {
     const [myApps, personnel] = await Promise.all([
       prisma.promotionApplication.findMany({
         where: { personnelId: req.user.personnelId },
-        select: { promotionCycleId: true },
+        select: {
+          id: true,
+          promotionCycleId: true,
+          status: true,
+          finalRank: true,
+          applicationDate: true,
+          scoreDetailsJson: true,
+        },
       }),
       prisma.personnel.findUnique({
         where: { id: req.user.personnelId },
         select: { designation: true, plantillaItem: { select: { positionTitle: true } } },
       }),
     ]);
-    appliedCycleIds = myApps.map(a => a.promotionCycleId);
+    myApplications = myApps;
     currentPosition = personnel?.designation || personnel?.plantillaItem?.positionTitle || '';
   }
 
+  const appsMap = new Map(myApplications.map(a => [a.promotionCycleId, a]));
+
   const enriched = data.map(cycle => {
     const targetPosition = getCycleTargetPosition(cycle);
+    const eligibility = currentPosition
+      ? checkPromotionEligibility(currentPosition, targetPosition, cycle.type)
+      : null;
+
+    const myApp = appsMap.get(cycle.id);
+    const hasChecklist = Boolean((myApp?.scoreDetailsJson as any)?.annexCChecklist);
+    const appDetails = (myApp?.scoreDetailsJson as Record<string, any>) || {};
+
     return {
       ...cycle,
       applicantCount: cycle._count?.promotionApplications || 0,
-      hasApplied: appliedCycleIds.includes(cycle.id),
+      hasApplied: Boolean(myApp),
+      hasChecklist,
+      myApplication: myApp ? {
+        id: myApp.id,
+        status: myApp.status,
+        finalRank: myApp.finalRank,
+        applicationDate: myApp.applicationDate,
+        hasChecklist,
+        annexCChecklist: appDetails.annexCChecklist || null,
+        applicantNumber: appDetails.applicantNumber,
+        stageStatus: appDetails.stageStatus,
+        verificationStatus: appDetails.verificationStatus || appDetails.completenessStatus,
+        verificationRemarks: appDetails.verificationRemarks || appDetails.initialRating?.aoRemarks,
+        totalScore: appDetails.totalScore ?? appDetails.finalRating?.finalTotalScore ?? appDetails.initialTotalScore,
+        disqualificationReason: appDetails.disqualificationReason,
+        deliberationRemarks: appDetails.remarks || appDetails.finalRating?.hrmoRemarks,
+        forAppointment: appDetails.forAppointment,
+        cycleStatus: appDetails.cycleStatus || cycle.status,
+      } : null,
       targetPosition,
       currentPosition: currentPosition || undefined,
       isCurrentPosition: Boolean(currentPosition) && normalizePositionTitle(currentPosition) === normalizePositionTitle(targetPosition),
+      isEligible: eligibility ? eligibility.isEligible : true,
+      ineligibilityReason: eligibility && !eligibility.isEligible ? eligibility.reason : null,
+      jumpPositions: eligibility?.jump ?? null,
+      maxAllowedJump: eligibility?.maxAllowedJump ?? (cycle.type === 'ECP' ? 3 : 2),
     };
   });
 
@@ -148,32 +208,33 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
       ? (status as PromotionCycleStatus)
       : 'ACTIVE';
 
-    const cycle = await prisma.promotionCycle.create({
-      data: {
-        name,
-        type: type as PromotionCycleType,
-        startDate: parsedStartDate,
-        endDate: parsedEndDate,
-        status: initialStatus,
-        rulesConfigurationJson: rulesConfigurationJson || null,
-      },
-    });
+    // A cycle and the audit entry recording who opened it are one unit of work.
+    // Notifications below are deliberately post-commit.
+    const cycle = await prisma.$transaction(async tx => {
+      const created = await tx.promotionCycle.create({
+        data: {
+          name,
+          type: type as PromotionCycleType,
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
+          status: initialStatus,
+          rulesConfigurationJson: rulesConfigurationJson || null,
+        },
+      });
 
-    if (req.user?.userId) {
-      try {
-        await prisma.validationLog.create({
+      if (req.user?.userId) {
+        await tx.validationLog.create({
           data: {
             entityType: 'PromotionCycle',
-            entityId: cycle.id,
+            entityId: created.id,
             action: 'PROMOTION_CYCLE_CREATED',
             userId: req.user.userId,
             status: 'SUCCESS',
           },
         });
-      } catch (logErr) {
-        console.warn('Could not write validation log:', logErr);
       }
-    }
+      return created;
+    });
 
     // Notify all personnels (TEACHING_PERSONNEL, NON_TEACHING_PERSONNEL) and AO (AO_II)
     // Strictly exclude SYSTEM_ADMIN and HRMO as required
@@ -218,13 +279,13 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
         notifyTransactionChange();
       }
     } catch (notifyErr) {
-      console.warn('Failed to send promotion cycle creation notifications:', notifyErr);
+      logger.warn({ err: notifyErr }, 'Failed to send promotion cycle creation notifications');
     }
 
     sendCreated(res, cycle, 'Promotion cycle created.');
   } catch (error: any) {
-    console.error('Failed to create promotion cycle:', error);
-    res.status(500).json({ status: 'error', message: error?.message || 'Failed to create promotion cycle.' });
+    logger.error({ err: error }, 'Failed to create promotion cycle');
+    sendError(res, 'Failed to create promotion cycle.', 500);
   }
 };
 
@@ -251,108 +312,173 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
     return;
   }
 
-  const updated = await prisma.promotionCycle.update({
+  const previousCycle = await prisma.promotionCycle.findUnique({
     where: { id },
-    data: {
-      ...(targetStatus && { status: targetStatus as PromotionCycleStatus }),
-      ...(endDate && { endDate: new Date(endDate) }),
-      ...(rulesConfigurationJson && { rulesConfigurationJson }),
+    include: {
+      promotionApplications: {
+        include: {
+          personnel: {
+            include: { user: true },
+          },
+        },
+      },
     },
   });
+
+  if (!previousCycle) {
+    sendNotFound(res, 'Promotion cycle not found.');
+    return;
+  }
+
+  const isCancelling = Boolean(targetStatus) && targetStatus !== previousCycle.status && targetStatus === 'CANCELLED';
+
+  // Cancelling a cycle must also discontinue its applications and their draft
+  // transactions. Doing that outside a transaction could leave a cancelled cycle
+  // whose applicants still appear active. Notifications stay post-commit.
+  const updated = await prisma.$transaction(async tx => {
+    const row = await tx.promotionCycle.update({
+      where: { id },
+      data: {
+        ...(targetStatus && { status: targetStatus as PromotionCycleStatus }),
+        ...(endDate && { endDate: new Date(endDate) }),
+        ...(rulesConfigurationJson && { rulesConfigurationJson }),
+      },
+    });
+
+    if (isCancelling) {
+      const apps = previousCycle.promotionApplications;
+
+      // One statement for every linked draft transaction instead of one per application.
+      const linkedTransactionIds = apps
+        .map(app => Number(((app.scoreDetailsJson as Record<string, any>) || {}).transactionId))
+        .filter(txId => Number.isInteger(txId) && txId > 0);
+
+      if (linkedTransactionIds.length > 0) {
+        await tx.transaction.updateMany({
+          where: {
+            id: { in: linkedTransactionIds },
+            status: { in: ['DRAFT', 'PENDING_VALIDATION', 'DEFICIENCY', 'ESCALATED'] },
+          },
+          data: { status: 'ABANDONED', remarks: `Promotion cycle "${row.name}" was cancelled by HRMO.` },
+        });
+      }
+
+      // Each application merges into its own scoreDetailsJson, so these stay per-row.
+      const cancelledAt = new Date().toISOString();
+      for (const app of apps) {
+        const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
+        await tx.promotionApplication.update({
+          where: { id: app.id },
+          data: {
+            scoreDetailsJson: {
+              ...currentDetails,
+              stageStatus: 'CANCELLED',
+              cycleCancelled: true,
+              cancelledAt,
+              cancelledByUserId: req.user?.userId,
+              cancellationRemarks: 'Promotion cycle was cancelled by HRMO.',
+            },
+          },
+        });
+      }
+    }
+
+    return row;
+  });
+
+  // Notify affected applicants and relevant personnel when cycle status changes
+  if (targetStatus && targetStatus !== previousCycle.status) {
+    try {
+      if (targetStatus === 'CANCELLED') {
+        // Applications and their draft transactions were already discontinued in the
+        // transaction above; what remains here is purely notifying people.
+        const applicantUserIds = Array.from(new Set(
+          previousCycle.promotionApplications
+            .map(a => a.personnel?.user?.id || a.personnel?.userId)
+            .filter((uId): uId is number => typeof uId === 'number')
+        ));
+
+        if (applicantUserIds.length > 0) {
+          await prisma.notification.createMany({
+            data: applicantUserIds.map(uid => ({
+              userId: uid,
+              message: `⚠️ Promotion Cycle Cancelled: The promotion cycle "${updated.name}" has been cancelled by HRMO. Applications under this cycle have been discontinued.`,
+              type: 'WARNING' as const,
+              relatedEntityId: updated.id,
+              relatedEntityType: 'PromotionCycle',
+            })),
+          });
+          notifyUserNotifications(applicantUserIds);
+        }
+
+        // 3. Notify Administrative Officers (AO II)
+        const aoUsers = await prisma.user.findMany({
+          where: { role: { name: 'AO_II' } },
+          select: { id: true },
+        });
+        if (aoUsers.length > 0) {
+          const aoIds = aoUsers.map(u => u.id);
+          await prisma.notification.createMany({
+            data: aoIds.map(uid => ({
+              userId: uid,
+              message: `⚠️ Promotion Cycle Cancelled: "${updated.name}" has been cancelled by HRMO.`,
+              type: 'WARNING' as const,
+              relatedEntityId: updated.id,
+              relatedEntityType: 'PromotionCycle',
+            })),
+          });
+          notifyUserNotifications(aoIds);
+        }
+      } else if (targetStatus === 'CLOSED' || targetStatus === 'FINALIZED') {
+        const applicantUserIds = Array.from(new Set(
+          previousCycle.promotionApplications
+            .map(a => a.personnel?.user?.id || a.personnel?.userId)
+            .filter((uId): uId is number => typeof uId === 'number')
+        ));
+
+        if (applicantUserIds.length > 0) {
+          await prisma.notification.createMany({
+            data: applicantUserIds.map(uid => ({
+              userId: uid,
+              message: `📢 Promotion Cycle Concluded: "${updated.name}" is now ${targetStatus === 'CLOSED' ? 'closed' : 'finalized'}. Deliberation and Comparative Assessment Results (CAR) are officially available.`,
+              type: 'INFO' as const,
+              relatedEntityId: updated.id,
+              relatedEntityType: 'PromotionCycle',
+            })),
+          });
+          notifyUserNotifications(applicantUserIds);
+        }
+      } else if (targetStatus === 'ACTIVE' && previousCycle.status !== 'ACTIVE') {
+        const targetUsers = await prisma.user.findMany({
+          where: { role: { name: { in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL', 'AO_II'] } } },
+          select: { id: true, role: { select: { name: true } } },
+        });
+        if (targetUsers.length > 0) {
+          await prisma.notification.createMany({
+            data: targetUsers.map(u => ({
+              userId: u.id,
+              message: u.role?.name === 'AO_II'
+                ? `📋 Promotion Cycle Active: "${updated.name}" is now open for applicant evaluations.`
+                : `📢 Promotion Cycle Opened: "${updated.name}" is now active and accepting applications. Check your requirements and apply!`,
+              type: 'INFO' as const,
+              relatedEntityId: updated.id,
+              relatedEntityType: 'PromotionCycle',
+            })),
+          });
+          notifyUserNotifications(targetUsers.map(u => u.id));
+        }
+      }
+    } catch (notifErr) {
+      logger.error({ err: notifErr }, 'Failed to notify users of promotion cycle status change');
+    }
+  }
+
   notifyTransactionChange();
   sendSuccess(res, updated, 'Promotion cycle updated.');
 };
 
-export const computeCycleRankingInternal = async (cycleId: number) => {
-  try {
-    const cycle = await prisma.promotionCycle.findUnique({
-      where: { id: cycleId },
-      include: {
-        promotionApplications: {
-          include: {
-            personnel: {
-              include: { careerHistoryEntries: true, plantillaItem: true },
-            },
-          },
-        },
-      },
-    });
-    if (!cycle) return [];
-
-    const rules = (cycle.rulesConfigurationJson as Record<string, number>) || {
-      yearsOfService: 25,
-      trainingHours: 25,
-      performanceRating: 25,
-      seniority: 25,
-    };
-
-    const ranked = cycle.promotionApplications.map(app => {
-      const inputScores = (app.scoreDetailsJson as Record<string, any>) || {};
-      const initialRating = inputScores.initialRating || null;
-      const finalRating = inputScores.finalRating || null;
-
-      let score = 0;
-
-      if (finalRating && typeof finalRating.finalTotalScore === 'number' && finalRating.finalTotalScore > 0) {
-        const initScore = initialRating ? Number(initialRating.initialTotalScore) : (inputScores.initialTotalScore || 0);
-        score = parseFloat((initScore + Number(finalRating.finalTotalScore)).toFixed(2));
-      } else if (finalRating && typeof finalRating.overallTotalScore === 'number' && finalRating.overallTotalScore > 0) {
-        score = finalRating.overallTotalScore;
-      } else if (initialRating && typeof initialRating.initialTotalScore === 'number' && initialRating.initialTotalScore > 0) {
-        score = initialRating.initialTotalScore;
-      } else if (typeof inputScores.totalScore === 'number' && inputScores.totalScore > 0 && (initialRating || finalRating)) {
-        score = inputScores.totalScore;
-      } else {
-        score = 0;
-      }
-
-      const breakdown = score > 0 ? {
-        yearsOfServiceScore: parseFloat((score * 0.25).toFixed(2)),
-        trainingScore: parseFloat((score * 0.25).toFixed(2)),
-        performanceScore: parseFloat((score * 0.25).toFixed(2)),
-        seniorityScore: parseFloat((score * 0.25).toFixed(2)),
-      } : undefined;
-
-      return { app, score: parseFloat(score.toFixed(2)), breakdown };
-    });
-
-    ranked.sort((a, b) => b.score - a.score);
-
-    // Update ranks in DB while preserving exact scoreDetailsJson rating values
-    await Promise.all(
-      ranked.map((r, idx) => {
-        const details = (r.app.scoreDetailsJson as Record<string, any>) || {};
-        const hasRating = Boolean(details.initialRating || details.finalRating);
-        const currentInitial = details.initialRating?.initialTotalScore ?? (hasRating ? (details.initialTotalScore ?? 0) : 0);
-        const currentStatus = details.stageStatus || r.app.status;
-        const updatedFinalRating = details.finalRating
-          ? { ...details.finalRating, overallTotalScore: r.score }
-          : undefined;
-
-        return prisma.promotionApplication.update({
-          where: { id: r.app.id },
-          data: {
-            finalRank: idx + 1,
-            scoreDetailsJson: {
-              ...details,
-              totalScore: hasRating ? r.score : 0,
-              initialTotalScore: hasRating ? currentInitial : 0,
-              ...(updatedFinalRating ? { finalRating: updatedFinalRating } : {}),
-              breakdown: hasRating ? (details.breakdown || r.breakdown) : undefined,
-            },
-            status: currentStatus as any,
-          },
-        });
-      })
-    );
-
-    await prisma.promotionCycle.update({ where: { id: cycleId }, data: { status: 'RESULTS_READY' } });
-    return ranked;
-  } catch (err) {
-    console.error('Error in computeCycleRankingInternal:', err);
-    return [];
-  }
-};
+/** Kept as the controller-facing name; the rules now live in the ranking service. */
+export const computeCycleRankingInternal = computeCycleRanking;
 
 export const generateRanking = async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id, 10);
@@ -361,6 +487,10 @@ export const generateRanking = async (req: Request, res: Response): Promise<void
   if (!cycle) { sendNotFound(res, 'Promotion cycle not found.'); return; }
 
   const ranked = await computeCycleRankingInternal(id);
+  if (ranked === null) {
+    sendError(res, 'Ranking could not be generated for this cycle. The previous results are unchanged.', 500, 'RANKING_FAILED');
+    return;
+  }
   sendSuccess(res, { rankingJobId: `job-${id}-${Date.now()}`, status: 'Completed', totalRanked: ranked.length }, 'Initial top list ranking generated successfully.');
 };
 
@@ -369,19 +499,9 @@ export const getRankingResults = async (req: Request, res: Response): Promise<vo
   if (isNaN(id)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
   const where: any = { promotionCycleId: id };
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo) {
-    if (scope.schoolName) {
-      where.personnel = {
-        OR: [
-          { address: { contains: scope.schoolName, mode: 'insensitive' } },
-          { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-          ...(scope.aoPersonnelId ? [{ id: scope.aoPersonnelId }] : []),
-        ],
-      };
-    } else if (scope.aoPersonnelId) {
-      where.personnelId = scope.aoPersonnelId;
-    }
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped) {
+    where.personnel = stationPersonnelFilter(scope);
   }
 
   const [cycle, applications] = await Promise.all([
@@ -460,19 +580,9 @@ export const getPromotionApplications = async (req: Request, res: Response): Pro
   if (isNaN(cycleId)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
   const where: any = { promotionCycleId: cycleId };
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo) {
-    if (scope.schoolName) {
-      where.personnel = {
-        OR: [
-          { address: { contains: scope.schoolName, mode: 'insensitive' } },
-          { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-          ...(scope.aoPersonnelId ? [{ id: scope.aoPersonnelId }] : []),
-        ],
-      };
-    } else if (scope.aoPersonnelId) {
-      where.personnelId = scope.aoPersonnelId;
-    }
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped) {
+    where.personnel = stationPersonnelFilter(scope);
   }
 
   const applications = await prisma.promotionApplication.findMany({
@@ -487,12 +597,12 @@ export const getPromotionApplications = async (req: Request, res: Response): Pro
   sendSuccess(res, applications);
 };
 
-// ── Two-Stage AO II & HRMO Realtime Rating & Ranking Workflows ──────────────
+// ── AO II Requirements Completeness Verification & HRMO CAR Deliberation ───
 
-export const submitInitialRating = async (req: Request, res: Response): Promise<void> => {
+export const verifyApplicationRequirements = async (req: Request, res: Response): Promise<void> => {
   try {
-    if (req.user?.role !== 'AO_II' && req.user?.role !== 'SYSTEM_ADMIN') {
-      sendForbidden(res, 'Forbidden: Only Administrative Officer II (AO II) officers can submit or revise initial ratings.');
+    if (req.user?.role !== 'AO_II' && req.user?.role !== 'HRMO' && req.user?.role !== 'SYSTEM_ADMIN') {
+      sendForbidden(res, 'Forbidden: Only Administrative Officer II (AO II) and HRMO can verify application requirements.');
       return;
     }
 
@@ -504,15 +614,9 @@ export const submitInitialRating = async (req: Request, res: Response): Promise<
     }
 
     const {
-      track,
-      educationScore,
-      trainingScore,
-      experienceScore,
-      performanceScore,
-      outstandingAccomplishmentsScore,
-      applicationOfEducationScore,
-      applicationOfLdScore,
+      status, // 'COMPLETE' | 'INCOMPLETE'
       remarks,
+      itemVerifications, // Array of { code: string, status: 'VERIFIED' | 'INCOMPLETE' | 'NOT_APPLICABLE', remarks?: string }
     } = req.body;
 
     const app = await prisma.promotionApplication.findFirst({
@@ -539,67 +643,50 @@ export const submitInitialRating = async (req: Request, res: Response): Promise<
 
     // Strict District Jurisdiction Check for AO II officers
     if (req.user?.role === 'AO_II') {
-      const aoScope = await getAOSchoolScope(req.user);
-      if (cycleDistrict && cycleDistrict !== 'ALL' && cycleDistrict !== 'DIVISION_WIDE') {
-        const aoDist = (aoScope.districtName || '').toLowerCase().trim();
-        const targetDist = cycleDistrict.toLowerCase().trim();
-        if (!aoDist || (!aoDist.includes(targetDist) && !targetDist.includes(aoDist))) {
-          sendForbidden(res, `District Scope Restriction: Only Administrative Officer II (AO II) assigned to ${cycleDistrict} can evaluate applicants for this promotion cycle. Your assigned jurisdiction is ${aoScope.districtName || 'Different District / Unassigned'}.`);
-          return;
-        }
+      const aoScope = await getStationScope(req.user);
+      if (!isWithinDistrict(aoScope, cycleDistrict)) {
+        sendForbidden(res, `District Scope Restriction: Only Administrative Officer II (AO II) assigned to ${cycleDistrict} can verify requirements for this promotion cycle. Your assigned jurisdiction is ${aoScope.district || 'Different District / Unassigned'}.`);
+        return;
       }
     }
 
-    const isNonTeaching = track === 'NON_TEACHING' ||
-      app.personnel.designation?.toLowerCase().includes('administrative') ||
-      app.personnel.designation?.toLowerCase().includes('registrar') ||
-      app.personnel.designation?.toLowerCase().includes('officer') ||
-      app.personnel.designation?.toLowerCase().includes('assistant');
+    const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
+    const isComplete = status === 'COMPLETE';
 
-    const edu = Math.min(10, Math.max(0, Number(educationScore) || 0));
-    const train = Math.min(10, Math.max(0, Number(trainingScore) || 0));
-    const exp = Math.min(10, Math.max(0, Number(experienceScore) || 0));
-    const maxPerf = isNonTeaching ? 20 : 30;
-    const perf = Math.min(maxPerf, Math.max(0, Number(performanceScore) || 0));
-
-    let initialTotalScore = 0;
-    let nonTeachingDetails: Record<string, number> = {};
-
-    if (isNonTeaching) {
-      const outAcc = Math.min(5, Math.max(0, Number(outstandingAccomplishmentsScore) || 0));
-      const appEdu = Math.min(15, Math.max(0, Number(applicationOfEducationScore) || 0));
-      const appLd = Math.min(10, Math.max(0, Number(applicationOfLdScore) || 0));
-      initialTotalScore = parseFloat((edu + train + exp + perf + outAcc + appEdu + appLd).toFixed(2));
-      nonTeachingDetails = {
-        outstandingAccomplishmentsScore: outAcc,
-        applicationOfEducationScore: appEdu,
-        applicationOfLdScore: appLd,
-      };
-    } else {
-      // Teaching AO subtotal (10 + 10 + 10 + 30 = 60 pts max)
-      initialTotalScore = parseFloat((edu + train + exp + perf).toFixed(2));
+    // Update items in annexCChecklist if itemVerifications is provided
+    let updatedAnnexC = currentDetails.annexCChecklist;
+    if (updatedAnnexC && Array.isArray(updatedAnnexC.items) && Array.isArray(itemVerifications)) {
+      const verifMap = new Map(itemVerifications.map((v: any) => [v.code, v]));
+      const updatedItems = updatedAnnexC.items.map((it: any) => {
+        const v = verifMap.get(it.code);
+        if (v) {
+          return {
+            ...it,
+            verificationStatus: v.status || (isComplete ? 'VERIFIED' : it.verificationStatus),
+            verificationRemarks: v.remarks !== undefined ? v.remarks : it.verificationRemarks,
+          };
+        }
+        return it;
+      });
+      updatedAnnexC = { ...updatedAnnexC, items: updatedItems };
     }
 
-    const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
+    const verificationRecord = {
+      status: isComplete ? 'COMPLETE' : 'INCOMPLETE',
+      verifiedByUserId: req.user?.userId,
+      verifiedByRole: req.user?.role,
+      verifiedAt: new Date().toISOString(),
+      remarks: remarks || (isComplete
+        ? 'All documentary requirements verified complete and authentic by AO II in accordance with DepEd Annex C standards.'
+        : 'Documentary requirements incomplete or deficient.'),
+      itemVerifications: itemVerifications || [],
+    };
 
     const updatedDetails = {
       ...currentDetails,
-      track: isNonTeaching ? 'NON_TEACHING' : 'TEACHING',
-      stageStatus: 'INITIAL_RATED',
-      initialRating: {
-        track: isNonTeaching ? 'NON_TEACHING' : 'TEACHING',
-        educationScore: edu,
-        trainingScore: train,
-        experienceScore: exp,
-        performanceScore: perf,
-        ...nonTeachingDetails,
-        initialTotalScore,
-        aoRemarks: remarks || 'Initial Rating completed by AO II in accordance with DepEd CAR guidelines',
-        ratedByUserId: req.user?.userId,
-        ratedAt: new Date().toISOString(),
-      },
-      initialTotalScore,
-      totalScore: initialTotalScore,
+      stageStatus: isComplete ? 'REQUIREMENTS_VERIFIED' : 'REQUIREMENTS_DEFICIENT',
+      requirementsCheck: verificationRecord,
+      annexCChecklist: updatedAnnexC || currentDetails.annexCChecklist,
     };
 
     const updated = await prisma.promotionApplication.update({
@@ -610,23 +697,20 @@ export const submitInitialRating = async (req: Request, res: Response): Promise<
       },
     });
 
-    // Re-calculate ranks across the cycle
-    await computeCycleRankingInternal(cycleId);
-
-    // Notify all HRMO officers that AO II has submitted an initial rating
+    // Notify all HRMO officers that requirements completeness has been checked
     const hrmoUsers = await prisma.user.findMany({
       where: { role: { name: { in: ['HRMO'] } } },
       select: { id: true },
     });
     if (hrmoUsers.length > 0) {
       const applicantName = `${app.personnel.firstName} ${app.personnel.lastName}`.trim();
-      const maxAo = isNonTeaching ? 80 : 50;
-
       await prisma.notification.createMany({
         data: hrmoUsers.map(h => ({
           userId: h.id,
-          message: `⭐ AO II Initial Rating Submitted: ${applicantName} was evaluated by AO II (${initialTotalScore}/${maxAo} pts) and passed to HRMO for final deliberation.`,
-          type: 'INFO',
+          message: isComplete
+            ? `📋 AO II Requirements Verified: ${applicantName}'s documentary requirements were verified COMPLETE by AO II. Endorsed for HRMPSB score deliberation.`
+            : `⚠️ AO II Requirements Deficient: ${applicantName}'s documentary requirements were marked INCOMPLETE by AO II.`,
+          type: isComplete ? 'SUCCESS' : 'WARNING',
           relatedEntityId: cycleId,
           relatedEntityType: 'PromotionCycle',
         })),
@@ -634,12 +718,39 @@ export const submitInitialRating = async (req: Request, res: Response): Promise<
       notifyUserNotifications(hrmoUsers.map(h => h.id));
     }
 
+    // Notify the applicant personnel
+    const applicantUserId = app.personnel?.userId || (await prisma.user.findFirst({
+      where: { personnelId: app.personnelId },
+      select: { id: true },
+    }))?.id;
+
+    if (applicantUserId) {
+      await prisma.notification.create({
+        data: {
+          userId: applicantUserId,
+          message: isComplete
+            ? `📋 Requirements Verified Complete: Your documentary requirements for "${cycle.name}" were verified COMPLETE by AO II and endorsed for HRMPSB deliberation.`
+            : `⚠️ Requirements Incomplete / Deficient: Your documentary requirements for "${cycle.name}" were marked INCOMPLETE by AO II. Remarks: ${remarks || 'Please check deficiencies and resubmit required documents.'}`,
+          type: isComplete ? 'SUCCESS' : 'WARNING',
+          relatedEntityId: cycleId,
+          relatedEntityType: 'PromotionCycle',
+        },
+      });
+      notifyUserNotifications([applicantUserId]);
+    }
+
     notifyTransactionChange();
 
-    sendSuccess(res, updated, 'Initial rating submitted successfully by AO II and forwarded to HRMO.');
+    sendSuccess(
+      res,
+      updated,
+      isComplete
+        ? 'Requirements verified complete by AO II and applicant endorsed for HRMPSB deliberation.'
+        : 'Requirements marked incomplete/deficient by AO II.'
+    );
   } catch (err: any) {
-    console.error('Failed to submit initial rating:', err);
-    res.status(500).json({ status: 'error', message: err?.message || 'Failed to submit initial rating.' });
+    logger.error({ err: err }, 'Failed to verify application requirements');
+    sendError(res, 'Failed to verify application requirements.', 500);
   }
 };
 
@@ -659,6 +770,14 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
 
     const {
       track,
+      // Deliberated Criteria from HRMPSB / HRMO (DepEd Order No. 007, s. 2023)
+      educationScore,
+      trainingScore,
+      experienceScore,
+      performanceScore,
+      outstandingAccomplishmentsScore,
+      applicationOfEducationScore,
+      applicationOfLdScore,
       ppstCoiScore,
       ppstNcoiScore,
       potentialScore,
@@ -681,6 +800,15 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    // AO II completeness verification is a precondition of deliberation, not a
+    // convention. Without it an unverified applicant could be scored here and
+    // then ranked and selected through direct API calls.
+    const deliberationBlocked = deliberationBlockReason(app.scoreDetailsJson);
+    if (deliberationBlocked) {
+      sendBadRequest(res, deliberationBlocked, 'REQUIREMENTS_NOT_VERIFIED');
+      return;
+    }
+
     const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
     const isNonTeaching = track === 'NON_TEACHING' || currentDetails.track === 'NON_TEACHING' ||
       app.personnel.designation?.toLowerCase().includes('administrative') ||
@@ -688,40 +816,56 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       app.personnel.designation?.toLowerCase().includes('officer') ||
       app.personnel.designation?.toLowerCase().includes('assistant');
 
-    let hrmoFinalScore = 0;
-    let hrmoBreakdown: Record<string, any> = {};
+    // Deliberate Criteria (Max 100 pts overall according to DepEd Order No. 007, s. 2023)
+    const edu = Math.min(10, Math.max(0, Number(educationScore ?? currentDetails.finalRating?.educationScore ?? currentDetails.initialRating?.educationScore ?? 10)));
+    const train = Math.min(10, Math.max(0, Number(trainingScore ?? currentDetails.finalRating?.trainingScore ?? currentDetails.initialRating?.trainingScore ?? 10)));
+    const exp = Math.min(10, Math.max(0, Number(experienceScore ?? currentDetails.finalRating?.experienceScore ?? currentDetails.initialRating?.experienceScore ?? 10)));
+    const maxPerf = isNonTeaching ? 20 : 30;
+    const perf = Math.min(maxPerf, Math.max(0, Number(performanceScore ?? currentDetails.finalRating?.performanceScore ?? currentDetails.initialRating?.performanceScore ?? maxPerf)));
+
+    let overallTotalScore = 0;
+    let hrmoBreakdown: Record<string, any> = {
+      educationScore: edu,
+      trainingScore: train,
+      experienceScore: exp,
+      performanceScore: perf,
+    };
 
     if (isNonTeaching) {
-      // Non-Teaching Potential (20 pts max)
-      const written = Math.min(5, Math.max(0, Number(potentialWrittenScore) || 0));
-      const bei = Math.min(5, Math.max(0, Number(potentialBeiScore) || 0));
-      const skills = Math.min(10, Math.max(0, Number(potentialSkillsScore) || 0));
+      // Non-Teaching: Education (10), Training (10), Experience (10), Performance (20),
+      // Accomplishments (5), App of Ed (15), App of L&D (10), Potential (20) = 100
+      const outAcc = Math.min(5, Math.max(0, Number(outstandingAccomplishmentsScore ?? currentDetails.finalRating?.outstandingAccomplishmentsScore ?? currentDetails.initialRating?.outstandingAccomplishmentsScore ?? 5)));
+      const appEdu = Math.min(15, Math.max(0, Number(applicationOfEducationScore ?? currentDetails.finalRating?.applicationOfEducationScore ?? currentDetails.initialRating?.applicationOfEducationScore ?? 15)));
+      const appLd = Math.min(10, Math.max(0, Number(applicationOfLdScore ?? currentDetails.finalRating?.applicationOfLdScore ?? currentDetails.initialRating?.applicationOfLdScore ?? 10)));
+
+      const written = Math.min(5, Math.max(0, Number(potentialWrittenScore ?? currentDetails.finalRating?.potentialWrittenScore ?? 5)));
+      const bei = Math.min(5, Math.max(0, Number(potentialBeiScore ?? currentDetails.finalRating?.potentialBeiScore ?? 5)));
+      const skills = Math.min(10, Math.max(0, Number(potentialSkillsScore ?? currentDetails.finalRating?.potentialSkillsScore ?? 10)));
       const totalPotential = potentialScore !== undefined ? Math.min(20, Math.max(0, Number(potentialScore))) : Math.min(20, written + bei + skills);
-      hrmoFinalScore = parseFloat(totalPotential.toFixed(2));
+
+      overallTotalScore = parseFloat((edu + train + exp + perf + outAcc + appEdu + appLd + totalPotential).toFixed(2));
       hrmoBreakdown = {
+        ...hrmoBreakdown,
+        outstandingAccomplishmentsScore: outAcc,
+        applicationOfEducationScore: appEdu,
+        applicationOfLdScore: appLd,
         potentialScore: totalPotential,
         potentialWrittenScore: written,
         potentialBeiScore: bei,
         potentialSkillsScore: skills,
       };
     } else {
-      // Teaching PPST COIs (25 pts max) & PPST NCOIs (15 pts max) -> 40 pts max
-      const coi = Math.min(25, Math.max(0, Number(ppstCoiScore) || 0));
-      const ncoi = Math.min(15, Math.max(0, Number(ppstNcoiScore) || 0));
-      hrmoFinalScore = parseFloat((coi + ncoi).toFixed(2));
+      // Teaching: Education (10), Training (10), Experience (10), Performance (30),
+      // PPST COIs (25), PPST NCOIs (15) = 100
+      const coi = Math.min(25, Math.max(0, Number(ppstCoiScore ?? currentDetails.finalRating?.ppstCoiScore ?? 25)));
+      const ncoi = Math.min(15, Math.max(0, Number(ppstNcoiScore ?? currentDetails.finalRating?.ppstNcoiScore ?? 15)));
+      overallTotalScore = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
       hrmoBreakdown = {
+        ...hrmoBreakdown,
         ppstCoiScore: coi,
         ppstNcoiScore: ncoi,
       };
     }
-
-    const rawInitialTotal = currentDetails.initialRating?.initialTotalScore ?? currentDetails.initialTotalScore;
-    if (rawInitialTotal === undefined || rawInitialTotal === null || !Number.isFinite(Number(rawInitialTotal))) {
-      sendBadRequest(res, 'AO II initial rating must be completed before HRMO final rating.', 'INITIAL_RATING_REQUIRED');
-      return;
-    }
-    const initialTotal = Number(rawInitialTotal);
-    const overallTotalScore = parseFloat((initialTotal + hrmoFinalScore).toFixed(2));
 
     const updatedDetails = {
       ...currentDetails,
@@ -730,9 +874,9 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       finalRating: {
         track: isNonTeaching ? 'NON_TEACHING' : 'TEACHING',
         ...hrmoBreakdown,
-        finalTotalScore: hrmoFinalScore,
+        finalTotalScore: overallTotalScore,
         overallTotalScore,
-        hrmoRemarks: remarks || 'Comparative Assessment completed by HRMO Board',
+        hrmoRemarks: remarks || 'Comparative Assessment deliberated and finalized by HRMPSB / HRMO',
         ratedByUserId: req.user?.userId,
         ratedAt: new Date().toISOString(),
       },
@@ -752,12 +896,32 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
     });
 
     await computeCycleRankingInternal(cycleId);
+
+    // Notify the applicant personnel that final deliberation rating has been completed
+    const applicantUserId = app.personnel?.userId || (await prisma.user.findFirst({
+      where: { personnelId: app.personnelId },
+      select: { id: true },
+    }))?.id;
+
+    if (applicantUserId) {
+      await prisma.notification.create({
+        data: {
+          userId: applicantUserId,
+          message: `⭐ HRMPSB Rating Finalized: Your comparative assessment score for "${app.promotionCycle.name}" has been deliberated and finalized (${overallTotalScore}/100 pts).`,
+          type: 'INFO',
+          relatedEntityId: cycleId,
+          relatedEntityType: 'PromotionCycle',
+        },
+      });
+      notifyUserNotifications([applicantUserId]);
+    }
+
     notifyTransactionChange();
 
     sendSuccess(res, updated, 'Comparative Assessment Result (CAR) finalized successfully by HRMO.');
   } catch (err: any) {
-    console.error('Failed to submit final rating:', err);
-    res.status(500).json({ status: 'error', message: err?.message || 'Failed to finalize promotion rating.' });
+    logger.error({ err: err }, 'Failed to submit final rating');
+    sendError(res, 'Failed to finalize promotion rating.', 500);
   }
 };
 
@@ -942,6 +1106,17 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     return;
   }
 
+  // Selecting a candidate is the final act of the cycle, so it must follow the
+  // whole sequence. Deselecting stays open — undoing a mistake should never be
+  // blocked by the gate that was missing when the mistake was made.
+  if (isPromoted !== false) {
+    const selectionBlocked = selectionBlockReason(app.scoreDetailsJson);
+    if (selectionBlocked) {
+      sendBadRequest(res, selectionBlocked, 'PROMOTION_STAGE_INCOMPLETE');
+      return;
+    }
+  }
+
   const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
   const newStatus = isPromoted ? 'APPROVED' : 'RANKED';
 
@@ -1045,21 +1220,25 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
           { name: 'Medical Certificate (CS Form No. 211)', description: 'Issued by licensed government physician with blood work & X-ray', isMandatory: false, expectedDataType: 'PDF' },
         ];
 
-    for (const reqItem of defaultRequirements) {
-      const existingReq = await db.requirementTemplate.findFirst({
-        where: { transactionTypeId: txType.id, name: reqItem.name },
+    // Two statements for the whole checklist; this runs inside an open transaction,
+    // so a per-item find/create round trip would hold it for the duration.
+    const existingRequirements = await db.requirementTemplate.findMany({
+      where: { transactionTypeId: txType.id, name: { in: defaultRequirements.map(r => r.name) } },
+      select: { name: true },
+    });
+    const existingNames = new Set(existingRequirements.map(r => r.name));
+    const missingRequirements = defaultRequirements.filter(r => !existingNames.has(r.name));
+
+    if (missingRequirements.length > 0) {
+      await db.requirementTemplate.createMany({
+        data: missingRequirements.map(reqItem => ({
+          transactionTypeId: txType.id,
+          name: reqItem.name,
+          description: reqItem.description,
+          isMandatory: reqItem.isMandatory,
+          expectedDataType: reqItem.expectedDataType,
+        })),
       });
-      if (!existingReq) {
-        await db.requirementTemplate.create({
-          data: {
-            transactionTypeId: txType.id,
-            name: reqItem.name,
-            description: reqItem.description,
-            isMandatory: reqItem.isMandatory,
-            expectedDataType: reqItem.expectedDataType,
-          },
-        });
-      }
     }
 
     // 2. Create or find active Transaction for this candidate personnel
@@ -1136,10 +1315,39 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       });
     }
     updated = await db.promotionApplication.update({ where: { id: appId }, data: { status: newStatus as any, scoreDetailsJson: updatedDetails } });
+
+    if (app.personnel?.user) {
+      await db.notification.create({
+        data: {
+          userId: app.personnel.user.id,
+          message: `ℹ️ Candidate Selection Withdrawn: Your candidate selection for promotion to ${targetPos} under "${app.promotionCycle.name}" has been removed/withdrawn by HRMO.`,
+          type: 'WARNING',
+          relatedEntityId: cycleId,
+          relatedEntityType: 'PromotionCycle',
+        },
+      });
+      notificationUserId = app.personnel.user.id;
+    }
   }
   });
 
   if (notificationUserId) notifyUserNotifications([notificationUserId]);
+  if (isPromoted && app.personnel?.user?.email) {
+    const transactionId = Number((updated.scoreDetailsJson as any)?.transactionId);
+    await queueTransactionalEmail(`promotion-application:${app.id}:requirements-assigned:${transactionId}`, {
+      recipientEmail: app.personnel.user.email,
+      recipientName: `${app.personnel.firstName} ${app.personnel.lastName}`,
+      subject: isTeacherOne ? 'New appointment requirements assigned' : 'Promotion requirements assigned',
+      heading: isTeacherOne ? 'You were selected for appointment' : 'You were selected for promotion',
+      message: `You were selected for ${targetPos} under ${app.promotionCycle.name}. Your required appointment documents are now available in Digital 201 for submission and validation.`,
+      reference: Number.isInteger(transactionId) ? `TRX-${transactionId}` : app.promotionCycle.name,
+      actionLabel: 'Open assigned requirements',
+      actionUrl: Number.isInteger(transactionId)
+        ? `${config.clientUrl}/personnel/checklist?txId=${transactionId}`
+        : `${config.clientUrl}/personnel/home`,
+    });
+    void processWorkflowOutbox();
+  }
   notifyTransactionChange();
   sendSuccess(
     res,
@@ -1256,6 +1464,8 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
             civilStatus: String(civilStatus).toUpperCase() as any,
             contactNumber: contactNumber ? String(contactNumber).trim() : null,
             address: finalAddress,
+            school: schoolStation ? String(schoolStation).trim() : null,
+            district: district ? String(district).trim() : null,
             status: 'INACTIVE',
             dateHired: null,
             profileComplete: false,
@@ -1294,9 +1504,28 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
     return;
   }
 
-  const targetPersonnel = await prisma.personnel.findUnique({ where: { id: targetPersonnelId }, select: { id: true, designation: true } });
+  const targetPersonnel = await prisma.personnel.findUnique({
+    where: { id: targetPersonnelId },
+    select: {
+      id: true,
+      designation: true,
+      plantillaItem: { select: { positionTitle: true } },
+    },
+  });
   if (!targetPersonnel) { sendNotFound(res, 'Selected personnel record not found.'); return; }
-  if (normalizePositionTitle(targetPersonnel.designation) === normalizePositionTitle(targetPos)) {
+
+  const candidateCurrentPos = targetPersonnel.designation || targetPersonnel.plantillaItem?.positionTitle || '';
+  if (candidateCurrentPos && candidateCurrentPos !== 'External Applicant') {
+    const eligibility = checkPromotionEligibility(candidateCurrentPos, targetPos, cycle.type);
+    if (!eligibility.isEligible) {
+      sendBadRequest(
+        res,
+        eligibility.reason || `Applicant is not eligible to apply for "${targetPos}".`,
+        'PROMOTION_INELIGIBLE'
+      );
+      return;
+    }
+  } else if (normalizePositionTitle(targetPersonnel.designation) === normalizePositionTitle(targetPos)) {
     sendBadRequest(res, `Applicant already holds the target position "${targetPos}".`, 'SAME_POSITION_APPLICATION');
     return;
   }
@@ -1405,19 +1634,40 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
 
   const currentPosition = personnel.designation || personnel.plantillaItem?.positionTitle || '';
   const targetPosition = getCycleTargetPosition(cycle);
-  if (currentPosition && targetPosition && normalizePositionTitle(currentPosition) === normalizePositionTitle(targetPosition)) {
+
+  const eligibility = checkPromotionEligibility(currentPosition, targetPosition, cycle.type);
+  if (!eligibility.isEligible) {
     sendBadRequest(
       res,
-      `You cannot apply for ${targetPosition} because it is already your current position.`,
-      'SAME_CURRENT_POSITION'
+      eligibility.reason || 'You are not eligible to apply for this promotion cycle.',
+      'PROMOTION_INELIGIBLE'
     );
     return;
   }
+
+  const checklistData = req.body?.checklist || null;
+  const appliedVia = req.body?.appliedVia || 'WEB_PORTAL';
 
   const existing = await prisma.promotionApplication.findUnique({
     where: { personnelId_promotionCycleId: { personnelId: req.user.personnelId, promotionCycleId: cycleId } },
   });
   if (existing) {
+    if (checklistData && existing.status === 'SUBMITTED') {
+      const currentDetails = (existing.scoreDetailsJson as Record<string, any>) || {};
+      const updatedApp = await prisma.promotionApplication.update({
+        where: { id: existing.id },
+        data: {
+          scoreDetailsJson: {
+            ...currentDetails,
+            annexCChecklist: checklistData,
+            checklistUpdatedAt: new Date().toISOString(),
+          },
+        },
+      });
+      notifyTransactionChange();
+      sendSuccess(res, updatedApp, 'Annex C requirements checklist submitted successfully.');
+      return;
+    }
     sendBadRequest(res, 'You have already applied for this promotion cycle.', 'ALREADY_APPLIED');
     return;
   }
@@ -1429,7 +1679,7 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     sendBadRequest(res, `This promotion cycle has reached its maximum applicant capacity (${maxCapacity}).`, 'CAPACITY_REACHED');
     return;
   }
-  const autoApplicantNo = `APP-2026-${String(appCount + 1).padStart(4, '0')}`;
+  const autoApplicantNo = req.body?.applicationCode || `APP-2026-${String(appCount + 1).padStart(4, '0')}`;
 
   const application = await prisma.promotionApplication.create({
     data: {
@@ -1439,7 +1689,9 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
       applicationDate: new Date(),
       scoreDetailsJson: {
         applicantNumber: autoApplicantNo,
-        appliedVia: 'MOBILE_APP',
+        appliedVia,
+        annexCChecklist: checklistData,
+        submittedAt: new Date().toISOString(),
       },
     },
   });
@@ -1505,15 +1757,9 @@ export const getCareerHistory = async (req: Request, res: Response): Promise<voi
   }
 
   if (req.user!.role === 'AO_II') {
-    const scope = await getAOSchoolScope(req.user);
-    const target = await prisma.personnel.findUnique({ where: { id: personnelId }, select: { id: true, address: true, designation: true } });
-    const school = scope.schoolName?.toLowerCase();
-    const belongsToSchool = Boolean(target && school && (
-      target.address?.toLowerCase().includes(school) ||
-      target.designation?.toLowerCase().includes(school) ||
-      target.id === scope.aoPersonnelId
-    ));
-    if (!belongsToSchool) {
+    const scope = await getStationScope(req.user);
+    const target = await prisma.personnel.findUnique({ where: { id: personnelId }, select: { id: true, school: true, district: true } });
+    if (!isWithinStation(scope, target)) {
       sendForbidden(res, 'You do not have permission to view career history outside your assigned school.');
       return;
     }
@@ -1783,6 +2029,76 @@ export const getMyPromotionStatus = async (req: Request, res: Response): Promise
     return;
   }
 
+  // 3. Check for any promotion application submitted by personnel
+  const latestApp = await prisma.promotionApplication.findFirst({
+    where: { personnelId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      promotionCycle: true,
+    },
+  });
+
+  if (latestApp) {
+    const appDetails = (latestApp.scoreDetailsJson as Record<string, any>) || {};
+    const isCycleCancelled = latestApp.promotionCycle.status === 'CANCELLED' || Boolean(appDetails.cycleCancelled) || appDetails.stageStatus === 'CANCELLED';
+
+    if (isCycleCancelled) {
+      sendSuccess(res, {
+        isPromoted: false,
+        isPendingApproval: false,
+        promotionStage: 'CANCELLED',
+        promotionDetails: {
+          applicationId: latestApp.id,
+          cycleId: latestApp.promotionCycleId,
+          cycleName: latestApp.promotionCycle.name,
+          targetPosition: (latestApp.promotionCycle.rulesConfigurationJson as any)?.targetPosition || 'Promoted Rank',
+          remarks: appDetails.cancellationRemarks || 'Promotion cycle was cancelled by HRMO.',
+        },
+        message: `The promotion cycle "${latestApp.promotionCycle.name}" has been cancelled by HR.`,
+      });
+      return;
+    }
+
+    if (latestApp.status === 'REJECTED') {
+      sendSuccess(res, {
+        isPromoted: false,
+        isPendingApproval: false,
+        promotionStage: 'REJECTED',
+        promotionDetails: {
+          applicationId: latestApp.id,
+          cycleId: latestApp.promotionCycleId,
+          cycleName: latestApp.promotionCycle.name,
+          targetPosition: (latestApp.promotionCycle.rulesConfigurationJson as any)?.targetPosition || 'Promoted Rank',
+          remarks: appDetails.remarks || 'Application not selected for promotion.',
+        },
+        message: `Your application for "${latestApp.promotionCycle.name}" was not selected for promotion.`,
+      });
+      return;
+    }
+
+    // Active application under evaluation
+    const stage = appDetails.stageStatus || latestApp.status;
+    const isDeficient = stage === 'REQUIREMENTS_DEFICIENT';
+    sendSuccess(res, {
+      isPromoted: false,
+      isPendingApproval: false,
+      promotionStage: stage,
+      promotionDetails: {
+        applicationId: latestApp.id,
+        cycleId: latestApp.promotionCycleId,
+        cycleName: latestApp.promotionCycle.name,
+        targetPosition: (latestApp.promotionCycle.rulesConfigurationJson as any)?.targetPosition || 'Promoted Rank',
+        score: appDetails.totalScore || appDetails.initialRating?.initialTotalScore || null,
+        requirementsStatus: appDetails.requirementsCheck?.status || 'PENDING_VERIFICATION',
+        remarks: appDetails.requirementsCheck?.remarks || appDetails.remarks || 'Application under evaluation.',
+      },
+      message: isDeficient
+        ? `Your requirements for "${latestApp.promotionCycle.name}" were marked incomplete/deficient by AO II. Remarks: ${appDetails.requirementsCheck?.remarks || 'Incomplete submission'}.`
+        : `Your application for "${latestApp.promotionCycle.name}" is currently ${stage.toLowerCase().replace(/_/g, ' ')}.`,
+    });
+    return;
+  }
+
   // Fallback: Not selected in any cycle yet
   sendSuccess(res, {
     isPromoted: false,
@@ -1812,7 +2128,18 @@ export const generateCarDocument = async (req: Request, res: Response): Promise<
     res.setHeader('Content-Length', result.buffer.length);
     res.send(result.buffer);
   } catch (err: any) {
-    console.error('Failed to generate CAR document:', err);
-    res.status(500).json({ status: 'error', message: err?.message || 'Failed to generate CAR document.' });
+    logger.error({ err: err }, 'Failed to generate CAR document');
+    sendError(res, 'Failed to generate CAR document.', 500);
   }
+};
+
+/**
+ * GET /promotions/annex-c-requirements
+ *
+ * The Annex C checklist, served from one place so the web app, the Flutter app
+ * and AO II verification all work from the same wording and the same mandatory
+ * set. Previously each client carried its own copy.
+ */
+export const getAnnexCRequirements = async (_req: Request, res: Response): Promise<void> => {
+  sendSuccess(res, ANNEX_C_REQUIREMENTS);
 };

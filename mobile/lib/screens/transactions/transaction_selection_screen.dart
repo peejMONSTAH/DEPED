@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart' show DioException;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/transaction_model.dart';
 import '../../services/api_service.dart';
@@ -32,9 +33,9 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.darkBgCard,
+          color: AppTheme.lightBgCard,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppTheme.darkBorder),
+          border: Border.all(color: AppTheme.lightBorder),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -43,7 +44,7 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: AppTheme.statusPending.withOpacity(0.15),
+                color: AppTheme.statusPending.withOpacity(0.12),
                 shape: BoxShape.circle,
                 border: Border.all(color: AppTheme.statusPending.withOpacity(0.3)),
               ),
@@ -59,9 +60,9 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: AppTheme.statusReturned.withOpacity(0.15),
+                color: AppTheme.statusReturned.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.statusReturned.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.statusReturned.withOpacity(0.25)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -86,13 +87,13 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentLime,
-                  foregroundColor: AppTheme.brandDark,
+                  backgroundColor: AppTheme.brandDark,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
                 ),
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Understood', style: TextStyle(color: AppTheme.brandDark, fontWeight: FontWeight.bold)),
+                child: const Text('Understood', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 10),
@@ -129,28 +130,30 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
       Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        final errorMsg = e.toString();
-        if (errorMsg.contains('ineligible')) {
-          _showIneligibleModal('You are ineligible yet. Selection by HRMO in a Promotion Cycle is required.');
+        // The server states why it refused via a stable `code`; matching on the prose
+        // broke whenever that wording changed. The text check is a one-version fallback.
+        final body = e is DioException && e.response?.data is Map
+            ? e.response!.data as Map
+            : const {};
+        final code = body['code'] as String?;
+        final serverMessage = body['message'] as String?;
+
+        if (code == 'INELIGIBLE_FOR_PROMOTION' || e.toString().contains('ineligible')) {
+          _showIneligibleModal(serverMessage ??
+              'You are ineligible yet. Selection by HRMO in a Promotion Cycle is required.');
+        } else if (e is UnsupportedError) {
+          _showIneligibleModal(e.message ??
+              'Transactions are assigned by the AO II / HRMO workflow and cannot be started here.');
         } else {
-          final demoTx = TransactionModel(
-            id: DateTime.now().millisecondsSinceEpoch,
-            referenceNo: 'TRX-${DateTime.now().millisecond}',
-            type: type,
-            status: TransactionStatus.DRAFT,
-            complianceScore: 0.0,
-            createdAt: DateTime.now().toIso8601String(),
-            updatedAt: DateTime.now().toIso8601String(),
-            requirements: RequirementItemModel.generateDefaultRequirements(type),
-          );
-          _transactionService.saveLocalTransaction(demoTx);
+          // Never fabricate a local transaction: reporting a reference number the
+          // server never issued tells personnel their submission was filed when it
+          // was not.
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Transaction ${demoTx.referenceNo} created!'),
-              backgroundColor: AppTheme.emeraldGreen,
+              content: Text(serverMessage ?? 'Could not start this transaction. Please try again.'),
+              backgroundColor: AppTheme.statusReturned,
             ),
           );
-          Navigator.of(context).pop(true);
         }
       }
     } finally {
@@ -212,12 +215,12 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
               children: [
                 const Text(
                   'Select Transaction Type',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 const Text(
                   'Select the transaction to automatically generate your dynamic compliance checklist.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 20),
 
@@ -236,7 +239,7 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
                   title: 'Newly Hired Appointment',
                   subtitle: 'For newly appointed personnel submitting initial 201 file documents and oath of office.',
                   icon: LucideIcons.userPlus,
-                  color: AppTheme.secondaryNavy,
+                  color: AppTheme.primaryLight,
                   onTap: () => _handleSelectType(TransactionType.NEWLY_HIRED),
                 ),
               ],
@@ -260,6 +263,11 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
     required VoidCallback onTap,
   }) {
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppTheme.lightBorder),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -280,13 +288,13 @@ class _TransactionSelectionScreenState extends State<TransactionSelectionScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     const SizedBox(height: 4),
-                    Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(subtitle, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                   ],
                 ),
               ),
-              const Icon(LucideIcons.arrowRight, color: Colors.grey),
+              const Icon(LucideIcons.arrowRight, color: AppTheme.textMuted),
             ],
           ),
         ),

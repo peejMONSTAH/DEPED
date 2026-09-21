@@ -546,7 +546,7 @@ export const DocumentValidation: React.FC = () => {
 
         {/* Review & Qualification Evaluation Modal */}
         {selected && (
-          <ModalOverlay className="modal-overlay" onClick={handleCloseModal}>
+          <ModalOverlay onDismiss={handleCloseModal} className="modal-overlay" onClick={handleCloseModal}>
             <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 680, width: '92vw' }}>
               <div className="modal-header">
                 <h3 className="modal-title">Evaluate & Validate — TRX-{selected.id}</h3>
@@ -848,7 +848,7 @@ export const DocumentValidation: React.FC = () => {
           ];
 
           return (
-            <ModalOverlay className="modal-overlay" style={{ zIndex: 1100, padding: 16 }} onClick={() => { setViewingDoc(null); setRotation(0); }}>
+            <ModalOverlay onDismiss={() => { setViewingDoc(null); setRotation(0); }} className="modal-overlay" style={{ zIndex: 1100, padding: 16 }} onClick={() => { setViewingDoc(null); setRotation(0); }}>
               <div
                 className="modal animate-scale-in"
                 onClick={e => e.stopPropagation()}
@@ -859,7 +859,7 @@ export const DocumentValidation: React.FC = () => {
                   maxHeight: '94vh',
                   display: 'flex',
                   flexDirection: 'column',
-                  background: 'var(--color-bg-primary)',
+                  background: 'var(--color-bg-card, #ffffff)',
                   border: '1px solid rgba(255, 255, 255, 0.14)',
                   borderRadius: 16,
                   boxShadow: '0 25px 80px rgba(0, 0, 0, 0.85)',
@@ -1259,7 +1259,7 @@ export const DocumentValidation: React.FC = () => {
 
                   {/* Right: Inspection & Verification Action Workstation */}
                   <div style={{
-                    background: 'var(--color-bg-primary)',
+                    background: 'var(--color-bg-card, #ffffff)',
                     display: 'flex',
                     flexDirection: 'column',
                     overflowY: 'auto',
@@ -1433,6 +1433,7 @@ export const DocumentValidation: React.FC = () => {
 
                       {/* Notes Textarea */}
                       <textarea
+                        aria-label="Add specific correction instructions for the personnel"
                         rows={3}
                         className="input"
                         style={{ width: '100%', fontSize: 12, resize: 'vertical' }}
@@ -1493,14 +1494,6 @@ export const DocumentValidation: React.FC = () => {
                             <span>Previous Doc</span>
                           </button>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          style={{ flex: 1 }}
-                          onClick={() => { setViewingDoc(null); setRotation(0); }}
-                        >
-                          Close Inspector
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -1512,13 +1505,12 @@ export const DocumentValidation: React.FC = () => {
 
         {/* Disqualification (DQ) Modal */}
         {showDqModal && selected && (
-          <ModalOverlay className="modal-overlay" onClick={() => setShowDqModal(false)}>
+          <ModalOverlay onDismiss={() => setShowDqModal(false)} className="modal-overlay" onClick={() => setShowDqModal(false)}>
             <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
               <div className="modal-header">
                 <h3 className="modal-title" style={{ color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: 6 }}>
                   Declare Disqualified (DQ) — TX #{selected.id}
                 </h3>
-                <button className="modal-close" onClick={() => setShowDqModal(false)}>×</button>
               </div>
 
               <div className="alert alert-danger mb-4" style={{ fontSize: 13 }}>
@@ -1532,6 +1524,7 @@ export const DocumentValidation: React.FC = () => {
               <div className="form-group mb-4">
                 <label className="form-label">Disqualification Criteria Failure Remarks *</label>
                 <textarea
+                  aria-label="Disqualification Criteria Failure Remarks"
                   className="form-input"
                   rows={4}
                   placeholder={
@@ -1557,11 +1550,10 @@ export const DocumentValidation: React.FC = () => {
 
         {/* Return for Correction Modal */}
         {showReturnModal && selected && (
-          <ModalOverlay className="modal-overlay" onClick={() => setShowReturnModal(false)}>
+          <ModalOverlay onDismiss={() => setShowReturnModal(false)} className="modal-overlay" onClick={() => setShowReturnModal(false)}>
             <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
               <div className="modal-header">
                 <h3 className="modal-title">↩ Return for Correction — TX #{selected.id}</h3>
-                <button className="modal-close" onClick={() => setShowReturnModal(false)}>×</button>
               </div>
 
               <p className="text-sm text-muted mb-4">
@@ -1571,6 +1563,7 @@ export const DocumentValidation: React.FC = () => {
               <div className="form-group mb-4">
                 <label className="form-label">Deficiency Remarks / Correction Instructions *</label>
                 <textarea
+                  aria-label="Deficiency Remarks / Correction Instructions"
                   className="form-input"
                   rows={4}
                   placeholder="e.g. Missing IPCR Performance Rating for the 2nd Semester 2025. Please upload the most recent rating with at least Very Satisfactory result."

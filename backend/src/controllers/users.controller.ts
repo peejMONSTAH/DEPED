@@ -7,8 +7,20 @@ import {
 } from '../utils/response.util';
 import { UserRole, AccountStatus } from '@prisma/client';
 import { notifyUserNotifications } from './notifications.controller';
-import { getAOSchoolScope } from '../utils/scope.util';
+import {
+  getStationScope,
+  hasStationAssignment,
+  isWithinStation,
+  stationPersonnelFilter,
+  STATION_SUBJECT_ROLES,
+} from '../utils/scope.util';
 import { validateAccountInput, validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
+import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
+import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
+import { config } from '../config';
+import { logger } from '../utils/logger';
+import { generateInitialPassword } from '../utils/password-issue.util';
+import { invalidateAuthUserCache } from '../middleware/auth.middleware';
 
 /**
  * GET /users — List all users with pagination and filtering
@@ -21,29 +33,14 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
   if (role) where.role = { name: role as UserRole };
 
   // Scope AO II to strictly see and manage only Teaching and Non-Teaching personnel under their assigned station/district
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo) {
-    if (role && (role === 'TEACHING_PERSONNEL' || role === 'NON_TEACHING_PERSONNEL')) {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped) {
+    if (role && STATION_SUBJECT_ROLES.includes(role as UserRole)) {
       where.role = { name: role as UserRole };
     } else {
-      where.role = { name: { in: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] } };
+      where.role = { name: { in: STATION_SUBJECT_ROLES } };
     }
-
-    if (scope.schoolName) {
-      where.personnel = {
-        OR: [
-          { address: { contains: scope.schoolName, mode: 'insensitive' } },
-          { designation: { contains: scope.schoolName, mode: 'insensitive' } },
-          { plantillaItem: { department: { contains: scope.schoolName, mode: 'insensitive' } } },
-        ],
-      };
-    } else if (scope.districtName) {
-      where.personnel = {
-        address: { contains: scope.districtName, mode: 'insensitive' },
-      };
-    } else {
-      where.id = -1;
-    }
+    where.personnel = stationPersonnelFilter(scope);
   }
 
   if (search) {
@@ -72,7 +69,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
       select: {
         id: true, email: true, accountStatus: true, createdAt: true, lastLogin: true,
         role: { select: { name: true } },
-        personnel: { select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true } },
+        personnel: { select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, district: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),
@@ -177,7 +174,6 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   }
 
   const passwordHash = await hashPassword(password);
-  const isTemporary = password.startsWith('Temp@') || password.length < 12;
 
   // Execute User & Personnel creation atomically
   const result = await prisma.$transaction(async (tx) => {
@@ -199,6 +195,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
         if (targetPlantillaItem.isOccupied) {
           throw new Error(`Plantilla item '${targetPlantillaItem.itemNumber}' is already occupied.`);
         }
+        const promoLock = await getPlantillaActivePromotionCycle(targetPlantillaItem, tx);
+        if (promoLock.isLocked) {
+          throw new Error(promoLock.reason || `Plantilla item '${targetPlantillaItem.itemNumber}' is currently open for grab in an active promotion cycle and cannot be assigned to an account.`);
+        }
       }
     }
 
@@ -209,6 +209,9 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
         roleId: roleRecord.id,
         personnelId: targetPersonnelId,
         accountStatus: req.body.distributeImmediately ? 'ACTIVE' : 'PENDING',
+        // Whoever typed this password knows it, so it is good for one thing only:
+        // signing in to replace it.
+        mustChangePassword: true,
       },
       include: { role: { select: { name: true } } },
     });
@@ -255,6 +258,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
           civilStatus: role === 'AO_II' ? null : civilStatus,
           contactNumber: contactNumber || null,
           address: finalAddress,
+          school: isDivisionLevel ? null : (targetPlantillaItem?.department || schoolAssignment || null),
+          district: isDivisionLevel ? null : (district || targetPlantillaItem?.division || null),
           status: 'ACTIVE',
           dateHired: dateHired ? new Date(dateHired) : null,
           plantillaItemId: targetPlantillaItem ? targetPlantillaItem.id : undefined,
@@ -310,8 +315,39 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       },
     });
 
+    // The outbox insert belongs in the same transaction as the account it
+    // describes. Queued outside it, a queue failure left a usable account behind
+    // while the request reported failure and no email was ever sent.
+    const accountIsUsableNow = newUser.accountStatus === 'ACTIVE';
+    await queueTransactionalEmail(
+      `user:${newUser.id}:created`,
+      {
+        recipientEmail: newUser.email,
+        recipientName: firstName && lastName ? `${firstName} ${lastName}` : newUser.email,
+        subject: accountIsUsableNow
+          ? 'Your Digital 201 account is ready'
+          : 'Your Digital 201 account has been created',
+        heading: accountIsUsableNow ? 'Account ready' : 'Account created',
+        message: accountIsUsableNow
+          ? `Your Digital 201 account (employee ID ${generatedEmployeeId}) is active. Sign in with the credentials below and change your password immediately.`
+          : `Your Digital 201 account has been created with employee ID ${generatedEmployeeId}. It is not active yet — your authorized AO or System Administrator will send your sign-in details once access is distributed. There is nothing for you to do right now.`,
+        reference: generatedEmployeeId,
+        // Credentials and a sign-in button only once the account can actually be
+        // used; a PENDING account cannot log in, so sending them invites failure.
+        ...(accountIsUsableNow
+          ? {
+              credentials: { username: newUser.email, initialPassword: String(password) },
+              actionLabel: 'Open Digital 201',
+              actionUrl: `${config.clientUrl}/login`,
+            }
+          : {}),
+      },
+      tx,
+    );
+
     return { newUser, generatedEmployeeId };
   });
+  void processWorkflowOutbox();
 
   sendCreated(res, {
     id: result.newUser.id,
@@ -337,20 +373,15 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
     select: {
       id: true, email: true, accountStatus: true, createdAt: true, lastLogin: true,
       role: { select: { name: true } },
-      personnel: { select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true } },
+      personnel: { select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, district: true } },
     },
   });
 
   if (!user) { sendNotFound(res, 'User not found.'); return; }
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo && targetId !== req.user?.userId) {
-    if (!isPersonnelRole(user.role.name)) {
-      sendForbidden(res, 'Access denied. You can only view personnel under your assigned school station.');
-      return;
-    }
-    const text = `${user.personnel?.address || ''} ${user.personnel?.designation || ''}`;
-    if (!scope.schoolName || !text.toLowerCase().includes(scope.schoolName.toLowerCase())) {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped && targetId !== req.user?.userId) {
+    if (!isPersonnelRole(user.role.name) || !isWithinStation(scope, user.personnel)) {
       sendForbidden(res, 'Access denied. You can only view users under your assigned school station.');
       return;
     }
@@ -519,7 +550,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         await tx.plantillaItem.update({
           where: { id: existing.personnel.plantillaItemId },
           data: { isOccupied: false },
-        }).catch((err) => console.warn('Could not reset plantilla occupancy during user deletion:', err));
+        }).catch((err) => logger.warn({ err }, 'Could not reset plantilla occupancy during user deletion'));
       }
       await tx.personnel.delete({ where: { id: existing.personnel.id } });
     }
@@ -539,7 +570,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
       userId: req.user!.userId,
       status: 'SUCCESS',
     },
-  }).catch((err: any) => console.error('Failed to log USER_DELETED:', err));
+  }).catch((err: any) => logger.error({ err }, 'Failed to log USER_DELETED'));
 
   res.status(204).send();
 };
@@ -557,8 +588,8 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true, personnel: true } });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
 
-  const scope = await getAOSchoolScope(req.user);
-  if (scope.isAo && (!isPersonnelRole(user.role.name) || !scope.schoolName || !`${user.personnel?.address || ''} ${user.personnel?.designation || ''}`.toLowerCase().includes(scope.schoolName.toLowerCase()))) {
+  const scope = await getStationScope(req.user);
+  if (scope.isScoped && (!isPersonnelRole(user.role.name) || !isWithinStation(scope, user.personnel))) {
     sendForbidden(res, 'You can only distribute credentials to personnel in your assigned school.'); return;
   }
   if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
@@ -588,7 +619,21 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
     },
   });
 
+  // Distribution flips accountStatus to ACTIVE, which authenticate() caches for
+  // 30s. Without this the account keeps being refused as PENDING after it is live.
+  invalidateAuthUserCache(userId);
   notifyUserNotifications(userId);
+  await queueTransactionalEmail(`user:${user.id}:credentials-distributed`, {
+    recipientEmail: user.email,
+    recipientName: user.personnel ? `${user.personnel.firstName} ${user.personnel.lastName}` : user.email,
+    subject: 'Your Digital 201 account is ready',
+    heading: 'Account access has been distributed',
+    message: 'Your Digital 201 account is now active. Sign in using the credentials issued through your authorized AO or System Administrator, then change your temporary password.',
+    reference: `User account ${user.id}`,
+    actionLabel: 'Open Digital 201',
+    actionUrl: `${config.clientUrl}/login`,
+  });
+  void processWorkflowOutbox();
   sendSuccess(res, null, `Credentials distribution initiated for user ${userId}.`);
 };
 
@@ -610,7 +655,9 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
   });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
 
-  const tempPassword = newPassword || `Reset@Pass${Math.floor(1000 + Math.random() * 9000)}!`;
+  // Math.random() is not a cryptographic source and the old shape was guessable
+  // from one example. Generate unless the administrator supplied a specific value.
+  const tempPassword = newPassword || generateInitialPassword();
 
   const passwordCheck = validatePasswordComplexity(tempPassword);
   if (!passwordCheck.valid) {
@@ -625,6 +672,8 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
       where: { id: userId },
       data: {
         passwordHash,
+        // The administrator knows this one too.
+        mustChangePassword: true,
       },
     }),
     prisma.refreshToken.updateMany({
@@ -652,6 +701,9 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
     }),
   ]);
 
+  // The new hash and the re-armed forced-change flag must take effect at once,
+  // not when the 30s auth cache happens to expire.
+  invalidateAuthUserCache(userId);
   notifyUserNotifications(userId);
   sendSuccess(res, {
     userId: user.id,
@@ -710,11 +762,13 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
   }
 
   let finalSchool = school;
+  let finalDistrict = req.body.district || null;
   let finalAddress = address;
   let finalDesignation = designation || 'Teacher I';
 
   if (role === 'HRMO' || role === 'SYSTEM_ADMIN') {
     finalSchool = null;
+    finalDistrict = null;
     finalAddress = role === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City';
   }
 
@@ -723,28 +777,27 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
     if (!isNaN(pId)) {
       const pItem = await prisma.plantillaItem.findUnique({ where: { id: pId } });
       if (!pItem || pItem.isOccupied) { sendBadRequest(res, 'Select an available plantilla item.'); return; }
+      const promoLock = await getPlantillaActivePromotionCycle(pItem);
+      if (promoLock.isLocked) {
+        sendBadRequest(res, promoLock.reason || `Plantilla item '${pItem.itemNumber}' is currently open for grab in an active promotion cycle.`);
+        return;
+      }
       if (pItem) {
         finalDesignation = `${pItem.positionTitle} [Item #${pItem.itemNumber}]`;
         finalSchool = pItem.department;
+        finalDistrict = finalDistrict || pItem.division;
       }
     }
   }
 
   if (req.user?.role === 'AO_II') {
-    const scope = await getAOSchoolScope(req.user);
-    if (!scope.schoolName || (finalSchool && finalSchool.trim().toLowerCase() !== scope.schoolName.trim().toLowerCase())) {
+    const scope = await getStationScope(req.user);
+    if (!scope.school || (finalSchool && finalSchool.trim().toLowerCase() !== scope.school.trim().toLowerCase())) {
       sendForbidden(res, 'You can only request accounts for your assigned school.'); return;
     }
-    finalSchool = scope.schoolName;
-    finalAddress = `${scope.schoolName}${scope.districtName ? `, ${scope.districtName}` : ''}`;
-    const aoUser = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      include: { personnel: true },
-    });
-    if (aoUser?.personnel) {
-      finalSchool = finalSchool || aoUser.personnel.lastName || 'District School';
-      finalAddress = finalAddress || aoUser.personnel.address || `${finalSchool}, District`;
-    }
+    finalSchool = scope.school;
+    finalDistrict = scope.district || null;
+    finalAddress = `${scope.school}${scope.district ? `, ${scope.district}` : ''}`;
   }
 
   // Create request record
@@ -764,6 +817,7 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
       role: role && Object.values(UserRole).includes(role as UserRole) ? (role as UserRole) : UserRole.TEACHING_PERSONNEL,
       designation: finalDesignation,
       school: finalSchool || null,
+      district: finalDistrict || null,
       initialPassword: await hashPassword(initialPassword),
       dateHired: req.body.dateHired ? new Date(req.body.dateHired) : null,
       status: 'PENDING',
@@ -776,19 +830,30 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
     select: { id: true },
   });
 
-  for (const admin of sysAdmins) {
-    await prisma.notification.create({
-      data: {
+  if (sysAdmins.length > 0) {
+    await prisma.notification.createMany({
+      data: sysAdmins.map(admin => ({
         userId: admin.id,
         message: `📋 New Account Creation Request submitted by ${req.user!.email} for ${firstName} ${lastName} (${role}).`,
-        type: 'INFO',
+        type: 'INFO' as const,
         relatedEntityId: accountRequest.id,
         relatedEntityType: 'AccountCreationRequest',
-      },
+      })),
     });
   }
 
   const { initialPassword: _password, ...safeRequest } = accountRequest;
+  await queueTransactionalEmail(`account-request:${accountRequest.id}:recorded`, {
+    recipientEmail: req.user!.email,
+    recipientName: req.user!.email,
+    subject: `Account request received: ${firstName} ${lastName}`,
+    heading: 'Account request recorded',
+    message: `Your request to create a Digital 201 account for ${firstName} ${lastName} was recorded and is awaiting System Administrator approval.`,
+    reference: `Account request ${accountRequest.id}`,
+    actionLabel: 'Open Digital 201',
+    actionUrl: `${config.clientUrl}/admin/personnel`,
+  });
+  void processWorkflowOutbox();
   sendCreated(res, safeRequest, 'Account creation request submitted successfully. Awaiting System Administrator approval.');
 };
 
@@ -886,6 +951,10 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
         where: { itemNumber: itemNum, isOccupied: false },
       });
       if (!matchedPlantilla) throw Object.assign(new Error('The requested plantilla item is no longer available. Return the request for correction.'), { statusCode: 409 });
+      const promoLock = await getPlantillaActivePromotionCycle(matchedPlantilla, tx);
+      if (promoLock.isLocked) {
+        throw Object.assign(new Error(promoLock.reason || `Plantilla item '${matchedPlantilla.itemNumber}' is currently open for grab in an active promotion cycle. Return the request for correction.`), { statusCode: 409 });
+      }
     }
 
     const cleanDesignation = matchedPlantilla
@@ -898,6 +967,8 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
         passwordHash,
         roleId: roleRecord.id,
         accountStatus: 'PENDING',
+        // An approved account request carries an administrator-issued password too.
+        mustChangePassword: true,
       },
     });
 
@@ -915,6 +986,8 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
         civilStatus: accountRequest.civilStatus!,
         contactNumber: accountRequest.contactNumber,
         address: accountRequest.address,
+        school: matchedPlantilla?.department || accountRequest.school,
+        district: accountRequest.district || matchedPlantilla?.division || null,
         status: 'ACTIVE',
         dateHired: accountRequest.dateHired,
         plantillaItemId: matchedPlantilla ? matchedPlantilla.id : undefined,
@@ -975,6 +1048,16 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
   });
 
   notifyUserNotifications(accountRequest.requestedByUserId);
+
+  await queueTransactionalEmail(`account-request:${accountRequest.id}:approved`, {
+    recipientEmail: accountRequest.email,
+    recipientName: `${accountRequest.firstName} ${accountRequest.lastName}`,
+    subject: 'Your Digital 201 account has been created',
+    heading: 'Account created, pending distribution',
+    message: `Your Digital 201 personnel account has been created with employee ID ${result.employeeId}. Your authorized AO or System Administrator will distribute access when the account is ready.`,
+    reference: `Employee ID ${result.employeeId}`,
+  });
+  void processWorkflowOutbox();
 
   const { passwordHash: _hash, ...safeUser } = result.newUser;
   sendSuccess(res, { user: safeUser, personnel: result.newPersonnel, employeeId: result.employeeId }, 'Account request approved and user credentials created successfully.');

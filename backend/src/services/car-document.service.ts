@@ -115,10 +115,10 @@ export class CarDocumentService {
       const fullName = `${app.personnel?.firstName || ''} ${app.personnel?.lastName || ''}`.trim() || `Applicant #${index + 1}`;
       const appCode = details.applicantNumber || (app.personnel?.employeeId ? `APP-${app.personnel.employeeId}` : `APP-${String(app.id).padStart(4, '0')}`);
 
-      const edu = Math.min(10, Math.max(0, Number(initialRating.educationScore ?? 10)));
-      const train = Math.min(10, Math.max(0, Number(initialRating.trainingScore ?? 10)));
-      const exp = Math.min(10, Math.max(0, Number(initialRating.experienceScore ?? 10)));
-      const perf = Math.min(isTeaching ? 30 : 20, Math.max(0, Number(initialRating.performanceScore ?? (isTeaching ? 30 : 20))));
+      const edu = Math.min(10, Math.max(0, Number(finalRating.educationScore ?? initialRating.educationScore ?? 10)));
+      const train = Math.min(10, Math.max(0, Number(finalRating.trainingScore ?? initialRating.trainingScore ?? 10)));
+      const exp = Math.min(10, Math.max(0, Number(finalRating.experienceScore ?? initialRating.experienceScore ?? 10)));
+      const perf = Math.min(isTeaching ? 30 : 20, Math.max(0, Number(finalRating.performanceScore ?? initialRating.performanceScore ?? (isTeaching ? 30 : 20))));
 
       let totalScore = 0;
       let accomp = 0;
@@ -133,9 +133,9 @@ export class CarDocumentService {
         ncoi = Math.min(15, Math.max(0, Number(finalRating.ppstNcoiScore ?? 15)));
         totalScore = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
       } else {
-        accomp = Math.min(5, Math.max(0, Number(initialRating.outstandingAccomplishmentsScore ?? 5)));
-        appEdu = Math.min(15, Math.max(0, Number(initialRating.applicationOfEducationScore ?? 15)));
-        appLd = Math.min(10, Math.max(0, Number(initialRating.applicationOfLdScore ?? 10)));
+        accomp = Math.min(5, Math.max(0, Number(finalRating.outstandingAccomplishmentsScore ?? initialRating.outstandingAccomplishmentsScore ?? 5)));
+        appEdu = Math.min(15, Math.max(0, Number(finalRating.applicationOfEducationScore ?? initialRating.applicationOfEducationScore ?? 15)));
+        appLd = Math.min(10, Math.max(0, Number(finalRating.applicationOfLdScore ?? initialRating.applicationOfLdScore ?? 10)));
         const written = Number(finalRating.potentialWrittenScore ?? 5);
         const bei = Number(finalRating.potentialBeiScore ?? 5);
         const skills = Number(finalRating.potentialSkillsScore ?? 10);

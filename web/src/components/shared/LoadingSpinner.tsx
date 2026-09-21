@@ -38,20 +38,4 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md', tex
   );
 };
 
-export const SkeletonRow: React.FC<{ cols?: number }> = ({ cols = 5 }) => (
-  <tr>
-    {Array.from({ length: cols }).map((_, i) => (
-      <td key={i}>
-        <div className="skeleton" style={{ height: 18, borderRadius: 4 }} />
-      </td>
-    ))}
-  </tr>
-);
-
-export const SkeletonCard: React.FC = () => (
-  <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-    <div className="skeleton" style={{ height: 20, width: '60%', borderRadius: 4 }} />
-    <div className="skeleton" style={{ height: 14, width: '40%', borderRadius: 4 }} />
-    <div className="skeleton" style={{ height: 40, borderRadius: 8 }} />
-  </div>
-);
+// Content placeholders live in components/common/Skeleton.tsx; this file owns the spinner only.

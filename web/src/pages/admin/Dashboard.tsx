@@ -6,7 +6,10 @@ import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../../api/queryClient';
 import { AccountSetupModal } from '../../components/common/AccountSetupModal';
+import { clickable } from '../../a11y/clickable';
 
 type TransactionItem = {
   id: string;
@@ -57,8 +60,18 @@ export const AdminDashboard: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
-  const [notifications, setNotifications] = useState<TopNotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  // Server state: React Query owns the cache; unread is derived, never stored separately.
+  const queryClient = useQueryClient();
+  const { data: notifications = [], refetch: refetchNotifications } = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: async (): Promise<TopNotificationItem[]> => {
+      const res = await apiClient.get('/notifications');
+      return res.data?.data || [];
+    },
+  });
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const patchNotifications = (fn: (list: TopNotificationItem[]) => TopNotificationItem[]) =>
+    queryClient.setQueryData<TopNotificationItem[]>(queryKeys.notifications, prev => fn(prev || []));
 
   const notifMenuRef = useRef<HTMLDivElement>(null);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -212,17 +225,8 @@ export const AdminDashboard: React.FC = () => {
     }
   }, [user?.role]);
 
-  // Fetch real-time live notifications for topbar
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await apiClient.get('/notifications');
-      const list: TopNotificationItem[] = res.data?.data || [];
-      setNotifications(list);
-      setUnreadCount(list.filter(n => !n.isRead).length);
-    } catch (err) {
-      console.error('Failed to load notifications in topbar:', err);
-    }
-  }, []);
+  // A realtime push just refreshes the cached notifications.
+  const fetchNotifications = useCallback(() => { refetchNotifications(); }, [refetchNotifications]);
 
   // Live data subscriptions with automated initial fetch and fallback polling
   useRealtimeTransactions(fetchDashboardData);
@@ -256,8 +260,7 @@ export const AdminDashboard: React.FC = () => {
     e.stopPropagation();
     try {
       await apiClient.put('/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
+      patchNotifications(list => list.map(n => ({ ...n, isRead: true })));
       addToast('All notifications marked as read.', 'SUCCESS');
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to mark all as read.', 'ERROR');
@@ -268,8 +271,7 @@ export const AdminDashboard: React.FC = () => {
     if (!n.isRead) {
       try {
         await apiClient.put(`/notifications/${n.id}/read`);
-        setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, isRead: true } : item));
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        patchNotifications(list => list.map(item => item.id === n.id ? { ...item, isRead: true } : item));
       } catch (err) {
         console.error('Failed to mark notification as read:', err);
       }
@@ -390,7 +392,7 @@ export const AdminDashboard: React.FC = () => {
                       <div
                         key={n.id}
                         className={`topbar-notif-row ${!n.isRead ? 'unread' : ''}`}
-                        onClick={() => handleNotificationClick(n)}
+                        {...clickable<HTMLDivElement>(() => handleNotificationClick(n))}
                       >
                         <div className="notif-row-status-dot">
                           {!n.isRead && <span className="blue-pulse-dot" />}

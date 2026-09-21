@@ -6,6 +6,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
+import './service-record.css';
 
 const HISTORY_TYPE_COLORS: Record<string, string> = {
   'Promotion': '#8b5cf6',
@@ -132,6 +133,11 @@ export const CareerRecord: React.FC = () => {
   const salaryGradeText = serviceDetails.find(d => d.label === 'Latest Salary Grade')?.value || 'SG 11';
   const firstApptText = serviceDetails.find(d => d.label === 'First Appointment Date')?.value || 'N/A';
   const totalServiceText = serviceDetails.find(d => d.label === 'Years in Service')?.value || 'N/A';
+  // CSC employment status for the STATUS column. Blank when nothing is on file:
+  // an unrecorded status is completed by the issuing officer, never assumed.
+  const appointmentStatusText = personnelData?.appointmentStatus
+    ? String(personnelData.appointmentStatus).charAt(0) + String(personnelData.appointmentStatus).slice(1).toLowerCase()
+    : '';
 
   const handlePrint = () => {
     addToast('Generating printable DepEd Service Record PDF document...', 'SUCCESS');
@@ -273,77 +279,90 @@ export const CareerRecord: React.FC = () => {
       {/* Official DepEd Service Record Document Modal (CS Form 212 Compliant) */}
       {showPdfModal && (
         <ModalPortal>
-        <ModalOverlay className="modal-overlay" onClick={() => setShowPdfModal(false)}>
-          <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 750, color: '#1e293b', background: '#ffffff', padding: 24, borderRadius: 14 }}>
-            {/* Header */}
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #0284c7', paddingBottom: 12, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, color: '#475569' }}>Republic of the Philippines · Department of Education</div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>REGION XII — SOCCSKSARGEN</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#0284c7' }}>CITY SCHOOLS DIVISION OF KORONADAL</div>
-              <div style={{ fontSize: 14, fontWeight: 800, textTransform: 'uppercase', marginTop: 8, letterSpacing: 1 }}>OFFICIAL SERVICE RECORD</div>
-              <div style={{ fontSize: 11, color: '#64748b' }}>(Issued in accordance with Executive Order No. 54)</div>
+        <ModalOverlay onDismiss={() => setShowPdfModal(false)} className="modal-overlay" onClick={() => setShowPdfModal(false)}>
+          <div className="modal animate-scale-in svc-doc" onClick={e => e.stopPropagation()}>
+            {/* Letterhead */}
+            <div className="svc-head">
+              <div className="svc-head-republic">Republic of the Philippines · Department of Education</div>
+              <div className="svc-head-region">REGION XII — SOCCSKSARGEN</div>
+              <div className="svc-head-division">CITY SCHOOLS DIVISION OF KORONADAL</div>
+              <div className="svc-head-title">Official Service Record</div>
+              <div className="svc-head-legal">(Issued in accordance with Executive Order No. 54)</div>
             </div>
 
-            {/* Personnel Header Info */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12, marginBottom: 16, background: '#f8fafc', padding: 12, borderRadius: 6, border: '1px solid #e2e8f0' }}>
-              <div><strong>NAME:</strong> {fullName.toUpperCase()}</div>
-              <div><strong>EMPLOYEE NO:</strong> <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{employeeId}</span></div>
-              <div><strong>STATION:</strong> {stationName}</div>
-              <div><strong>FIRST APPOINTMENT:</strong> {firstApptText}</div>
-              <div><strong>CURRENT POSITION:</strong> {positionTitle} ({salaryGradeText})</div>
-              <div><strong>TOTAL SERVICE:</strong> {totalServiceText}</div>
-            </div>
+            <dl className="svc-identity">
+              <div><dt>Name</dt><dd>{fullName.toUpperCase()}</dd></div>
+              <div><dt>Employee No.</dt><dd className="is-mono">{employeeId}</dd></div>
+              <div><dt>Station</dt><dd>{stationName}</dd></div>
+              <div><dt>First Appointment</dt><dd>{firstApptText}</dd></div>
+              <div><dt>Current Position</dt><dd>{positionTitle} ({salaryGradeText})</dd></div>
+              <div><dt>Total Service</dt><dd>{totalServiceText}</dd></div>
+            </dl>
 
-            {/* Official Service Table */}
-            <div style={{ overflowX: 'auto', marginBottom: 20 }}>
-              <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
-                    <th style={{ padding: 6, border: '1px solid #cbd5e1' }}>RECORD DATE</th>
-                    <th style={{ padding: 6, border: '1px solid #cbd5e1' }}>DESIGNATION & ACTION</th>
-                    <th style={{ padding: 6, border: '1px solid #cbd5e1' }}>STATUS</th>
-                    <th style={{ padding: 6, border: '1px solid #cbd5e1' }}>SALARY / COMPENSATION</th>
-                    <th style={{ padding: 6, border: '1px solid #cbd5e1' }}>STATION / DIVISION</th>
-                    <th style={{ padding: 6, border: '1px solid #cbd5e1' }}>REMARKS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {careerTimeline.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: 6, border: '1px solid #e2e8f0', fontFamily: 'monospace' }}>{row.date}</td>
-                      <td style={{ padding: 6, border: '1px solid #e2e8f0', fontWeight: 600 }}>{row.event}</td>
-                      <td style={{ padding: 6, border: '1px solid #e2e8f0' }}>PERMANENT</td>
-                      <td style={{ padding: 6, border: '1px solid #e2e8f0', fontWeight: 600 }}>{row.salary}</td>
-                      <td style={{ padding: 6, border: '1px solid #e2e8f0' }}>{stationName}</td>
-                      <td style={{ padding: 6, border: '1px solid #e2e8f0', color: '#16a34a', fontWeight: 600 }}>
-                        {row.remarks || 'VALIDATED 201'}
-                      </td>
+            <div className="svc-table-wrap">
+              {careerTimeline.length === 0 ? (
+                <div className="svc-empty">No service record entries have been recorded for this employee yet.</div>
+              ) : (
+                <table className="svc-table">
+                  <colgroup>
+                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '26%' }} />
+                    <col style={{ width: '11%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '20%' }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Record Date</th>
+                      <th>Designation &amp; Action</th>
+                      <th>Status</th>
+                      <th>Salary / Compensation</th>
+                      <th>Station / Division</th>
+                      <th>Remarks</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {careerTimeline.map((row, i) => (
+                      <tr key={i}>
+                        <td className="is-mono">{row.date}</td>
+                        <td className="is-strong">{row.event}</td>
+                        {/* Prints what is on file. Still blank when unrecorded —
+                            an unknown employment status must not be asserted on a
+                            certified form. */}
+                        {appointmentStatusText
+                          ? <td className="is-strong">{appointmentStatusText}</td>
+                          : <td className="is-empty">—</td>}
+                        <td className="is-strong">{row.salary}</td>
+                        <td>{stationName}</td>
+                        <td>{row.remarks || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
-            {/* Footer Certification */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: 10, color: '#64748b' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><AppIcon name="approved" size={12} color="#10b981" /> <strong>DIGITAL 201 VERIFIED RECORD</strong></div>
-                <div>Employee ID: {employeeId}</div>
-                <div>Generated: {new Date().toLocaleDateString()}</div>
-              </div>
-              <div style={{ textAlign: 'center', minWidth: 200 }}>
-                <div style={{ borderBottom: '1px solid #0f172a', fontWeight: 700, paddingBottom: 4, fontSize: 12 }}>
-                  ADMINISTRATIVE OFFICER V (HRMO)
+            <div className="svc-certify">
+              <div className="svc-provenance">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <AppIcon name="approved" size={12} color="#10b981" />
+                  <strong>Digital 201 verified record</strong>
                 </div>
-                <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Certified Correct / Official Seal</div>
+                <div>Employee ID: {employeeId}</div>
+                <div>Generated: {new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+              </div>
+              <div className="svc-sign">
+                <div className="svc-sign-line" />
+                <div className="svc-sign-name">Administrative Officer V (HRMO)</div>
+                <div className="svc-sign-role">Certified correct · Official seal</div>
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="modal-footer" style={{ marginTop: 20, paddingTop: 12, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <div className="svc-actions">
               <button className="btn btn-secondary" onClick={() => setShowPdfModal(false)}>Close</button>
               <button className="btn btn-primary" onClick={handlePrint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <AppIcon name="checklist" size={14} /> Print / Save PDF Document
+                <AppIcon name="download" size={14} /> Print / Save as PDF
               </button>
             </div>
           </div>

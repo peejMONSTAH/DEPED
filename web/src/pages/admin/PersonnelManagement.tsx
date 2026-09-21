@@ -11,6 +11,8 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
 import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
+import { usePending } from '../../hooks/usePending';
+import { generateInitialPassword } from '../../utils/password-issue';
 
 type PersonnelItem = {
   id: number;
@@ -127,7 +129,7 @@ export const PersonnelManagement: React.FC = () => {
   const [newAddress, setNewAddress] = useState('');
   const [newDateHired, setNewDateHired] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('Personnel@Pass123');
+  const [newPassword, setNewPassword] = useState(generateInitialPassword());
   const [newCategory, setNewCategory] = useState<string>('AO_II');
   const [newDistrictId, setNewDistrictId] = useState(1);
   const [newSchool, setNewSchool] = useState(DEPED_KORONADAL_DISTRICTS[0].schools[0]);
@@ -142,7 +144,7 @@ export const PersonnelManagement: React.FC = () => {
   useEffect(() => {
     if (showAddModal) {
       setLoadingPlantillas(true);
-      apiClient.get('/plantilla/available')
+      apiClient.get('/plantilla/available?excludePromotions=true')
         .then(res => {
           setVacantPlantillas(res.data?.data || []);
         })
@@ -157,6 +159,8 @@ export const PersonnelManagement: React.FC = () => {
   const relevantVacantPlantillas = React.useMemo(() => {
     const isTeaching = newCategory === 'TEACHING';
     return vacantPlantillas.filter(p => {
+      // Plantilla must not be reserved or open for grab in an active promotion cycle!
+      if (p.isOpenForRanking || p.promotionCycle) return false;
       const title = (p.positionTitle || '').toLowerCase();
       const isTeacherTitle = title.includes('teacher') || title.includes('master') || title.includes('head teacher') || title.includes('principal');
       if (isTeaching && !isTeacherTitle) return false;
@@ -213,7 +217,14 @@ export const PersonnelManagement: React.FC = () => {
     );
   });
 
-  const handleAddPersonnel = async (e: React.FormEvent) => {
+    const addingPersonnel = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleAddPersonnel = (e: React.FormEvent) => {
+    e.preventDefault();
+    void addingPersonnel.run(() => handleAddPersonnelUnguarded(e));
+  };
+
+  const handleAddPersonnelUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManage) {
       addToast('Access denied. HRMO or System Admin privileges required.', 'ERROR');
@@ -290,7 +301,7 @@ export const PersonnelManagement: React.FC = () => {
       setNewContactNumber('');
       setNewAddress('');
       setNewEmail('');
-      setNewPassword('Personnel@Pass123');
+      setNewPassword(generateInitialPassword());
       setNewCategory('AO_II');
       const defaultDist = DEPED_KORONADAL_DISTRICTS[0];
       const defaultSch = defaultDist.schools[0];
@@ -346,6 +357,7 @@ export const PersonnelManagement: React.FC = () => {
               <AppIcon name="search" size={14} color="var(--color-text-muted)" />
             </span>
             <input 
+              aria-label="Search by name, employee ID, designation"
               type="text" 
               className="search-input"
               style={{ paddingLeft: '44px' }}
@@ -357,7 +369,7 @@ export const PersonnelManagement: React.FC = () => {
         </div>
 
         <div className="table-wrapper personnel-records-table-wrapper">
-          <table className="table personnel-records-table">
+          <table className="table personnel-records-table table-cards">
             <thead>
               <tr>
                 <th>Employee ID</th>
@@ -380,9 +392,9 @@ export const PersonnelManagement: React.FC = () => {
               ) : (
                 filtered.map(p => (
                   <tr key={p.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{p.employeeId}</td>
-                    <td style={{ fontWeight: 600 }}>{personnelDisplayName(p, p.user?.role?.name)}</td>
-                    <td>
+                    <td data-label="Employee ID" style={{ fontFamily: 'var(--font-mono)' }}>{p.employeeId}</td>
+                    <td data-label="Full Name" style={{ fontWeight: 600 }}>{personnelDisplayName(p, p.user?.role?.name)}</td>
+                    <td data-label="Station & District">
                       {['SYSTEM_ADMIN', 'HRMO'].includes(p.user?.role?.name || '') ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -403,17 +415,17 @@ export const PersonnelManagement: React.FC = () => {
                         </div>
                       )}
                     </td>
-                    <td>{p.designation}</td>
-                    <td style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                    <td data-label="Designation">{p.designation}</td>
+                    <td data-label="Plantilla Item" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
                       {p.plantillaItem ? `${p.plantillaItem.itemNumber} (SG ${p.plantillaItem.salaryGrade})` : 'P-Unassigned'}
                     </td>
-                    <td><StatusBadge status={p.status} /></td>
-                    <td>
+                    <td data-label="Status"><StatusBadge status={p.status} /></td>
+                    <td data-label="Profile">
                       <span className={`badge ${p.profileComplete ? 'badge-approved' : 'badge-deficiency'}`}>
                         {p.profileComplete ? 'Complete' : 'Incomplete'}
                       </span>
                     </td>
-                    <td className="personnel-records-action-cell">
+                    <td data-label="Action" className="personnel-records-action-cell">
                       <button className="btn btn-ghost btn-sm personnel-view-details-btn" onClick={() => handleSelectPersonnel(p)}>
                         View Details
                       </button>
@@ -443,7 +455,7 @@ export const PersonnelManagement: React.FC = () => {
 
         return (
           <ModalPortal>
-          <ModalOverlay className="modal-overlay responsive-viewport-overlay" style={{ zIndex: 1100 }} onClick={() => setSelected(null)}>
+          <ModalOverlay onDismiss={() => setSelected(null)} className="modal-overlay responsive-viewport-overlay" style={{ zIndex: 1100 }} onClick={() => setSelected(null)}>
             <div
               className="animate-scale-in personnel-dossier-modal"
               onClick={e => e.stopPropagation()}
@@ -642,21 +654,22 @@ export const PersonnelManagement: React.FC = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>First Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                            <input type="text" className="form-input" value={editFirstName} onChange={e => setEditFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
+                            <input aria-label="First Name" type="text" className="form-input" value={editFirstName} onChange={e => setEditFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Middle Name</label>
-                            <input type="text" className="form-input" value={editMiddleName} onChange={e => setEditMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} />
+                            <input type="text" className="form-input" value={editMiddleName} onChange={e => setEditMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} aria-label="Middle Name" />
                           </div>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Last Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                            <input type="text" className="form-input" value={editLastName} onChange={e => setEditLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
+                            <input aria-label="Last Name" type="text" className="form-input" value={editLastName} onChange={e => setEditLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Suffix</label>
                             <select
+                              aria-label="Suffix"
                               className="form-input"
                               value={editSuffix}
                               onChange={e => setEditSuffix(e.target.value)}
@@ -673,11 +686,11 @@ export const PersonnelManagement: React.FC = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Date of Birth</label>
-                            <input type="date" className="form-input" value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} />
+                            <input type="date" className="form-input" value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} aria-label="Date of Birth" />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Gender</label>
-                            <select className="form-select" value={editGender} onChange={e => setEditGender(e.target.value as any)}>
+                            <select className="form-select" value={editGender} onChange={e => setEditGender(e.target.value as any)} aria-label="Gender">
                               <option value="MALE">Male</option>
                               <option value="FEMALE">Female</option>
                               <option value="OTHER">Other</option>
@@ -685,7 +698,7 @@ export const PersonnelManagement: React.FC = () => {
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Civil Status</label>
-                            <select className="form-select" value={editCivilStatus} onChange={e => setEditCivilStatus(e.target.value)}>
+                            <select className="form-select" value={editCivilStatus} onChange={e => setEditCivilStatus(e.target.value)} aria-label="Civil Status">
                               <option value="SINGLE">Single</option>
                               <option value="MARRIED">Married</option>
                               <option value="WIDOWED">Widowed</option>
@@ -727,11 +740,11 @@ export const PersonnelManagement: React.FC = () => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ fontSize: 11 }}>Mobile Contact Number</label>
-                          <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="e.g. 09123456789" value={editContactNumber} onChange={e => setEditContactNumber(e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))} />
+                          <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="e.g. 09123456789" value={editContactNumber} onChange={e => setEditContactNumber(e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))} aria-label="Mobile Contact Number" />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ fontSize: 11 }}>Permanent Residential Address</label>
-                          <input type="text" className="form-input" placeholder="e.g. Brgy. Zone 3, Koronadal City" value={editAddress} onChange={e => setEditAddress(e.target.value)} />
+                          <input type="text" className="form-input" placeholder="e.g. Brgy. Zone 3, Koronadal City" value={editAddress} onChange={e => setEditAddress(e.target.value)} aria-label="Permanent Residential Address" />
                         </div>
                       </div>
                     )}
@@ -774,16 +787,16 @@ export const PersonnelManagement: React.FC = () => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ fontSize: 11 }}>Position / Designation Title <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                          <input type="text" className="form-input" value={editDesignation} onChange={e => setEditDesignation(e.target.value)} required />
+                          <input aria-label="Position / Designation Title" type="text" className="form-input" value={editDesignation} onChange={e => setEditDesignation(e.target.value)} required />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Original Date Hired</label>
-                            <input type="date" className="form-input" value={editDateHired} onChange={e => setEditDateHired(e.target.value)} />
+                            <input type="date" className="form-input" value={editDateHired} onChange={e => setEditDateHired(e.target.value)} aria-label="Original Date Hired" />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Employment Status</label>
-                            <select className="form-select" value={editStatus} onChange={e => setEditStatus(e.target.value)}>
+                            <select className="form-select" value={editStatus} onChange={e => setEditStatus(e.target.value)} aria-label="Employment Status">
                               <option value="ACTIVE">Permanent (Active)</option>
                               <option value="INACTIVE">Inactive</option>
                               <option value="ON_LEAVE">On Leave</option>
@@ -920,14 +933,6 @@ export const PersonnelManagement: React.FC = () => {
                       >
                         <Edit size={14} /> Edit 201 Information
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => setSelected(null)}
-                        style={{ borderRadius: '8px', fontWeight: 700, padding: '8px 18px' }}
-                      >
-                        Close Dossier
-                      </button>
                     </div>
                   </>
                 )}
@@ -941,7 +946,7 @@ export const PersonnelManagement: React.FC = () => {
       {/* Add Personnel Modal */}
       {showAddModal && (
         <ModalPortal>
-        <ModalOverlay className="modal-overlay responsive-viewport-overlay">
+        <ModalOverlay onDismiss={() => setShowAddModal(false)} className="modal-overlay responsive-viewport-overlay">
           <div
             className="animate-scale-in personnel-add-modal"
             onClick={e => e.stopPropagation()}
@@ -1010,19 +1015,20 @@ export const PersonnelManagement: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">First Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="text" className="form-input" placeholder="e.g. Maria" value={newFirstName} onChange={e => setNewFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
+                      <input type="text" className="form-input" placeholder="e.g. Maria" value={newFirstName} onChange={e => setNewFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required aria-label="First Name" />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Middle Name</label>
-                      <input type="text" className="form-input" placeholder="e.g. Bautista" value={newMiddleName} onChange={e => setNewMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} />
+                      <input type="text" className="form-input" placeholder="e.g. Bautista" value={newMiddleName} onChange={e => setNewMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} aria-label="Middle Name" />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Last Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="text" className="form-input" placeholder="e.g. Santos" value={newLastName} onChange={e => setNewLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
+                      <input type="text" className="form-input" placeholder="e.g. Santos" value={newLastName} onChange={e => setNewLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required aria-label="Last Name" />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Suffix</label>
                       <select
+                        aria-label="Suffix"
                         className="form-input"
                         value={newSuffix}
                         onChange={e => setNewSuffix(e.target.value)}
@@ -1037,11 +1043,11 @@ export const PersonnelManagement: React.FC = () => {
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="date" className="form-input" value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} required />
+                      <input aria-label="Date of Birth" type="date" className="form-input" value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} required />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <select className="form-input" value={newGender} onChange={e => setNewGender(e.target.value as any)}>
+                      <select aria-label="Sex / Gender" className="form-input" value={newGender} onChange={e => setNewGender(e.target.value as any)}>
                         <option value="FEMALE">Female</option>
                         <option value="MALE">Male</option>
                         <option value="OTHER">Other</option>
@@ -1049,7 +1055,7 @@ export const PersonnelManagement: React.FC = () => {
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Civil Status <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <select className="form-input" value={newCivilStatus} onChange={e => setNewCivilStatus(e.target.value as any)}>
+                      <select aria-label="Civil Status" className="form-input" value={newCivilStatus} onChange={e => setNewCivilStatus(e.target.value as any)}>
                         <option value="SINGLE">Single</option>
                         <option value="MARRIED">Married</option>
                         <option value="WIDOWED">Widowed</option>
@@ -1068,15 +1074,15 @@ export const PersonnelManagement: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Email Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={newEmail} onChange={e => setNewEmail(e.target.value)} required />
+                      <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={newEmail} onChange={e => setNewEmail(e.target.value)} required aria-label="Email Address" />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Mobile Number</label>
-                      <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="09171234567" value={newContactNumber} onChange={e => setNewContactNumber(e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))} />
+                      <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="09171234567" value={newContactNumber} onChange={e => setNewContactNumber(e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))} aria-label="Mobile Number" />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Residential Address</label>
-                      <input type="text" className="form-input" placeholder="Brgy., City, Province" value={newAddress} onChange={e => setNewAddress(e.target.value)} />
+                      <input type="text" className="form-input" placeholder="Brgy., City, Province" value={newAddress} onChange={e => setNewAddress(e.target.value)} aria-label="Residential Address" />
                     </div>
                   </div>
                 </div>
@@ -1091,7 +1097,7 @@ export const PersonnelManagement: React.FC = () => {
                       <label className="form-label" style={{ fontWeight: 700 }}>
                         Role / Category <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
-                      <select
+                      <select aria-label="Role / Category"
                         className="form-input"
                         value={newCategory}
                         onChange={e => {
@@ -1141,7 +1147,7 @@ export const PersonnelManagement: React.FC = () => {
                         <label className="form-label">
                           Designation / Position <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(Auto)</span>
                         </label>
-                        <input
+                        <input aria-label="Designation / Position (Auto)"
                           type="text"
                           className="form-input"
                           value={newDesignation}
@@ -1178,6 +1184,7 @@ export const PersonnelManagement: React.FC = () => {
 
                         {isNonPlantilla ? (
                           <input
+                            aria-label="Contractual Position Title"
                             type="text"
                             className="form-input"
                             value={newDesignation}
@@ -1188,6 +1195,7 @@ export const PersonnelManagement: React.FC = () => {
                         ) : (
                           <>
                             <select
+                              aria-label="Authorized Vacant Plantilla Item"
                               className="form-input"
                               value={selectedPlantillaId}
                               onChange={e => handleSelectPlantilla(e.target.value)}
@@ -1233,41 +1241,22 @@ export const PersonnelManagement: React.FC = () => {
                                   </button>
                                 </div>
                               );
-                            })() : (
-                              <div style={{ marginTop: 6, fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <AppIcon name="info" size={14} />
-                                <span>Personnel will be bound to this official DBM plantilla post upon account activation.</span>
-                              </div>
-                            )}
+                            })() : null}
                           </>
                         )}
                       </div>
                     )}
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="date" className="form-input" value={newDateHired} onChange={e => setNewDateHired(e.target.value)} required />
+                      <input aria-label="Date Hired" type="date" className="form-input" value={newDateHired} onChange={e => setNewDateHired(e.target.value)} required />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input type="text" className="form-input" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
+                      <input aria-label="Initial Password" type="text" className="form-input" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
                     </div>
 
-                    {/* District & School Assignment: Only applies to AO II & school-based personnel; for HR & Sys Admin, district and station match position at Division Office */}
-                    {['HRMO', 'SYSTEM_ADMIN'].includes(newCategory) ? (
-                      <div style={{ gridColumn: '1 / -1', padding: '14px 18px', borderRadius: 10, background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ padding: 6, borderRadius: 8, background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', display: 'flex' }}>
-                          <AppIcon name="settings" size={18} />
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)', marginBottom: 2 }}>
-                            Division-Wide Scope (SDO Koronadal City) — No District Assigned
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                            HRMO and System Administrator roles have division-wide operational authority across all clusters and schools. They are not assigned to individual schools or districts. Only Station Accounts (AO II) are assigned to specific schools and district clusters.
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
+                    {/* District & School Assignment: Only applies to AO II & school-based personnel */}
+                    {!['HRMO', 'SYSTEM_ADMIN'].includes(newCategory) && (
                       <>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ fontWeight: 700 }}>
@@ -1276,7 +1265,7 @@ export const PersonnelManagement: React.FC = () => {
                               <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
-                          <select
+                          <select aria-label="Assigned District"
                             className="form-input"
                             value={newDistrictId}
                             onChange={e => {
@@ -1307,7 +1296,7 @@ export const PersonnelManagement: React.FC = () => {
                               <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
-                          <select
+                          <select aria-label="Assigned School"
                             className="form-input"
                             value={newSchool}
                             onChange={e => {
@@ -1327,14 +1316,6 @@ export const PersonnelManagement: React.FC = () => {
                             ))}
                           </select>
                         </div>
-                        {newCategory === 'AO_II' && (
-                          <div style={{ gridColumn: '1 / -1', padding: '10px 14px', borderRadius: 8, background: 'rgba(139, 92, 246, 0.08)', border: '1px solid rgba(139, 92, 246, 0.2)', fontSize: '0.75rem', color: '#8B5CF6', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <AppIcon name="info" size={16} color="#8B5CF6" />
-                            <span>
-                              <strong>AO II Assignment:</strong> Designation automatically matches your selected school and district: <strong>{newDesignation}</strong>.
-                            </span>
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -1343,8 +1324,7 @@ export const PersonnelManagement: React.FC = () => {
 
               {/* Footer */}
               <div className="personnel-add-footer" style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)} style={{ borderRadius: '9999px' }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>Create Employee Account</button>
+                <button type="submit" disabled={addingPersonnel.pending} className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>Create Employee Account</button>
               </div>
             </form>
           </div>

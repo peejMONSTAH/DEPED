@@ -60,7 +60,7 @@ class EminenceLogo extends StatelessWidget {
         style: GoogleFonts.plusJakartaSans(
           fontSize: fontSize * 1.3,
           fontWeight: FontWeight.w900,
-          color: Colors.white,
+          color: AppTheme.textPrimary,
           letterSpacing: -0.5,
         ),
         children: const [
@@ -95,7 +95,7 @@ class EminenceLogo extends StatelessWidget {
                       fontSize: fontSz,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
                       height: 1.1,
                     ),
               ),
@@ -133,7 +133,7 @@ class EminenceLogo extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF94A3B8),
+                color: AppTheme.textMuted,
                 letterSpacing: 0.1,
               ),
             ),
@@ -162,7 +162,7 @@ class EminenceLogo extends StatelessWidget {
                   fontSize: fontSz,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.0,
-                  color: Colors.white,
+                  color: AppTheme.textPrimary,
                 ),
               ),
               const SizedBox(width: 8),
@@ -197,7 +197,7 @@ class EminenceLogo extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF94A3B8),
+              color: AppTheme.textMuted,
               letterSpacing: 0.2,
             ),
           ),

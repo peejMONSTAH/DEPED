@@ -3,12 +3,15 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
 import { getAllPages } from '../../api/pagination';
 import { personnelDisplayName } from '../../utils/personnel-display';
+import { generateInitialPassword } from '../../utils/password-issue';
+import { usePending } from '../../hooks/usePending';
 
 type AccountRecord = {
   id: number;
@@ -29,11 +32,12 @@ type AccountRecord = {
 export const CredentialDistribution: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [usersList, setUsersList] = useState<AccountRecord[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AccountRecord | null>(null);
   const [resetModalUser, setResetModalUser] = useState<AccountRecord | null>(null);
-  const [newResetPass, setNewResetPass] = useState('Reset@Pass2026!');
+  const [newResetPass, setNewResetPass] = useState(generateInitialPassword());
   const [loading, setLoading] = useState(true);
 
   const isAo = user?.role === 'AO_II';
@@ -56,7 +60,7 @@ export const CredentialDistribution: React.FC = () => {
     address: `${defaultSchool}, ${defaultDistrict.name}`,
     dateHired: '',
     email: isSysAdmin ? `ao.${defaultSchoolSlug}@deped.gov.ph` : '',
-    password: 'Personnel@Pass123',
+    password: generateInitialPassword(),
     position: isSysAdmin ? `Administrative Officer II - ${defaultSchool} (${defaultDistrict.name})` : 'Teacher I',
     schoolAssignment: defaultSchool,
     selectedDistrictId: defaultDistrict.id,
@@ -75,7 +79,7 @@ export const CredentialDistribution: React.FC = () => {
   useEffect(() => {
     if (showAddModal) {
       setLoadingPlantillas(true);
-      apiClient.get('/plantilla/available')
+      apiClient.get('/plantilla/available?excludePromotions=true')
         .then(res => {
           setVacantPlantillas(res.data?.data || []);
         })
@@ -90,6 +94,8 @@ export const CredentialDistribution: React.FC = () => {
   const relevantVacantPlantillas = React.useMemo(() => {
     const isTeaching = formData.personnelType === 'TEACHING_PERSONNEL';
     return vacantPlantillas.filter(p => {
+      // Plantilla must not be reserved or open for grab in an active promotion cycle!
+      if (p.isOpenForRanking || p.promotionCycle) return false;
       const title = (p.positionTitle || '').toLowerCase();
       const isTeacherTitle = title.includes('teacher') || title.includes('master') || title.includes('head teacher') || title.includes('principal');
       if (isTeaching && !isTeacherTitle) return false;
@@ -264,7 +270,14 @@ export const CredentialDistribution: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleCreateAccount = async (e: React.FormEvent) => {
+    const creatingAccount = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleCreateAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    void creatingAccount.run(() => handleCreateAccountUnguarded(e));
+  };
+
+  const handleCreateAccountUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isSysAdmin && ['AO_II', 'HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType)) {
@@ -357,7 +370,7 @@ export const CredentialDistribution: React.FC = () => {
         address: '',
         dateHired: '',
         email: '',
-        password: 'Personnel@Pass123',
+        password: generateInitialPassword(),
         position: 'Teacher I',
         schoolAssignment: DEPED_REGION_12_SCHOOLS[0],
         selectedDistrictId: 1,
@@ -373,6 +386,15 @@ export const CredentialDistribution: React.FC = () => {
   };
 
   const handleApproveRequest = async (requestId: number, name: string) => {
+    const { confirmed } = await confirm({
+      title: 'Approve account request',
+      message: `Approve the account request for ${name}? This creates their user account, generates an Employee ID and issues credentials.`,
+      confirmLabel: 'Approve & create account',
+      tone: 'primary',
+      icon: 'credentials',
+    });
+    if (!confirmed) return;
+
     try {
       const res = await apiClient.post(`/users/requests/${requestId}/approve`);
       const data = res.data?.data;
@@ -385,8 +407,18 @@ export const CredentialDistribution: React.FC = () => {
   };
 
   const handleRejectRequest = async (requestId: number, name: string) => {
-    const reason = window.prompt(`Enter rejection reason for ${name}:`, 'Incomplete or unverified details.');
-    if (reason === null) return;
+    const { confirmed, reason } = await confirm({
+      title: 'Reject account request',
+      message: `Reject the account request for ${name}? The requesting AO II will be notified with your reason.`,
+      confirmLabel: 'Reject request',
+      reason: {
+        label: 'Reason for rejection',
+        placeholder: 'e.g. Incomplete or unverified details.',
+        required: true,
+      },
+    });
+    if (!confirmed) return;
+
     try {
       await apiClient.post(`/users/requests/${requestId}/reject`, { reason });
       addToast(`Request for ${name} rejected. Notification sent to AO II.`, 'SUCCESS');
@@ -398,6 +430,15 @@ export const CredentialDistribution: React.FC = () => {
   };
 
   const handleDistribute = async (userId: number, email: string) => {
+    const { confirmed } = await confirm({
+      title: 'Distribute credentials',
+      message: `Release login credentials to ${email} and activate the account? They will be able to sign in immediately.`,
+      confirmLabel: 'Distribute & activate',
+      tone: 'primary',
+      icon: 'credentials',
+    });
+    if (!confirmed) return;
+
     try {
       await apiClient.post(`/users/${userId}/distribute-credentials`);
       addToast(`Credentials distributed and account activated for ${email}!`, 'SUCCESS');
@@ -410,9 +451,24 @@ export const CredentialDistribution: React.FC = () => {
     }
   };
 
-  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    const resettingPassword = usePending();
+  // Double-clicking used to send this twice, creating duplicate records.
+  const handleResetPasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void resettingPassword.run(() => handleResetPasswordSubmitUnguarded(e));
+  };
+
+  const handleResetPasswordSubmitUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetModalUser) return;
+
+    const { confirmed } = await confirm({
+      title: 'Reset password',
+      message: `Reset the password for ${resetModalUser.email}? Their current password stops working immediately and any active session is invalidated.`,
+      confirmLabel: 'Reset password',
+    });
+    if (!confirmed) return;
+
     try {
       const res = await apiClient.post(`/users/${resetModalUser.id}/reset-password`, { newPassword: newResetPass });
       const data = res.data?.data;
@@ -706,7 +762,7 @@ export const CredentialDistribution: React.FC = () => {
                             <button 
                               className="btn btn-secondary btn-sm"
                               style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              onClick={() => { setResetModalUser(u); setNewResetPass('Reset@Pass2026!'); }}
+                              onClick={() => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); }}
                             >
                               <AppIcon name="credentials" size={14} /> Reset Password
                             </button>
@@ -727,7 +783,7 @@ export const CredentialDistribution: React.FC = () => {
 
       {/* Account Creation Modal */}
       {showAddModal && createPortal(
-        <ModalOverlay className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <ModalOverlay onDismiss={() => setShowAddModal(false)} className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div
             className="animate-scale-in"
             onClick={e => e.stopPropagation()}
@@ -789,7 +845,7 @@ export const CredentialDistribution: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label" style={{ fontWeight: 700 }}>Role / Category <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <select
+                      <select aria-label="Role / Category"
                         className="form-input"
                         value={formData.personnelType}
                         onChange={e => {
@@ -827,7 +883,7 @@ export const CredentialDistribution: React.FC = () => {
                         <label className="form-label" style={{ fontWeight: 700 }}>
                           Position / Designation <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(Auto)</span>
                         </label>
-                        <input
+                        <input aria-label="Position / Designation (Auto)"
                           type="text"
                           className="form-input"
                           value={formData.position}
@@ -864,6 +920,7 @@ export const CredentialDistribution: React.FC = () => {
 
                         {isNonPlantilla ? (
                           <input
+                            aria-label="Contractual Position Title"
                             type="text"
                             className="form-input"
                             value={formData.position}
@@ -874,6 +931,7 @@ export const CredentialDistribution: React.FC = () => {
                         ) : (
                           <>
                             <select
+                              aria-label="Authorized Vacant Plantilla Item"
                               className="form-input"
                               value={selectedPlantillaId}
                               onChange={e => handleSelectPlantilla(e.target.value)}
@@ -919,31 +977,12 @@ export const CredentialDistribution: React.FC = () => {
                                   </button>
                                 </div>
                               );
-                            })() : (
-                              <div style={{ marginTop: 6, fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <AppIcon name="info" size={14} />
-                                <span>Personnel will be bound to this official DBM plantilla post upon account activation.</span>
-                              </div>
-                            )}
+                            })() : null}
                           </>
                         )}
                       </div>
                     )}
-                    {['HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType) ? (
-                      <div style={{ gridColumn: '1 / -1', padding: '14px 18px', borderRadius: 10, background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ padding: 6, borderRadius: 8, background: 'rgba(59, 130, 246, 0.12)', color: '#3B82F6', display: 'flex' }}>
-                          <AppIcon name="settings" size={18} />
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)', marginBottom: 2 }}>
-                            Division-Wide Scope (SDO Koronadal City) — No District Assigned
-                          </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                            System Administrator and HRMO roles have division-wide operational authority across all clusters and schools. They are not assigned to individual schools or districts. Only Station Accounts (AO II) are assigned to specific schools and district clusters.
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
+                    {!['HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType) && (
                       <>
                         <div className="form-group" style={{ margin: 0 }}>
                           <label className="form-label" style={{ fontWeight: 700 }}>
@@ -952,7 +991,7 @@ export const CredentialDistribution: React.FC = () => {
                               <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
-                          <select
+                          <select aria-label="Assigned District"
                             className="form-input"
                             value={formData.selectedDistrictId}
                             onChange={e => {
@@ -982,7 +1021,7 @@ export const CredentialDistribution: React.FC = () => {
                               <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
-                          <select
+                          <select aria-label="School Station"
                             className="form-input"
                             value={formData.selectedSchool}
                             onChange={e => {
@@ -1003,28 +1042,6 @@ export const CredentialDistribution: React.FC = () => {
                             ))}
                           </select>
                         </div>
-                        {/* Info alert for AO II */}
-                        {formData.personnelType === 'AO_II' && (
-                          <div style={{ gridColumn: '1 / -1', marginTop: 8, fontSize: '0.75rem', color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.08)', borderRadius: 8, padding: '10px 14px', border: '1px solid rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                            <AppIcon name="info" size={16} color="#8b5cf6" style={{ marginTop: 2, flexShrink: 0 }} />
-                            <div>
-                              <div>
-                                <strong>Station Account Name:</strong> <span style={{ color: 'var(--color-text)', fontWeight: 700 }}>AO II {formData.selectedSchool || 'School Station'}</span>
-                              </div>
-                              <div style={{ marginTop: 2, opacity: 0.85 }}>
-                                Station Officer accounts do not require personal civilian details. Designation: <strong>{formData.position}</strong>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        {isAo && ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(formData.personnelType) && (
-                          <div style={{ gridColumn: '1 / -1', marginTop: 8, fontSize: '0.75rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 8, padding: '8px 12px', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <AppIcon name="info" size={14} color="#10b981" />
-                            <span>
-                              Auto-assigned to <strong>{formData.selectedSchool}</strong> under <strong>{currentDistrict.name}</strong>
-                            </span>
-                          </div>
-                        )}
                       </>
                     )}
                   </div>
@@ -1041,21 +1058,22 @@ export const CredentialDistribution: React.FC = () => {
                         <label className="form-label">
                           First Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                         </label>
-                        <input type="text" className="form-input" placeholder="e.g. Maria" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required />
+                        <input type="text" className="form-input" placeholder="e.g. Maria" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required aria-label="First Name" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Middle Name</label>
-                        <input type="text" className="form-input" placeholder="e.g. Bautista" value={formData.middleName} onChange={e => setFormData({ ...formData, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} />
+                        <input type="text" className="form-input" placeholder="e.g. Bautista" value={formData.middleName} onChange={e => setFormData({ ...formData, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} aria-label="Middle Name" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">
                           Last Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                         </label>
-                        <input type="text" className="form-input" placeholder="e.g. Santos" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required />
+                        <input type="text" className="form-input" placeholder="e.g. Santos" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required aria-label="Last Name" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Suffix</label>
                         <select
+                          aria-label="Suffix"
                           className="form-input"
                           value={formData.suffix}
                           onChange={e => setFormData({ ...formData, suffix: e.target.value })}
@@ -1070,11 +1088,11 @@ export const CredentialDistribution: React.FC = () => {
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input type="date" className="form-input" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} required />
+                        <input aria-label="Date of Birth" type="date" className="form-input" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} required />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <select className="form-input" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as any })}>
+                        <select aria-label="Sex / Gender" className="form-input" value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as any })}>
                           <option value="FEMALE">Female</option>
                           <option value="MALE">Male</option>
                           <option value="OTHER">Other</option>
@@ -1082,7 +1100,7 @@ export const CredentialDistribution: React.FC = () => {
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Civil Status <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <select className="form-input" value={formData.civilStatus} onChange={e => setFormData({ ...formData, civilStatus: e.target.value as any })}>
+                        <select aria-label="Civil Status" className="form-input" value={formData.civilStatus} onChange={e => setFormData({ ...formData, civilStatus: e.target.value as any })}>
                           <option value="SINGLE">Single</option>
                           <option value="MARRIED">Married</option>
                           <option value="WIDOWED">Widowed</option>
@@ -1105,6 +1123,7 @@ export const CredentialDistribution: React.FC = () => {
                           Station Email Address <span style={{ color: 'var(--color-danger)' }}>*</span>
                         </label>
                         <input
+                          aria-label="Station Email Address"
                           type="email"
                           className="form-input"
                           placeholder="ao.school@deped.gov.ph"
@@ -1117,7 +1136,7 @@ export const CredentialDistribution: React.FC = () => {
                         <label className="form-label" style={{ fontWeight: 700 }}>
                           Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span>
                         </label>
-                        <input
+                        <input aria-label="Initial Password"
                           type="text"
                           className="form-input"
                           value={formData.password}
@@ -1130,23 +1149,23 @@ export const CredentialDistribution: React.FC = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Email Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
+                        <input type="email" className="form-input" placeholder="name@deped.gov.ph" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required aria-label="Email Address" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Mobile Number</label>
-                        <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="09171234567" value={formData.contactNumber} onChange={e => setFormData({ ...formData, contactNumber: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })} />
+                        <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="09171234567" value={formData.contactNumber} onChange={e => setFormData({ ...formData, contactNumber: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })} aria-label="Mobile Number" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input type="date" className="form-input" value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
+                        <input aria-label="Date Hired" type="date" className="form-input" value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input type="text" className="form-input" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
+                        <input aria-label="Initial Password" type="text" className="form-input" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
                       </div>
                       <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
                         <label className="form-label">Station Address</label>
-                        <input type="text" className="form-input" placeholder="School Campus, City, Province" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                        <input type="text" className="form-input" placeholder="School Campus, City, Province" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} aria-label="Station Address" />
                       </div>
                     </div>
                   )}
@@ -1155,8 +1174,7 @@ export const CredentialDistribution: React.FC = () => {
 
               {/* Footer */}
               <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)} style={{ borderRadius: '9999px' }}>Cancel</button>
-                <button type="submit" className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
+                <button type="submit" disabled={creatingAccount.pending} className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
                   {formData.personnelType === 'AO_II'
                     ? (isSysAdmin ? 'Create AO II Account' : 'Submit AO II Request')
                     : (isSysAdmin ? 'Create Personnel Account' : 'Submit Request to System Admin')}
@@ -1170,7 +1188,7 @@ export const CredentialDistribution: React.FC = () => {
 
       {/* Reset Password Modal (Sys Admin) */}
       {resetModalUser && createPortal(
-        <ModalOverlay className="modal-overlay" onClick={() => setResetModalUser(null)}>
+        <ModalOverlay onDismiss={() => setResetModalUser(null)} className="modal-overlay" onClick={() => setResetModalUser(null)}>
           <div className="modal animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1182,13 +1200,14 @@ export const CredentialDistribution: React.FC = () => {
             <form onSubmit={handleResetPasswordSubmit}>
               <div className="alert alert-info mb-4" style={{ fontSize: 12 }}>
                 <span>
-                  This action will update the password hash for <strong>{resetModalUser.email}</strong>, revoke active sessions, and send a notification with the new temporary credentials.
+                  This resets the password for <strong>{resetModalUser.email}</strong> and signs out all of their active sessions. For security the password is <strong>not</strong> included in their notification — it is shown to you once below, and you must hand it over through your own approved channel.
                 </span>
               </div>
 
               <div className="form-group mb-4">
                 <label className="form-label">New Temporary Password *</label>
                 <input 
+                  aria-label="New Temporary Password"
                   type="text" 
                   className="form-input" 
                   value={newResetPass} 
@@ -1199,8 +1218,7 @@ export const CredentialDistribution: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setResetModalUser(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Reset & Save</button>
+                <button type="submit" disabled={resettingPassword.pending} className="btn btn-primary">Reset & Save</button>
               </div>
             </form>
           </div>
@@ -1210,7 +1228,7 @@ export const CredentialDistribution: React.FC = () => {
 
       {/* View Personnel Info Modal */}
       {selectedAccount && createPortal(
-        <ModalOverlay className="modal-overlay" onClick={() => setSelectedAccount(null)}>
+        <ModalOverlay onDismiss={() => setSelectedAccount(null)} className="modal-overlay" onClick={() => setSelectedAccount(null)}>
           <div
             className="animate-scale-in"
             onClick={e => e.stopPropagation()}
@@ -1331,7 +1349,6 @@ export const CredentialDistribution: React.FC = () => {
 
             {/* Footer */}
             <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-              <button className="btn btn-secondary" onClick={() => setSelectedAccount(null)} style={{ borderRadius: '9999px' }}>Close</button>
               {isSysAdmin && (
                 <button 
                   className="btn btn-secondary"
@@ -1340,7 +1357,7 @@ export const CredentialDistribution: React.FC = () => {
                     const u = selectedAccount;
                     setSelectedAccount(null);
                     setResetModalUser(u);
-                    setNewResetPass('Reset@Pass2026!');
+                    setNewResetPass(generateInitialPassword());
                   }}
                 >
                   <AppIcon name="credentials" size={14} /> Reset Password

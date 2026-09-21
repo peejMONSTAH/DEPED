@@ -2,6 +2,7 @@ import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import { playSuccessChime } from '../../utils/sound.utils';
@@ -9,6 +10,7 @@ import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { SkeletonStats, SkeletonList } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
+import { clickable } from '../../a11y/clickable';
 
 // ─── 201-System-Workflow.md: HRMO Steps 1, 2, 3 ──────────────────────────────
 // Step 1: Review Validated Transactions — displays Personnel Profile, Compliance Information, Uploaded Documents, Validation History
@@ -51,6 +53,7 @@ type Transaction = {
     cycleType: string;
   } | null;
   remarks?: string;
+  resubmissionCount?: number;
 };
 
 // Step 3: Career Lifecycle Update fields
@@ -62,12 +65,13 @@ const CAREER_UPDATE_FIELDS = [
   { label: 'Transaction History',       icon: 'reports',      description: 'Permanent transaction audit reference recorded' },
 ];
 
-type TabFilter = 'FOR_APPROVAL' | 'APPROVED' | 'RETURNED' | 'ALL';
+type TabFilter = 'FOR_APPROVAL' | 'APPROVED' | 'RETURNED' | 'REJECTED' | 'ALL';
 
 export const TransactionApproval: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const openedTxIdRef = useRef<string | null>(null);
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const { user } = useAuthContext();
   const [approvals, setApprovals] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +126,7 @@ export const TransactionApproval: React.FC = () => {
           isPromotion: isPromo,
           promotionDetails: promoDetails,
           remarks: tx.remarks || '',
+          resubmissionCount: tx.resubmissionCount ?? 0,
         };
       });
 
@@ -185,7 +190,10 @@ export const TransactionApproval: React.FC = () => {
   // Status-segregated counts
   const forApprovalList = useMemo(() => approvals.filter(a => a.status === 'FOR_APPROVAL'), [approvals]);
   const approvedList    = useMemo(() => approvals.filter(a => a.status === 'APPROVED' || a.status === 'COMPLETED'), [approvals]);
-  const returnedList    = useMemo(() => approvals.filter(a => a.status === 'RETURNED' || a.status === 'RETURNED_AO2' || a.status === 'REJECTED'), [approvals]);
+  // Returned means 'fix it and resubmit'; rejected means the request is over.
+  // Merging them hid that difference from the officer reading the queue.
+  const returnedList    = useMemo(() => approvals.filter(a => a.status === 'RETURNED' || a.status === 'RETURNED_AO2'), [approvals]);
+  const rejectedList    = useMemo(() => approvals.filter(a => a.status === 'REJECTED'), [approvals]);
 
   // Tab and Search filtering
   const displayList = useMemo(() => {
@@ -193,6 +201,7 @@ export const TransactionApproval: React.FC = () => {
     if (activeTab === 'FOR_APPROVAL') list = forApprovalList;
     else if (activeTab === 'APPROVED') list = approvedList;
     else if (activeTab === 'RETURNED') list = returnedList;
+    else if (activeTab === 'REJECTED') list = rejectedList;
     else list = approvals;
 
     return list.filter(tx => {
@@ -221,6 +230,16 @@ export const TransactionApproval: React.FC = () => {
 
   const handleBulkApprove = async () => {
     if (selectedTxIds.length === 0) return;
+
+    const { confirmed } = await confirm({
+      title: 'Approve transactions',
+      message: `Give final HRMO approval to ${selectedTxIds.length} transaction${selectedTxIds.length === 1 ? '' : 's'}? This updates the affected career records and cannot be undone from this screen.`,
+      confirmLabel: `Approve ${selectedTxIds.length}`,
+      tone: 'primary',
+      icon: 'approvals',
+    });
+    if (!confirmed) return;
+
     setIsSubmitting(true);
     try {
       await Promise.all(selectedTxIds.map(id => apiClient.post(`/transactions/${id}/approve`, { isApproved: true, notes: 'Bulk approved by HRMO' })));
@@ -266,6 +285,15 @@ export const TransactionApproval: React.FC = () => {
 
   // Step 2: Approve → Status: Approved → triggers Step 3 Career Lifecycle Update
   const handleApprove = async (tx: Transaction) => {
+    const { confirmed } = await confirm({
+      title: 'Final HRMO approval',
+      message: `Give final approval to ${tx.personnelName}'s ${tx.transactionType}? This updates their career record and cannot be undone from this screen.`,
+      confirmLabel: 'Approve transaction',
+      tone: 'primary',
+      icon: 'approvals',
+    });
+    if (!confirmed) return;
+
     setIsSubmitting(true);
     try {
       await apiClient.post(`/transactions/${tx.id}/approve`, {
@@ -615,7 +643,30 @@ export const TransactionApproval: React.FC = () => {
             }}
           >
             <AppIcon name="returned" size={14} color={activeTab === 'RETURNED' ? 'currentColor' : undefined} />
-            <span>Returned ({returnedList.length})</span>
+            <span>Returned for Correction ({returnedList.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('REJECTED')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '9999px',
+              border: 'none',
+              background: activeTab === 'REJECTED' ? 'var(--color-primary)' : 'transparent',
+              color: activeTab === 'REJECTED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'all 0.2s ease',
+              boxShadow: activeTab === 'REJECTED' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
+            }}
+          >
+            <AppIcon name="error" size={14} color={activeTab === 'REJECTED' ? 'currentColor' : undefined} />
+            <span>Rejected ({rejectedList.length})</span>
           </button>
 
           <button
@@ -648,6 +699,7 @@ export const TransactionApproval: React.FC = () => {
               <AppIcon name="search" size={15} color="var(--color-text-muted)" />
             </span>
             <input
+              aria-label="Search by personnel, ID, or TRX number"
               type="text"
               className="search-input"
               style={{ paddingLeft: '44px' }}
@@ -738,6 +790,15 @@ export const TransactionApproval: React.FC = () => {
                     onClick: fetchApprovals,
                   }}
                 />
+              ) : activeTab === 'REJECTED' ? (
+                <SmartEmptyState
+                  type="no-records"
+                  title="No Rejected Transactions"
+                  secondaryAction={{
+                    label: 'Back to Pending Queue',
+                    onClick: () => setActiveTab('FOR_APPROVAL'),
+                  }}
+                />
               ) : activeTab === 'RETURNED' ? (
                 <SmartEmptyState
                   type="deficiency-cleared"
@@ -763,7 +824,12 @@ export const TransactionApproval: React.FC = () => {
                   const isSelected = selected?.id === tx.id;
                   const isPending = tx.status === 'FOR_APPROVAL';
                   const isApproved = tx.status === 'APPROVED' || tx.status === 'COMPLETED';
-                  const isReturned = tx.status === 'RETURNED' || tx.status === 'RETURNED_AO2' || tx.status === 'REJECTED';
+                  const isReturned = tx.status === 'RETURNED' || tx.status === 'RETURNED_AO2';
+                  // Mirrors MAX_CORRECTION_RESUBMISSIONS in transaction-workflow.util.ts.
+                  // At the limit a submission skips AO II validation and lands here
+                  // directly, so it must not read as 'AO validated'.
+                  const isEscalatedUnvalidated = (tx.resubmissionCount ?? 0) >= 3 && tx.status === 'FOR_APPROVAL';
+                  const isRejected = tx.status === 'REJECTED';
 
                   return (
                     <div
@@ -781,12 +847,16 @@ export const TransactionApproval: React.FC = () => {
                         transition: 'all 0.2s ease',
                         marginBottom: 0
                       }}
-                      onClick={() => handleOpenTransactionDetails(tx)}
+                      {...clickable<HTMLDivElement>(
+                        () => handleOpenTransactionDetails(tx),
+                        `Open ${tx.personnelName}'s ${tx.transactionType} details`,
+                      )}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           {isPending && canApprove && (
                             <input
+                              aria-label={`Select ${tx.personnelName}'s ${tx.transactionType} for bulk approval`}
                               type="checkbox"
                               checked={selectedTxIds.includes(tx.id)}
                               onChange={e => toggleSelectTx(tx.id, e as unknown as React.MouseEvent)}
@@ -837,12 +907,29 @@ export const TransactionApproval: React.FC = () => {
                               <AppIcon name="promotions" size={12} color="#8B5CF6" /> Promotion
                             </span>
                           )}
+                          {isEscalatedUnvalidated && (
+                            <span
+                              className="badge badge-warning"
+                              title="Reached the correction limit and bypassed AO II validation. Verify the documents yourself before approving."
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                            >
+                              <AppIcon name="warning" size={12} />
+                              ESCALATED — NOT AO-VALIDATED
+                            </span>
+                          )}
                           <span className={
                             isApproved ? 'badge badge-approved' :
-                            isReturned ? 'badge badge-danger' :
+                            isRejected ? 'badge badge-danger' :
+                            isReturned ? 'badge badge-warning' :
                             'badge badge-pending'
                           }>
-                            {isApproved ? 'APPROVED (201 SYNCED)' : isReturned ? 'RETURNED' : 'FOR HRMO APPROVAL'}
+                            {isApproved
+                              ? 'APPROVED (201 SYNCED)'
+                              : isRejected
+                                ? 'REJECTED — NO RESUBMISSION'
+                                : isReturned
+                                  ? 'RETURNED FOR CORRECTION'
+                                  : 'FOR HRMO APPROVAL'}
                           </span>
                         </div>
                       </div>
@@ -1094,14 +1181,13 @@ export const TransactionApproval: React.FC = () => {
 
       {/* Step 3: Career Lifecycle Update Modal */}
       {showCareerUpdate && (
-        <ModalOverlay className="modal-overlay">
+        <ModalOverlay onDismiss={() => setShowCareerUpdate(null)} className="modal-overlay">
           <div className="modal" style={{ maxWidth: 540 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AppIcon name="approved" size={20} color="#10B981" />
                 <span>Step 3: Career Lifecycle Update Certified</span>
               </h3>
-              <button type="button" className="modal-close" onClick={() => setShowCareerUpdate(null)}>&times;</button>
             </div>
 
             <div className="modal-body">
@@ -1151,13 +1237,12 @@ export const TransactionApproval: React.FC = () => {
 
       {/* Return Modal */}
       {showReturnModal && selected && (
-        <ModalOverlay className="modal-overlay">
+        <ModalOverlay onDismiss={() => setShowReturnModal(false)} className="modal-overlay">
           <div className="modal" style={{ maxWidth: 480 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <AppIcon name="returned" size={16} color="var(--color-error)" /> Return Transaction #{selected.id}
               </h3>
-              <button type="button" className="modal-close" onClick={() => setShowReturnModal(false)}>&times;</button>
             </div>
             <div className="modal-body">
               <p className="text-sm text-muted" style={{ marginBottom: 14 }}>
@@ -1166,6 +1251,7 @@ export const TransactionApproval: React.FC = () => {
               <div className="form-group">
                 <label className="form-label">Return Remarks / Deficiency Notes *</label>
                 <textarea
+                  aria-label="Return Remarks / Deficiency Notes"
                   className="form-input"
                   rows={4}
                   placeholder="Specify deficiency reasons or missing documentary certifications…"
@@ -1187,7 +1273,7 @@ export const TransactionApproval: React.FC = () => {
 
       {/* Full Document View Modal */}
       {viewingDoc && (
-        <ModalOverlay className="modal-overlay" style={{ zIndex: 1100 }}>
+        <ModalOverlay onDismiss={() => setViewingDoc(null)} className="modal-overlay" style={{ zIndex: 1100 }}>
           <div className="modal" style={{ maxWidth: 760, width: '90%' }}>
             <div className="modal-header">
               <div>
@@ -1218,9 +1304,6 @@ export const TransactionApproval: React.FC = () => {
                   DepEd SDO e-201 Official Digital Vault Certified
                 </span>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setViewingDoc(null)}>Close Viewer</button>
             </div>
           </div>
         </ModalOverlay>

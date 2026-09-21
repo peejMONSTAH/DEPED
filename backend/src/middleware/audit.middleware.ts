@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { recordAuditLog, sanitizeAuditDetails } from '../utils/audit.util';
 import { verifyAccessToken } from '../utils/jwt.util';
+import { logger } from '../utils/logger';
 
 const IGNORED_PATHS = [
   '/health',
@@ -142,9 +143,9 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
         ipAddress: typeof clientIp === 'string' ? clientIp.split(',')[0].trim() : null,
         userAgent,
         status,
-      }).catch(err => console.error('[AuditMiddleware] Error logging event:', err));
+      }).catch(err => logger.error({ err }, '[AuditMiddleware] Error logging event'));
     } catch (err) {
-      console.error('[AuditMiddleware] Unexpected error in finish handler:', err);
+      logger.error({ err: err }, '[AuditMiddleware] Unexpected error in finish handler');
     }
   });
 
