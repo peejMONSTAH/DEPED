@@ -50,7 +50,13 @@ export const documentAiConfigured = () => config.google.ocrProvider === 'GOOGLE_
 export const extractPdsWithDocumentAi = async (buffer: Buffer, mimeType: string): Promise<OcrResult> => {
   if (!documentAiConfigured()) throw new Error('Google Document AI is not configured.');
   const location = config.google.documentAiLocation;
-  const client = new documentai.DocumentProcessorServiceClient({ apiEndpoint: `${location}-documentai.googleapis.com` });
+  const inlineCredentials = config.google.serviceAccountJson
+    ? JSON.parse(config.google.serviceAccountJson)
+    : undefined;
+  const client = new documentai.DocumentProcessorServiceClient({
+    apiEndpoint: `${location}-documentai.googleapis.com`,
+    ...(inlineCredentials ? { credentials: inlineCredentials } : {}),
+  });
   const name = client.processorPath(config.google.projectId, location, config.google.documentAiProcessorId);
   const [response] = await (client.processDocument({
     name,

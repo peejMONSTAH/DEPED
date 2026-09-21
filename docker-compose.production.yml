@@ -16,6 +16,7 @@ services:
 
   backend:
     build: ./backend
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
     restart: unless-stopped
     depends_on:
       database:

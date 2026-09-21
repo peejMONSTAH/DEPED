@@ -26,6 +26,7 @@ export const config = {
   google: {
     projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
     credentials: process.env.GOOGLE_APPLICATION_CREDENTIALS || '',
+    serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '',
     documentAiLocation: process.env.DOCUMENT_AI_LOCATION || 'us',
     documentAiProcessorId: process.env.DOCUMENT_AI_PROCESSOR_ID || '',
     ocrProvider: process.env.OCR_PROVIDER || '',
@@ -114,6 +115,22 @@ if (isProduction) {
     } catch {
       failures.push(`${name} is not a valid URL.`);
     }
+  }
+}
+
+if (isProduction && config.google.ocrProvider === 'GOOGLE_DOCUMENT_AI') {
+  if (!config.google.projectId || !config.google.documentAiProcessorId) {
+    failures.push('GOOGLE_CLOUD_PROJECT_ID and DOCUMENT_AI_PROCESSOR_ID are required when Google Document AI OCR is enabled.');
+  }
+  if (!config.google.credentials && !config.google.serviceAccountJson) {
+    failures.push('Set GOOGLE_SERVICE_ACCOUNT_JSON (recommended on Railway) or GOOGLE_APPLICATION_CREDENTIALS when Google Document AI OCR is enabled.');
+  }
+}
+if (config.google.serviceAccountJson) {
+  try {
+    JSON.parse(config.google.serviceAccountJson);
+  } catch {
+    failures.push('GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON.');
   }
 }
 
