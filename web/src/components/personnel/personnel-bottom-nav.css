@@ -12,9 +12,17 @@
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid var(--color-border, #e2e8f0);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
-  z-index: 900;
+  z-index: 90;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-sizing: border-box;
+}
+
+/* Automatically hide bottom nav when drawer, modal, or scanner is open */
+body.has-drawer-open .personnel-bottom-nav,
+body.has-modal-open .personnel-bottom-nav,
+body.has-scanner-open .personnel-bottom-nav {
+  display: none !important;
+  pointer-events: none !important;
 }
 
 @media (max-width: 768px) {
@@ -69,13 +77,4 @@
 
 .personnel-bottom-nav-item.active .personnel-bottom-nav-icon-wrap {
   background: rgba(37, 99, 235, 0.12);
-}
-
-.personnel-bottom-nav-indicator {
-  position: absolute;
-  top: 0;
-  width: 24px;
-  height: 3px;
-  border-radius: 0 0 3px 3px;
-  background: #2563eb;
 }

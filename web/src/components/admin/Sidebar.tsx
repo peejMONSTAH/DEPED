@@ -99,6 +99,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isOpen) return;
 
+    // Lock background scrolling and save scroll position
+    const scrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    document.body.classList.add('has-drawer-open');
+
+    // Auto-focus mobile close button or drawer
+    const closeBtn = sidebarRef.current?.querySelector<HTMLElement>('.shell-sidebar-mobile-close');
+    closeBtn?.focus();
+
     // Trap focus inside the open mobile drawer
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -124,7 +135,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      const prevTop = document.body.style.top;
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      document.body.classList.remove('has-drawer-open');
+      if (prevTop) {
+        const parsed = parseInt(prevTop, 10);
+        window.scrollTo(0, isNaN(parsed) ? 0 : parsed * -1);
+      }
+    };
   }, [isOpen, onClose]);
   const [showAccountSetupModal, setShowAccountSetupModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);

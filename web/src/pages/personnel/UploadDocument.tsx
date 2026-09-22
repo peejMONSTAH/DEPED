@@ -13,7 +13,8 @@ export const UploadDocument: React.FC = () => {
   const rawTxId = searchParams.get('txId');
   const [txId, setTxId] = useState<string>(rawTxId || '');
   const reqId = searchParams.get('reqId');
-  const reqName = searchParams.get('name') || 'Document';
+  const rawReqName = searchParams.get('name');
+  const reqName = rawReqName && rawReqName !== 'undefined' && rawReqName !== 'null' ? rawReqName.trim() : '';
 
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -143,7 +144,7 @@ export const UploadDocument: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-5)', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => navigate(-1)}>Back</button>
-          <h2 style={{ fontSize: 'var(--text-lg)' }}>Upload: {reqName}</h2>
+          <h2 style={{ fontSize: 'var(--text-lg)' }}>{reqName ? `Upload: ${reqName}` : 'Upload document'}</h2>
         </div>
       </div>
 

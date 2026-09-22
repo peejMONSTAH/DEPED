@@ -471,7 +471,14 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   .hrmo-deliberation-header, .hrmo-deliberation-form { padding: 16px !important; }
   .hrmo-modal-footer > button { flex: 1 1 220px; }
 }
-.sidebar-overlay { position: fixed; inset: 0; z-index: 190; background: rgba(24, 36, 48, .4); }
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500 !important;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
 
 @media (max-width: 1280px) {
   :root { --layout-master-detail: minmax(0, 1fr); }
@@ -485,7 +492,15 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
 }
 @media (max-width: 1024px) {
   :root { --layout-columns-3: repeat(2, minmax(0, 1fr)); --layout-columns-4: repeat(2, minmax(0, 1fr)); }
-  .shell-sidebar { width: min(300px, calc(100vw - 48px)); height: 100dvh; }
+  .shell-sidebar {
+    width: min(320px, calc(100vw - 44px));
+    height: 100dvh;
+    max-height: 100dvh;
+    z-index: 510 !important;
+    padding-top: max(16px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+    box-sizing: border-box !important;
+  }
   .shell-sidebar:not(.open) { visibility: hidden; pointer-events: none; }
   .shell-sidebar.open { visibility: visible; }
   .mobile-admin-topbar { flex-shrink: 0; }

@@ -24,6 +24,7 @@ export const ModalOverlay: React.FC<ModalOverlayProps> = ({ children, className 
     if (!openDialogs.length) {
       previousOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
+      document.body.classList.add('has-modal-open');
     }
     openDialogs.push(dialog);
     const heading = dialog.querySelector('h1, h2, h3, [role="heading"]');
@@ -58,7 +59,10 @@ export const ModalOverlay: React.FC<ModalOverlayProps> = ({ children, className 
       document.removeEventListener('focusin', keepFocus);
       const index = openDialogs.indexOf(dialog);
       if (index >= 0) openDialogs.splice(index, 1);
-      if (!openDialogs.length) document.body.style.overflow = previousOverflow;
+      if (!openDialogs.length) {
+        document.body.style.overflow = previousOverflow;
+        document.body.classList.remove('has-modal-open');
+      }
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, []);

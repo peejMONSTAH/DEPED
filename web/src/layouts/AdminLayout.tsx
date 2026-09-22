@@ -32,6 +32,16 @@ export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const currentOutlet = useOutlet();
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const prevSidebarOpen = useRef(sidebarOpen);
+
+  // Restore focus to menu trigger button when drawer closes
+  useEffect(() => {
+    if (prevSidebarOpen.current && !sidebarOpen) {
+      menuTriggerRef.current?.focus();
+    }
+    prevSidebarOpen.current = sidebarOpen;
+  }, [sidebarOpen]);
 
   // Smoothly reset scroll position to top whenever navigating to a new admin route
   useEffect(() => {
@@ -52,6 +62,7 @@ export const AdminLayout: React.FC = () => {
           {/* Mobile Admin Topbar */}
           <div className="mobile-admin-topbar">
             <button
+              ref={menuTriggerRef}
               type="button"
               aria-label="Open navigation"
               aria-expanded={sidebarOpen}

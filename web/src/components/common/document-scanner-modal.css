@@ -21,6 +21,12 @@
     height: 100dvh;
     border-radius: 0;
   }
+  .doc-scanner-header {
+    padding-top: max(14px, env(safe-area-inset-top, 0px));
+  }
+  .doc-scanner-controls {
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
 
 .doc-scanner-header {
@@ -62,6 +68,38 @@
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.4);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.doc-scanner-switch-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doc-scanner-switch-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.doc-scanner-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+  color: #f8fafc;
 }
 
 .doc-scanner-body {
@@ -134,6 +172,7 @@
 /* Camera controls bottom bar */
 .doc-scanner-controls {
   padding: 16px 20px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
   background: rgba(15, 23, 42, 0.95);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;

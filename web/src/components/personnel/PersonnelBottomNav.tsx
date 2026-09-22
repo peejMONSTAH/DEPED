@@ -32,7 +32,6 @@ export const PersonnelBottomNav: React.FC = () => {
           >
             {({ isActive }) => (
               <>
-                {isActive && <span className="personnel-bottom-nav-indicator" />}
                 <div className="personnel-bottom-nav-icon-wrap">
                   <IconComponent size={20} />
                 </div>

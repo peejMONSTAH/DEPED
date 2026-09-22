@@ -7,11 +7,11 @@ import {
   Check,
   Upload,
   Loader2,
-  FileText,
   AlertCircle,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  SwitchCamera,
 } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { ModalPortal } from './ModalPortal';
@@ -35,80 +35,223 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [cameraActive, setCameraActive] = useState(false);
+  const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
+  const [cameraConnecting, setCameraConnecting] = useState(true);
+  const [hasLiveFrames, setHasLiveFrames] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
+
   const [pages, setPages] = useState<string[]>([]);
   const [activePageIndex, setActivePageIndex] = useState<number>(0);
   const [compiling, setCompiling] = useState(false);
 
+  // Stop all camera media tracks immediately
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop();
+        } catch (_) {}
+      });
       streamRef.current = null;
     }
-    setCameraActive(false);
+    if (videoRef.current) {
+      try {
+        videoRef.current.srcObject = null;
+      } catch (_) {}
+    }
+    setCurrentStream(null);
+    setHasLiveFrames(false);
   }, []);
 
-  const startCamera = useCallback(async () => {
-    stopCamera();
-    setCameraError(null);
-
+  // Enumerate video devices for camera switching
+  const updateAvailableDevices = useCallback(async () => {
     try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      setAvailableDevices(videoInputs);
+    } catch (_) {}
+  }, []);
+
+  // Request camera stream with constraint fallback ladder
+  const startCamera = useCallback(
+    async (preferredDeviceId?: string) => {
+      stopCamera();
+      setCameraError(null);
+      setCameraConnecting(true);
+      setHasLiveFrames(false);
+
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera access is not supported on this browser or connection.');
+        setCameraError(
+          window.isSecureContext === false
+            ? 'Camera access requires a secure connection (HTTPS or localhost).'
+            : 'Camera access is not supported on this browser.'
+        );
+        setCameraConnecting(false);
+        return;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
+      const constraintsLadder: MediaStreamConstraints[] = [
+        preferredDeviceId
+          ? { video: { deviceId: { exact: preferredDeviceId } }, audio: false }
+          : {
+              video: {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+              audio: false,
+            },
+        preferredDeviceId
+          ? { video: { deviceId: { ideal: preferredDeviceId } }, audio: false }
+          : { video: { facingMode: 'environment' }, audio: false },
+        { video: true, audio: false },
+      ];
 
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      let lastError: any = null;
+      let acquiredStream: MediaStream | null = null;
+
+      for (const constraints of constraintsLadder) {
+        try {
+          acquiredStream = await navigator.mediaDevices.getUserMedia(constraints);
+          break;
+        } catch (err: any) {
+          lastError = err;
+          // If explicitly denied, do not continue trying weaker constraints
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            break;
+          }
+        }
       }
-      setCameraActive(true);
-    } catch (err: any) {
-      const msg = err.name === 'NotAllowedError'
-        ? 'Camera permission was denied. You can allow camera access or use file upload instead.'
-        : (err.message || 'Unable to access device camera.');
-      setCameraError(msg);
-      setCameraActive(false);
+
+      if (!acquiredStream) {
+        const errorName = lastError?.name || '';
+        let msg = 'Unable to access device camera.';
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+          msg = 'Camera permission was denied. Please allow camera access in your browser settings or use photo upload instead.';
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+          msg = 'No camera found on this device.';
+        } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+          msg = 'Camera is already in use by another application or browser tab.';
+        } else if (lastError?.message) {
+          msg = lastError.message;
+        }
+
+        setCameraError(msg);
+        setCameraConnecting(false);
+        return;
+      }
+
+      streamRef.current = acquiredStream;
+      setCurrentStream(acquiredStream);
+      void updateAvailableDevices();
+    },
+    [stopCamera, updateAvailableDevices]
+  );
+
+  // Bind stream to video element when stream is ready and video element is mounted
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentStream) return;
+
+    video.srcObject = currentStream;
+    video.muted = true;
+    video.playsInline = true;
+
+    let isSubscribed = true;
+
+    const onMetadata = async () => {
+      if (!isSubscribed) return;
+      try {
+        await video.play();
+        setHasLiveFrames(true);
+        setCameraConnecting(false);
+      } catch (err: any) {
+        console.warn('Playback interrupted or autoplay blocked:', err);
+        // Retry play on user interaction if needed
+      }
+    };
+
+    video.addEventListener('loadedmetadata', onMetadata);
+    if (video.readyState >= 1) {
+      void onMetadata();
     }
-  }, [stopCamera]);
 
+    return () => {
+      isSubscribed = false;
+      video.removeEventListener('loadedmetadata', onMetadata);
+    };
+  }, [currentStream]);
+
+  // Frame watchdog: if stream is assigned but no nonzero dimensions arrive within 5s
+  useEffect(() => {
+    if (!currentStream || hasLiveFrames) return;
+    const timeoutId = setTimeout(() => {
+      const video = videoRef.current;
+      if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+        setCameraError('Camera preview could not start. Please ensure no other app is holding the camera, or choose a photo instead.');
+        setCameraConnecting(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentStream, hasLiveFrames]);
+
+  // Handle modal open/close, background tab changes, and body class
   useEffect(() => {
     if (isOpen) {
+      document.body.classList.add('has-scanner-open');
       setPages([]);
       setActivePageIndex(0);
       setCompiling(false);
       void startCamera();
     } else {
+      document.body.classList.remove('has-scanner-open');
       stopCamera();
     }
+
     return () => {
+      document.body.classList.remove('has-scanner-open');
       stopCamera();
     };
   }, [isOpen, startCamera, stopCamera]);
 
+  // Stop camera when browser tab becomes hidden
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        stopCamera();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [stopCamera]);
+
   if (!isOpen) return null;
+
+  const handleSwitchCamera = () => {
+    if (availableDevices.length < 2) return;
+    const nextIdx = (currentDeviceIndex + 1) % availableDevices.length;
+    setCurrentDeviceIndex(nextIdx);
+    void startCamera(availableDevices[nextIdx].deviceId);
+  };
 
   const handleCapture = () => {
     if (!videoRef.current) return;
     const video = videoRef.current;
+    const width = video.videoWidth || 1920;
+    const height = video.videoHeight || 1080;
+
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    ctx.drawImage(video, 0, 0, width, height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     setPages(prev => {
       const updated = [...prev, dataUrl];
       setActivePageIndex(updated.length - 1);
@@ -129,7 +272,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.rotate((90 * Math.PI) / 180);
       ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      const rotated = canvas.toDataURL('image/jpeg', 0.88);
+      const rotated = canvas.toDataURL('image/jpeg', 0.9);
       setPages(prev => prev.map((p, idx) => (idx === activePageIndex ? rotated : p)));
     };
     img.src = currentDataUrl;
@@ -164,14 +307,12 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     if (!file) return;
 
     if (file.type === 'application/pdf') {
-      // Directly pass through the selected PDF file
       stopCamera();
       onScanComplete(file);
       onClose();
       return;
     }
 
-    // Convert picked image to dataUrl and add as a page
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
@@ -236,74 +377,93 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
               <Camera size={20} color="#3b82f6" />
               <span>Document Scanner: {documentTypeName}</span>
             </h2>
-            <button
-              type="button"
-              className="doc-scanner-close"
-              onClick={onClose}
-              aria-label="Close scanner"
-              title="Close scanner"
-            >
-              <X size={18} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {availableDevices.length > 1 && !cameraError && (
+                <button
+                  type="button"
+                  className="doc-scanner-switch-btn"
+                  onClick={handleSwitchCamera}
+                  aria-label="Switch camera"
+                  title="Switch camera"
+                >
+                  <SwitchCamera size={18} />
+                </button>
+              )}
+              <button
+                type="button"
+                className="doc-scanner-close"
+                onClick={onClose}
+                aria-label="Close scanner"
+                title="Close scanner"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Body */}
           <div className="doc-scanner-body">
-            {cameraActive ? (
-              <div className="doc-scanner-viewport">
-                <video
-                  ref={videoRef}
-                  className="doc-scanner-video"
-                  playsInline
-                  autoPlay
-                  muted
-                />
-                <div className="doc-scanner-guide">
-                  <div className="doc-scanner-guide-corner doc-scanner-guide-tl" />
-                  <div className="doc-scanner-guide-corner doc-scanner-guide-tr" />
-                  <div className="doc-scanner-guide-corner doc-scanner-guide-bl" />
-                  <div className="doc-scanner-guide-corner doc-scanner-guide-br" />
+            <div className="doc-scanner-viewport">
+              {/* The video element is persistently mounted so videoRef.current is always valid */}
+              <video
+                ref={videoRef}
+                className="doc-scanner-video"
+                playsInline
+                autoPlay
+                muted
+              />
+
+              {hasLiveFrames && !cameraError && (
+                <>
+                  <div className="doc-scanner-guide">
+                    <div className="doc-scanner-guide-corner doc-scanner-guide-tl" />
+                    <div className="doc-scanner-guide-corner doc-scanner-guide-tr" />
+                    <div className="doc-scanner-guide-corner doc-scanner-guide-bl" />
+                    <div className="doc-scanner-guide-corner doc-scanner-guide-br" />
+                  </div>
+                  <div className="doc-scanner-tip">
+                    Align document within the frame and hold steady
+                  </div>
+                </>
+              )}
+
+              {cameraConnecting && !cameraError && (
+                <div className="doc-scanner-loading-overlay">
+                  <Loader2 size={36} className="spin" color="#3b82f6" />
+                  <p style={{ margin: '8px 0 0', fontWeight: 600, fontSize: '0.9rem' }}>
+                    Starting camera…
+                  </p>
                 </div>
-                <div className="doc-scanner-tip">
-                  Align document within the frame and hold steady
+              )}
+
+              {cameraError && (
+                <div className="doc-scanner-fallback-banner">
+                  <AlertCircle size={44} color="#f59e0b" />
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem' }}>
+                    Camera unavailable
+                  </p>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', maxWidth: 400 }}>
+                    {cameraError}
+                  </p>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => void startCamera()}
+                    >
+                      <RefreshCw size={15} /> Retry camera
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload size={15} /> Upload photo instead
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="doc-scanner-fallback-banner">
-                {cameraError ? (
-                  <>
-                    <AlertCircle size={44} color="#f59e0b" />
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem' }}>
-                      Camera not accessible
-                    </p>
-                    <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', maxWidth: 400 }}>
-                      {cameraError}
-                    </p>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => void startCamera()}
-                      >
-                        <RefreshCw size={15} /> Try camera again
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload size={15} /> Upload photo instead
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Loader2 size={36} className="spin" color="#3b82f6" />
-                    <p style={{ margin: 0, fontWeight: 600 }}>Connecting to camera…</p>
-                  </>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Captured Pages Thumbnail Tray */}
@@ -390,7 +550,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
             </div>
 
             {/* Center Shutter Button */}
-            {cameraActive && (
+            {hasLiveFrames && !cameraError && (
               <button
                 type="button"
                 className="doc-scanner-shutter-btn"
@@ -430,4 +590,5 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
     </ModalPortal>
   );
 };
+
 export default DocumentScannerModal;

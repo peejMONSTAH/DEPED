@@ -100,13 +100,15 @@ export const MyDocuments: React.FC = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [targetDoc, setTargetDoc] = useState<PersonnelDocument | null>(null);
   const [previewDoc, setPreviewDoc] = useState<PersonnelDocument | null>(null);
-  const [scannerDoc, setScannerDoc] = useState<PersonnelDocument | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerTarget, setScannerTarget] = useState<PersonnelDocument | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PersonnelDocument | null>(null);
 
   // Auto-open camera scanner if URL contains ?action=scan or ?scan=1
   useEffect(() => {
     if (searchParams.get('action') === 'scan' || searchParams.get('scan') === '1') {
-      setScannerDoc({} as any);
+      setScannerTarget(null);
+      setScannerOpen(true);
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete('action');
       nextParams.delete('scan');
@@ -152,6 +154,21 @@ export const MyDocuments: React.FC = () => {
 
   const selectedType = useMemo(() => types.find(t => t.id === typeId), [types, typeId]);
 
+  const modalTitle = useMemo(() => {
+    if (targetDoc && targetDoc.hasFile && targetDoc.documentTypeName && targetDoc.documentTypeName !== 'undefined') {
+      return `Replace: ${targetDoc.documentTypeName}`;
+    }
+    const typeName =
+      selectedType?.name ||
+      (targetDoc?.documentTypeName && targetDoc.documentTypeName !== 'undefined'
+        ? targetDoc.documentTypeName
+        : null);
+    if (typeName && typeName !== 'undefined' && typeName !== 'null') {
+      return `Upload: ${typeName}`;
+    }
+    return 'Upload document';
+  }, [targetDoc, selectedType]);
+
   const resetForm = () => {
     setFile(null);
     setTypeId('');
@@ -166,13 +183,15 @@ export const MyDocuments: React.FC = () => {
 
   const openUploadModal = (target?: PersonnelDocument | null, initialFile?: File) => {
     resetForm();
-    setTargetDoc(target || null);
-    if (target) {
-      setTypeId(target.documentTypeId);
-      setCustomName(target.documentTypeId === 'OTHER' ? target.documentTypeName : '');
-      setIssueDate(target.issueDate || '');
-      setExpirationDate(target.expirationDate || '');
-      setRemarks(target.remarks || '');
+    const isValidTarget = Boolean(target && (target.id || target.documentTypeId));
+    const cleanTarget = isValidTarget ? target! : null;
+    setTargetDoc(cleanTarget);
+    if (cleanTarget) {
+      if (cleanTarget.documentTypeId) setTypeId(cleanTarget.documentTypeId);
+      setCustomName(cleanTarget.documentTypeId === 'OTHER' ? cleanTarget.documentTypeName || '' : '');
+      setIssueDate(cleanTarget.issueDate || '');
+      setExpirationDate(cleanTarget.expirationDate || '');
+      setRemarks(cleanTarget.remarks || '');
     }
     if (initialFile) {
       setFile(initialFile);
@@ -199,12 +218,10 @@ export const MyDocuments: React.FC = () => {
   };
 
   const handleScanFinished = (scannedFile: File) => {
-    if (scannerDoc) {
-      openUploadModal(scannerDoc, scannedFile);
-    } else {
-      openUploadModal(null, scannedFile);
-    }
-    setScannerDoc(null);
+    setScannerOpen(false);
+    const target = scannerTarget && (scannerTarget.id || scannerTarget.documentTypeId) ? scannerTarget : null;
+    openUploadModal(target, scannedFile);
+    setScannerTarget(null);
   };
 
   const submitUpload = async (e: React.FormEvent) => {
@@ -212,6 +229,11 @@ export const MyDocuments: React.FC = () => {
     if (busy) return;
     if (!typeId) {
       setFormError('Please select a document type.');
+      return;
+    }
+    const isValidType = types.some(t => t.id === typeId);
+    if (!isValidType) {
+      setFormError('The selected document type is invalid or no longer supported.');
       return;
     }
     if (!file) {
@@ -346,7 +368,10 @@ export const MyDocuments: React.FC = () => {
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={() => setScannerDoc({} as any)}
+            onClick={() => {
+              setScannerTarget(null);
+              setScannerOpen(true);
+            }}
             style={{ minHeight: 44 }}
           >
             <AppIcon name="view" size={16} /> Scan with Camera
@@ -553,7 +578,10 @@ export const MyDocuments: React.FC = () => {
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
-                        onClick={() => setScannerDoc(doc)}
+                        onClick={() => {
+                          setScannerTarget(doc);
+                          setScannerOpen(true);
+                        }}
                         title="Scan replacement with camera"
                       >
                         <AppIcon name="view" size={15} /> Scan
@@ -581,7 +609,10 @@ export const MyDocuments: React.FC = () => {
                       <button
                         type="button"
                         className="btn btn-secondary btn-sm"
-                        onClick={() => setScannerDoc(doc)}
+                        onClick={() => {
+                          setScannerTarget(doc);
+                          setScannerOpen(true);
+                        }}
                       >
                         <AppIcon name="view" size={15} /> Scan with Camera
                       </button>
@@ -598,22 +629,18 @@ export const MyDocuments: React.FC = () => {
       {uploadOpen && (
         <ModalPortal>
           <ModalOverlay onDismiss={closeUploadModal}>
-            <div className="modal" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title" style={{ maxWidth: 560, width: '100%' }}>
-              <form onSubmit={submitUpload}>
-                <div className="modal-header">
-                  <h2 id="upload-modal-title" style={{ margin: 0, fontSize: '1.05rem' }}>
-                    {targetDoc && targetDoc.hasFile
-                      ? `Replace: ${targetDoc.documentTypeName}`
-                      : targetDoc
-                      ? `Upload: ${targetDoc.documentTypeName}`
-                      : 'Upload 201 Document'}
+            <div className="modal upload-document-modal" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
+              <form onSubmit={submitUpload} className="upload-modal-form">
+                <div className="modal-header upload-modal-header">
+                  <h2 id="upload-modal-title" style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
+                    {modalTitle}
                   </h2>
-                  <button type="button" className="my-document-close" onClick={closeUploadModal} aria-label="Close" disabled={busy}>
+                  <button type="button" className="upload-modal-close-btn" onClick={closeUploadModal} aria-label="Close upload dialog" disabled={busy}>
                     <AppIcon name="close" size={18} />
                   </button>
                 </div>
 
-                <div className="modal-body" style={{ display: 'grid', gap: 14 }}>
+                <div className="modal-body upload-modal-body">
                   {/* Document Type Selector */}
                   <div className="form-group">
                     <label className="form-label" htmlFor="doc-type-select">Document Type *</label>
@@ -700,7 +727,14 @@ export const MyDocuments: React.FC = () => {
                         type="button"
                         className="btn btn-secondary btn-sm"
                         onClick={() => {
-                          setScannerDoc(targetDoc || { documentTypeName: selectedType?.name || 'Document' } as any);
+                          setScannerTarget(
+                            targetDoc
+                              ? targetDoc
+                              : selectedType
+                              ? ({ documentTypeId: selectedType.id, documentTypeName: selectedType.name } as PersonnelDocument)
+                              : null
+                          );
+                          setScannerOpen(true);
                         }}
                         disabled={busy}
                         style={{ minHeight: 38 }}
@@ -774,7 +808,7 @@ export const MyDocuments: React.FC = () => {
                   )}
                 </div>
 
-                <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <div className="modal-footer upload-modal-footer">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -790,7 +824,7 @@ export const MyDocuments: React.FC = () => {
                     disabled={busy || !file || !typeId}
                     style={{ minHeight: 44 }}
                   >
-                    {busy ? 'Submitting…' : 'Submit Document'}
+                    {busy ? 'Submitting…' : targetDoc && targetDoc.hasFile ? 'Replace Document' : 'Submit Document'}
                   </button>
                 </div>
               </form>
@@ -814,12 +848,15 @@ export const MyDocuments: React.FC = () => {
       )}
 
       {/* In-App Document Scanner Modal */}
-      {scannerDoc && (
+      {scannerOpen && (
         <DocumentScannerModal
-          isOpen={Boolean(scannerDoc)}
-          onClose={() => setScannerDoc(null)}
+          isOpen={scannerOpen}
+          onClose={() => {
+            setScannerOpen(false);
+            setScannerTarget(null);
+          }}
           onScanComplete={handleScanFinished}
-          documentTypeName={scannerDoc.documentTypeName || 'Document'}
+          documentTypeName={scannerTarget?.documentTypeName || (selectedType?.name ? selectedType.name : 'Document')}
         />
       )}
 
