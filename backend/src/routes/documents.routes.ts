@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
-import { uploadDocument, getDocument, downloadDocumentFile, getExtractionReview, confirmExtractionReview } from '../controllers/documents.controller';
+import { uploadDocument, getDocument, downloadDocumentFile, getExtractionReview, confirmExtractionReview, getDocumentViewToken } from '../controllers/documents.controller';
 import multer from 'multer';
 import path from 'path';
 import { config } from '../config';
@@ -31,6 +31,7 @@ router.post('/transactions/:transactionId/documents', authorize('TEACHING_PERSON
 router.post('/transactions/:transactionId/upload', authorize('TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL', 'AO_II', 'SYSTEM_ADMIN'), upload.single('file'), uploadDocument);
 
 // Standalone document routes
+router.get('/:documentId/view-token', getDocumentViewToken);
 router.get('/:documentId/file', downloadDocumentFile);
 router.get('/:documentId/download', downloadDocumentFile);
 router.get('/:documentId/extraction-review', getExtractionReview);

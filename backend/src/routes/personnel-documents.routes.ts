@@ -9,6 +9,7 @@ import {
   replacePersonnelDocument,
   deletePersonnelDocument,
   downloadPersonnelDocumentFile,
+  getPersonnelDocumentViewToken,
 } from '../controllers/personnel-documents.controller';
 import { config } from '../config';
 
@@ -44,6 +45,7 @@ router.get('/', listPersonnelDocuments);
 router.post('/', upload.single('file'), uploadPersonnelDocument);
 router.put('/:id', upload.single('file'), replacePersonnelDocument);
 router.delete('/:id', deletePersonnelDocument);
+router.get('/:id/view-token', getPersonnelDocumentViewToken);
 router.get('/:id/file', downloadPersonnelDocumentFile);
 
 export default router;

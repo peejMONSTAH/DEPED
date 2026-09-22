@@ -8,6 +8,7 @@ import { AppIcon } from '../../components/common/AppIcon';
 import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
+import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
 import './vacancy-card.css';
 import { normaliseAnnexCItem } from './checklistData';
 
@@ -183,6 +184,13 @@ export const PersonnelHome: React.FC = () => {
   const [user201Documents, setUser201Documents] = useState<any[]>([]);
   const [picking201ForCode, setPicking201ForCode] = useState<string | null>(null);
   const [uploadingForCode, setUploadingForCode] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<{
+    title: string;
+    fileName?: string;
+    fileSize?: number;
+    fileUrl: string;
+    viewTokenUrl?: string;
+  } | null>(null);
   const isChecklistReadOnly = Boolean(selectedCycleForChecklist?.hasApplied && selectedCycleForChecklist?.hasChecklist);
 
   const normalizePositionTitle = (value: unknown) => String(value || '')
@@ -720,10 +728,15 @@ export const PersonnelHome: React.FC = () => {
         </div>
 
         {/* Metric 2: 201 Master File Status */}
-        <div className="soft-card metric-card">
+        <Link
+          to="/personnel/documents"
+          className="soft-card metric-card"
+          style={{ textDecoration: 'none', color: 'inherit', display: 'block', cursor: 'pointer' }}
+          title="Open My Documents"
+        >
           <div className="metric-card-top">
             <span className="metric-label">201 MASTER FILE</span>
-            <span className="metric-lime-pill">VERIFIED</span>
+            <span className="metric-lime-pill">VIEW REPOSITORY →</span>
           </div>
           <div className="metric-value-num">100%</div>
           <div className="metric-footer-note">DepEd CS Form 212 & WES Verified</div>
@@ -734,7 +747,7 @@ export const PersonnelHome: React.FC = () => {
             <span className="dot active-dot" />
             <span className="dot active-dot" />
           </div>
-        </div>
+        </Link>
 
         {/* Metric 3: Compliance Alerts */}
         <div className="soft-card metric-card">
@@ -780,6 +793,102 @@ export const PersonnelHome: React.FC = () => {
         
         {/* LEFT COLUMN: Open Vacancies & Active Transactions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Quick Access Banner: 201 Documents & Camera Scanner */}
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.05) 0%, rgba(215, 248, 74, 0.08) 100%)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 20,
+              padding: '22px 24px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 20,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 280, flex: '1 1 300px' }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: 'rgba(30, 58, 138, 0.1)',
+                  color: 'var(--color-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  border: '1px solid rgba(30, 58, 138, 0.2)'
+                }}
+              >
+                <AppIcon name="document" size={24} color="var(--color-primary)" />
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
+                    My 201 Documents & Mobile Scanner
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 9999,
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      color: '#059669',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Checklist & Scanner
+                  </span>
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                  Access your baseline DepEd requirements (PDS, PRC, TOR, IPCR), preview PDFs/images in-app, or scan paper files directly into PDF with your camera.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <Link
+                to="/personnel/documents?action=scan"
+                className="btn btn-secondary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 18px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 12,
+                  textDecoration: 'none',
+                  minHeight: 44,
+                }}
+              >
+                <AppIcon name="camera" size={16} /> Scan with Camera
+              </Link>
+              <Link
+                to="/personnel/documents"
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 20px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  borderRadius: 12,
+                  textDecoration: 'none',
+                  minHeight: 44,
+                }}
+              >
+                <AppIcon name="folder" size={16} /> Open My Documents →
+              </Link>
+            </div>
+          </div>
           
           {/* Section 1: Active 201 Transactions */}
           <div className="table-card-large">
@@ -2112,7 +2221,15 @@ export const PersonnelHome: React.FC = () => {
                               {item.uploadedFileUrl && (
                                 <button
                                   type="button"
-                                  onClick={() => window.open(item.uploadedFileUrl, '_blank')}
+                                  onClick={() => {
+                                    setViewingDoc({
+                                      title: item.title || item.documentName || 'Attached Document',
+                                      fileName: item.documentName,
+                                      fileSize: item.fileSize,
+                                      fileUrl: item.uploadedFileUrl!,
+                                      viewTokenUrl: item.personnelDocumentId ? `/personnel/documents/${item.personnelDocumentId}/view-token` : undefined,
+                                    });
+                                  }}
                                   style={{
                                     background: 'none',
                                     border: 'none',
@@ -2474,6 +2591,18 @@ export const PersonnelHome: React.FC = () => {
             </div>
           </ModalOverlay>
         </ModalPortal>
+      )}
+
+      {viewingDoc && (
+        <DocumentViewerModal
+          isOpen={Boolean(viewingDoc)}
+          onClose={() => setViewingDoc(null)}
+          title={viewingDoc.title}
+          fileName={viewingDoc.fileName}
+          fileSize={viewingDoc.fileSize}
+          fileUrl={viewingDoc.fileUrl}
+          viewTokenUrl={viewingDoc.viewTokenUrl}
+        />
       )}
     </div>
   );

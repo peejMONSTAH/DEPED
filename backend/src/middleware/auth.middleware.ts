@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, JwtPayload, passwordTokenVersion } from '../utils/jwt.util';
+import { verifyAccessToken, JwtPayload, passwordTokenVersion, verifyDocumentAccessToken, DocumentViewTokenPayload } from '../utils/jwt.util';
 import { sendUnauthorized, sendError } from '../utils/response.util';
 import prisma from '../config/prisma';
 
@@ -8,6 +8,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: JwtPayload & { personnelId?: number | null; mustChangePassword?: boolean };
+      docToken?: DocumentViewTokenPayload;
     }
   }
 }
@@ -49,26 +50,39 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   let token: string | undefined;
+  let docTokenPayload: DocumentViewTokenPayload | null = null;
   const authHeader = req.headers.authorization;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
   } else if (
     typeof req.query.token === 'string' &&
-    req.query.token.trim().length > 0 &&
-    (req.path.includes('/stream') || (req.headers.accept && req.headers.accept.includes('text/event-stream')))
+    req.query.token.trim().length > 0
   ) {
-    // SEC-H4: Permitted exclusively for SSE streaming endpoints where browser EventSource API cannot send Authorization headers
-    token = req.query.token.trim();
+    const rawToken = req.query.token.trim();
+    if (req.path.includes('/stream') || (req.headers.accept && req.headers.accept.includes('text/event-stream'))) {
+      // Permitted for SSE streaming endpoints where browser EventSource API cannot send Authorization headers
+      token = rawToken;
+    } else if (req.path.endsWith('/file') || req.path.includes('/file/') || req.path.endsWith('/download')) {
+      // Document view endpoints: supports DocumentViewToken or standard AccessToken in query param
+      try {
+        docTokenPayload = verifyDocumentAccessToken(rawToken);
+        req.docToken = docTokenPayload;
+      } catch {
+        token = rawToken;
+      }
+    }
   }
 
-  if (!token) {
+  if (!token && !docTokenPayload) {
     sendUnauthorized(res, 'No access token provided.');
     return;
   }
 
   try {
-    const payload = verifyAccessToken(token);
+    const payload = docTokenPayload
+      ? { userId: docTokenPayload.userId, email: docTokenPayload.email, role: docTokenPayload.role, pwdv: docTokenPayload.pwdv }
+      : verifyAccessToken(token!);
 
     // Check fast cache first to avoid high-latency network round-trips on concurrent calls
     const cached = authUserCache.get(payload.userId);

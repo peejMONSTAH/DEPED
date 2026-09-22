@@ -91,3 +91,36 @@ export const verifyMagicToken = (token: string): MagicLoginPayload => {
 
   return decoded as MagicLoginPayload;
 };
+
+export interface DocumentViewTokenPayload {
+  userId: number;
+  email: string;
+  role: string;
+  documentId: number;
+  docType: 'personnel' | 'transaction';
+  type: 'DOCUMENT_VIEW';
+  pwdv: string;
+}
+
+export const generateDocumentAccessToken = (payload: Omit<DocumentViewTokenPayload, 'type'>): string => {
+  return jwt.sign({ ...payload, type: 'DOCUMENT_VIEW' }, config.jwt.accessSecret, {
+    expiresIn: '15m',
+    issuer: 'eminence-hris',
+    audience: 'eminence-hris-client',
+    jwtid: crypto.randomUUID(),
+  });
+};
+
+export const verifyDocumentAccessToken = (token: string): DocumentViewTokenPayload => {
+  const decoded = jwt.verify(token, config.jwt.accessSecret, {
+    issuer: 'eminence-hris',
+    audience: 'eminence-hris-client',
+  }) as any;
+
+  if (decoded?.type !== 'DOCUMENT_VIEW') {
+    throw new Error('Invalid document access token payload');
+  }
+
+  return decoded as DocumentViewTokenPayload;
+};
+

@@ -319,15 +319,16 @@ model PersonnelFile {
   personnel          Personnel               @relation(fields: [personnelId], references: [id])
   documentTypeId     String                  @map("document_type_id")
   documentTypeName   String                  @map("document_type_name")
-  originalFileName   String                  @map("original_file_name")
-  storedFileName     String                  @map("stored_file_name")
-  storagePath        String                  @map("storage_path")
-  mimeType           String                  @map("mime_type")
-  fileSize           Int                     @map("file_size")
+  originalFileName   String?                 @map("original_file_name")
+  storedFileName     String?                 @map("stored_file_name")
+  storagePath        String?                 @map("storage_path")
+  mimeType           String?                 @map("mime_type")
+  fileSize           Int?                    @map("file_size")
+  isRequired         Boolean                 @default(true) @map("is_required")
   issueDate          DateTime?               @map("issue_date") @db.Date
   expirationDate     DateTime?               @map("expiration_date") @db.Date
   remarks            String?
-  status             PersonnelDocumentStatus @default(SUBMITTED)
+  status             PersonnelDocumentStatus @default(NOT_SUBMITTED)
   rejectionReason    String?                 @map("rejection_reason")
   reviewedAt         DateTime?               @map("reviewed_at")
   reviewedByUserId   Int?                    @map("reviewed_by_user_id")
@@ -527,10 +528,12 @@ enum AppointmentStatus {
 /// mobile app already renders. They are declared here so that when a reviewer
 /// endpoint lands, the column decides what is legal - not a string literal.
 enum PersonnelDocumentStatus {
+  NOT_SUBMITTED
   SUBMITTED
   UNDER_REVIEW
   APPROVED
   REJECTED
+  REPLACEMENT_REQUIRED
 }
 
 enum PersonnelStatus {

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/admin/Sidebar';
 import { ToastContainer } from '../components/shared/ToastContainer';
 import { AppIcon } from '../components/common/AppIcon';
+import { PersonnelBottomNav } from '../components/personnel/PersonnelBottomNav';
 
 import type { Variants } from 'framer-motion';
 
@@ -80,6 +81,9 @@ export const PersonnelLayout: React.FC = () => {
           </main>
         </div>
       </div>
+
+      {/* Mobile Sticky Bottom Navigation */}
+      <PersonnelBottomNav />
 
       <ToastContainer />
     </div>

@@ -21,6 +21,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { generateInitialPassword } from '../utils/password-issue.util';
 import { invalidateAuthUserCache } from '../middleware/auth.middleware';
+import { initializePersonnelDocuments } from './personnel-documents.controller';
 
 /**
  * GET /users — List all users with pagination and filtering
@@ -311,6 +312,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
           },
         });
       }
+    }
+
+    if (targetPersonnelId) {
+      await initializePersonnelDocuments(targetPersonnelId, role, tx);
     }
 
     await tx.validationLog.create({
@@ -1000,6 +1005,8 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
         profileComplete: false,
       },
     });
+
+    await initializePersonnelDocuments(newPersonnel.id, roleRecord.name, tx);
 
     // Creating the personnel record above bound the item; log the audit entry.
     if (matchedPlantilla) {

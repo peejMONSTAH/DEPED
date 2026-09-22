@@ -39,6 +39,7 @@ const ProfileCompletion = React.lazy(() => import('./pages/personnel/ProfileComp
 const Checklist = React.lazy(() => import('./pages/personnel/Checklist').then(m => ({ default: m.Checklist })));
 const UploadDocument = React.lazy(() => import('./pages/personnel/UploadDocument').then(m => ({ default: m.UploadDocument })));
 const FillDocument = React.lazy(() => import('./pages/personnel/FillDocument'));
+const MyDocuments = React.lazy(() => import('./pages/personnel/MyDocuments').then(m => ({ default: m.MyDocuments })));
 const PersonnelNotifications = React.lazy(() => import('./pages/personnel/Notifications').then(m => ({ default: m.PersonnelNotifications })));
 const CareerRecord = React.lazy(() => import('./pages/personnel/CareerRecord').then(m => ({ default: m.CareerRecord })));
 
@@ -211,6 +212,9 @@ export const App: React.FC = () => {
 
               {/* My Transactions list */}
               <Route path="transactions" element={<MyTransactions />} />
+
+              {/* My Documents (Digital 201 file) */}
+              <Route path="documents" element={<MyDocuments />} />
 
               <Route index element={<Navigate to="home" replace />} />
             </Route>

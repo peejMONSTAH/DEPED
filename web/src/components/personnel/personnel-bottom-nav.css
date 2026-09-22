@@ -1,0 +1,80 @@
+/* Mobile Personnel Bottom Navigation Bar */
+
+.personnel-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--color-border, #e2e8f0);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  z-index: 900;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+@media (max-width: 768px) {
+  .personnel-bottom-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+  }
+
+  /* Add bottom offset to personnel main workspace so content doesn't get hidden behind bottom nav */
+  .workspace-main-content {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0)) !important;
+  }
+}
+
+.personnel-bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  min-height: 48px; /* >= 48px touch target */
+  color: #64748b;
+  text-decoration: none;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  user-select: none;
+  position: relative;
+}
+
+.personnel-bottom-nav-item:active {
+  transform: scale(0.95);
+}
+
+.personnel-bottom-nav-item.active {
+  color: #2563eb;
+}
+
+.personnel-bottom-nav-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.personnel-bottom-nav-item.active .personnel-bottom-nav-icon-wrap {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.personnel-bottom-nav-indicator {
+  position: absolute;
+  top: 0;
+  width: 24px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: #2563eb;
+}

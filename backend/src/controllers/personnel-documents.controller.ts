@@ -7,6 +7,7 @@ import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden } from '../utils/response.util';
 import { recordAuditLog } from '../utils/audit.util';
 import { logger } from '../utils/logger';
+import { generateDocumentAccessToken } from '../utils/jwt.util';
 
 export interface DocumentTypeDefinition {
   id: string;
@@ -53,24 +54,98 @@ export const CONFIGURABLE_DOCUMENT_TYPES: DocumentTypeDefinition[] = [
   { id: 'OTHER', name: 'Other', supportsExpiration: false, description: 'Any other supporting document or MOV for comparative assessment', category: 'General', annexCCode: 'k' },
 ];
 
+export const BASELINE_REQUIRED_DOCUMENTS: Record<string, string[]> = {
+  TEACHING_PERSONNEL: [
+    'PDS',
+    'WES',
+    'LICENSE',
+    'CSC_ELIGIBILITY',
+    'TOR',
+    'DIPLOMA',
+    'APPOINTMENT',
+    'PERFORMANCE_RATING',
+    'OMNIBUS_CERT',
+  ],
+  NON_TEACHING_PERSONNEL: [
+    'PDS',
+    'WES',
+    'CSC_ELIGIBILITY',
+    'TOR',
+    'DIPLOMA',
+    'APPOINTMENT',
+    'PERFORMANCE_RATING',
+    'OMNIBUS_CERT',
+  ],
+  DEFAULT: [
+    'PDS',
+    'WES',
+    'TOR',
+    'DIPLOMA',
+    'APPOINTMENT',
+    'PERFORMANCE_RATING',
+    'OMNIBUS_CERT',
+  ],
+};
+
+export const initializePersonnelDocuments = async (
+  personnelId: number,
+  roleName?: string,
+  txClient?: Prisma.TransactionClient | typeof prisma
+): Promise<void> => {
+  const db = txClient || prisma;
+  const docTypeIds = (roleName && BASELINE_REQUIRED_DOCUMENTS[roleName])
+    ? BASELINE_REQUIRED_DOCUMENTS[roleName]
+    : BASELINE_REQUIRED_DOCUMENTS.DEFAULT;
+
+  const existingDocs = await db.personnelFile.findMany({
+    where: { personnelId, deletedAt: null },
+    select: { documentTypeId: true },
+  });
+  const existingTypes = new Set(existingDocs.map(d => d.documentTypeId));
+
+  const toCreate: Prisma.PersonnelFileCreateManyInput[] = [];
+
+  for (const typeId of docTypeIds) {
+    if (!existingTypes.has(typeId)) {
+      const def = CONFIGURABLE_DOCUMENT_TYPES.find(t => t.id === typeId);
+      if (def) {
+        toCreate.push({
+          personnelId,
+          documentTypeId: def.id,
+          documentTypeName: def.name,
+          isRequired: true,
+          status: PersonnelDocumentStatus.NOT_SUBMITTED,
+          originalFileName: null,
+          storedFileName: null,
+          storagePath: null,
+          mimeType: null,
+          fileSize: null,
+        });
+      }
+    }
+  }
+
+  if (toCreate.length > 0) {
+    await db.personnelFile.createMany({
+      data: toCreate,
+    });
+  }
+};
+
 /**
  * The JSON shape the web and mobile clients parse.
- *
- * These were the keys of the JSONB payload until migration 202609220005. They
- * are now columns, and this interface describes the serialisation back out to
- * the same shape, so the storage change needed no client release.
  */
 export interface PersonnelDocumentRecord {
   id: number;
   personnelId: number;
   documentTypeId: string;
   documentTypeName: string;
-  originalFileName: string;
-  storedFileName: string;
-  mimeType: string;
-  fileSize: number;
-  fileUrl: string;
-  storagePath: string;
+  originalFileName: string | null;
+  storedFileName: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+  fileUrl: string | null;
+  storagePath: string | null;
   issueDate: string | null;
   expirationDate: string | null;
   remarks: string | null;
@@ -81,6 +156,8 @@ export interface PersonnelDocumentRecord {
   reviewedAt: string | null;
   reviewedBy: string | null;
   replacesDocumentId?: number;
+  isRequired: boolean;
+  hasFile: boolean;
 }
 
 /** Loaded alongside every document so `reviewedBy` can be a name, not an id. */
@@ -105,14 +182,13 @@ const toApiShape = (record: StoredDocument): PersonnelDocumentRecord => ({
   storedFileName: record.storedFileName,
   mimeType: record.mimeType,
   fileSize: record.fileSize,
-  fileUrl: `/api/v1/personnel/documents/${record.id}/file`,
+  fileUrl: record.storagePath ? `/api/v1/personnel/documents/${record.id}/file` : null,
   storagePath: record.storagePath,
   issueDate: asIsoDate(record.issueDate),
   expirationDate: asIsoDate(record.expirationDate),
   remarks: record.remarks,
   status: record.status,
   rejectionReason: record.rejectionReason,
-  // uploadedAt is what the clients call created_at.
   uploadedAt: record.createdAt.toISOString(),
   updatedAt: record.updatedAt.toISOString(),
   reviewedAt: record.reviewedAt ? record.reviewedAt.toISOString() : null,
@@ -120,14 +196,12 @@ const toApiShape = (record: StoredDocument): PersonnelDocumentRecord => ({
     ? `${record.reviewedBy.personnel.firstName} ${record.reviewedBy.personnel.lastName}`
     : null,
   ...(record.replacesDocumentId ? { replacesDocumentId: record.replacesDocumentId } : {}),
+  isRequired: record.isRequired ?? true,
+  hasFile: Boolean(record.storagePath),
 });
 
 /**
  * Parses a date supplied by a client.
- *
- * Returns undefined for absent input and null for input that is not a date, so
- * the caller can tell "not given" from "given but wrong" and reject the latter
- * instead of storing it. The column is a DATE, so the time is discarded.
  */
 const parseIsoDate = (raw: unknown): Date | null | undefined => {
   if (raw === undefined || raw === null) return undefined;
@@ -152,10 +226,36 @@ export const getDocumentTypes = async (_req: Request, res: Response): Promise<vo
 
 export const listPersonnelDocuments = async (req: Request, res: Response): Promise<void> => {
   if (!req.user?.personnelId) { sendForbidden(res, 'No linked personnel profile.'); return; }
+  
+  // Auto-initialize required checklist placeholders if none exist yet for this profile
+  const count = await prisma.personnelFile.count({
+    where: { personnelId: req.user.personnelId, deletedAt: null },
+  });
+  if (count === 0) {
+    await initializePersonnelDocuments(req.user.personnelId, req.user.role);
+  }
+
+  // Check for expired documents and transition them to REPLACEMENT_REQUIRED
+  const now = new Date();
+  await prisma.personnelFile.updateMany({
+    where: {
+      personnelId: req.user.personnelId,
+      deletedAt: null,
+      expirationDate: { lt: now },
+      status: { in: [PersonnelDocumentStatus.APPROVED, PersonnelDocumentStatus.SUBMITTED] },
+    },
+    data: {
+      status: PersonnelDocumentStatus.REPLACEMENT_REQUIRED,
+    },
+  });
+
   const records = await prisma.personnelFile.findMany({
     where: { personnelId: req.user.personnelId, deletedAt: null },
     include: withReviewer,
-    orderBy: { id: 'desc' },
+    orderBy: [
+      { isRequired: 'desc' },
+      { id: 'asc' },
+    ],
   });
   sendSuccess(res, records.map(toApiShape));
 };
@@ -167,8 +267,6 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
   const definition = CONFIGURABLE_DOCUMENT_TYPES.find(t => t.id === req.body.documentTypeId);
   if (!definition) { sendBadRequest(res, 'Unknown document type.'); return; }
 
-  // Dates used to be stored as whatever string arrived. The column is a DATE
-  // now, so a value that is not one is refused here rather than at the driver.
   const issueDate = parseIsoDate(req.body.issueDate);
   if (issueDate === null) { sendBadRequest(res, 'Enter the issue date as YYYY-MM-DD.'); return; }
   const expirationDate = parseIsoDate(req.body.expirationDate);
@@ -176,35 +274,88 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
 
   const replacementId = req.body.replacesDocumentId ? Number(req.body.replacesDocumentId) : null;
   if (replacementId && !Number.isInteger(replacementId)) { sendBadRequest(res, 'Invalid replacement document.'); return; }
+  
+  let replaceableRecord: StoredDocument | null = null;
   if (replacementId) {
-    const replaceable = await prisma.personnelFile.findFirst({
+    replaceableRecord = await prisma.personnelFile.findFirst({
       where: { id: replacementId, personnelId: req.user.personnelId, deletedAt: null },
+      include: withReviewer,
     });
-    if (!replaceable) { sendNotFound(res, 'Replacement source document not found.'); return; }
+    if (!replaceableRecord) { sendNotFound(res, 'Replacement source document not found.'); return; }
+  } else {
+    // If no replacementId was passed, check if there's an existing NOT_SUBMITTED placeholder for this document type
+    replaceableRecord = await prisma.personnelFile.findFirst({
+      where: {
+        personnelId: req.user.personnelId,
+        documentTypeId: definition.id,
+        status: PersonnelDocumentStatus.NOT_SUBMITTED,
+        deletedAt: null,
+      },
+      include: withReviewer,
+    });
   }
 
   const storagePath = await storeDocument(file.buffer, file.mimetype, `personnel/${req.user.personnelId}`);
-  const data = {
-    personnelId: req.user.personnelId,
-    documentTypeId: definition.id,
-    documentTypeName: definition.id === 'OTHER'
-      ? String(req.body.customDocumentName || 'Other document')
-      : definition.name,
-    originalFileName: file.originalname,
-    storedFileName: storagePath.split('/').pop() || file.originalname,
-    storagePath,
-    mimeType: file.mimetype,
-    fileSize: file.size,
-    issueDate: issueDate ?? null,
-    expirationDate: expirationDate ?? null,
-    remarks: req.body.remarks ? String(req.body.remarks) : null,
-    ...(replacementId ? { replacesDocumentId: replacementId } : {}),
-  };
+  const docTypeName = definition.id === 'OTHER'
+    ? String(req.body.customDocumentName || 'Other document')
+    : definition.name;
 
   let record: StoredDocument;
   try {
     record = await prisma.$transaction(async tx => {
-      const created = await tx.personnelFile.create({ data, include: withReviewer });
+      // If fulfilling an existing placeholder (NOT_SUBMITTED)
+      if (replaceableRecord && replaceableRecord.status === PersonnelDocumentStatus.NOT_SUBMITTED) {
+        const updated = await tx.personnelFile.update({
+          where: { id: replaceableRecord.id },
+          data: {
+            documentTypeName: docTypeName,
+            originalFileName: file.originalname,
+            storedFileName: storagePath.split('/').pop() || file.originalname,
+            storagePath,
+            mimeType: file.mimetype,
+            fileSize: file.size,
+            issueDate: issueDate ?? null,
+            expirationDate: expirationDate ?? null,
+            remarks: req.body.remarks ? String(req.body.remarks) : null,
+            status: PersonnelDocumentStatus.SUBMITTED,
+            rejectionReason: null,
+            updatedAt: new Date(),
+          },
+          include: withReviewer,
+        });
+        await tx.validationLog.create({
+          data: {
+            entityType: 'PersonnelDocument',
+            entityId: updated.id,
+            userId: req.user!.userId,
+            action: 'PERSONNEL_DOCUMENT_SUBMITTED',
+            detailsJson: { storagePath, wasPlaceholder: true },
+          },
+        });
+        return updated;
+      }
+
+      // If replacing an existing submitted/approved/deficient file or creating a new document
+      const created = await tx.personnelFile.create({
+        data: {
+          personnelId: req.user!.personnelId!,
+          documentTypeId: definition.id,
+          documentTypeName: docTypeName,
+          originalFileName: file.originalname,
+          storedFileName: storagePath.split('/').pop() || file.originalname,
+          storagePath,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          issueDate: issueDate ?? null,
+          expirationDate: expirationDate ?? null,
+          remarks: req.body.remarks ? String(req.body.remarks) : null,
+          status: PersonnelDocumentStatus.SUBMITTED,
+          isRequired: replaceableRecord ? replaceableRecord.isRequired : false,
+          ...(replacementId ? { replacesDocumentId: replacementId } : {}),
+        },
+        include: withReviewer,
+      });
+
       if (replacementId) {
         const archived = await tx.personnelFile.updateMany({
           where: { id: replacementId, personnelId: req.user!.personnelId!, deletedAt: null },
@@ -212,7 +363,16 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
         });
         if (archived.count !== 1) throw new Error('The document changed before it could be replaced. Refresh and try again.');
       }
-      await tx.validationLog.create({ data: { entityType: 'PersonnelDocument', entityId: created.id, userId: req.user!.userId, action: 'PERSONNEL_DOCUMENT_UPLOADED', detailsJson: { storagePath } } });
+
+      await tx.validationLog.create({
+        data: {
+          entityType: 'PersonnelDocument',
+          entityId: created.id,
+          userId: req.user!.userId,
+          action: 'PERSONNEL_DOCUMENT_UPLOADED',
+          detailsJson: { storagePath, replacesDocumentId: replacementId },
+        },
+      });
       return created;
     });
   } catch (error) {
@@ -244,23 +404,126 @@ export const replacePersonnelDocument = async (req: Request, res: Response): Pro
 
 export const deletePersonnelDocument = async (req: Request, res: Response): Promise<void> => {
   const record = await prisma.personnelFile.findUnique({ where: { id: Number(req.params.id) } });
-  if (!record) { sendNotFound(res); return; }
+  if (!record || record.deletedAt) { sendNotFound(res); return; }
   if (record.personnelId !== req.user?.personnelId && !['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '')) { sendForbidden(res); return; }
-  if (record.status === 'APPROVED') { sendBadRequest(res, 'Approved records must be retained.'); return; }
+  if (record.status === PersonnelDocumentStatus.APPROVED) { sendBadRequest(res, 'Approved records must be retained.'); return; }
+
+  if (record.isRequired) {
+    if (record.status === PersonnelDocumentStatus.NOT_SUBMITTED) {
+      sendBadRequest(res, 'Required document checklist items cannot be removed.');
+      return;
+    }
+    // Reset required item back to unsubmitted placeholder
+    await prisma.personnelFile.update({
+      where: { id: record.id },
+      data: {
+        status: PersonnelDocumentStatus.NOT_SUBMITTED,
+        originalFileName: null,
+        storedFileName: null,
+        storagePath: null,
+        mimeType: null,
+        fileSize: null,
+        issueDate: null,
+        expirationDate: null,
+        remarks: null,
+        rejectionReason: null,
+      },
+    });
+    sendSuccess(res, { id: record.id }, 'Document reset to unsubmitted placeholder.');
+    return;
+  }
+
   await prisma.personnelFile.update({ where: { id: record.id }, data: { deletedAt: new Date() } });
   sendSuccess(res, { id: record.id }, 'Document archived. Previously submitted copies are retained.');
 };
 
+export const getPersonnelDocumentViewToken = async (req: Request, res: Response): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    sendBadRequest(res, 'Invalid document ID.');
+    return;
+  }
+  const record = await prisma.personnelFile.findUnique({
+    where: { id },
+    include: { personnel: true },
+  });
+  if (!record || record.deletedAt) {
+    sendNotFound(res, 'Document not found.');
+    return;
+  }
+  let allowed = record.personnelId === req.user?.personnelId || ['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '');
+  if (!allowed && req.user?.role === 'AO_II') {
+    allowed = isWithinStation(await getStationScope(req.user), record.personnel);
+  }
+  if (!allowed) {
+    sendForbidden(res);
+    return;
+  }
+  if (!record.storagePath) {
+    sendNotFound(res, 'Document has no file attached.');
+    return;
+  }
+
+  const token = generateDocumentAccessToken({
+    userId: req.user!.userId,
+    email: req.user!.email,
+    role: req.user!.role,
+    documentId: record.id,
+    docType: 'personnel',
+    pwdv: req.user!.pwdv,
+  });
+
+  sendSuccess(res, {
+    token,
+    fileUrl: `/api/v1/personnel/documents/${record.id}/file?token=${encodeURIComponent(token)}`,
+    expiresInSeconds: 900,
+  });
+};
+
 export const downloadPersonnelDocumentFile = async (req: Request, res: Response): Promise<void> => {
   const record = await prisma.personnelFile.findUnique({ where: { id: Number(req.params.id) }, include: { personnel: true } });
-  if (!record) { sendNotFound(res); return; }
+  if (!record || record.deletedAt) { sendNotFound(res); return; }
+  
+  if (req.docToken) {
+    if (req.docToken.documentId !== record.id || req.docToken.docType !== 'personnel') {
+      sendForbidden(res, 'Invalid document access token.');
+      return;
+    }
+  }
+
   let allowed = record.personnelId === req.user?.personnelId || ['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '');
   if (!allowed && req.user?.role === 'AO_II') {
     allowed = isWithinStation(await getStationScope(req.user), record.personnel);
   }
   if (!allowed) { sendForbidden(res); return; }
+
+  if (!record.storagePath) {
+    sendNotFound(res, 'Document has no file attached.');
+    return;
+  }
+
   const bytes = await readDocument(record.storagePath);
-  res.type(record.mimeType);
-  res.setHeader('Content-Disposition', `inline; filename="${record.originalFileName.replace(/[^a-zA-Z0-9_.-]/g, '_')}"`);
+  res.type(record.mimeType || 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${(record.originalFileName || 'document.pdf').replace(/[^a-zA-Z0-9_.-]/g, '_')}"`);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  if (req.user?.userId) {
+    recordAuditLog({
+      userId: req.user.userId,
+      action: 'PERSONNEL_DOCUMENT_ACCESSED',
+      entityType: 'PersonnelDocument',
+      entityId: record.id,
+      details: {
+        documentTypeId: record.documentTypeId,
+        fileName: record.originalFileName,
+        personnelId: record.personnelId,
+      },
+      ipAddress: (req.headers['x-forwarded-for'] as string) || req.ip || null,
+      userAgent: (req.headers['user-agent'] as string) || null,
+      status: 'SUCCESS',
+    }).catch(err => logger.error({ err }, 'Failed to log personnel document access'));
+    res.locals.auditLogged = true;
+  }
+
   res.send(bytes);
 };

@@ -14,6 +14,7 @@ import { logger } from '../utils/logger';
 import { storeDocument, readDocument, discardUncommittedDocument } from '../services/document-storage.service';
 import { canAccessTransaction } from '../utils/transaction-access.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
+import { generateDocumentAccessToken } from '../utils/jwt.util';
 
 const canAccessPersonnel = async (req: Request, personnel: { id: number; school: string | null; district: string | null }): Promise<boolean> => {
   if (req.user?.personnelId === personnel.id || req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO') return true;
@@ -351,6 +352,44 @@ export const confirmExtractionReview = async (req: Request, res: Response): Prom
   sendSuccess(res, { documentId: id, confirmation: corrected.confirmation, comparison: pdsComparison(doc.transaction.personnel as any, corrected) }, 'Extracted fields confirmed. They remain pending AO validation and HRMO approval.');
 };
 
+export const getDocumentViewToken = async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.documentId || req.params.id, 10);
+  if (isNaN(id) || id <= 0) {
+    sendBadRequest(res, 'Invalid document ID.');
+    return;
+  }
+
+  const doc = await prisma.uploadedDocument.findUnique({
+    where: { id },
+    include: { transaction: { select: { id: true, personnelId: true } } },
+  });
+
+  if (!doc) {
+    sendNotFound(res, 'Document not found.');
+    return;
+  }
+
+  if (!(await canAccessTransaction(req.user, doc.transactionId))) {
+    sendForbidden(res);
+    return;
+  }
+
+  const token = generateDocumentAccessToken({
+    userId: req.user!.userId,
+    email: req.user!.email,
+    role: req.user!.role,
+    documentId: doc.id,
+    docType: 'transaction',
+    pwdv: req.user!.pwdv,
+  });
+
+  sendSuccess(res, {
+    token,
+    fileUrl: `/api/v1/documents/${doc.id}/file?token=${encodeURIComponent(token)}`,
+    expiresInSeconds: 900,
+  });
+};
+
 /**
  * GET /documents/:documentId/file
  * Authenticated file streaming & download
@@ -372,6 +411,13 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
     return;
   }
 
+  if (req.docToken) {
+    if (req.docToken.documentId !== doc.id || req.docToken.docType !== 'transaction') {
+      sendForbidden(res, 'Invalid document access token.');
+      return;
+    }
+  }
+
   if (!(await canAccessTransaction(req.user, doc.transactionId))) {
     sendForbidden(res, 'You do not have permission to access this document file.');
     return;
@@ -384,6 +430,7 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
     'Content-Disposition',
     `inline; filename="${doc.fileName.replace(/[^a-zA-Z0-9_\-.]/g, '_')}"`
   );
+  res.setHeader('X-Content-Type-Options', 'nosniff');
 
   if (req.user?.userId) {
     recordAuditLog({

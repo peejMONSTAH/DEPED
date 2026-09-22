@@ -8,6 +8,7 @@ import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { templateForRequirement } from '../../components/forms/templateMatch';
 import { checklistFromTransaction, checklistReadiness, type RequirementItem } from './checklistData';
 import { ExtractionReview } from '../../components/forms/ExtractionReview';
+import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
 
 const TX_TYPE_LABELS: Record<string, string> = {
   PROMOTION_APPOINTMENT: 'Promotion Appointment',
@@ -38,6 +39,11 @@ export const Checklist: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingReqId, setUploadingReqId] = useState<number | null>(null);
   const [activeReqItem, setActiveReqItem] = useState<RequirementItem | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<{
+    title: string;
+    fileUrl: string;
+    viewTokenUrl?: string;
+  } | null>(null);
 
   // Resolve only assigned transactions; an explicit ID is never silently substituted.
   useEffect(() => {
@@ -413,11 +419,41 @@ export const Checklist: React.FC = () => {
 
                 <div>
                   {isDocLocked ? (
-                    <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.85, cursor: 'not-allowed', color: 'var(--color-success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <AppIcon name="lock" size={14} color="var(--color-success)" /> Locked
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {item.documentId && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setViewingDoc({
+                            title: item.name,
+                            fileUrl: `/documents/${item.documentId}/file`,
+                            viewTokenUrl: `/documents/${item.documentId}/view-token`,
+                          })}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <AppIcon name="view" size={13} /> View
+                        </button>
+                      )}
+                      <button className="btn btn-ghost btn-sm" disabled style={{ opacity: 0.85, cursor: 'not-allowed', color: 'var(--color-success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <AppIcon name="lock" size={14} color="var(--color-success)" /> Locked
+                      </button>
+                    </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {item.documentId && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setViewingDoc({
+                            title: item.name,
+                            fileUrl: `/documents/${item.documentId}/file`,
+                            viewTokenUrl: `/documents/${item.documentId}/view-token`,
+                          })}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <AppIcon name="view" size={13} /> View
+                        </button>
+                      )}
                       {item.needsExtractionReview && item.documentId && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewDocument(item.documentId)}>Review scanned information</button>}
                       {templateForRequirement(item.name) && <button
                         type="button"
@@ -519,6 +555,16 @@ export const Checklist: React.FC = () => {
           )}
         </div>
       </div>
+
+      {viewingDoc && (
+        <DocumentViewerModal
+          isOpen={Boolean(viewingDoc)}
+          onClose={() => setViewingDoc(null)}
+          title={viewingDoc.title}
+          fileUrl={viewingDoc.fileUrl}
+          viewTokenUrl={viewingDoc.viewTokenUrl}
+        />
+      )}
     </div>
   );
 };

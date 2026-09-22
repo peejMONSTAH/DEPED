@@ -3,17 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 enum PersonnelDocumentStatus {
+  NOT_SUBMITTED,
   PENDING,
   SUBMITTED,
   UNDER_REVIEW,
   APPROVED,
   REJECTED,
   EXPIRED,
+  REPLACEMENT_REQUIRED,
 }
 
 extension PersonnelDocumentStatusExt on PersonnelDocumentStatus {
   String get label {
     switch (this) {
+      case PersonnelDocumentStatus.NOT_SUBMITTED:
+        return 'Not Submitted';
       case PersonnelDocumentStatus.PENDING:
         return 'Pending';
       case PersonnelDocumentStatus.SUBMITTED:
@@ -26,11 +30,15 @@ extension PersonnelDocumentStatusExt on PersonnelDocumentStatus {
         return 'Rejected';
       case PersonnelDocumentStatus.EXPIRED:
         return 'Expired';
+      case PersonnelDocumentStatus.REPLACEMENT_REQUIRED:
+        return 'Replacement Required';
     }
   }
 
   Color get color {
     switch (this) {
+      case PersonnelDocumentStatus.NOT_SUBMITTED:
+        return const Color(0xFF64748B); // Slate
       case PersonnelDocumentStatus.PENDING:
         return const Color(0xFFD97706); // Amber
       case PersonnelDocumentStatus.SUBMITTED:
@@ -40,6 +48,7 @@ extension PersonnelDocumentStatusExt on PersonnelDocumentStatus {
       case PersonnelDocumentStatus.APPROVED:
         return const Color(0xFF10B981); // Emerald Green
       case PersonnelDocumentStatus.REJECTED:
+      case PersonnelDocumentStatus.REPLACEMENT_REQUIRED:
         return const Color(0xFFDC2626); // Red
       case PersonnelDocumentStatus.EXPIRED:
         return const Color(0xFF64748B); // Slate
@@ -326,6 +335,8 @@ class PersonnelDocument {
   final String updatedAt;
   final String? reviewedAt;
   final String? reviewedBy;
+  final bool isRequired;
+  final bool hasFile;
 
   PersonnelDocument({
     required this.id,
@@ -346,6 +357,8 @@ class PersonnelDocument {
     required this.updatedAt,
     this.reviewedAt,
     this.reviewedBy,
+    this.isRequired = false,
+    this.hasFile = true,
   });
 
   bool get isPdf => mimeType.toLowerCase().contains('pdf') || originalFileName.toLowerCase().endsWith('.pdf');
@@ -361,6 +374,8 @@ class PersonnelDocument {
     PersonnelDocumentStatus parseStatus(dynamic raw) {
       final s = raw?.toString().toUpperCase() ?? '';
       switch (s) {
+        case 'NOT_SUBMITTED':
+          return PersonnelDocumentStatus.NOT_SUBMITTED;
         case 'PENDING':
           return PersonnelDocumentStatus.PENDING;
         case 'SUBMITTED':
@@ -376,6 +391,8 @@ class PersonnelDocument {
           return PersonnelDocumentStatus.REJECTED;
         case 'EXPIRED':
           return PersonnelDocumentStatus.EXPIRED;
+        case 'REPLACEMENT_REQUIRED':
+          return PersonnelDocumentStatus.REPLACEMENT_REQUIRED;
         default:
           return PersonnelDocumentStatus.SUBMITTED;
       }
@@ -407,6 +424,8 @@ class PersonnelDocument {
       updatedAt: json['updatedAt']?.toString() ?? json['updated_at']?.toString() ?? DateTime.now().toIso8601String(),
       reviewedAt: json['reviewedAt']?.toString() ?? json['reviewed_at']?.toString(),
       reviewedBy: json['reviewedBy']?.toString() ?? json['reviewed_by']?.toString(),
+      isRequired: json['isRequired'] == true || json['is_required'] == true,
+      hasFile: json['hasFile'] == true || json['has_file'] == true || (json['fileUrl'] != null && json['fileUrl'].toString().isNotEmpty),
     );
   }
 
@@ -429,6 +448,8 @@ class PersonnelDocument {
     'updatedAt': updatedAt,
     'reviewedAt': reviewedAt,
     'reviewedBy': reviewedBy,
+    'isRequired': isRequired,
+    'hasFile': hasFile,
   };
 }
 

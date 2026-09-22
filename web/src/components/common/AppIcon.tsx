@@ -63,6 +63,7 @@ import {
   RefreshCw,
   ChevronLeft,
   BadgeCheck,
+  Camera,
   LucideProps
 } from 'lucide-react';
 
@@ -251,6 +252,7 @@ const iconMap: Record<string, React.FC<LucideProps>> = {
   users: Users,
   chart: BarChart3,
   sync: RefreshCw,
+  camera: Camera,
 };
 
 export const AppIcon: React.FC<AppIconProps> = ({
