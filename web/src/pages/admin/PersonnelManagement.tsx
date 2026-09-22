@@ -546,7 +546,8 @@ export const PersonnelManagement: React.FC = () => {
                     onClick={() => setSelected(null)}
                     aria-label="Close"
                     style={{
-                      width: '36px', height: '36px', borderRadius: '10px',
+                      // 44px minimum touch target.
+                      width: '44px', height: '44px', borderRadius: '10px',
                       backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)',
                       color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center',
                       justifyContent: 'center', cursor: 'pointer', fontSize: '16px', fontWeight: 700,
@@ -988,7 +989,7 @@ export const PersonnelManagement: React.FC = () => {
                 type="button"
                 onClick={() => setShowAddModal(false)}
                 aria-label="Close"
-                style={{ width: '34px', height: '34px', borderRadius: '10px', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '15px', fontWeight: 700, flexShrink: 0 }}
+                style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '15px', fontWeight: 700, flexShrink: 0 }}
               >✕</button>
             </div>
 

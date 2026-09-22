@@ -373,22 +373,30 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                   child: Row(
                     children: [
+                      // Labels mirror the website sidebar so the same
+                      // destination is called the same thing on every surface.
                       _buildNavTabItem(
-                          index: 0, icon: LucideIcons.home, label: 'Home'),
+                          index: 0,
+                          icon: LucideIcons.home,
+                          label: 'Portal Home'),
                       _buildNavTabItem(
                           index: 1,
                           icon: LucideIcons.userCheck,
-                          label: 'Profile'),
+                          label: 'My 201 File'),
                       _buildNavTabItem(
                           index: 2,
                           icon: LucideIcons.folderOpen,
-                          label: 'Documents'),
+                          label: 'My Documents'),
+                      // Opens CareerTimelineScreen, which the sidebar calls
+                      // Service Record - not My Transactions.
                       _buildNavTabItem(
-                          index: 3, icon: LucideIcons.award, label: 'Career'),
+                          index: 3,
+                          icon: LucideIcons.award,
+                          label: 'Service Record'),
                       _buildNavTabItem(
                           index: _alertsTabIndex,
                           icon: LucideIcons.bell,
-                          label: 'Alerts'),
+                          label: 'Notifications'),
                     ],
                   ),
                 ),
@@ -465,15 +473,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ],
               ),
               const SizedBox(height: 2),
-              // scaleDown keeps a longer label such as "Documents" inside its
-              // share of the bar instead of overflowing on a narrow phone.
+              // Sidebar labels are two words. Wrapping to a second line keeps
+              // them readable; scaleDown on a single line would shrink
+              // "My Documents" to roughly 8px inside a 320px five-tab bar.
+              // scaleDown is kept as the floor for the longest single word.
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   label,
-                  maxLines: 1,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
+                    fontSize: 10.5,
+                    height: 1.15,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                     color: color,
                   ),

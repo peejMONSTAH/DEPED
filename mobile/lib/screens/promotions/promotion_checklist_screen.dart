@@ -49,7 +49,9 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   bool _isSoloParent = false;
 
   List<PromotionChecklistItem> _checklistItems =
-      PromotionChecklistItem.defaultAnnexCRequirements();
+      PromotionChecklistItem.sortedByTitle(
+    PromotionChecklistItem.defaultAnnexCRequirements(),
+  );
   List<PersonnelDocument> _existing201Documents = [];
 
   bool _omnibusSwornAgreed = false;
@@ -118,7 +120,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         item.uploadedFileUrl = previous.uploadedFileUrl;
         item.existingDocumentId = previous.existingDocumentId;
       }
-      _checklistItems = items;
+      // The server sends Annex C order (a–k); the screen shows A–Z.
+      _checklistItems = PromotionChecklistItem.sortedByTitle(items);
     });
   }
 

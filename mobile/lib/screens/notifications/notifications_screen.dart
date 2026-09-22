@@ -4,12 +4,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../models/transaction_model.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/realtime_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../utils/display.dart';
+import '../../utils/errors.dart';
 import '../../widgets/ui_kit.dart';
+import '../auth/change_password_dialog.dart';
+import '../career/career_timeline_screen.dart';
 import '../transactions/checklist_upload_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -19,12 +23,21 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
+/// Where a notification's action button leads.
+///
+/// Kept separate from the button label so the two cannot drift: a label with
+/// no destination is what produced "Redirecting to:" followed by nothing.
+enum _NotificationDestination { transaction, password, serviceRecord, none }
+
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late final ApiService _apiService;
   late final RealtimeService _realtimeService;
   StreamSubscription? _notifSub;
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
+  /// A second tap while the first is still resolving would push the same screen
+  /// twice, leaving a duplicate to back out of.
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -161,31 +174,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         // Determine action button label based on notification intent
                         String actionLabel = 'View Details';
                         IconData actionIcon = LucideIcons.arrowRight;
+                        var destination = _NotificationDestination.none;
                         final lowerMsg = message.toLowerCase();
 
                         if (entityType == 'AccountCreationRequest' ||
                             lowerMsg.contains('account creation') ||
                             lowerMsg.contains('creation request')) {
-                          actionLabel = 'Review Account Request';
+                          // Approving account requests is an administrator's
+                          // job. Personnel receive this only as information, so
+                          // the card carries no action button at all rather
+                          // than one that cannot lead anywhere.
+                          actionLabel = '';
                           actionIcon = LucideIcons.userPlus;
                         } else if (lowerMsg.contains('password') ||
                             lowerMsg.contains('credential') ||
                             lowerMsg.contains('reset')) {
-                          actionLabel = 'Manage Credentials';
+                          // Not "Manage credentials": that is the admin
+                          // console. What this person can do is set a new
+                          // password.
+                          actionLabel = 'Change password';
                           actionIcon = LucideIcons.keyRound;
+                          destination = _NotificationDestination.password;
                         } else if (lowerMsg.contains('deficienc') ||
                             lowerMsg.contains('reject') ||
                             lowerMsg.contains('return')) {
                           actionLabel = 'Fix Requirements';
                           actionIcon = LucideIcons.fileWarning;
+                          destination = _NotificationDestination.transaction;
                         } else if (lowerMsg.contains('approved') ||
                             lowerMsg.contains('transaction')) {
                           actionLabel = 'Open Transaction';
                           actionIcon = LucideIcons.fileText;
+                          destination = _NotificationDestination.transaction;
                         } else if (lowerMsg.contains('promotion') ||
                             lowerMsg.contains('career')) {
                           actionLabel = 'View Service Record';
                           actionIcon = LucideIcons.award;
+                          destination = _NotificationDestination.serviceRecord;
                         }
 
                         return Container(
@@ -238,6 +263,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     ),
                                   ],
                                 ),
+                                // An account-request notice is information only for
+                                // this role, so it gets no button rather than one that
+                                // leads nowhere.
+                                if (actionLabel.isNotEmpty) ...[
                                 const SizedBox(height: AppSpace.md),
                                 Align(
                                   alignment: Alignment.centerRight,
@@ -251,19 +280,73 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         borderRadius: AppRadius.mdAll,
                                       ),
                                     ),
-                                    onPressed: () async {
+                                    onPressed: _isNavigating
+                                        ? null
+                                        : () async {
                                       final navigator = Navigator.of(context);
                                       final messenger =
                                           ScaffoldMessenger.of(context);
-                                      final rawTxId = item['relatedEntityId'] ??
-                                          item['related_entity_id'];
-                                      final txId = rawTxId is int
-                                          ? rawTxId
-                                          : (int.tryParse(
-                                                  rawTxId?.toString() ?? '') ??
-                                              0);
+                                      setState(() => _isNavigating = true);
+                                      try {
+                                        switch (destination) {
+                                          case _NotificationDestination
+                                                .password:
+                                            // The app offers this dialog at
+                                            // first login and nowhere else, so
+                                            // this notification is the only
+                                            // route to it. An empty
+                                            // temporaryPassword leaves the
+                                            // current-password field blank for
+                                            // the holder to type.
+                                            await showDialog<void>(
+                                              context: context,
+                                              builder: (ctx) =>
+                                                  ChangePasswordDialog(
+                                                temporaryPassword: '',
+                                                onSubmit: (curr, next) =>
+                                                    AuthService(ApiService())
+                                                        .changePassword(
+                                                            curr, next),
+                                              ),
+                                            );
+                                            return;
 
-                                      if (txId > 0) {
+                                          case _NotificationDestination
+                                                .serviceRecord:
+                                            await navigator.push(
+                                              MaterialPageRoute(
+                                                builder: (ctx) =>
+                                                    const CareerTimelineScreen(),
+                                              ),
+                                            );
+                                            return;
+
+                                          case _NotificationDestination
+                                                .transaction:
+                                          case _NotificationDestination.none:
+                                            break;
+                                        }
+
+                                        final rawTxId =
+                                            item['relatedEntityId'] ??
+                                                item['related_entity_id'];
+                                        final txId = rawTxId is int
+                                            ? rawTxId
+                                            : (int.tryParse(rawTxId
+                                                        ?.toString() ??
+                                                    '') ??
+                                                0);
+
+                                        if (txId <= 0) {
+                                          messenger.showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'This notice has no record attached to open.'),
+                                            ),
+                                          );
+                                          return;
+                                        }
+
                                         try {
                                           final txs = await TransactionService(
                                                   ApiService())
@@ -276,8 +359,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             }
                                           }
 
+                                          if (!mounted) return;
                                           if (foundTx == null) {
-                                            if (!mounted) return;
                                             messenger.showSnackBar(
                                               const SnackBar(
                                                 content: Text(
@@ -288,28 +371,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                             return;
                                           }
 
-                                          if (!mounted) return;
-                                          navigator.push(
+                                          await navigator.push(
                                             MaterialPageRoute(
                                               builder: (ctx) =>
                                                   ChecklistUploadScreen(
                                                       transaction: foundTx!),
                                             ),
                                           );
-                                          return;
-                                        } catch (_) {}
+                                        } catch (error) {
+                                          if (!mounted) return;
+                                          // Say what went wrong rather than
+                                          // claiming a redirect that did not
+                                          // happen.
+                                          messenger.showSnackBar(
+                                            SnackBar(
+                                              content: Text(friendlyError(error,
+                                                  fallback:
+                                                      'This could not be opened. Check your connection and try again.')),
+                                              backgroundColor:
+                                                  AppTheme.statusReturned,
+                                            ),
+                                          );
+                                        }
+                                      } finally {
+                                        if (mounted) {
+                                          setState(
+                                              () => _isNavigating = false);
+                                        }
                                       }
-
-                                      if (!mounted) return;
-                                      messenger.showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                              'Redirecting to: $actionLabel'),
-                                          duration: const Duration(seconds: 2),
-                                          backgroundColor:
-                                              AppTheme.primaryLight,
-                                        ),
-                                      );
                                     },
                                     icon: Icon(actionIcon, size: 14),
                                     label: Text(
@@ -321,6 +410,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     ),
                                   ),
                                 ),
+                                ],
                               ],
                             ),
                           ),

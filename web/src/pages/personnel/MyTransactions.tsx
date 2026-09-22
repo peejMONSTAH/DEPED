@@ -75,7 +75,7 @@ export const MyTransactions: React.FC = () => {
             <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
               <AppIcon name="inbox" size={36} color="var(--color-text-muted)" />
             </div>
-            <div style={{ fontWeight: 600, marginBottom: 0 }}>No transactions yet</div>
+            <div style={{ fontWeight: 600, marginBottom: 0 }}>No transactions</div>
           </div>
         ) : (
           transactions.map(tx => {

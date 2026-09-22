@@ -56,6 +56,33 @@ class PromotionChecklistItem {
   /// Offline fallback only. The authoritative Annex C list is served by
   /// GET /promotions/annex-c-requirements so a DepEd revision reaches every
   /// client without an app release; this copy is used when that call fails.
+  /// The requirements in the order a person reads them: A–Z by the name shown
+  /// on screen.
+  ///
+  /// The stored order is the checklist code, a–k, which is the order of DepEd
+  /// Order No. 007 s. 2023. That is meaningful to the issuing office and
+  /// meaningless to someone scanning the list for "Transcript of Records", so
+  /// the display sorts by title instead.
+  ///
+  /// Comparison is trimmed and case-insensitive, so a stray leading space or a
+  /// lower-case entry does not sort away from its neighbours. Ties fall back to
+  /// the code, which is unique, so the order is stable: re-sorting after an
+  /// upload or a refresh cannot reshuffle two items with the same name.
+  ///
+  /// Returns a new list. The caller's list is never sorted in place, because
+  /// these items carry upload state that other screens hold references to.
+  static List<PromotionChecklistItem> sortedByTitle(
+    List<PromotionChecklistItem> items,
+  ) {
+    final ordered = [...items];
+    ordered.sort((a, b) {
+      final byTitle =
+          a.title.trim().toLowerCase().compareTo(b.title.trim().toLowerCase());
+      return byTitle != 0 ? byTitle : a.code.compareTo(b.code);
+    });
+    return ordered;
+  }
+
   static List<PromotionChecklistItem> defaultAnnexCRequirements() {
     return [
       PromotionChecklistItem(

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { isPersonnel } from '../../auth/permissions';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
@@ -517,6 +518,12 @@ export const ProfileCompletion: React.FC = () => {
   const isPersonalLocked = isFieldLocked('personal.firstName') && isFieldLocked('personal.lastName') && isFieldLocked('personal.birthDate');
   const isPdsLocked = isFieldLocked('pds.residentialAddress') && isFieldLocked('pds.permanentAddress') && isFieldLocked('pds.mobileNo');
   const isWesLocked = true;
+  // The authorized office maintains the Work Experience Sheet. A personnel
+  // account may read it but never create, edit, delete or replace an entry:
+  // PUT /personnel/me lists 'wes' in staffOnlyFields and answers 403 to any
+  // other role. Deriving this from the role rather than from entry.isLocked
+  // means a state refresh cannot quietly re-enable the form.
+  const wesReadOnly = isPersonnel(user);
   const isEmploymentLocked = isFieldLocked('employment.position') && isFieldLocked('employment.firstDayOfService') && isFieldLocked('employment.contactNumber');
 
   const tabs = [
@@ -1003,14 +1010,6 @@ export const ProfileCompletion: React.FC = () => {
             <div className="profile-tab-actions" style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
               <button
                 type="button"
-                disabled
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-              >
-                <AppIcon name="lock" size={15} /> AO-maintained record
-              </button>
-              <button
-                type="button"
                 onClick={() => setActiveTab('wes')}
                 className="btn btn-secondary"
                 style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
@@ -1045,18 +1044,27 @@ export const ProfileCompletion: React.FC = () => {
         <form onSubmit={handleSaveWes} className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div><h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>Work Experience Sheet (WES)</h3>
+              {wesReadOnly && (
+                <p style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                  {/* Not colour alone: the lock icon and the words carry the state. */}
+                  <AppIcon name="lock" size={14} />
+                  <span><strong>WES record · Locked.</strong> Maintained by the authorized office.</span>
+                </p>
+              )}
               {documentSources.wes && <span className="badge badge-info" title={documentSources.wes.uploadDate ? `Uploaded ${new Date(documentSources.wes.uploadDate).toLocaleString()}` : undefined}>
                 Imported from transaction WES · {documentSources.wes.status || 'Recorded'}
               </span>}
             </div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={addWesEntry}>
-              + Add Past Experience Entry
-            </button>
+            {!wesReadOnly && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={addWesEntry}>
+                + Add Past Experience Entry
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {wes.map((entry, idx) => {
-              const entryLocked = entry.isLocked === true;
+              const entryLocked = entry.isLocked === true || wesReadOnly;
               return (
                 <div
                   key={entry.id}
@@ -1212,14 +1220,6 @@ export const ProfileCompletion: React.FC = () => {
 
           {isWesLocked && !isEditMode ? (
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button
-                type="button"
-                disabled
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-              >
-                <AppIcon name="lock" size={15} /> AO-maintained record
-              </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('employment')}
@@ -1466,14 +1466,6 @@ export const ProfileCompletion: React.FC = () => {
 
           {isEmploymentLocked && !isEditMode ? (
             <div className="profile-tab-actions" style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                disabled
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-              >
-                <AppIcon name="lock" size={15} /> AO-maintained record
-              </button>
               <button
                 type="button"
                 onClick={() => navigate('/personnel/home')}
