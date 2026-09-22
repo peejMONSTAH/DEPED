@@ -159,9 +159,6 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#141416' }}>
                   Confirm Logout
                 </h3>
-                <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-                  DepEd 201 HRIS Session Security
-                </span>
               </div>
             </div>
           </div>

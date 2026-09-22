@@ -203,12 +203,7 @@ export const AuditLog: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <div>
-          <h1 className="topbar-title">Audit Trail & System Logs</h1>
-          <p className="topbar-subtitle">
-            Division Security & Compliance Monitoring — Track logins, account creation, uploads, validations, approvals, and system edits
-          </p>
-        </div>
+        <h1 className="topbar-title" style={{ margin: 0 }}>Audit Trail & System Logs</h1>
       </div>
 
       <div className="page-content">

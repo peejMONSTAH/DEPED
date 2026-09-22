@@ -341,12 +341,7 @@ export const TransactionApproval: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <div>
-          <h1 className="topbar-title">HRMO — Final Approval</h1>
-          <p className="topbar-subtitle">
-            Step 1: Review Validated Transactions &bull; Step 2: Approve or Return &bull; Step 3: Career Lifecycle Update
-          </p>
-        </div>
+        <h1 className="topbar-title" style={{ margin: 0 }}>HRMO — Final Approval</h1>
         <div className="topbar-actions flex items-center gap-2">
           {selectedTxIds.length > 0 && canApprove && (
             <>
@@ -811,7 +806,6 @@ export const TransactionApproval: React.FC = () => {
                 <SmartEmptyState
                   type="no-records"
                   title="No Certified Approvals Yet"
-                  description="Transactions that receive HRMO final approval will be archived here with official 201 dossiers."
                   primaryAction={{
                     label: 'View Awaiting Approvals',
                     onClick: () => setActiveTab('FOR_APPROVAL'),

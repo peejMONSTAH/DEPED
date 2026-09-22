@@ -707,9 +707,6 @@ export const PersonnelHome: React.FC = () => {
             </span>
           )}
         </div>
-        <p className="editorial-sub-title">
-          Manage your digital 201 records, submission compliance, and DepEd career transactions.
-        </p>
       </div>
 
       {/* ─── 3. METRICS ROW (Strict Database Numbers & Editorial Styling) ─── */}
@@ -820,9 +817,6 @@ export const PersonnelHome: React.FC = () => {
                     Checklist & Scanner
                   </span>
                 </div>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
-                  Access your baseline DepEd requirements (PDS, PRC, TOR, IPCR), preview PDFs/images in-app, or scan paper files directly into PDF with your camera.
-                </p>
               </div>
             </div>
 
@@ -869,10 +863,7 @@ export const PersonnelHome: React.FC = () => {
           {/* Section 1: Active 201 Transactions */}
           <div className="table-card-large">
             <div className="card-header-flex">
-              <div>
-                <h3 className="card-heading-title">Active 201 Transactions</h3>
-                <div className="card-heading-sub">Live submission tracking and verification stages</div>
-              </div>
+              <h3 className="card-heading-title" style={{ margin: 0 }}>Active 201 Transactions</h3>
               <Link to="/personnel/transactions" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
                 View All Transactions →
               </Link>
@@ -996,22 +987,12 @@ export const PersonnelHome: React.FC = () => {
                   <div style={{
                     fontWeight: 800,
                     fontSize: 17,
-                    marginBottom: 8,
+                    marginBottom: 20,
                     color: 'var(--color-text-primary)',
                     letterSpacing: '-0.01em'
                   }}>
                     No Active 201 Transactions
                   </div>
-                  
-                  <p style={{
-                    maxWidth: 440,
-                    margin: '0 auto 20px auto',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    color: 'var(--color-text-secondary)'
-                  }}>
-                    You have no pending document submissions. When HR selects you for hiring or promotion, your appointment transaction will appear in My Transactions so you can complete the requirements.
-                  </p>
 
                   {/* 3-Step Guided Workflow Pills */}
                   <div style={{

@@ -173,12 +173,7 @@ export const ComplianceMonitoring: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <div>
-          <h1 className="topbar-title">HRMO — Compliance & Years of Service</h1>
-          <p className="topbar-subtitle">
-            Required document validation and recorded service history
-          </p>
-        </div>
+        <h1 className="topbar-title" style={{ margin: 0 }}>HRMO — Compliance & Years of Service</h1>
       </div>
 
       <div className="page-content">

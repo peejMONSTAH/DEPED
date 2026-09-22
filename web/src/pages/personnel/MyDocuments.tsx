@@ -340,9 +340,6 @@ export const MyDocuments: React.FC = () => {
       <div className="topbar" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ minWidth: 0 }}>
           <h1 className="page-title" style={{ margin: 0 }}>My Documents</h1>
-          <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.875rem' }}>
-            Manage your official 201 file documents, checklist requirements, and certificates.
-          </p>
         </div>
 
         <div className="my-documents-topbar-actions">

@@ -206,15 +206,6 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
               >
                 Essential Account Setup
               </div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: 'var(--color-text-secondary)',
-                  marginTop: 2,
-                }}
-              >
-                Configure profile info, credentials & security preferences
-              </div>
             </div>
           </div>
           <button

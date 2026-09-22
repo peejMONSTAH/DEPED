@@ -66,12 +66,7 @@ export const MyTransactions: React.FC = () => {
   return (
     <div className="animate-fade-in personnel-content-container">
       <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24 }}>
-        <div>
-          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>My 201 File Transactions</div>
-          <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-            Track live submission stages, compliance checking, and approval status
-          </div>
-        </div>
+        <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>My 201 File Transactions</h1>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -80,8 +75,7 @@ export const MyTransactions: React.FC = () => {
             <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
               <AppIcon name="inbox" size={36} color="var(--color-text-muted)" />
             </div>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>No transactions yet</div>
-            <div className="text-sm text-muted mb-4">Your appointment transaction will appear here when HR selects you for hiring or promotion. Open it to complete and submit your requirements.</div>
+            <div style={{ fontWeight: 600, marginBottom: 0 }}>No transactions yet</div>
           </div>
         ) : (
           transactions.map(tx => {

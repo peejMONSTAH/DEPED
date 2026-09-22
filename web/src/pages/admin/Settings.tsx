@@ -9,7 +9,7 @@ const PolicyRow: React.FC<{ label: string; value: string; note: string }> = ({ l
 
 export const Settings: React.FC = () => (
   <div className="animate-fade-in">
-    <div className="topbar"><div><div className="topbar-title">System Security</div><div className="topbar-subtitle">Effective safeguards currently enforced by the server</div></div></div>
+    <div className="topbar"><h1 className="topbar-title" style={{ margin: 0 }}>System Security</h1></div>
     <div className="page-content" style={{ maxWidth: 900 }}>
       <div className="card mb-6">
         <h3 className="card-title">Effective policies</h3>

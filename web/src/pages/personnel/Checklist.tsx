@@ -212,16 +212,15 @@ export const Checklist: React.FC = () => {
   return (
     <div className="animate-fade-in personnel-content-container">
       <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
             Requirement Checklist & Submission
-            <StatusBadge status={txStatus} />
-          </div>
-          <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-            Transaction #{txId || rawTxId || '—'} · {actualType || TX_TYPE_LABELS[txType] || txType}
-          </div>
+          </h1>
+          <span className="badge badge-neutral" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700 }}>
+            TRX-{txId || rawTxId || '—'}
+          </span>
+          <StatusBadge status={txStatus} />
         </div>
-
       </div>
 
       {/* 1. Submitted / Pending AO II Review Banner */}
@@ -356,10 +355,7 @@ export const Checklist: React.FC = () => {
       {/* Mandatory Checklist Items in Table Card */}
       <div className="table-card-large mb-5">
         <div className="card-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <h3 className="card-heading-title">Required Checklist Documents</h3>
-            <div className="card-heading-sub">Official DepEd documentary requirements for verification & compliance</div>
-          </div>
+          <h3 className="card-heading-title" style={{ margin: 0 }}>Required Checklist Documents</h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="badge badge-info" style={{ fontSize: 11, padding: '4px 10px' }}>
               {items.length} Documents Required

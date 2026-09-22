@@ -502,14 +502,13 @@ export const CredentialDistribution: React.FC = () => {
   return (
     <div className="animate-fade-in">
       <div className="topbar">
-        <div>
-          <div className="topbar-title">Account Creation & Credential Handoff</div>
-          <div className="topbar-subtitle">
-            {isSysAdmin
-              ? 'System Administrator Module — Review AO II Account Requests, create accounts, and distribute access'
-              : `AO II Module — Account management for ${aoStationInfo?.schoolName || 'your assigned school'} (${aoStationInfo?.districtName || 'District'})`
-            }
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h1 className="topbar-title" style={{ margin: 0 }}>Account Creation & Credential Handoff</h1>
+          {!isSysAdmin && (
+            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
+              <AppIcon name="school" size={13} /> {aoStationInfo?.schoolName || 'Assigned School'}
+            </span>
+          )}
         </div>
         <div className="topbar-actions">
           <button className="btn btn-primary btn-sm" onClick={handleOpenAddModal} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

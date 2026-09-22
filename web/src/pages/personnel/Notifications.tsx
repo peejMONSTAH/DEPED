@@ -135,12 +135,7 @@ export const PersonnelNotifications: React.FC = () => {
   return (
     <div className="animate-fade-in personnel-content-container">
       <div className="topbar" style={{ padding: '0 0 16px 0', marginBottom: 16 }}>
-        <div>
-          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>Notification & Compliance Monitoring</div>
-          <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-            Official alerts, document reviews, and appointment approvals for your 201 records
-          </div>
-        </div>
+        <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Notification & Compliance Monitoring</h1>
         {unreadCount > 0 && (
           <div className="topbar-actions">
             <button

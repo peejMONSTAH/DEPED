@@ -146,13 +146,8 @@ export const CareerRecord: React.FC = () => {
 
   return (
     <div className="animate-fade-in personnel-content-container">
-      <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24 }}>
-        <div>
-          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>Service Record & Career Timeline</div>
-          <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-            Official digital 201 service history, position appointments, and step increments (Database Synchronized)
-          </div>
-        </div>
+      <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Service Record & Career Timeline</h1>
         <div className="topbar-actions">
           <button
             className="btn btn-primary btn-sm"

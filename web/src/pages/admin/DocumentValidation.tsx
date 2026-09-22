@@ -395,11 +395,11 @@ export const DocumentValidation: React.FC = () => {
   return (
     <div className="animate-fade-in">
       <div className="topbar">
-        <div>
-          <div className="topbar-title">AO II Document Validation & Initial Qualification</div>
-          <div className="topbar-subtitle">
-            School-level initial evaluation of documentary requirements under DepEd Order No. 7, s. 2023 & DO 19/24, s. 2025
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h1 className="topbar-title" style={{ margin: 0 }}>AO II Document Validation & Initial Qualification</h1>
+          <span className="badge badge-neutral" style={{ fontSize: '0.72rem', fontWeight: 600 }}>
+            DepEd Order No. 7, s. 2023 & DO 19/24, s. 2025
+          </span>
         </div>
       </div>
 

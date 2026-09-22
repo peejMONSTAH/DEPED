@@ -329,17 +329,17 @@ export const PersonnelManagement: React.FC = () => {
   return (
     <div className="animate-fade-in">
       <div className="topbar">
-        <div>
-          <div className="topbar-title">Personnel Records Management</div>
-          <div className="topbar-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {user?.role === 'AO_II' ? (
-              <><AppIcon name="school" size={14} /> Station Scope: {(user as any).designation || user.lastName || 'Assigned School'} (Personnel under your station only)</>
-            ) : user?.role === 'HRMO' ? (
-              <><AppIcon name="settings" size={14} /> Division-Wide Scope: Schools Division Office (SDO Koronadal City) — Division Level (No District Assigned)</>
-            ) : (
-              'Browse and manage personnel employee profiles'
-            )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h1 className="topbar-title" style={{ margin: 0 }}>Personnel Records Management</h1>
+          {user?.role === 'AO_II' ? (
+            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
+              <AppIcon name="school" size={13} /> {(user as any).designation || user.lastName || 'Assigned School'}
+            </span>
+          ) : user?.role === 'HRMO' ? (
+            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
+              <AppIcon name="settings" size={13} /> SDO Koronadal City (Division-Wide)
+            </span>
+          ) : null}
         </div>
         <div className="topbar-actions">
           {canManage && (

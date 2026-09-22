@@ -52,7 +52,7 @@ export const Reports: React.FC = () => {
   ] as const;
 
   return <div className="animate-fade-in">
-    <div className="topbar"><div><div className="topbar-title">Reports & Data Analytics</div><div className="topbar-subtitle">Live operational data; exports are generated as CSV files</div></div></div>
+    <div className="topbar"><h1 className="topbar-title" style={{ margin: 0 }}>Reports & Data Analytics</h1></div>
     <div className="page-content"><div className="grid grid-2 gap-6 mb-6">
       <div className="card"><h3 className="card-title mb-4">Plantilla Item Distribution</h3><div className="chart-wrapper">
         {loading ? <div className="text-muted">Loading current data…</div> : distribution.length === 0 ? <div className="text-muted">No plantilla items found.</div> : <ResponsiveContainer width="100%" height="100%"><BarChart data={distribution}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" /><XAxis dataKey="division" tick={{ fill: 'var(--color-text-muted)', fontSize: 10 }} /><YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-muted)', fontSize: 12 }} /><Tooltip /><Bar dataKey="active" name="Filled Items" fill="#2563eb" radius={[4, 4, 0, 0]} /><Bar dataKey="vacancy" name="Vacancies" fill="#f97316" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>}

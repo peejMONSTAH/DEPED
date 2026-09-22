@@ -128,12 +128,7 @@ export const TransactionQueue: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <div>
-          <h1 className="topbar-title">Transaction Queue</h1>
-          <p className="topbar-subtitle">
-            Review, validate, and manage division-wide personnel transactions
-          </p>
-        </div>
+        <h1 className="topbar-title" style={{ margin: 0 }}>Transaction Queue</h1>
       </div>
 
       <div className="page-content">
@@ -250,7 +245,6 @@ export const TransactionQueue: React.FC = () => {
             <SmartEmptyState
               type="queue-cleared"
               title="Transaction Queue Is Clear"
-              description="There are currently no transactions in this queue. New personnel requests will appear here once submitted."
             />
           )
         ) : (

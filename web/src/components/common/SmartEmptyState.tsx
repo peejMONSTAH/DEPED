@@ -53,9 +53,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
     case 'queue-cleared':
       resolvedIcon = icon || 'approved';
       resolvedTitle = title || 'All Caught Up — Queue Is Clear';
-      resolvedDesc =
-        description ||
-        'All pending transactions and evaluations have been processed and synchronized with official digital 201 records.';
+      resolvedDesc = description || '';
       iconColor = 'var(--color-success)';
       iconBg = 'rgba(16, 185, 129, 0.12)';
       iconBorder = 'rgba(16, 185, 129, 0.28)';
@@ -64,9 +62,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
     case 'no-search-results':
       resolvedIcon = icon || 'search';
       resolvedTitle = title || (query ? `No results for "${query}"` : 'No matching records found');
-      resolvedDesc =
-        description ||
-        `We couldn't find any transactions or personnel matching your search keyword. Check spelling or try clearing the search filter.`;
+      resolvedDesc = description || '';
       iconColor = '#3B82F6';
       iconBg = 'rgba(59, 130, 246, 0.12)';
       iconBorder = 'rgba(59, 130, 246, 0.28)';
@@ -75,9 +71,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
     case 'no-filter-match':
       resolvedIcon = icon || 'compliance';
       resolvedTitle = title || (category ? `No records in "${category}"` : 'No records match filter');
-      resolvedDesc =
-        description ||
-        'There are currently no items matching the selected category or status criteria.';
+      resolvedDesc = description || '';
       iconColor = '#8B5CF6';
       iconBg = 'rgba(139, 92, 246, 0.12)';
       iconBorder = 'rgba(139, 92, 246, 0.28)';
@@ -86,9 +80,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
     case 'deficiency-cleared':
       resolvedIcon = icon || 'compliant';
       resolvedTitle = title || 'Zero Deficiencies Recorded';
-      resolvedDesc =
-        description ||
-        'All submitted personnel documentation meets prescribed DepEd Quality Standards. No returned or deficient records found.';
+      resolvedDesc = description || '';
       iconColor = '#10B981';
       iconBg = 'rgba(16, 185, 129, 0.12)';
       iconBorder = 'rgba(16, 185, 129, 0.28)';
@@ -97,9 +89,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
     case 'error':
       resolvedIcon = icon || 'warning';
       resolvedTitle = title || 'Unable to Load Records';
-      resolvedDesc =
-        description ||
-        'A connection issue occurred while syncing data from the central division server. Please check your network and try again.';
+      resolvedDesc = description || 'Please check your connection and try again.';
       iconColor = 'var(--color-error)';
       iconBg = 'rgba(239, 68, 68, 0.12)';
       iconBorder = 'rgba(239, 68, 68, 0.28)';
@@ -107,7 +97,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
 
     default:
       resolvedTitle = title || 'No Records Found';
-      resolvedDesc = description || 'There are no active records in this section at this time.';
+      resolvedDesc = description || '';
       break;
   }
 
@@ -124,8 +114,10 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
         <AppIcon name={resolvedIcon} size={32} color={iconColor} />
       </div>
 
-      <h3 className="empty-state-title">{resolvedTitle}</h3>
-      <p className="empty-state-text">{resolvedDesc}</p>
+      <h3 className="empty-state-title" style={{ marginBottom: resolvedDesc ? undefined : (primaryAction || secondaryAction ? 14 : 0) }}>
+        {resolvedTitle}
+      </h3>
+      {resolvedDesc && <p className="empty-state-text">{resolvedDesc}</p>}
 
       {(primaryAction || secondaryAction) && (
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>

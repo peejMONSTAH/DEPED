@@ -516,9 +516,6 @@ export const PlantillaManagement: React.FC = () => {
           <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.5px' }}>
             Plantilla Items & Occupant Registry
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: '4px 0 0 0' }}>
-            Complete division inventory of authorized plantilla items, active occupant assignments, and open vacancies for merit promotion.
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

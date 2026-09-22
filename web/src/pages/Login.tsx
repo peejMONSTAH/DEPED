@@ -124,7 +124,6 @@ export const LoginPage: React.FC = () => {
           <Digital201Logo variant="wordmark" size="md" tone="light" showTag />
           <header className="simple-login-header">
             <h1 id="login-heading">Welcome back</h1>
-            <p>Sign in to your Digital 201 account.</p>
           </header>
 
           {error && <div className="simple-login-error" role="alert">{error}</div>}

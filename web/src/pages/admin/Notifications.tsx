@@ -158,14 +158,7 @@ export const AdminNotifications: React.FC = () => {
   return (
     <div className="animate-fade-in">
       <div className="topbar">
-        <div>
-          <div className="topbar-title">Notifications Center</div>
-          <div className="topbar-subtitle">
-            {isSysAdmin
-              ? 'User credentials, account creation requests, and administrative security alerts'
-              : 'Real-time system activities, workflow alerts, and direct action routing'}
-          </div>
-        </div>
+        <h1 className="topbar-title" style={{ margin: 0 }}>Notifications Center</h1>
         <div className="topbar-actions">
           <button className="btn btn-secondary btn-sm" onClick={handleMarkAllRead}>
             Mark all read

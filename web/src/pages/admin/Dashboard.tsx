@@ -599,11 +599,6 @@ export const AdminDashboard: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <p className="card-heading-sub">
-                    {sysAdminViewTab === 'USERS'
-                      ? 'Seven most recent accounts. Open Manage Credentials for the complete registry.'
-                      : 'Pending account creation requests submitted by AO II or HRMO awaiting administrative approval'}
-                  </p>
                 </div>
                 <Link to="/admin/credentials" className="view-all-link">
                   <span>Manage Credentials</span>
@@ -976,10 +971,7 @@ export const AdminDashboard: React.FC = () => {
             {/* Left Column: Recent Transactions Queue (DB Driven) */}
             <div className="soft-card table-card-large">
               <div className="card-header-flex">
-                <div>
-                  <h3 className="card-heading-title">Recent Transactions Queue</h3>
-                  <p className="card-heading-sub">Live 201 file submissions and document validation status from database</p>
-                </div>
+                <h3 className="card-heading-title" style={{ margin: 0 }}>Recent Transactions Queue</h3>
                 <Link to="/admin/transactions" className="view-all-link">
                   <span>View Queue</span>
                   <span className="arrow">→</span>
