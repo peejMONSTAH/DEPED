@@ -126,11 +126,13 @@ class PersonnelDocumentService {
       multipartFile = MultipartFile.fromBytes(
         document.bytes!,
         filename: document.name,
+        contentType: DioMediaType.parse(document.mimeType),
       );
     } else if (document.path != null) {
       multipartFile = await MultipartFile.fromFile(
         document.path!,
         filename: document.name,
+        contentType: DioMediaType.parse(document.mimeType),
       );
     } else {
       throw Exception('No valid document binary data or path available.');
@@ -183,9 +185,9 @@ class PersonnelDocumentService {
     MultipartFile? multipartFile;
     if (document != null) {
       if (kIsWeb || document.bytes != null) {
-        multipartFile = MultipartFile.fromBytes(document.bytes!, filename: document.name);
+        multipartFile = MultipartFile.fromBytes(document.bytes!, filename: document.name, contentType: DioMediaType.parse(document.mimeType));
       } else if (document.path != null) {
-        multipartFile = await MultipartFile.fromFile(document.path!, filename: document.name);
+        multipartFile = await MultipartFile.fromFile(document.path!, filename: document.name, contentType: DioMediaType.parse(document.mimeType));
       }
     }
 

@@ -438,20 +438,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Section 3: Eligibility & Division Verification
-            _buildSectionCard(
-              title: 'III. Eligibility & Division Records',
-              icon: LucideIcons.award,
-              items: [
-                _buildInfoRow('Division Governance', 'SDO Koronadal City · Region XII'),
-                _buildInfoRow('Digital 201 Verification', 'Synchronized with HRMIS'),
-                _buildInfoRow('PDS Form Standard', 'Civil Service Commission Form 212'),
-                _buildInfoRow('Personnel Status', 'Active in Service'),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Section 4: Personnel 201 Documents & Credentials
+            // Section 3: Personnel 201 Documents & Credentials
             Container(
               padding: const EdgeInsets.all(18.0),
               decoration: BoxDecoration(
@@ -477,7 +464,7 @@ class ProfileScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            'IV. Personnel 201 Documents',
+                            'III. Personnel 201 Documents',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,

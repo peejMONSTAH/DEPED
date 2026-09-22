@@ -1,0 +1,60 @@
+name: Encrypted daily backup
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 * * *' # 02:00 Asia/Manila. Enable only after setting the secrets below.
+permissions:
+  contents: read
+concurrency:
+  group: daily-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: vars.ENABLE_DAILY_BACKUPS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: backups
+    env:
+      DIGITAL201_BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SUPABASE_STORAGE_BUCKET: ${{ vars.SUPABASE_STORAGE_BUCKET || 'hris-documents' }}
+      BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Validate configuration
+        shell: bash
+        run: |
+          test -n "$DIGITAL201_BACKUP_DATABASE_URL"
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_KEY"
+          test "${#BACKUP_ENCRYPTION_PASSPHRASE}" -ge 32
+      - run: npm ci
+        working-directory: backend
+      - name: Export application data and current/historical documents
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/digital201-backup"
+          docker run --rm --network host --env DIGITAL201_BACKUP_DATABASE_URL \
+            --volume "$RUNNER_TEMP/digital201-backup:/backup" postgres:17-alpine \
+            sh -c 'pg_dump "$DIGITAL201_BACKUP_DATABASE_URL" --format=custom --no-owner --no-privileges --schema=public --extension=citext --file=/backup/database.dump'
+          node backend/scripts/backup-storage.mjs "$RUNNER_TEMP/digital201-backup"
+          cp -R backend/assets/forms "$RUNNER_TEMP/digital201-backup/forms"
+          node backend/scripts/backup-manifest.mjs "$RUNNER_TEMP/digital201-backup"
+      - name: Authenticate and encrypt archive
+        run: |
+          tar -C "$RUNNER_TEMP/digital201-backup" -czf "$RUNNER_TEMP/digital201-backup.tar.gz" .
+          node backend/scripts/backup-archive.mjs encrypt "$RUNNER_TEMP/digital201-backup.tar.gz" "$RUNNER_TEMP/digital201-backup.enc"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digital201-backup-${{ github.run_id }}
+          path: ${{ runner.temp }}/digital201-backup.enc
+          retention-days: 30
+          if-no-files-found: error

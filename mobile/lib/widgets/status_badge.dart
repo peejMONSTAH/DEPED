@@ -38,6 +38,16 @@ class StatusBadge extends StatelessWidget {
         bg = AppTheme.statusApproved.withOpacity(0.15);
         fg = AppTheme.statusApproved;
         text = 'APPROVED BY HRMO';
+      case TransactionStatus.REJECTED:
+        bg = AppTheme.statusReturned.withOpacity(0.15);
+        fg = AppTheme.statusReturned;
+        text = 'REJECTED';
+      case TransactionStatus.ABANDONED:
+      case TransactionStatus.ARCHIVED:
+      case TransactionStatus.UNKNOWN:
+        bg = AppTheme.statusDraft.withOpacity(0.15);
+        fg = AppTheme.statusDraft;
+        text = status == TransactionStatus.UNKNOWN ? 'STATUS UNAVAILABLE' : status.name;
     }
 
     return Container(

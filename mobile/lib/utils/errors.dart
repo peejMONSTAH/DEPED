@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 /// Turns a thrown object into something worth showing a teacher.
@@ -21,7 +23,21 @@ String friendlyError(
   if (error == null) return fallback;
 
   if (error is DioException) {
-    final data = error.response?.data;
+    var data = error.response?.data;
+
+    // A request made with ResponseType.bytes receives its error body as bytes
+    // as well, so the API's message arrives as a list of character codes
+    // rather than a map. Decode it before giving up on it - otherwise the one
+    // screen that downloads a file is the one screen that cannot say why it
+    // failed.
+    if (data is List<int>) {
+      try {
+        data = jsonDecode(utf8.decode(data));
+      } catch (_) {
+        data = null; // Not JSON: a truncated file, or an HTML error page.
+      }
+    }
+
     if (data is Map) {
       final message = data['message'];
       if (message is String && message.trim().isNotEmpty) return message.trim();

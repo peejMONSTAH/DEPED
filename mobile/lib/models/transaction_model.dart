@@ -11,6 +11,10 @@ enum TransactionStatus {
   FORWARDED_TO_HRMO,
   RETURNED_BY_HRMO,
   APPROVED_BY_HRMO,
+  REJECTED,
+  ABANDONED,
+  ARCHIVED,
+  UNKNOWN,
 }
 
 class TransactionModel {
@@ -66,14 +70,18 @@ class TransactionModel {
             final matches = docs.where((d) => d['requirementTemplateId'] == t['id']);
             final doc = matches.isEmpty ? null : matches.first;
             return RequirementItemModel(
-              id: t['id'], documentName: t['name'], isMandatory: t['isMandatory'] == true,
+              id: t['id'], documentName: t['name'] ?? 'Requirement', isMandatory: t['isMandatory'] == true,
               description: t['description'],
               uploadedFilePath: doc?['fileName'], fileStatus: doc?['status'],
               rejectionReason: doc?['validationNotes'],
+              documentId: doc?['id'],
+              needsExtractionReview: doc?['ocrExtractedDataJson'] != null &&
+                  doc?['correctedOcrDataJson']?['confirmation'] == null &&
+                  doc?['status'] != 'VALIDATED',
             );
           }).toList()
         : parsedRequirements;
-    final parsedStatus = _parseStatus((json['status'] ?? 'DRAFT').toString());
+    final parsedStatus = _parseStatus((json['status'] ?? 'UNKNOWN').toString());
     final computedScore = scoreVal;
 
     return TransactionModel(
@@ -104,8 +112,9 @@ class TransactionModel {
   }
 
   static TransactionType _parseType(String typeStr) {
-    switch (typeStr.toUpperCase()) {
+    switch (typeStr.toUpperCase().replaceAll(' ', '_')) {
       case 'NEWLY_HIRED':
+      case 'NEWLY_HIRED_APPOINTMENT':
         return TransactionType.NEWLY_HIRED;
       case 'SALARY_ADJUSTMENT':
         return TransactionType.SALARY_ADJUSTMENT;
@@ -126,6 +135,7 @@ class TransactionModel {
       case 'DEFICIENCY':
         return TransactionStatus.RETURNED_BY_AO2;
       case 'FOR_APPROVAL':
+      case 'ESCALATED':
       case 'FORWARDED_TO_HRMO':
       case 'VALIDATED':
         return TransactionStatus.FORWARDED_TO_HRMO;
@@ -134,11 +144,17 @@ class TransactionModel {
       case 'APPROVED_BY_HRMO':
       case 'APPROVED':
       case 'COMPLETED':
-      case 'ARCHIVED':
         return TransactionStatus.APPROVED_BY_HRMO;
+      case 'REJECTED':
+        return TransactionStatus.REJECTED;
+      case 'ABANDONED':
+        return TransactionStatus.ABANDONED;
+      case 'ARCHIVED':
+        return TransactionStatus.ARCHIVED;
       case 'DRAFT':
-      default:
         return TransactionStatus.DRAFT;
+      default:
+        return TransactionStatus.UNKNOWN;
     }
   }
 }
@@ -151,6 +167,8 @@ class RequirementItemModel {
   final String? uploadedFilePath;
   final String? fileStatus; // PENDING, VERIFIED, REJECTED
   final String? rejectionReason;
+  final int? documentId;
+  final bool needsExtractionReview;
 
   RequirementItemModel({
     required this.id,
@@ -160,6 +178,8 @@ class RequirementItemModel {
     this.uploadedFilePath,
     this.fileStatus,
     this.rejectionReason,
+    this.documentId,
+    this.needsExtractionReview = false,
   });
 
   factory RequirementItemModel.fromJson(Map<String, dynamic> json) {
@@ -176,6 +196,8 @@ class RequirementItemModel {
       uploadedFilePath: (json['uploadedFilePath'] ?? json['uploaded_file_path'] ?? json['file_path']) as String?,
       fileStatus: (json['fileStatus'] ?? json['file_status']) as String?,
       rejectionReason: (json['rejectionReason'] ?? json['rejection_reason']) as String?,
+      documentId: json['documentId'] as int?,
+      needsExtractionReview: json['needsExtractionReview'] == true,
     );
   }
 
@@ -188,48 +210,10 @@ class RequirementItemModel {
       'uploadedFilePath': uploadedFilePath,
       'fileStatus': fileStatus,
       'rejectionReason': rejectionReason,
+      'documentId': documentId,
+      'needsExtractionReview': needsExtractionReview,
     };
   }
 
   bool get isUploaded => uploadedFilePath != null && uploadedFilePath!.isNotEmpty;
-
-  static List<RequirementItemModel> generateDefaultRequirements(TransactionType type) {
-    if (type == TransactionType.PROMOTION) {
-      return [
-        RequirementItemModel(id: 1, documentName: 'Oath of Office (REVISED 2025)', isMandatory: true, description: '3 original copies — REVISED 2025 Oath of Office'),
-        RequirementItemModel(id: 2, documentName: 'Omnibus Certification of Authenticity & Veracity', isMandatory: true, description: '1 original copy — Signed & omnibus certification'),
-        RequirementItemModel(id: 3, documentName: 'Personal Data Sheet (CSC Form 212 Revised 2025)', isMandatory: true, description: '2 sets original, Long size paper, back-to-back print'),
-        RequirementItemModel(id: 4, documentName: 'Work Experience Sheet (CS Form 212 Attachment)', isMandatory: true, description: '2 original copies — Arranged in DESCENDING ORDER (coinciding w/ PDS No. 28)'),
-        RequirementItemModel(id: 5, documentName: 'PRC ID / CSC Eligibility Verification', isMandatory: true, description: '1 original copy — Official verification printout'),
-        RequirementItemModel(id: 6, documentName: 'VALID PRC ID Card', isMandatory: false, description: '1 photocopy (if applicable)'),
-        RequirementItemModel(id: 7, documentName: 'PRC Board Rating', isMandatory: false, description: '1 photocopy (if applicable)'),
-        RequirementItemModel(id: 8, documentName: 'CSC Certificate of Eligibility', isMandatory: false, description: '1 photocopy (if applicable)'),
-        RequirementItemModel(id: 9, documentName: 'Principal\'s Test Certificate of Rating', isMandatory: false, description: '1 photocopy (For Promotion of School Principal / Head of Office)'),
-        RequirementItemModel(id: 10, documentName: 'CAV, Special Order, AND Official Transcript of Records (TOR)', isMandatory: true, description: '1 photocopy each — Graduate Studies, College, Prof. Educ. Units'),
-        RequirementItemModel(id: 11, documentName: 'VALID NC II / NC III / TMC / NTTC Certificate', isMandatory: false, description: '1 photocopy each (if applicable)'),
-        RequirementItemModel(id: 12, documentName: 'Latest SALN (Revised 2025)', isMandatory: true, description: '1 photocopy (back-to-back print) — Downloadable online'),
-        RequirementItemModel(id: 13, documentName: 'SALN Justification Letter', isMandatory: false, description: '1 photocopy (in absence of Spouse\'s signature on SALN, if applicable)'),
-        RequirementItemModel(id: 14, documentName: 'PSA Marriage Certificate', isMandatory: false, description: '1 photocopy (if applicable)'),
-        RequirementItemModel(id: 15, documentName: 'PSA Birth Certificate', isMandatory: true, description: '1 photocopy — PSA authenticated birth certificate'),
-        RequirementItemModel(id: 16, documentName: 'Latest Service Record', isMandatory: true, description: '1 original copy — Updated service record signed by Division head'),
-        RequirementItemModel(id: 17, documentName: 'Latest DepEd Payslip', isMandatory: true, description: '1 photocopy — Most recent monthly payslip showing current SG/Step'),
-        RequirementItemModel(id: 18, documentName: 'Latest Performance Rating (IPCRF / OPCRF)', isMandatory: true, description: '1 photocopy — IPCRF for Teaching & Non-Teaching / OPCRF for School Head'),
-      ];
-    } else if (type == TransactionType.NEWLY_HIRED) {
-      return [
-        RequirementItemModel(id: 10, documentName: 'CS Form 33 (Appointment Form)', isMandatory: true),
-        RequirementItemModel(id: 11, documentName: 'CS Form 212 (PDS) & WES', isMandatory: true),
-        RequirementItemModel(id: 12, documentName: 'CS Form 211 (Medical Certificate)', isMandatory: true, description: 'With Blood, Urinalysis, and X-Ray results'),
-        RequirementItemModel(id: 13, documentName: 'CS Form 32 (Oath of Office)', isMandatory: true),
-        RequirementItemModel(id: 14, documentName: 'NBI Clearance (Valid)', isMandatory: true),
-        RequirementItemModel(id: 15, documentName: 'PRC License / CSC Eligibility', isMandatory: true),
-      ];
-    } else {
-      return [
-        RequirementItemModel(id: 20, documentName: 'NOSA / NOSI Notice Form', isMandatory: true),
-        RequirementItemModel(id: 21, documentName: 'Updated Service Record', isMandatory: true),
-        RequirementItemModel(id: 22, documentName: 'Latest DepEd Payslip', isMandatory: true),
-      ];
-    }
-  }
 }

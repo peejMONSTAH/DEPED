@@ -19,10 +19,12 @@ model Role {
 
 model User {
   id                       Int                      @id @default(autoincrement())
-  email                    String                   @unique
+  /// Stored as citext, so the unique index is case-insensitive: Juan@deped.gov.ph
+  /// and juan@deped.gov.ph can no longer both exist, and an equality lookup
+  /// matches regardless of case *while still using the index*.
+  email                    String                   @unique @db.Citext
   passwordHash             String                   @map("password_hash")
   roleId                   Int                      @map("role_id")
-  personnelId              Int?                     @unique @map("personnel_id")
   accountStatus            AccountStatus            @default(PENDING) @map("account_status")
   createdAt                DateTime                 @default(now()) @map("created_at")
   updatedAt                DateTime                 @updatedAt @map("updated_at")
@@ -37,12 +39,15 @@ model User {
   accountRequestsSubmitted AccountCreationRequest[] @relation("AccountRequestsSubmitted")
   complianceChecks         ComplianceCheck[]
   notifications            Notification[]
-  personnelProfileBack     Personnel?               @relation("PersonnelBelongsToUser")
+  /// The one link to this account's personnel record, owned by personnel.user_id.
+  /// There is deliberately no mirror column on this side: two columns for one
+  /// relationship could disagree, and authorization reads this link.
+  personnel                Personnel?               @relation("PersonnelBelongsToUser")
   refreshTokens            RefreshToken[]
   assignedTransactions     Transaction[]            @relation("CurrentAssignee")
   uploadedDocuments        UploadedDocument[]       @relation("Uploader")
   validatedDocuments       UploadedDocument[]       @relation("Validator")
-  personnel                Personnel?               @relation("UserHasPersonnel", fields: [personnelId], references: [id])
+  reviewedPersonnelFiles   PersonnelFile[]          @relation("PersonnelFileReviewer")
   role                     Role                     @relation(fields: [roleId], references: [id])
   validationLogs           ValidationLog[]
 
@@ -105,7 +110,6 @@ model Personnel {
   user                  User                   @relation("PersonnelBelongsToUser", fields: [userId], references: [id])
   promotionApplications PromotionApplication[]
   transactions          Transaction[]
-  userProfileBack       User?                  @relation("UserHasPersonnel")
 
   @@index([school])
   @@index([district])
@@ -119,9 +123,10 @@ model PlantillaItem {
   salaryGrade         Int        @map("salary_grade")
   department          String
   division            String
-  isOccupied          Boolean    @default(false) @map("is_occupied")
   createdAt           DateTime   @default(now()) @map("created_at")
   updatedAt           DateTime   @updatedAt @map("updated_at")
+  /// Present exactly when the item is occupied. This relation *is* the
+  /// occupancy state; there is no separate flag to keep in step with it.
   occupiedByPersonnel Personnel?
 
   @@map("plantilla_items")
@@ -155,6 +160,7 @@ model Transaction {
   personnel          Personnel          @relation(fields: [personnelId], references: [id])
   transactionType    TransactionType    @relation(fields: [transactionTypeId], references: [id])
   uploadedDocuments  UploadedDocument[]
+  formDrafts         FormDraft[]
 
   @@map("transactions")
 }
@@ -173,6 +179,18 @@ model RequirementTemplate {
   uploadedDocuments UploadedDocument[]
 
   @@map("requirement_templates")
+}
+
+model FormDraft {
+  transactionId Int @map("transaction_id")
+  templateId String @map("template_id")
+  version String
+  payload Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@id([transactionId, templateId])
+  @@map("form_drafts")
 }
 
 model UploadedDocument {
@@ -204,6 +222,7 @@ model UploadedDocument {
   uploadedBy            User                @relation("Uploader", fields: [uploadedByUserId], references: [id])
   validatedBy           User?               @relation("Validator", fields: [validatedByUserId], references: [id])
 
+  @@unique([transactionId, requirementTemplateId])
   @@map("uploaded_documents")
 }
 
@@ -288,14 +307,42 @@ model PromotionApplication {
   @@map("promotion_applications")
 }
 
+/// A document in a person's Digital 201 file.
+///
+/// Held as a JSONB payload until migration 202609220005. The shape was declared
+/// in TypeScript and enforced nowhere, so the database could not reject an
+/// unknown document type or an impossible status, and "which licences expire
+/// next month" meant reading and parsing every row.
 model PersonnelFile {
-  id Int @id @default(autoincrement())
-  personnelId Int @map("personnel_id")
-  personnel Personnel @relation(fields: [personnelId], references: [id])
-  payload Json
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  @@index([personnelId])
+  id                 Int                     @id @default(autoincrement())
+  personnelId        Int                     @map("personnel_id")
+  personnel          Personnel               @relation(fields: [personnelId], references: [id])
+  documentTypeId     String                  @map("document_type_id")
+  documentTypeName   String                  @map("document_type_name")
+  originalFileName   String                  @map("original_file_name")
+  storedFileName     String                  @map("stored_file_name")
+  storagePath        String                  @map("storage_path")
+  mimeType           String                  @map("mime_type")
+  fileSize           Int                     @map("file_size")
+  issueDate          DateTime?               @map("issue_date") @db.Date
+  expirationDate     DateTime?               @map("expiration_date") @db.Date
+  remarks            String?
+  status             PersonnelDocumentStatus @default(SUBMITTED)
+  rejectionReason    String?                 @map("rejection_reason")
+  reviewedAt         DateTime?               @map("reviewed_at")
+  reviewedByUserId   Int?                    @map("reviewed_by_user_id")
+  reviewedBy         User?                   @relation("PersonnelFileReviewer", fields: [reviewedByUserId], references: [id])
+  /// The document this one supersedes. A replacement is a new immutable row, so
+  /// an application that cited the earlier bytes still resolves to them.
+  replacesDocumentId Int?                    @map("replaces_document_id")
+  replaces           PersonnelFile?          @relation("PersonnelFileReplacement", fields: [replacesDocumentId], references: [id])
+  replacedBy         PersonnelFile[]         @relation("PersonnelFileReplacement")
+  deletedAt          DateTime?               @map("deleted_at")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  @@index([personnelId, deletedAt])
+  @@index([expirationDate])
   @@map("personnel_files")
 }
 
@@ -345,7 +392,7 @@ model AccountCreationRequest {
   lastName          String               @map("last_name")
   middleName        String?              @map("middle_name")
   suffix            String?
-  email             String
+  email             String               @db.Citext
   birthDate         DateTime?            @map("birth_date")
   gender            Gender?
   civilStatus       CivilStatus?         @map("civil_status")
@@ -471,6 +518,19 @@ enum AppointmentStatus {
   CASUAL
   CONTRACTUAL
   COTERMINOUS
+}
+
+/// Review state of a document in the Digital 201 file.
+///
+/// Only SUBMITTED is reachable today: no endpoint reviews a 201 document, so
+/// nothing moves one out of this state. The rest are the review workflow the
+/// mobile app already renders. They are declared here so that when a reviewer
+/// endpoint lands, the column decides what is legal - not a string literal.
+enum PersonnelDocumentStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
 }
 
 enum PersonnelStatus {

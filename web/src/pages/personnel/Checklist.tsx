@@ -6,111 +6,8 @@ import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { templateForRequirement } from '../../components/forms/templateMatch';
-
-// ─── Step 5: Requirement Checklists per Transaction Type & Personnel Category ───
-// Exactly as specified in 201-System-Workflow.md
-
-type RequirementItem = {
-  requirementId: number;
-  name: string;
-  description: string;
-  isMandatory: boolean;
-  status: string; // 'PENDING_UPLOAD' | 'VALIDATED' | 'DEFICIENT'
-  version: string;
-  documentId: number | null;
-  deltaDiff?: string;
-  rejectionNotes?: string;
-};
-
-const CHECKLISTS: Record<string, RequirementItem[]> = {
-  'PROMOTION_APPOINTMENT_TEACHING': [
-    { requirementId: 1,  name: 'Oath of Office (REVISED 2025)',                                      description: '3 original copies — REVISED 2025 Oath of Office',                            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2,  name: 'Omnibus Certification of Authenticity & Veracity',                  description: '1 original copy — Signed omnibus certification',                              isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3,  name: 'Personal Data Sheet (CSC Form No. 212 Revised 2025)',                 description: '2 sets original, Long size paper, back-to-back print',                       isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4,  name: 'Work Experience Sheet (CS Form 212 Attachment)',                      description: '2 original copies — Arranged in DESCENDING ORDER (coinciding w/ PDS No. 28)', isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 5,  name: 'PRC ID / CSC Eligibility Verification',                              description: '1 original copy — Official verification printout',                            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 6,  name: 'VALID PRC ID Card',                                                   description: '1 photocopy (if applicable)',                                                isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 7,  name: 'PRC Board Rating',                                                    description: '1 photocopy (if applicable)',                                                isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 8,  name: 'CSC Certificate of Eligibility',                                     description: '1 photocopy (if applicable)',                                                isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 9,  name: 'Principal\'s Test Certificate of Rating',                              description: '1 photocopy (For Promotion of School Principal / Head of Office)',             isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 10, name: 'CAV, Special Order, AND Official Transcript of Records (TOR)',        description: '1 photocopy each — Graduate Studies, College, Prof. Educ. Units',            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 11, name: 'VALID NC II / NC III / TMC / NTTC Certificate',                       description: '1 photocopy each (if applicable)',                                           isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 12, name: 'Latest SALN (Revised 2025)',                                         description: '1 photocopy (back-to-back print) — Downloadable online',                     isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 13, name: 'SALN Justification Letter',                                           description: '1 photocopy (in absence of Spouse\'s signature on SALN, if applicable)',     isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 14, name: 'PSA Marriage Certificate',                                           description: '1 photocopy (if applicable)',                                                isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 15, name: 'PSA Birth Certificate',                                              description: '1 photocopy — PSA authenticated birth certificate',                          isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 16, name: 'Latest Service Record',                                              description: '1 original copy — Updated service record signed by Division head',           isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 17, name: 'Latest DepEd Payslip',                                               description: '1 photocopy — Most recent monthly payslip showing current SG/Step',           isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 18, name: 'Latest Performance Rating (IPCRF / OPCRF)',                          description: '1 photocopy — IPCRF for Teaching & Non-Teaching / OPCRF for School Head',    isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-
-  'PROMOTION_APPOINTMENT_NON_TEACHING': [
-    { requirementId: 1,  name: 'Oath of Office (REVISED 2025)',                                      description: '3 original copies — REVISED 2025 Oath of Office',                            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2,  name: 'Omnibus Certification of Authenticity & Veracity',                  description: '1 original copy — Signed omnibus certification',                              isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3,  name: 'Personal Data Sheet (CSC Form No. 212 Revised 2025)',                 description: '2 sets original, Long size paper, back-to-back print',                       isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4,  name: 'Work Experience Sheet (CS Form 212 Attachment)',                      description: '2 original copies — Arranged in DESCENDING ORDER (coinciding w/ PDS No. 28)', isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 5,  name: 'PRC ID / CSC Eligibility Verification',                              description: '1 original copy — Official verification printout',                            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 6,  name: 'CSC Certificate of Eligibility',                                     description: '1 photocopy (if applicable)',                                                isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 7,  name: 'CAV, Special Order, AND Official Transcript of Records (TOR)',        description: '1 photocopy each — Graduate Studies, College, Prof. Educ. Units',            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 8,  name: 'VALID NC II / NC III / TMC / NTTC Certificate',                       description: '1 photocopy each (if applicable)',                                           isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 9,  name: 'Latest SALN (Revised 2025)',                                         description: '1 photocopy (back-to-back print) — Downloadable online',                     isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 10, name: 'SALN Justification Letter',                                           description: '1 photocopy (in absence of Spouse\'s signature on SALN, if applicable)',     isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 11, name: 'PSA Marriage Certificate',                                           description: '1 photocopy (if applicable)',                                                isMandatory: false, status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 12, name: 'PSA Birth Certificate',                                              description: '1 photocopy — PSA authenticated birth certificate',                          isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 13, name: 'Latest Service Record',                                              description: '1 original copy — Updated service record signed by Division head',           isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 14, name: 'Latest DepEd Payslip',                                               description: '1 photocopy — Most recent monthly payslip showing current SG/Step',           isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 15, name: 'Latest Performance Rating (IPCRF / OPCRF)',                          description: '1 photocopy — IPCRF for Teaching & Non-Teaching / OPCRF for School Head',    isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-
-  'PROMOTION_APPOINTMENT_PRINCIPAL': [
-    { requirementId: 1, name: 'MOVs showing Outstanding Accomplishments',                 description: 'Means of Verification documents for outstanding accomplishments',             isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2, name: 'Application of Education',                                 description: 'Evidence of continuing education and professional growth',                    isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3, name: 'Application of Learning and Development',                  description: 'L&D activities reckoned from the date of the last issuance of appointment',  isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4, name: 'Certificate of Rating in the School Head Assessment',      description: 'Official certificate from DepEd School Head Assessment results',             isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-
-  'NEWLY_HIRED_APPOINTMENT_TEACHING': [
-    { requirementId: 1,  name: 'Personal Data Sheet (PDS)',                               description: 'CS Form No. 212 — fully accomplished and signed',                            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2,  name: 'Transcript of Records (TOR)',                             description: 'Authenticated official TOR from institution',                                isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3,  name: 'Photocopy of PRC License',                                description: 'Valid and current PRC Professional Identification Card',                     isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4,  name: 'Medical Certificate',                                     description: 'Current medical certificate from a licensed physician',                      isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 5,  name: 'NBI Clearance',                                           description: 'Valid NBI Clearance (not older than 6 months)',                             isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 6,  name: 'Birth Certificate (PSA)',                                  description: 'PSA-authenticated birth certificate',                                        isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 7,  name: 'Omnibus Certification',                                   description: 'Signed omnibus certification of authenticity and veracity',                  isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-
-  'NEWLY_HIRED_APPOINTMENT_NON_TEACHING': [
-    { requirementId: 1,  name: 'Personal Data Sheet (PDS)',                               description: 'CS Form No. 212 — fully accomplished and signed',                            isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2,  name: 'Transcript of Records (TOR)',                             description: 'Authenticated official TOR from institution',                                isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3,  name: 'Medical Certificate',                                     description: 'Current medical certificate from a licensed physician',                      isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4,  name: 'NBI Clearance',                                           description: 'Valid NBI Clearance (not older than 6 months)',                             isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 5,  name: 'Birth Certificate (PSA)',                                  description: 'PSA-authenticated birth certificate',                                        isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 6,  name: 'Omnibus Certification',                                   description: 'Signed omnibus certification of authenticity and veracity',                  isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-
-  'SALARY_ADJUSTMENT_TEACHING': [
-    { requirementId: 1, name: 'Personal Data Sheet (PDS)',                                description: 'CS Form No. 212 — updated and signed',                                       isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2, name: 'Latest Appointment',                                       description: 'Photocopy of most recent official appointment order',                        isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3, name: 'Photocopy of Service Record',                              description: 'Updated service record signed by Division head',                             isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4, name: 'Latest Payslip',                                           description: 'Most recent payslip as basis for salary adjustment',                        isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 5, name: 'Required Performance Ratings (at least Very Satisfactory)', description: 'IPCR ratings for the last rating period',                                   isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-
-  'SALARY_ADJUSTMENT_NON_TEACHING': [
-    { requirementId: 1, name: 'Personal Data Sheet (PDS)',                                description: 'CS Form No. 212 — updated and signed',                                       isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 2, name: 'Latest Appointment',                                       description: 'Photocopy of most recent official appointment order',                        isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 3, name: 'Photocopy of Service Record',                              description: 'Updated service record signed by Division head',                             isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-    { requirementId: 4, name: 'Latest Payslip',                                           description: 'Most recent payslip as basis for salary adjustment',                        isMandatory: true,  status: 'PENDING_UPLOAD', version: 'v1.0', documentId: null },
-  ],
-};
-
-function getChecklistKey(txType: string, category: string, position?: string): string {
-  if (txType === 'PROMOTION_APPOINTMENT' && position === 'PRINCIPAL') return 'PROMOTION_APPOINTMENT_PRINCIPAL';
-  if (txType === 'PROMOTION_APPOINTMENT') return `PROMOTION_APPOINTMENT_${category}`;
-  if (txType === 'NEWLY_HIRED_APPOINTMENT') return `NEWLY_HIRED_APPOINTMENT_${category}`;
-  if (txType === 'SALARY_ADJUSTMENT') return `SALARY_ADJUSTMENT_${category}`;
-  return `PROMOTION_APPOINTMENT_${category}`;
-}
+import { checklistFromTransaction, checklistReadiness, type RequirementItem } from './checklistData';
+import { ExtractionReview } from '../../components/forms/ExtractionReview';
 
 const TX_TYPE_LABELS: Record<string, string> = {
   PROMOTION_APPOINTMENT: 'Promotion Appointment',
@@ -123,28 +20,29 @@ const TX_TYPE_LABELS: Record<string, string> = {
 export const Checklist: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTxId = searchParams.get('txId');
-  const [txId, setTxId] = useState<string>(rawTxId && rawTxId !== '101' ? rawTxId : '');
+  const [txId, setTxId] = useState<string>(rawTxId || '');
   const txType = searchParams.get('txType') || 'PROMOTION_APPOINTMENT';
-  const category = searchParams.get('category') || 'TEACHING';
 
   const navigate = useNavigate();
   const { addToast } = useToast();
 
-  const checklistKey = getChecklistKey(txType, category);
-  const [items, setItems] = useState<RequirementItem[]>(
-    CHECKLISTS[checklistKey] || CHECKLISTS['PROMOTION_APPOINTMENT_TEACHING']
-  );
-  const [txStatus, setTxStatus] = useState<string>('DRAFT');
+  const [items, setItems] = useState<RequirementItem[]>([]);
+  const [score, setScore] = useState(0);
+  const [checklistError, setChecklistError] = useState('');
+  const [reviewDocument, setReviewDocument] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [actualType, setActualType] = useState('');
+  const [txStatus, setTxStatus] = useState<string>('UNKNOWN');
   const [txRemarks, setTxRemarks] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingReqId, setUploadingReqId] = useState<number | null>(null);
   const [activeReqItem, setActiveReqItem] = useState<RequirementItem | null>(null);
 
-  // Auto-resolve valid active transaction ID if missing or pointing to outdated mock 101
+  // Resolve only assigned transactions; an explicit ID is never silently substituted.
   useEffect(() => {
     const resolveTxId = async () => {
-      if (rawTxId && rawTxId !== '101') {
+      if (rawTxId) {
         setTxId(rawTxId);
         return;
       }
@@ -175,9 +73,9 @@ export const Checklist: React.FC = () => {
   }, [rawTxId, setSearchParams]);
 
   const fetchTransactionData = useCallback(async (overrideId?: string | number) => {
-    const targetId = overrideId || txId || (rawTxId !== '101' ? rawTxId : '');
+    const targetId = overrideId || txId || rawTxId;
     const numId = Number(targetId);
-    if (!targetId || isNaN(numId) || numId <= 0) {
+    if (!targetId || !Number.isSafeInteger(numId) || numId <= 0) {
       setLoading(false);
       return;
     }
@@ -186,92 +84,21 @@ export const Checklist: React.FC = () => {
       const res = await apiClient.get(`/transactions/${numId}`);
       const txData = res.data?.data;
       if (txData) {
-        setTxStatus(txData.status || 'DRAFT');
+        setTxStatus(txData.status || 'UNKNOWN');
         setTxRemarks(txData.remarks || '');
 
-        const uploadedDocs: any[] = txData.uploadedDocuments || [];
-        const baseItems = CHECKLISTS[checklistKey] || CHECKLISTS['PROMOTION_APPOINTMENT_TEACHING'];
-
-        const docMapByName: Record<string, any> = {};
-        const docMapById: Record<number, any> = {};
-        uploadedDocs.forEach((d: any) => {
-          if (d.requirementTemplateId) docMapById[d.requirementTemplateId] = d;
-          if (d.requirementTemplate?.name) {
-            docMapByName[d.requirementTemplate.name.toLowerCase().trim()] = d;
-          }
-          if (d.fileName) {
-            docMapByName[d.fileName.toLowerCase().trim()] = d;
-          }
-        });
-
-        const updated = baseItems.map((item, idx) => {
-          const itemName = item.name.toLowerCase().trim();
-
-          // 1. Direct name match against requirementTemplate.name
-          let uploaded = docMapByName[itemName];
-
-          // 2. Direct ID match if requirementTemplateId matches
-          if (!uploaded) {
-            uploaded = docMapById[item.requirementId];
-          }
-
-          // 3. Keyword / alias matching against templates and file names
-          if (!uploaded && uploadedDocs.length > 0) {
-            uploaded = uploadedDocs.find((d: any) => {
-              const tName = (d.requirementTemplate?.name || '').toLowerCase().trim();
-              const fName = (d.fileName || '').toLowerCase().trim();
-              return (
-                (d.requirementTemplateId === item.requirementId) ||
-                (tName.length > 0 && (itemName.includes(tName) || tName.includes(itemName))) ||
-                (itemName.includes('work experience') && (tName.includes('work experience') || tName.includes('wes') || fName.includes('work_experience') || fName.includes('wes'))) ||
-                (itemName.includes('oath') && (tName.includes('oath') || fName.includes('oath'))) ||
-                (itemName.includes('omnibus') && (tName.includes('omnibus') || fName.includes('omnibus'))) ||
-                (itemName.includes('personal data') && (tName.includes('personal data') || tName.includes('pds') || tName.includes('form 212') || fName.includes('pds') || fName.includes('212'))) ||
-                (itemName.includes('verification') && (tName.includes('verification') || fName.includes('verification'))) ||
-                (itemName.includes('prc id') && (tName.includes('prc') || fName.includes('prc'))) ||
-                (itemName.includes('board rating') && (tName.includes('board rating') || fName.includes('board_rating') || fName.includes('rating'))) ||
-                (itemName.includes('eligibility') && (tName.includes('eligibility') || fName.includes('eligibility'))) ||
-                (itemName.includes('principal') && (tName.includes('principal') || fName.includes('principal'))) ||
-                (itemName.includes('transcript') && (tName.includes('transcript') || tName.includes('tor') || fName.includes('tor') || fName.includes('transcript'))) ||
-                (itemName.includes('nc ii') && (tName.includes('nc') || fName.includes('nc'))) ||
-                (itemName.includes('saln') && (tName.includes('saln') || fName.includes('saln'))) ||
-                (itemName.includes('birth') && (tName.includes('birth') || fName.includes('birth'))) ||
-                (itemName.includes('marriage') && (tName.includes('marriage') || fName.includes('marriage'))) ||
-                (itemName.includes('service record') && (tName.includes('service record') || fName.includes('service_record'))) ||
-                (itemName.includes('payslip') && (tName.includes('payslip') || fName.includes('payslip'))) ||
-                (itemName.includes('performance') && (tName.includes('performance') || tName.includes('ipcrf') || fName.includes('ipcrf')))
-              );
-            });
-          }
-
-          // 4. Index-based match if count of uploadedDocs >= baseItems.length
-          if (!uploaded && uploadedDocs.length >= baseItems.length) {
-            uploaded = uploadedDocs[idx];
-          }
-
-          if (uploaded) {
-            const isDeficient = uploaded.status === 'REJECTED' || uploaded.status === 'DEFICIENT';
-            const isValidated = uploaded.status === 'VALIDATED' || uploaded.status === 'APPROVED';
-            return {
-              ...item,
-              status: isDeficient ? 'DEFICIENT' : isValidated ? 'VALIDATED' : 'UPLOADED',
-              documentId: isDeficient ? null : (uploaded.id || item.requirementId || 1),
-              rejectionNotes: uploaded.validationNotes || txData.remarks || 'Document flagged as deficient by AO II.',
-            };
-          }
-
-          // 5. Preserve existing validated state so an item is never reset to pending
-          return item;
-        });
-
-        setItems(updated);
+        setItems(checklistFromTransaction(txData));
+        setScore(Number(txData.complianceScore) || 0);
+        setActualType(txData.transactionType?.name || '');
+        setChecklistError('');
       }
     } catch (err) {
-      console.error('Failed to fetch transaction checklist:', err);
+      setChecklistError('Could not refresh the assigned checklist. Retry before uploading or submitting.');
+      setTxStatus('UNKNOWN');
     } finally {
       setLoading(false);
     }
-  }, [txId, rawTxId, checklistKey]);
+  }, [txId, rawTxId]);
 
   useEffect(() => {
     if (txId) {
@@ -281,7 +108,7 @@ export const Checklist: React.FC = () => {
 
   // Real-time synchronization: immediately updates when AO II validates or HRMO approves
   useRealtimeTransactions(useCallback(() => {
-    const target = txId && txId !== '101' ? txId : rawTxId && rawTxId !== '101' ? rawTxId : '8';
+    const target = txId || rawTxId;
     if (target) {
       fetchTransactionData(target);
     }
@@ -289,7 +116,7 @@ export const Checklist: React.FC = () => {
 
   const handleDirectFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeReqItem) return;
+    if (!file || !activeReqItem || !txId || !['DRAFT', 'DEFICIENCY'].includes(txStatus)) return;
 
     // Strict validation: Strictly PDF, PNG, JPEG (.pdf, .png, .jpg, .jpeg)
     const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -308,7 +135,7 @@ export const Checklist: React.FC = () => {
       return;
     }
 
-    const activeTargetId = txId && txId !== '101' ? txId : rawTxId && rawTxId !== '101' ? rawTxId : '8';
+    const activeTargetId = txId;
 
     try {
       setUploadingReqId(activeReqItem.requirementId);
@@ -330,7 +157,7 @@ export const Checklist: React.FC = () => {
             return {
               ...item,
               status: uploadedDoc.status || 'UPLOADED',
-              documentId: uploadedDoc.id || item.requirementId,
+              documentId: uploadedDoc.id,
               rejectionNotes: undefined,
             };
           }
@@ -351,40 +178,29 @@ export const Checklist: React.FC = () => {
     }
   };
 
-  // Pre-Qualification Eligibility Engine Check
-  const preQualDetails = {
-    serviceYears: '5.2 Years (Req: Min 3 Yrs)',
-    ipcrfRating: 'Very Satisfactory (VS)',
-    prcStatus: 'Active & Verified',
-    policyFramework: txType === 'PROMOTION_APPOINTMENT' ? 'DO No. 19 & 24, s. 2025 (ECP)' : 'DO No. 7, s. 2023 (QS)',
-  };
-
-  const isReturnedState = txStatus === 'DEFICIENCY' || txStatus === 'RETURNED_BY_AO2' || txStatus === 'RETURNED';
-
-  // Step 7: Automated Compliance Evaluation
-  const completed = items.filter(i => i.status === 'VALIDATED' || i.status === 'UPLOADED' || i.documentId !== null);
-  const score = items.length > 0 ? Math.round((completed.length / items.length) * 100) : 100;
-  const mandatoryMissing = items.filter(i => i.isMandatory && (i.status === 'PENDING_UPLOAD' || i.status === 'DEFICIENT') && i.documentId === null);
-  const isComplete = mandatoryMissing.length === 0;
-
-  const completedReqs = items.filter(i => i.status === 'VALIDATED' || i.status === 'UPLOADED' || i.documentId !== null);
-  const missingReqs = items.filter(i => (i.status === 'PENDING_UPLOAD' || i.status === 'DEFICIENT') && i.documentId === null);
+  const isReturnedState = txStatus === 'DEFICIENCY';
+  const canEdit = ['DRAFT', 'DEFICIENCY'].includes(txStatus) && !checklistError && Boolean(txId);
+  const { missing: mandatoryMissing, complete: isComplete } = checklistReadiness(items);
+  const completedReqs = items.filter(item => item.status === 'VALIDATED' || item.status === 'UPLOADED');
+  const missingReqs = mandatoryMissing;
 
   // Step 8: Transaction Submission
   const handleSubmitTransaction = async () => {
+    if (!canEdit || submitting || loading || uploadingReqId !== null) return;
     if (!isComplete) {
       addToast(`Submission blocked. Please complete all required documents (${mandatoryMissing.length} remaining).`, 'ERROR');
       return;
     }
 
-    const activeTargetId = txId && txId !== '101' ? txId : rawTxId && rawTxId !== '101' ? rawTxId : '8';
+    const activeTargetId = txId;
     try {
+      setSubmitting(true);
       await apiClient.put(`/transactions/${activeTargetId}/submit`);
       addToast('Document(s) successfully submitted to AO II for validation!', 'SUCCESS');
       navigate('/personnel/transactions');
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Unable to submit the transaction for validation.', 'ERROR');
-    }
+    } finally { setSubmitting(false); }
   };
 
   return (
@@ -396,7 +212,7 @@ export const Checklist: React.FC = () => {
             <StatusBadge status={txStatus} />
           </div>
           <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
-            Transaction #{txId || rawTxId || '8'} · {TX_TYPE_LABELS[txType] || txType}
+            Transaction #{txId || rawTxId || '—'} · {actualType || TX_TYPE_LABELS[txType] || txType}
           </div>
         </div>
 
@@ -471,23 +287,7 @@ export const Checklist: React.FC = () => {
         </div>
       )}
 
-      {/* Improvement 1: Pre-Qualification Eligibility Engine Banner */}
-      <div className="card mb-4 card-glass" style={{ borderLeft: '4px solid var(--color-success)' }}>
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex items-center gap-2">
-            <AppIcon name="compliance" size={18} color="var(--color-success)" />
-            <h4 style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>Automated Pre-Qualification Verification</h4>
-          </div>
-          <span className="badge badge-approved" style={{ fontSize: 11 }}>
-            PRE-QUALIFIED ({preQualDetails.policyFramework})
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--color-border)', fontSize: 'var(--text-xs)' }}>
-          <div><span className="text-muted">Service Duration:</span> <strong>{preQualDetails.serviceYears}</strong></div>
-          <div><span className="text-muted">Performance Rating:</span> <strong>{preQualDetails.ipcrfRating}</strong></div>
-          <div><span className="text-muted">PRC Verification:</span> <strong style={{ color: 'var(--color-success)' }}>{preQualDetails.prcStatus}</strong></div>
-        </div>
-      </div>
+      {checklistError && <div role="alert" className="card mb-4">{checklistError} <button type="button" className="btn btn-secondary" onClick={() => void fetchTransactionData()}>Retry</button></div>}
 
       {/* Step 7: Automated Compliance Evaluation Score Card */}
       <div className="card mb-5" style={{ borderLeft: `4px solid ${isComplete ? 'var(--color-success)' : 'var(--color-warning)'}` }}>
@@ -498,7 +298,7 @@ export const Checklist: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <div>
             <span style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>
-              Transaction: <span className="badge badge-validated">{TX_TYPE_LABELS[txType] || txType}</span>
+              Transaction: <span className="badge badge-validated">{actualType || TX_TYPE_LABELS[txType] || txType}</span>
             </span>
             <div style={{ marginTop: 4 }}>
               <span style={{ fontWeight: 700, fontSize: 'var(--text-xl)', color: isComplete ? 'var(--color-success)' : 'var(--color-warning)' }}>
@@ -517,10 +317,10 @@ export const Checklist: React.FC = () => {
 
         {completedReqs.length > 0 && (
           <div style={{ marginBottom: 8 }}>
-            <div className="text-xs text-muted mb-1" style={{ fontWeight: 600 }}>Verified & Completed Requirements:</div>
+            <div className="text-xs text-muted mb-1" style={{ fontWeight: 600 }}>Uploaded Requirements (validation status shown below):</div>
             {completedReqs.map(r => (
               <div key={r.requirementId} className="text-xs" style={{ color: 'var(--color-success)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <AppIcon name="approved" size={12} color="var(--color-success)" /> {r.name} <span className="text-muted">({r.version}) — Validated</span>
+                <AppIcon name="approved" size={12} color="var(--color-success)" /> {r.name} <span className="text-muted">— {r.status === 'VALIDATED' ? 'Validated by AO II' : r.needsExtractionReview ? 'Review extracted information' : 'Awaiting validation'}</span>
               </div>
             ))}
           </div>
@@ -563,11 +363,11 @@ export const Checklist: React.FC = () => {
 
         <div className="checklist-items-stack">
           {items.map(item => {
-            const isTxLocked = txStatus === 'PENDING_VALIDATION' || txStatus === 'FOR_APPROVAL' || txStatus === 'APPROVED' || txStatus === 'COMPLETED';
-            const isApprovedDoc = (isReturnedState && (item.status === 'VALIDATED' || item.status === 'UPLOADED') && item.documentId !== null) || item.status === 'VALIDATED';
+            const isTxLocked = !canEdit;
+            const isApprovedDoc = item.status === 'VALIDATED';
             const isDeficientDoc = item.status === 'DEFICIENT';
-            const isUploaded = item.documentId !== null;
-            const isDocLocked = (isTxLocked && isUploaded && !isDeficientDoc) || isApprovedDoc;
+            const isUploaded = item.documentId !== null && !isDeficientDoc && item.status !== 'PENDING_UPLOAD';
+            const isDocLocked = isTxLocked || isApprovedDoc;
 
             return (
               <div
@@ -618,10 +418,11 @@ export const Checklist: React.FC = () => {
                     </button>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      {item.needsExtractionReview && item.documentId && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewDocument(item.documentId)}>Review scanned information</button>}
                       {templateForRequirement(item.name) && <button
                         type="button"
                         className="btn btn-secondary btn-sm"
-                        disabled={uploadingReqId === item.requirementId}
+                        disabled={loading || uploadingReqId !== null || submitting}
                         onClick={() => navigate(`/personnel/fill-document?reqId=${item.requirementId}&txId=${txId}&name=${encodeURIComponent(item.name)}`)}
                         title={isTxLocked ? 'Open the saved form in read-only mode' : 'Fill and save this form online'}
                       >{isTxLocked ? 'View online form' : 'Fill online'}</button>}
@@ -631,7 +432,7 @@ export const Checklist: React.FC = () => {
                           setActiveReqItem(item);
                           fileInputRef.current?.click();
                         }}
-                        disabled={uploadingReqId === item.requirementId}
+                        disabled={loading || uploadingReqId !== null || submitting}
                         style={isDeficientDoc ? { background: '#f85149', color: '#ffffff', fontWeight: 700 } : { display: 'inline-flex', alignItems: 'center', gap: 6 }}
                         title="Pick and upload a document directly to save into the database"
                       >
@@ -655,6 +456,8 @@ export const Checklist: React.FC = () => {
           })}
         </div>
       </div>
+
+      {reviewDocument && <ExtractionReview documentId={reviewDocument} onClose={() => setReviewDocument(null)} onConfirmed={() => { setReviewDocument(null); void fetchTransactionData(); }} />}
 
       <input
         aria-label="Choose a document file to upload"
@@ -708,7 +511,7 @@ export const Checklist: React.FC = () => {
             <button
               className="btn btn-primary"
               onClick={handleSubmitTransaction}
-              disabled={!isComplete}
+              disabled={!isComplete || !canEdit || loading || submitting || uploadingReqId !== null}
               style={{ opacity: isComplete ? 1 : 0.6, cursor: isComplete ? 'pointer' : 'not-allowed', padding: '10px 24px', fontWeight: 700 }}
             >
               {isReturnedState ? 'Resubmit Deficient Document(s) to AO II →' : 'Submit Transaction to AO II for Validation →'}

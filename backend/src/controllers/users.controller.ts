@@ -162,9 +162,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
   const cleanEmail = email.trim().toLowerCase();
 
-  const existing = await prisma.user.findFirst({
-    where: { email: { equals: cleanEmail, mode: 'insensitive' } },
-  });
+  const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
   if (existing) {
     sendBadRequest(res, 'A user with this email already exists.', 'DUPLICATE_EMAIL');
     return;
@@ -191,11 +189,12 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       if (!isNaN(parsedPlantillaId)) {
         targetPlantillaItem = await tx.plantillaItem.findUnique({
           where: { id: parsedPlantillaId },
+          include: { occupiedByPersonnel: { select: { id: true } } },
         });
         if (!targetPlantillaItem) {
           throw new Error(`Plantilla item #${plantillaItemId} does not exist.`);
         }
-        if (targetPlantillaItem.isOccupied) {
+        if (targetPlantillaItem.occupiedByPersonnel) {
           throw new Error(`Plantilla item '${targetPlantillaItem.itemNumber}' is already occupied.`);
         }
         const promoLock = await getPlantillaActivePromotionCycle(targetPlantillaItem, tx);
@@ -210,7 +209,6 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
         email: cleanEmail,
         passwordHash,
         roleId: roleRecord.id,
-        personnelId: targetPersonnelId,
         accountStatus: req.body.distributeImmediately ? 'ACTIVE' : 'PENDING',
         // Whoever typed this password knows it, so it is good for one thing only:
         // signing in to replace it.
@@ -219,7 +217,26 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       include: { role: { select: { name: true } } },
     });
 
-    if (!targetPersonnelId) {
+    if (targetPersonnelId) {
+      // Claiming an existing personnel record. This used to write only the
+      // account side, so the record went on naming whichever account held it
+      // before - and authorization reads this link. Check it is real and
+      // unclaimed, then move it.
+      const claimable = await tx.personnel.findUnique({
+        where: { id: targetPersonnelId },
+        select: { id: true, user: { select: { id: true, email: true, accountStatus: true } } },
+      });
+      if (!claimable) {
+        throw new Error(`Personnel record #${targetPersonnelId} does not exist.`);
+      }
+      if (claimable.user.accountStatus !== 'INACTIVE') {
+        throw new Error(`Personnel record #${targetPersonnelId} already belongs to the active account ${claimable.user.email}. Deactivate that account before reassigning the record.`);
+      }
+      await tx.personnel.update({
+        where: { id: targetPersonnelId },
+        data: { userId: newUser.id },
+      });
+    } else {
       generatedEmployeeId = await generateEmployeeNumber(tx);
 
       // School & District preference for AO and Division-level accounts
@@ -272,18 +289,8 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
       targetPersonnelId = newPersonnel.id;
 
-      await tx.user.update({
-        where: { id: newUser.id },
-        data: { personnelId: targetPersonnelId },
-      });
-
-      // Mark Plantilla Item as Occupied and log audit entry
+      // Creating the personnel record above bound the item; log the audit entry.
       if (targetPlantillaItem) {
-        await tx.plantillaItem.update({
-          where: { id: targetPlantillaItem.id },
-          data: { isOccupied: true },
-        });
-
         await tx.validationLog.create({
           data: {
             entityType: 'PlantillaItem',
@@ -503,11 +510,8 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 
   // Safe hard delete: clean up dependent transient records first
   await prisma.$transaction(async (tx) => {
-    // 0. Break circular personnel reference on user
-    await tx.user.update({
-      where: { id: userId },
-      data: { personnelId: null },
-    });
+    // The account and its personnel record are joined by personnel.user_id
+    // alone, so there is no longer a circular reference to break first.
 
     // 1. Remove refresh tokens & used magic tokens
     await tx.refreshToken.deleteMany({ where: { userId } });
@@ -549,12 +553,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     // 7. Delete linked personnel if clean
     if (existing.personnel) {
       await tx.careerHistoryEntry.deleteMany({ where: { personnelId: existing.personnel.id } });
-      if (existing.personnel.plantillaItemId) {
-        await tx.plantillaItem.update({
-          where: { id: existing.personnel.plantillaItemId },
-          data: { isOccupied: false },
-        }).catch((err) => logger.warn({ err }, 'Could not reset plantilla occupancy during user deletion'));
-      }
+      // Deleting the occupant is what vacates the item.
       await tx.personnel.delete({ where: { id: existing.personnel.id } });
     }
 
@@ -747,9 +746,7 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
   if (isNaN(parsedBirthDate.getTime()) || parsedBirthDate >= new Date()) { sendBadRequest(res, 'Enter a valid birth date.'); return; }
 
   // 1. Check if user email already exists
-  const existingUser = await prisma.user.findFirst({
-    where: { email: { equals: cleanEmail, mode: 'insensitive' } },
-  });
+  const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
   if (existingUser) {
     sendBadRequest(res, `A user account with email "${cleanEmail}" already exists.`, 'DUPLICATE_EMAIL');
     return;
@@ -757,7 +754,7 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
 
   // 2. Check if a pending request for this email already exists
   const existingPending = await prisma.accountCreationRequest.findFirst({
-    where: { email: { equals: cleanEmail, mode: 'insensitive' }, status: 'PENDING' },
+    where: { email: cleanEmail, status: 'PENDING' },
   });
   if (existingPending) {
     sendBadRequest(res, `A pending account creation request for email "${cleanEmail}" already exists.`, 'DUPLICATE_REQUEST');
@@ -778,8 +775,11 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
   if (req.body.plantillaItemId) {
     const pId = parseInt(String(req.body.plantillaItemId), 10);
     if (!isNaN(pId)) {
-      const pItem = await prisma.plantillaItem.findUnique({ where: { id: pId } });
-      if (!pItem || pItem.isOccupied) { sendBadRequest(res, 'Select an available plantilla item.'); return; }
+      const pItem = await prisma.plantillaItem.findUnique({
+        where: { id: pId },
+        include: { occupiedByPersonnel: { select: { id: true } } },
+      });
+      if (!pItem || pItem.occupiedByPersonnel) { sendBadRequest(res, 'Select an available plantilla item.'); return; }
       const promoLock = await getPlantillaActivePromotionCycle(pItem);
       if (promoLock.isLocked) {
         sendBadRequest(res, promoLock.reason || `Plantilla item '${pItem.itemNumber}' is currently open for grab in an active promotion cycle.`);
@@ -865,10 +865,13 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
  */
 export const getAccountRequests = async (req: Request, res: Response): Promise<void> => {
   const isSysAdmin = req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO';
-  const where = isSysAdmin ? {} : { requestedByUserId: req.user!.userId };
+  const where: any = isSysAdmin ? {} : { requestedByUserId: req.user!.userId };
+  if (typeof req.query.status === 'string' && ['PENDING', 'APPROVED', 'REJECTED'].includes(req.query.status)) where.status = req.query.status;
+  const { limit } = getPaginationParams(req.query as Record<string, unknown>);
 
   const requests = await prisma.accountCreationRequest.findMany({
     where,
+    ...(req.query.limit ? { take: limit } : {}),
     orderBy: { createdAt: 'desc' },
     include: {
       requestedByUser: {
@@ -951,7 +954,7 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
     if (itemMatch && itemMatch[1]) {
       const itemNum = itemMatch[1].trim();
       matchedPlantilla = await tx.plantillaItem.findFirst({
-        where: { itemNumber: itemNum, isOccupied: false },
+        where: { itemNumber: itemNum, occupiedByPersonnel: null },
       });
       if (!matchedPlantilla) throw Object.assign(new Error('The requested plantilla item is no longer available. Return the request for correction.'), { statusCode: 409 });
       const promoLock = await getPlantillaActivePromotionCycle(matchedPlantilla, tx);
@@ -998,18 +1001,8 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
       },
     });
 
-    await tx.user.update({
-      where: { id: newUser.id },
-      data: { personnelId: newPersonnel.id },
-    });
-
-    // Mark Plantilla Item as Occupied and log audit entry if matched
+    // Creating the personnel record above bound the item; log the audit entry.
     if (matchedPlantilla) {
-      await tx.plantillaItem.update({
-        where: { id: matchedPlantilla.id },
-        data: { isOccupied: true },
-      });
-
       await tx.validationLog.create({
         data: {
           entityType: 'PlantillaItem',

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:eminence_hris_mobile/utils/errors.dart';
@@ -65,6 +67,36 @@ void main() {
       );
     });
 
+    // The document preview downloads with ResponseType.bytes, so its error
+    // body arrives as bytes rather than a map. Before this, every failure on
+    // that screen read as the generic fallback.
+    test('reads the message out of a bytes error body', () {
+      final options = RequestOptions(path: '/personnel/documents/7/file');
+      final error = DioException(
+        requestOptions: options,
+        type: DioExceptionType.badResponse,
+        response: Response<dynamic>(
+          requestOptions: options,
+          statusCode: 500,
+          data: utf8.encode(jsonEncode({'message': 'Document file is missing.'})),
+        ),
+      );
+      expect(friendlyError(error), 'Document file is missing.');
+    });
+
+    test('falls back when a bytes body is not JSON at all', () {
+      final options = RequestOptions(path: '/personnel/documents/7/file');
+      final error = DioException(
+        requestOptions: options,
+        type: DioExceptionType.badResponse,
+        response: Response<dynamic>(
+          requestOptions: options,
+          statusCode: 502,
+          data: utf8.encode('<html>Bad Gateway</html>'),
+        ),
+      );
+      expect(friendlyError(error, fallback: 'Nope'), 'Nope');
+    });
     test('uses the fallback for null and empty input', () {
       expect(friendlyError(null, fallback: 'Nope'), 'Nope');
       expect(friendlyError(Exception(''), fallback: 'Nope'), 'Nope');

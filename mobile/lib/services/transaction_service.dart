@@ -84,12 +84,18 @@ class TransactionService {
     syncError = null;
     isOffline = false;
     try {
-      final response =
-          await _apiService.dio.get<dynamic>('/transactions/my-transactions');
-      final List<dynamic> list =
-          (response.data != null && response.data['data'] is List)
-              ? (response.data['data'] as List<dynamic>)
-              : <dynamic>[];
+      final List<dynamic> list = [];
+      var page = 1;
+      var totalPages = 1;
+      do {
+        final response = await _apiService.dio.get<dynamic>(
+          '/transactions/my-transactions', queryParameters: {'page': page, 'limit': 100},
+        );
+        if (response.data?['data'] is! List) throw StateError('The server returned an invalid transaction list.');
+        list.addAll(response.data['data'] as List<dynamic>);
+        totalPages = (response.data['pagination']?['totalPages'] as num?)?.toInt() ?? 1;
+        page++;
+      } while (page <= totalPages);
       final remoteList = list
           .map((dynamic item) =>
               TransactionModel.fromJson(item as Map<String, dynamic>))
@@ -140,18 +146,14 @@ class TransactionService {
     };
   }
 
-  Future<TransactionModel> initiateTransaction(TransactionType type) async {
-    throw UnsupportedError(
-      'Personnel cannot initiate transactions. Hiring and promotion transactions are assigned automatically by the AO/HRMO workflow.',
-    );
-  }
-
   Future<void> uploadDocument(
       int transactionId, int requirementId, String filePath) async {
     try {
       final formData = FormData.fromMap({
         'requirementId': requirementId,
-        'file': await MultipartFile.fromFile(filePath),
+        'file': await MultipartFile.fromFile(filePath, contentType: DioMediaType.parse(
+          filePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : filePath.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg',
+        )),
       });
 
       await _apiService.dio.post<dynamic>(
@@ -165,6 +167,15 @@ class TransactionService {
               : 'Failed to upload document.';
       throw Exception(message);
     }
+  }
+
+  Future<Map<String, dynamic>> getExtractionReview(int documentId) async {
+    final response = await _apiService.dio.get('/documents/$documentId/extraction-review');
+    return Map<String, dynamic>.from(response.data['data']);
+  }
+
+  Future<void> confirmExtractionReview(int documentId, Map<String, String> fields, String version) async {
+    await _apiService.dio.put('/documents/$documentId/extraction-review', data: {'fields': fields, 'version': version});
   }
 
   Future<int> submitTransaction(int transactionId,

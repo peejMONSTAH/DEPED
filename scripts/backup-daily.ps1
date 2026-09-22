@@ -62,7 +62,7 @@ try {
   $env:DIGITAL201_BACKUP_DATABASE_URL = $databaseUrl
   $mountPath = $backupPath.Replace('\', '/')
   docker run --rm --env DIGITAL201_BACKUP_DATABASE_URL --volume "${mountPath}:/backup" $PostgresImage `
-    sh -c 'pg_dump "$DIGITAL201_BACKUP_DATABASE_URL" --format=custom --no-owner --no-privileges --schema=public --file=/backup/database.dump'
+    sh -c 'pg_dump "$DIGITAL201_BACKUP_DATABASE_URL" --format=custom --no-owner --no-privileges --schema=public --extension=citext --file=/backup/database.dump'
   if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL database export failed.' }
   if (!(Test-Path -LiteralPath (Join-Path $backupPath 'database.dump'))) { throw 'Database dump was not created.' }
 

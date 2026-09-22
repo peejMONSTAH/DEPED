@@ -84,133 +84,51 @@ export const AdminDashboard: React.FC = () => {
 
   const isSysAdmin = user?.role === 'SYSTEM_ADMIN';
 
+  const [summary, setSummary] = useState<any>(null);
+  const [dashboardError, setDashboardError] = useState('');
+  const dashboardRequest = useRef(0);
   const fetchDashboardData = useCallback(async () => {
+    const request = ++dashboardRequest.current;
+    setLoading(true);
     try {
-      setLoading(true);
-
+      const [summaryRes, previewRes, requestsRes, auditRes] = await Promise.all([
+        apiClient.get('/dashboard'),
+        apiClient.get(user?.role === 'SYSTEM_ADMIN' ? '/users?limit=7' : '/transactions?limit=5'),
+        user?.role === 'SYSTEM_ADMIN' ? apiClient.get('/users/requests?status=PENDING&limit=7') : Promise.resolve(null),
+        user?.role === 'SYSTEM_ADMIN' ? apiClient.get('/audit-logs?limit=5') : Promise.resolve(null),
+      ]);
+      if (request !== dashboardRequest.current) return;
+      const data = summaryRes.data.data;
+      setSummary(data);
+      setDashboardError('');
       if (user?.role === 'SYSTEM_ADMIN') {
-        // ─── SYSADMIN DEDICATED DATA: USERS, REQUESTS, AUDIT TRAIL ───
-        const [usersRes, reqRes, auditRes] = await Promise.all([
-          apiClient.get('/users?limit=1000').catch(() => null),
-          apiClient.get('/users/requests').catch(() => null),
-          apiClient.get('/audit-logs?limit=10').catch(() => null),
-        ]);
-
-        if (usersRes?.data) {
-          const uList: any[] = usersRes.data.data || (Array.isArray(usersRes.data) ? usersRes.data : []);
-          setUsersList(uList);
-          const total = usersRes.data.pagination?.totalItems ?? uList.length;
-          setTotalUsersCount(total);
-
-        }
-
-        if (reqRes?.data) {
-          const rList: any[] = reqRes.data.data || (Array.isArray(reqRes.data) ? reqRes.data : []);
-          setAccountRequests(rList);
-          setPendingRequestsCount(rList.filter((r: any) => r.status === 'PENDING').length);
-        }
-
-        if (auditRes?.data) {
-          const aList: any[] = auditRes.data.data || (Array.isArray(auditRes.data) ? auditRes.data : []);
-          setRecentAuditLogs(aList);
-          setTotalAuditCount(auditRes.data.pagination?.totalItems ?? aList.length);
-        }
+        setUsersList(previewRes.data.data || []);
+        setTotalUsersCount(data.total);
+        setPendingRequestsCount(data.pendingRequests);
+        setAccountRequests(requestsRes?.data.data || []);
+        setRecentAuditLogs(auditRes?.data.data || []);
+        setTotalAuditCount(auditRes?.data.pagination?.totalItems || 0);
       } else {
-        // ─── HRMO / AO_II DATA: TRANSACTIONS & WORKFORCE ──────────────
-        const [txRes, personnelRes] = await Promise.all([
-          apiClient.get('/transactions?limit=1000').catch(() => null),
-          apiClient.get('/personnel?limit=1000').catch(() => null),
-        ]);
-
-        // ─── 1. REAL DATABASE TRANSACTIONS MAPPING ────────────────────
-        if (txRes?.data) {
-          const txList: any[] = txRes.data.data || (Array.isArray(txRes.data) ? txRes.data : []);
-          const totalTx = txRes.data.pagination?.totalItems ?? txList.length;
-          setTotalTransactions(totalTx);
-
-          // Pending count in DB
-          const pending = txList.filter((t: any) =>
-            ['PENDING_VALIDATION', 'PENDING', 'FOR_APPROVAL', 'SUBMITTED_TO_AO2', 'DEFICIENCY', 'ESCALATED', 'DRAFT', 'RETURNED', 'RETURNED_BY_AO2'].includes(t.status) ||
-            (t.status !== 'APPROVED' && t.status !== 'REJECTED' && t.status !== 'COMPLETED')
-          ).length;
-          setPendingQueue(pending);
-
-          // Approved count in DB
-          const approved = txList.filter((t: any) => t.status === 'APPROVED' || t.status === 'COMPLETED').length;
-          setApprovedCount(approved);
-
-          // Compute weekly activity from real transactions (current week)
-          const now = new Date();
-          const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
-          const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-          const monday = new Date(now);
-          monday.setDate(now.getDate() + mondayOffset);
-          monday.setHours(0, 0, 0, 0);
-
-          const dayNames = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
-          const computed = dayNames.map((dayName, i) => {
-            const dayStart = new Date(monday);
-            dayStart.setDate(monday.getDate() + i);
-            const dayEnd = new Date(dayStart);
-            dayEnd.setDate(dayStart.getDate() + 1);
-
-            const dayTxs = txList.filter((t: any) => {
-              const created = new Date(t.createdAt || t.submissionDate || '');
-              return created >= dayStart && created < dayEnd;
-            });
-            const dayTotal = dayTxs.length;
-            const dayApproved = dayTxs.filter((t: any) => t.status === 'APPROVED' || t.status === 'COMPLETED' || t.status === 'FOR_APPROVAL').length;
-            const rate = dayTotal > 0 ? Math.round((dayApproved / dayTotal) * 100) : 0;
-            return { day: dayName, rate, count: dayTotal };
-          });
-          setWeeklyStats(computed);
-
-          // Map recent 5 transactions strictly from DB
-          const mapped: TransactionItem[] = txList.slice(0, 5).map((t: any) => ({
-            id: `TRX-${t.id}`,
-            avatar: t.personnel ? `${t.personnel.firstName?.[0] || ''}${t.personnel.lastName?.[0] || ''}`.toUpperCase() : 'EP',
-            employee: t.personnel ? `${t.personnel.firstName} ${t.personnel.lastName}` : 'DepEd Staff',
-            type: t.transactionType?.name || t.type || 'Transaction',
-            status: t.status === 'APPROVED' || t.status === 'COMPLETED' ? 'APPROVED' : t.status === 'REJECTED' ? 'REJECTED' : 'PENDING',
-            date: t.createdAt ? new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today',
-          }));
-          setRecentTransactions(mapped);
-        } else {
-          setRecentTransactions([]);
-          setTotalTransactions(0);
-          setPendingQueue(0);
-          setApprovedCount(0);
-        }
-
-        // ─── 2. REAL DATABASE PERSONNEL MAPPING ───────────────────────
-        if (personnelRes?.data) {
-          const pList: any[] = personnelRes.data.data || (Array.isArray(personnelRes.data) ? personnelRes.data : []);
-          const total = personnelRes.data.pagination?.totalItems ?? pList.length;
-          setTotalPersonnel(total);
-
-          // Dynamic teaching vs non-teaching count
-          const teaching = pList.filter((p: any) =>
-            p.user?.role?.name === 'TEACHING_PERSONNEL' ||
-            (p.designation && (
-              p.designation.toLowerCase().includes('teacher') ||
-              p.designation.toLowerCase().includes('faculty') ||
-              p.designation.toLowerCase().includes('instructor') ||
-              p.designation.toLowerCase().includes('master teacher')
-            ))
-          ).length;
-          setTeachingCount(teaching);
-          setNonTeachingCount(total >= teaching ? total - teaching : 0);
-
-        } else {
-          setTotalPersonnel(0);
-          setTeachingCount(0);
-          setNonTeachingCount(0);
-        }
+        setTotalTransactions(data.totalTransactions);
+        setPendingQueue(data.pendingQueue);
+        setApprovedCount(data.approvedCount);
+        setTotalPersonnel(data.totalPersonnel);
+        setTeachingCount(data.teachingCount);
+        setNonTeachingCount(data.nonTeachingCount);
+        setWeeklyStats(data.weeklyStats);
+        setRecentTransactions((previewRes.data.data || []).map((t: any) => ({
+          id: `TRX-${t.id}`,
+          avatar: t.personnel ? `${t.personnel.firstName?.[0] || ''}${t.personnel.lastName?.[0] || ''}`.toUpperCase() : 'EP',
+          employee: t.personnel ? `${t.personnel.firstName} ${t.personnel.lastName}` : 'Personnel',
+          type: t.transactionType?.name || 'Transaction',
+          status: ['APPROVED', 'COMPLETED'].includes(t.status) ? 'APPROVED' : t.status === 'REJECTED' ? 'REJECTED' : 'PENDING',
+          date: t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—',
+        })));
       }
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
+    } catch (err: any) {
+      if (request === dashboardRequest.current) setDashboardError(err.response?.data?.message || 'Dashboard data could not be refreshed. Please retry.');
     } finally {
-      setLoading(false);
+      if (request === dashboardRequest.current) setLoading(false);
     }
   }, [user?.role]);
 
@@ -308,16 +226,9 @@ export const AdminDashboard: React.FC = () => {
   const teachingPercent = totalPersonnel > 0 ? ((teachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
   const nonTeachingPercent = totalPersonnel > 0 ? ((nonTeachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
 
-  const activeAccountsCount = usersList.filter((account: any) => account.accountStatus === 'ACTIVE').length;
-  const accountsRequiringAction = usersList.filter((account: any) => {
-    const isLocked = account.lockedUntil && new Date(account.lockedUntil).getTime() > Date.now();
-    return account.accountStatus !== 'ACTIVE' || account.mustChangePassword || isLocked;
-  }).length;
-  const roleCounts = usersList.reduce<Record<string, number>>((counts, account: any) => {
-    const role = String(account.role || 'UNASSIGNED');
-    counts[role] = (counts[role] || 0) + 1;
-    return counts;
-  }, {});
+  const activeAccountsCount = summary?.active ?? '—';
+  const accountsRequiringAction = summary?.requiringAction ?? 0;
+  const roleCounts: Record<string, number> = summary?.roleCounts || {};
   const representedRoleCount = Object.values(roleCounts).filter(count => count > 0).length;
   const roleDistributionSummary = [
     ['Admin', roleCounts.SYSTEM_ADMIN || 0],
@@ -338,8 +249,24 @@ export const AdminDashboard: React.FC = () => {
     user?.role === 'TEACHING_PERSONNEL' ? 'Teaching Personnel' :
     user?.role === 'NON_TEACHING_PERSONNEL' ? 'Non-Teaching Personnel' : '';
 
+  if (dashboardError && !summary) return (
+    <div className="dashboard-editorial-root">
+      <h1>Dashboard unavailable</h1>
+      <div role="alert" className="dashboard-error">
+        <span>{dashboardError} Counts have not loaded; no zero values are being assumed.</span>
+        <button type="button" onClick={() => void fetchDashboardData()} disabled={loading}>Retry</button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="dashboard-editorial-root">
+      {dashboardError && (
+        <div role="alert" className="dashboard-error">
+          <span>{dashboardError} {summary ? 'Showing the last successfully loaded data.' : 'Counts are unavailable until the connection is restored.'}</span>
+          <button type="button" onClick={() => void fetchDashboardData()} disabled={loading}>Retry</button>
+        </div>
+      )}
       
       {/* ─── 1. TOP WORKSPACE HEADER BAR ───────────────────────────── */}
       <div className="workspace-top-bar">
@@ -582,7 +509,7 @@ export const AdminDashboard: React.FC = () => {
                 <div className="metric-value-num text-purple">{loading ? '...' : pendingRequestsCount}</div>
                 <div className="metric-footer-note">Awaiting Admin Provisioning</div>
               </div>
-              <div className="metric-bottom-slot" />
+              <div className="metric-bottom-slot metric-context-note">{summary ? `${summary.pendingDistribution} accounts awaiting distribution` : '—'}</div>
             </div>
 
             {/* Metric 3: Accounts Requiring Action */}
@@ -595,9 +522,9 @@ export const AdminDashboard: React.FC = () => {
               </div>
               <div className="metric-card-body">
                 <div className="metric-value-num">{loading ? '...' : accountsRequiringAction}</div>
-                <div className="metric-footer-note">Locked, inactive, pending, or temporary</div>
+                <div className="metric-footer-note">Access restrictions or incomplete profiles</div>
               </div>
-              <div className="metric-bottom-slot metric-context-note">Review account access conditions</div>
+              <div className="metric-bottom-slot metric-context-note">{summary ? `${summary.passwordChanges} password changes · ${summary.incompleteProfiles} incomplete profiles` : '—'}</div>
             </div>
 
             {/* Metric 4: Role Distribution */}
@@ -622,7 +549,7 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* ─── 4. ASYMMETRIC MAIN GRID (2:1 Ratio Layout) ────────── */}
-          <div className="asymmetric-main-grid">
+          <div className="asymmetric-main-grid provisioning-main-grid">
             {/* Left Column: User Provisioning & Account Registry */}
             <div className="soft-card table-card-large">
               <div className="card-header-flex">
@@ -644,7 +571,7 @@ export const AdminDashboard: React.FC = () => {
                           cursor: 'pointer',
                         }}
                       >
-                        Active Accounts ({usersList.length})
+                        Accounts ({summary ? totalUsersCount : '—'})
                       </button>
                       <button
                         type="button"
@@ -674,7 +601,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <p className="card-heading-sub">
                     {sysAdminViewTab === 'USERS'
-                      ? 'Master list of provisioned user credentials, active roles, and access status'
+                      ? 'Seven most recent accounts. Open Manage Credentials for the complete registry.'
                       : 'Pending account creation requests submitted by AO II or HRMO awaiting administrative approval'}
                   </p>
                 </div>

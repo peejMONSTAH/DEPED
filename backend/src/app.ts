@@ -24,8 +24,9 @@ import formDraftRoutes from './routes/form-drafts.routes';
 import personnelDocumentsRoutes from './routes/personnel-documents.routes';
 import { forwardAsyncErrors } from './middleware/async-routes';
 import { auditMiddleware } from './middleware/audit.middleware';
+import dashboardRoutes from './routes/dashboard.routes';
 
-for (const router of [authRoutes, usersRoutes, personnelRoutes, transactionsRoutes, documentsRoutes, promotionsRoutes, notificationsRoutes, auditRoutes, plantillaRoutes, formDraftRoutes, personnelDocumentsRoutes]) {
+for (const router of [dashboardRoutes, authRoutes, usersRoutes, personnelRoutes, transactionsRoutes, documentsRoutes, promotionsRoutes, notificationsRoutes, auditRoutes, plantillaRoutes, formDraftRoutes, personnelDocumentsRoutes]) {
   forwardAsyncErrors(router);
 }
 
@@ -71,7 +72,9 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(morgan(config.env === 'development' ? 'dev' : 'combined'));
+// EventSource carries its token in the query string; access logs must never retain it.
+morgan.token('safe-url', req => (req.url || '').split('?')[0]);
+app.use(morgan(':method :safe-url :status :response-time ms'));
 
 // ─── Global Rate Limit ─────────────────────────────────────────────────────
 // General API abuse protection; authentication has a separate tighter limiter.
@@ -110,6 +113,7 @@ const API_PREFIX = '/api/v1';
 
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`, usersRoutes);
+app.use(`${API_PREFIX}/dashboard`, dashboardRoutes);
 app.use(`${API_PREFIX}/personnel/documents`, personnelDocumentsRoutes);
 app.use(`${API_PREFIX}/personnel`, personnelRoutes);
 app.use(`${API_PREFIX}/transactions`, transactionsRoutes);

@@ -16,7 +16,7 @@ interface CachedUserRecord {
   id: number;
   email: string;
   accountStatus: any;
-  personnelId: number | null;
+  personnel: { id: number } | null;
   passwordHash: string;
   mustChangePassword: boolean;
   role: { name: any };
@@ -83,7 +83,9 @@ export const authenticate = async (
           id: true,
           email: true,
           accountStatus: true,
-          personnelId: true,
+          // personnel.user_id is the only link between the two tables, so the
+          // id comes from the relation rather than a mirror column here.
+          personnel: { select: { id: true } },
           passwordHash: true,
           mustChangePassword: true,
           role: { select: { name: true } },
@@ -137,7 +139,7 @@ export const authenticate = async (
       userId: user.id,
       email: user.email,
       role: user.role.name,
-      personnelId: user.personnelId,
+      personnelId: user.personnel?.id ?? null,
       pwdv: payload.pwdv,
       mustChangePassword: user.mustChangePassword,
     };

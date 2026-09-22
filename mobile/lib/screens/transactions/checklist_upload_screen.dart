@@ -12,6 +12,7 @@ import '../../utils/display.dart';
 import '../../widgets/compliance_gauge.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/transaction_tracker_card.dart';
+import 'extraction_review_screen.dart';
 
 class ChecklistUploadScreen extends StatefulWidget {
   final TransactionModel transaction;
@@ -29,6 +30,15 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
   bool _isUploading = false;
   bool _isSubmitting = false;
   bool _unavailableDialogShown = false;
+  bool get _needsReview => _currentTx.requirements.any((item) => item.needsExtractionReview);
+
+  Future<void> _reviewExtraction(RequirementItemModel item) async {
+    if (item.documentId == null || _isUploading || _isSubmitting) return;
+    final confirmed = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ExtractionReviewScreen(documentId: item.documentId!, service: _transactionService),
+    ));
+    if (confirmed == true && mounted) await _refreshTransaction();
+  }
 
   @override
   void initState() {
@@ -105,37 +115,8 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
   }
 
   void _handleSubmitTransaction() async {
-    if (_currentTx.type == TransactionType.PROMOTION) {
-      final promoStatus = await _transactionService.checkPromotionStatus();
-      if (promoStatus['isPromoted'] != true &&
-          promoStatus['isPendingApproval'] != true) {
-        if (!mounted) return;
-        showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            icon: const Icon(LucideIcons.triangleAlert,
-                color: Colors.redAccent, size: 44),
-            title: Text(
-              'Promotion Eligibility Check',
-              style: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            content: Text(
-              promoStatus['message'] ??
-                  'You are ineligible yet. Selection by HRMO in an active Promotion Cycle is required before submitting Promotion Appointment documents.',
-              style: GoogleFonts.inter(fontSize: 13),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-        return;
-      }
-    }
+    // Submission eligibility belongs to this assigned transaction and is enforced by the API.
+    if (_isUploading || _needsReview || _currentTx.complianceScore < 100) return;
 
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
@@ -235,7 +216,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                 StatusBadge(status: _currentTx.status),
                                 const SizedBox(height: 6),
                                 Text(
-                                  _currentTx.complianceScore >= 100.0
+                                  _needsReview ? 'Review the scanned information below' : _currentTx.complianceScore >= 100.0
                                       ? 'Ready for AO II Submission'
                                       : 'Upload all mandatory requirements below',
                                   style: TextStyle(
@@ -319,8 +300,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                           item.fileStatus == 'DEFICIENT';
                       final isApproved = (item.fileStatus == 'VERIFIED' ||
                               item.fileStatus == 'APPROVED' ||
-                              item.fileStatus == 'VALIDATED' ||
-                              item.fileStatus == 'OCR_REVIEWED') &&
+                              item.fileStatus == 'VALIDATED') &&
                           (_currentTx.status ==
                                   TransactionStatus.RETURNED_BY_AO2 ||
                               _currentTx.status ==
@@ -438,6 +418,12 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                               fontSize: 11,
                                               color: AppTheme.textSecondary)),
                                     ],
+                                    if (canEdit && item.needsExtractionReview && item.documentId != null)
+                                      TextButton.icon(
+                                        onPressed: () => _reviewExtraction(item),
+                                        icon: const Icon(Icons.fact_check_outlined, size: 18),
+                                        label: const Text('Review scanned information'),
+                                      ),
                                     if (isDeficient &&
                                         item.rejectionReason != null) ...[
                                       const SizedBox(height: 6),
@@ -581,7 +567,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: _handleSubmitTransaction,
+                      onTap: !_isUploading && !_isSubmitting && !_needsReview && _currentTx.complianceScore >= 100 ? _handleSubmitTransaction : null,
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -590,9 +576,9 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                 color: Colors.white, size: 16),
                             const SizedBox(width: 8),
                             Text(
-                              _currentTx.complianceScore >= 100.0
+                              _needsReview ? 'Review scanned information first' : _currentTx.complianceScore >= 100.0
                                   ? 'Submit to AO II for Validation'
-                                  : 'Submit for Validation (${_currentTx.complianceScore.toInt()}% Compliant)',
+                                  : 'Complete required documents (${_currentTx.complianceScore.toInt()}%)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,

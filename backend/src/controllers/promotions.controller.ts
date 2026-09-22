@@ -22,6 +22,7 @@ import { logger } from '../utils/logger';
 import { computeCycleRanking } from '../services/promotion-ranking.service';
 import { deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
 import { ANNEX_C_REQUIREMENTS } from '../utils/annex-c.util';
+import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
 
@@ -719,10 +720,10 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
     }
 
     // Notify the applicant personnel
-    const applicantUserId = app.personnel?.userId || (await prisma.user.findFirst({
-      where: { personnelId: app.personnelId },
-      select: { id: true },
-    }))?.id;
+    const applicantUserId = app.personnel?.userId || (await prisma.personnel.findUnique({
+      where: { id: app.personnelId },
+      select: { userId: true },
+    }))?.userId;
 
     if (applicantUserId) {
       await prisma.notification.create({
@@ -898,10 +899,10 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
     await computeCycleRankingInternal(cycleId);
 
     // Notify the applicant personnel that final deliberation rating has been completed
-    const applicantUserId = app.personnel?.userId || (await prisma.user.findFirst({
-      where: { personnelId: app.personnelId },
-      select: { id: true },
-    }))?.id;
+    const applicantUserId = app.personnel?.userId || (await prisma.personnel.findUnique({
+      where: { id: app.personnelId },
+      select: { userId: true },
+    }))?.userId;
 
     if (applicantUserId) {
       await prisma.notification.create({
@@ -1092,6 +1093,10 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     return;
   }
   const { isPromoted, remarks, plantillaItemNumber } = req.body;
+  if (typeof isPromoted !== 'boolean') {
+    sendBadRequest(res, 'isPromoted must be true or false.');
+    return;
+  }
 
   const app = await prisma.promotionApplication.findFirst({
     where: { id: appId, promotionCycleId: cycleId },
@@ -1147,7 +1152,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
             .filter(Boolean)
         );
         const freePlantilla = configuredPlantillas.find(p => !usedPlantillas.has(p));
-        assignedPlantilla = freePlantilla || configuredPlantillas[0] || null;
+        assignedPlantilla = freePlantilla || null;
       }
     }
   }
@@ -1162,7 +1167,11 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     plantillaItemNumber: isPromoted ? assignedPlantilla : null,
   };
 
-  const targetPos = (app.promotionCycle.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I';
+  const targetPos = getCycleTargetPosition(app.promotionCycle);
+  if (isPromoted && !targetPos) {
+    sendBadRequest(res, 'Configure the target position before selecting a candidate.');
+    return;
+  }
   const isTeacherOne = /^(teacher (?:i|1))$/.test(normalizePositionTitle(targetPos));
   if (!isPromoted && currentDetails.appointmentApproved) {
     sendBadRequest(res, 'An officially approved appointment cannot be removed from candidate selection.', 'APPOINTMENT_ALREADY_APPROVED');
@@ -1178,6 +1187,39 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
   let updated: any;
   let notificationUserId: number | null = null;
   await prisma.$transaction(async db => {
+  // Serialize selection within a cycle and across cycles for the same person.
+  await db.$queryRaw`SELECT id FROM promotion_cycles WHERE id = ${cycleId} FOR UPDATE`;
+  await db.$queryRaw`SELECT id FROM personnel WHERE id = ${app.personnelId} FOR UPDATE`;
+  await db.$queryRaw`SELECT id FROM promotion_applications WHERE id = ${appId} FOR UPDATE`;
+  const currentApp = await db.promotionApplication.findUnique({ where: { id: appId }, include: { promotionCycle: true } });
+  if (!currentApp || currentApp.updatedAt.getTime() !== app.updatedAt.getTime() ||
+      currentApp.promotionCycle.updatedAt.getTime() !== app.promotionCycle.updatedAt.getTime()) {
+    throw workflowConflict('The candidate or cycle changed. Refresh before selecting again.');
+  }
+  if (isPromoted && currentApp.promotionCycle.status === 'CANCELLED') throw workflowConflict('This promotion cycle was cancelled.');
+  if (isPromoted && currentDetails.appointmentApproved) throw workflowConflict('This appointment is already approved.');
+  if (isPromoted) {
+    const rules = (currentApp.promotionCycle.rulesConfigurationJson as any) || {};
+    const configured: string[] = rules.plantillaItemNumbers || (rules.plantillaItemNumber ? [rules.plantillaItemNumber] : []);
+    const vacancies = Number(rules.vacantPositions || configured.length || 1);
+    const selectedCount = await db.promotionApplication.count({ where: { promotionCycleId: cycleId, id: { not: appId }, status: 'APPROVED' } });
+    if (!Number.isSafeInteger(vacancies) || vacancies < 1 || selectedCount >= vacancies) {
+      throw workflowConflict('All available appointment slots have been selected.');
+    }
+    if (configured.length && (!assignedPlantilla || !configured.includes(assignedPlantilla))) {
+      throw workflowConflict('No available configured plantilla slot. Refresh the candidate selection.');
+    }
+    if (assignedPlantilla) {
+      // The item lock also prevents two different cycles from reserving the same item.
+      await db.$queryRaw`SELECT id FROM plantilla_items WHERE item_number = ${assignedPlantilla} FOR UPDATE`;
+      const holder = await db.personnel.findFirst({ where: { plantillaItem: { itemNumber: assignedPlantilla }, id: { not: app.personnelId } } });
+      const reservation = await db.promotionApplication.findFirst({ where: {
+        id: { not: appId }, status: 'APPROVED', promotionCycle: { status: { not: 'CANCELLED' } },
+        scoreDetailsJson: { path: ['plantillaItemNumber'], equals: assignedPlantilla },
+      } });
+      if (holder || reservation) throw workflowConflict('This plantilla item is occupied or reserved by another selected candidate.');
+    }
+  }
   if (isPromoted) {
     // 1. Find or create the appropriate TransactionType (Newly Hired Appointment vs Promotion)
     const targetTxTypeName = isTeacherOne ? 'Newly Hired Appointment' : 'Promotion';
@@ -1241,14 +1283,14 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       });
     }
 
-    // 2. Create or find active Transaction for this candidate personnel
-    let activeTx = await db.transaction.findFirst({
-      where: {
-        personnelId: app.personnelId,
-        transactionTypeId: txType.id,
-        status: { in: ['DRAFT', 'PENDING_VALIDATION', 'FOR_APPROVAL', 'DEFICIENCY', 'ESCALATED'] },
-      },
-    });
+    // Only this application's explicit link may be reused, never another cycle's transaction.
+    const linkedId = Number(currentDetails.transactionId);
+    let activeTx = Number.isSafeInteger(linkedId) && linkedId > 0
+      ? await db.transaction.findFirst({ where: {
+          id: linkedId, personnelId: app.personnelId, transactionTypeId: txType.id,
+          status: { in: ['DRAFT', 'PENDING_VALIDATION', 'FOR_APPROVAL', 'DEFICIENCY', 'ESCALATED'] },
+        } })
+      : null;
 
     if (!activeTx) {
       activeTx = await db.transaction.create({
@@ -1264,8 +1306,8 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
 
     // Ensure User account is active so candidate can log in and submit requirements
     if (app.personnel?.userId) {
-      await db.user.update({
-        where: { id: app.personnel.userId },
+      await db.user.updateMany({
+        where: { id: app.personnel.userId, accountStatus: 'PENDING' },
         data: { accountStatus: 'ACTIVE' },
       });
     }
@@ -1303,8 +1345,13 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
   } else {
     const linkedTransactionId = Number(currentDetails.transactionId);
     if (Number.isInteger(linkedTransactionId) && linkedTransactionId > 0) {
+      await lockTransaction(db, linkedTransactionId);
+      const linked = await db.transaction.findFirst({ where: { id: linkedTransactionId, personnelId: app.personnelId } });
+      if (!linked || !['DRAFT', 'DEFICIENCY', 'ABANDONED'].includes(linked.status)) {
+        throw workflowConflict('The appointment is already under review or completed. Return it for correction before withdrawing selection.');
+      }
       await db.transaction.updateMany({
-        where: { id: linkedTransactionId, status: { in: ['DRAFT', 'DEFICIENCY'] } },
+        where: { id: linkedTransactionId, personnelId: app.personnelId, status: { in: ['DRAFT', 'DEFICIENCY'] } },
         data: { status: 'ABANDONED', remarks: 'Candidate selection was withdrawn before appointment approval.' },
       });
     }
@@ -1329,7 +1376,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       notificationUserId = app.personnel.user.id;
     }
   }
-  });
+  }, { timeout: 15000 });
 
   if (notificationUserId) notifyUserNotifications([notificationUserId]);
   if (isPromoted && app.personnel?.user?.email) {
@@ -1470,11 +1517,6 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
             dateHired: null,
             profileComplete: false,
           },
-        });
-
-        await tx.user.update({
-          where: { id: assignedUserId },
-          data: { personnelId: newPersonnel.id },
         });
 
         return newPersonnel;
@@ -1786,8 +1828,8 @@ const getMonthlySalaryBySG = (sg: number): number => {
 
 export const getMyServiceRecords = async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { personnelId: true } });
-  const personnelId = user?.personnelId || req.user?.personnelId;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { personnel: { select: { id: true } } } });
+  const personnelId = user?.personnel?.id || req.user?.personnelId;
 
   if (!personnelId) {
     sendSuccess(res, []);
@@ -1948,83 +1990,60 @@ export const getMyPromotionStatus = async (req: Request, res: Response): Promise
     return;
   }
 
-  // 1. Check for official approved promotion transaction or career history entry
-  const approvedTx = await prisma.transaction.findFirst({
+  // Prefer an outstanding assigned transaction over a historical promotion.
+  const selectedApps = await prisma.promotionApplication.findMany({
     where: {
-      personnelId,
-      transactionType: { name: { contains: 'Promotion', mode: 'insensitive' } },
-      status: 'APPROVED',
-    },
-    orderBy: { approvalDate: 'desc' },
-  });
-
-  const promotionEntry = await prisma.careerHistoryEntry.findFirst({
-    where: { personnelId, eventType: 'PROMOTION' },
-    orderBy: { eventDate: 'desc' },
-  });
-
-  if (approvedTx || promotionEntry) {
-    const details = (promotionEntry?.detailsJson as Record<string, any>) || {};
-    sendSuccess(res, {
-      isPromoted: true,
-      isPendingApproval: false,
-      promotionStage: 'OFFICIALLY_PROMOTED',
-      promotionDetails: {
-        transactionId: approvedTx?.id || null,
-        promotedAt: approvedTx?.approvalDate || promotionEntry?.eventDate || new Date().toISOString(),
-        targetPosition: details.newDesignation || 'Promoted Rank',
-        remarks: approvedTx?.remarks || details.remarks || 'Promotion officially approved by HRMO',
-      },
-      message: '🎉 Congratulations! Your promotion appointment documents have been approved by HR. You are officially promoted!',
-    });
-    return;
-  }
-
-  // 2. Check for active pending promotion transaction or selection by HRMO
-  const pendingTx = await prisma.transaction.findFirst({
-    where: {
-      personnelId,
-      transactionType: { name: { contains: 'Promotion', mode: 'insensitive' } },
-      status: { in: ['DRAFT', 'PENDING_VALIDATION', 'FOR_APPROVAL', 'DEFICIENCY', 'ESCALATED'] },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const selectedApp = await prisma.promotionApplication.findFirst({
-    where: {
-      personnelId,
+      personnelId, status: { not: 'REJECTED' }, promotionCycle: { status: { not: 'CANCELLED' } },
       OR: [
         { status: 'APPROVED' },
         { scoreDetailsJson: { path: ['manuallyPromoted'], equals: true } },
         { scoreDetailsJson: { path: ['stageStatus'], equals: 'SELECTED_PENDING_DOCS' } },
       ],
     },
-    include: {
-      promotionCycle: { select: { id: true, name: true, type: true, rulesConfigurationJson: true } },
-    },
+    include: { promotionCycle: { select: { id: true, name: true, type: true, rulesConfigurationJson: true } } },
+    orderBy: { updatedAt: 'desc' },
   });
-
-  if (pendingTx || selectedApp) {
-    const appDetails = (selectedApp?.scoreDetailsJson as Record<string, any>) || {};
-    const targetPosition = (selectedApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I / Promoted Rank';
-    const txId = pendingTx?.id || appDetails.transactionId || null;
-    const txStatus = pendingTx?.status || 'DRAFT';
-
+  for (const selectedApp of selectedApps) {
+    const details = (selectedApp.scoreDetailsJson as Record<string, any>) || {};
+    const txId = Number(details.transactionId);
+    if (!Number.isSafeInteger(txId) || txId <= 0) continue;
+    const pendingTx = await prisma.transaction.findFirst({
+      where: { id: txId, personnelId, status: { in: ['DRAFT', 'PENDING_VALIDATION', 'FOR_APPROVAL', 'DEFICIENCY', 'ESCALATED'] } },
+    });
+    if (!pendingTx) continue;
     sendSuccess(res, {
-      isPromoted: false,
-      isPendingApproval: true,
-      promotionStage: 'SELECTED_PENDING_DOCUMENT_APPROVAL',
-      transactionId: txId,
-      transactionStatus: txStatus,
+      isPromoted: false, isPendingApproval: true, promotionStage: 'SELECTED_PENDING_DOCUMENT_APPROVAL',
+      transactionId: pendingTx.id, transactionStatus: pendingTx.status,
       promotionDetails: {
-        applicationId: selectedApp?.id || null,
-        cycleId: selectedApp?.promotionCycleId || null,
-        cycleName: selectedApp?.promotionCycle?.name || 'Promotion Cycle',
-        selectedAt: appDetails.selectedAt || appDetails.promotedAt || selectedApp?.updatedAt,
-        targetPosition,
-        remarks: 'Selected for promotion by HRMO. Appointment documents pending HR validation & approval.',
+        applicationId: selectedApp.id, cycleId: selectedApp.promotionCycleId,
+        cycleName: selectedApp.promotionCycle.name,
+        selectedAt: details.selectedAt || details.promotedAt || selectedApp.updatedAt,
+        targetPosition: (selectedApp.promotionCycle.rulesConfigurationJson as any)?.targetPosition || details.targetPosition || null,
+        remarks: 'Selected by HRMO. Appointment documents are pending validation and approval.',
       },
-      message: 'Selected for Promotion! Please submit your promotion appointment documents for HR validation and approval. You are not officially promoted until HR approves your documents.',
+      message: 'Your assigned appointment transaction is ready for document submission. The appointment becomes official after HRMO approval.',
+    });
+    return;
+  }
+
+  const approvedTx = await prisma.transaction.findFirst({
+    where: { personnelId, transactionType: { name: { contains: 'Promotion', mode: 'insensitive' } }, status: 'APPROVED' },
+    orderBy: { approvalDate: 'desc' },
+  });
+  const promotionEntry = await prisma.careerHistoryEntry.findFirst({
+    where: { personnelId, eventType: 'PROMOTION' }, orderBy: { eventDate: 'desc' },
+  });
+  if (approvedTx || promotionEntry) {
+    const details = (promotionEntry?.detailsJson as Record<string, any>) || {};
+    sendSuccess(res, {
+      isPromoted: true, isPendingApproval: false, promotionStage: 'OFFICIALLY_PROMOTED',
+      promotionDetails: {
+        transactionId: approvedTx?.id || null,
+        promotedAt: approvedTx?.approvalDate || promotionEntry?.eventDate || null,
+        targetPosition: details.newDesignation || null,
+        remarks: approvedTx?.remarks || details.remarks || 'Promotion approved by HRMO',
+      },
+      message: 'Your promotion appointment documents have been approved by HRMO.',
     });
     return;
   }

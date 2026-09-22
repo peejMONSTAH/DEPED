@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { apiUrl } from '../api/client';
 
 /**
  * Custom React hook for real-time transaction updates using SSE (Server-Sent Events)
- * + Tab Focus listener + 5-second polling fallback.
+ * + tab focus refresh and periodic reconciliation across API instances.
  */
 export const useRealtimeTransactions = (onUpdate: (data?: any) => void, intervalMs: number = 30000) => {
   const callbackRef = useRef(onUpdate);
@@ -15,16 +16,14 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
     let eventSource: EventSource | null = null;
     let reconnectTimeout: any = null;
     let isDisposed = false;
-    let sseConnected = false;
 
     const connectSSE = () => {
       if (isDisposed) return;
       try {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
-        const url = `/api/v1/transactions/stream?token=${encodeURIComponent(token)}`;
+        const url = apiUrl(`/transactions/stream?token=${encodeURIComponent(token)}`);
         eventSource = new EventSource(url);
-        eventSource.onopen = () => { sseConnected = true; };
 
         eventSource.onmessage = (event) => {
           try {
@@ -39,7 +38,6 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
 
         eventSource.onerror = () => {
           if (eventSource) {
-            sseConnected = false;
             eventSource.close();
             eventSource = null;
           }
@@ -56,7 +54,7 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
 
     // Responsive polling fallback ensuring real-time UI synchronization
     const timer = setInterval(() => {
-      if (!sseConnected && document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible') {
         callbackRef.current();
       }
     }, intervalMs);

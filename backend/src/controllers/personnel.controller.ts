@@ -296,7 +296,7 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
       where: {
         OR: [
           { userId: req.user.userId },
-          { user: { email: { equals: req.user.email, mode: 'insensitive' } } },
+          { user: { email: req.user.email } },
         ],
       },
       select: personnelSelect,
@@ -305,10 +305,9 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
     if (pRecord) {
       personnel = pRecord;
       targetId = pRecord.id;
-      await prisma.user.update({
-        where: { id: req.user.userId },
-        data: { personnelId: pRecord.id },
-      }).catch((err: any) => logger.error({ err }, 'Failed to link user personnelId'));
+      // This used to write the id back into users.personnel_id, because that
+      // mirror column could be empty while the personnel record named the
+      // account. There is one link now and it is never empty.
     }
   }
 
@@ -356,7 +355,7 @@ export const getMyServiceRecord = async (req: Request, res: Response): Promise<v
       where: {
         OR: [
           { userId: req.user.userId },
-          { user: { email: { equals: req.user.email, mode: 'insensitive' } } },
+          { user: { email: req.user.email } },
         ],
       },
       select: { id: true },
@@ -408,7 +407,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
       where: {
         OR: [
           { userId: req.user.userId },
-          { user: { email: { equals: req.user.email, mode: 'insensitive' } } },
+          { user: { email: req.user.email } },
         ],
       },
       select: { id: true },
@@ -794,13 +793,10 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
   );
   updateData.profileComplete = isComplete;
 
-  const updated = await prisma.$transaction(async tx => {
-    if (requestedPlantillaId !== undefined && requestedPlantillaId !== existingPersonnel.plantillaItemId) {
-      if (existingPersonnel.plantillaItemId) await tx.plantillaItem.update({ where: { id: existingPersonnel.plantillaItemId }, data: { isOccupied: false } });
-      if (requestedPlantillaId) await tx.plantillaItem.update({ where: { id: requestedPlantillaId }, data: { isOccupied: true } });
-    }
-    return tx.personnel.update({ where: { id }, data: updateData, select: personnelSelect });
-  });
+  // Moving plantillaItemId is the whole change: the item this person held is
+  // vacated and the new one filled by the same write, so the two can no longer
+  // be left disagreeing by a failure between statements.
+  const updated = await prisma.personnel.update({ where: { id }, data: updateData, select: personnelSelect });
 
   // Record audit log
   await prisma.validationLog.create({

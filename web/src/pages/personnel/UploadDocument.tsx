@@ -11,7 +11,7 @@ import { clickable } from '../../a11y/clickable';
 export const UploadDocument: React.FC = () => {
   const [searchParams] = useSearchParams();
   const rawTxId = searchParams.get('txId');
-  const [txId, setTxId] = useState<string>(rawTxId && rawTxId !== '101' ? rawTxId : '8');
+  const [txId, setTxId] = useState<string>(rawTxId || '');
   const reqId = searchParams.get('reqId');
   const reqName = searchParams.get('name') || 'Document';
 
@@ -19,35 +19,26 @@ export const UploadDocument: React.FC = () => {
   const { addToast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [txStatus, setTxStatus] = useState<string>('DRAFT');
+  const [txStatus, setTxStatus] = useState<string>('UNKNOWN');
   const [structuredData, setStructuredData] = useState<{ templateId: string; fields: Record<string, string> } | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
-  // Auto-resolve active transaction ID if not provided in search params
+  // Never substitute another transaction or a demo ID when a link is missing or invalid.
   React.useEffect(() => {
-    const resolveTx = async () => {
-      try {
-        const res = await apiClient.get('/transactions/my-transactions');
-        const list = res.data?.data || [];
-        if (list.length > 0) {
-          let currentTx;
-          if (rawTxId && rawTxId !== '101') {
-            currentTx = list.find((t: any) => String(t.id) === String(rawTxId));
-          }
-          if (!currentTx) {
-            currentTx = list.find((t: any) => t.status === 'DRAFT' || t.status === 'DEFICIENCY') || list[0];
-          }
-          if (currentTx) {
-            setTxId(String(currentTx.id));
-            setTxStatus(currentTx.status);
-          }
-        }
-      } catch (_) {
-        setTxId(rawTxId || '8');
+    let disposed = false;
+    setTxStatus('UNKNOWN');
+    if (!rawTxId || !Number.isSafeInteger(Number(rawTxId)) || Number(rawTxId) <= 0) {
+      setTxId('');
+      return;
+    }
+    apiClient.get(`/transactions/${rawTxId}`).then(response => {
+      if (!disposed) {
+        setTxId(String(response.data.data.id));
+        setTxStatus(response.data.data.status);
       }
-    };
-    resolveTx();
+    }).catch(() => { if (!disposed) setTxStatus('UNKNOWN'); });
+    return () => { disposed = true; };
   }, [rawTxId]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,7 +89,9 @@ export const UploadDocument: React.FC = () => {
       return;
     }
 
-    const targetTx = txId && txId !== '101' ? txId : '8';
+    if (!txId || !['DRAFT', 'DEFICIENCY'].includes(txStatus)) { addToast('Open an editable assigned transaction before uploading.', 'ERROR'); return; }
+    if (structuredData?.templateId === 'pds-2025' && !confirmed) { addToast('Confirm the detected fields before uploading.', 'ERROR'); return; }
+    const targetTx = txId;
 
     try {
       setIsUploading(true);
@@ -116,7 +109,7 @@ export const UploadDocument: React.FC = () => {
       const documentId = uploadResponse.data?.data?.id;
       if (structuredData?.templateId === 'pds-2025' && documentId) {
         if (!confirmed) throw new Error('Please confirm the detected PDS fields before continuing.');
-        await apiClient.put(`/documents/${documentId}/extraction-review`, { fields: structuredData.fields });
+        await apiClient.put(`/documents/${documentId}/extraction-review`, { fields: structuredData.fields, version: uploadResponse.data.data.updatedAt });
       }
 
       addToast('✅ Document uploaded successfully and saved to database!', 'SUCCESS');

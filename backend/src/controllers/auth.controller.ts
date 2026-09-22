@@ -30,8 +30,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   try {
     // 1. Direct exact match
-    user = await prisma.user.findFirst({
-      where: { email: { equals: rawInput, mode: 'insensitive' } },
+    // citext: this matches any capitalisation, and unlike the ILIKE that
+    // `mode: 'insensitive'` produced it uses users_email_key instead of
+    // scanning the table.
+    user = await prisma.user.findUnique({
+      where: { email: rawInput },
       include: userInclude,
     });
 
@@ -40,10 +43,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       user = await prisma.user.findFirst({
         where: {
           OR: [
-            { email: { equals: `${username}@deped.koronadal.gov.ph`, mode: 'insensitive' } },
-            { email: { equals: `${username}@deped.gov.ph`, mode: 'insensitive' } },
-            { email: { equals: `${username}@deped.gov`, mode: 'insensitive' } },
-            { email: { startsWith: `${username}@`, mode: 'insensitive' } },
+            { email: `${username}@deped.koronadal.gov.ph` },
+            { email: `${username}@deped.gov.ph` },
+            { email: `${username}@deped.gov` },
+            { email: { startsWith: `${username}@` } },
           ],
         },
         include: userInclude,
@@ -55,8 +58,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       user = await prisma.user.findFirst({
         where: {
           OR: [
-            { email: { equals: rawInput, mode: 'insensitive' } },
-            { email: { startsWith: `${username}@`, mode: 'insensitive' } },
+            { email: rawInput },
+            { email: { startsWith: `${username}@` } },
           ],
         },
         include: userInclude,
@@ -168,7 +171,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       lastName: user.personnel?.lastName,
       designation: user.personnel?.designation,
       address: user.personnel?.address,
-      personnelId: user.personnelId,
+      personnelId: user.personnel?.id ?? null,
       mustChangePassword,
     },
   });

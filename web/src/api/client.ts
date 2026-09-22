@@ -1,6 +1,26 @@
 import axios from 'axios';
+import { singleFlight } from './session-refresh';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || '/api/v1';
+export const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL || '/api/v1').replace(/\/$/, '');
+export const apiUrl = (path: string) => `${API_BASE_URL}/${path.replace(/^\//, '')}`;
+
+function clearSession() {
+  for (const key of ['accessToken', 'refreshToken', 'user']) localStorage.removeItem(key);
+  if (window.location.pathname !== '/login') window.location.href = '/login';
+}
+
+export const refreshAccessToken = singleFlight(async (): Promise<string> => {
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) throw new Error('No refresh token');
+  const response = await axios.post(apiUrl('/auth/refresh-token'), { refreshToken }, { timeout: 15000 });
+  const { accessToken, refreshToken: rotatedToken } = response.data.data;
+  if (!accessToken || typeof accessToken !== 'string') throw new Error('Invalid session response');
+  // A refresh completing after logout or an account switch cannot restore the old session.
+  if (localStorage.getItem('refreshToken') !== refreshToken) throw new Error('Session changed');
+  localStorage.setItem('accessToken', accessToken);
+  if (rotatedToken) localStorage.setItem('refreshToken', rotatedToken);
+  return accessToken;
+});
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -40,31 +60,29 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (originalRequest && error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+
+      const latestToken = localStorage.getItem('accessToken');
+      if (latestToken && originalRequest.headers?.Authorization !== `Bearer ${latestToken}`) {
+        originalRequest.headers.Authorization = `Bearer ${latestToken}`;
+        return apiClient(originalRequest);
+      }
 
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
         // No refresh token, clear credentials and redirect to login only if not already on /login
-        localStorage.clear();
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+        clearSession();
         return Promise.reject(error);
       }
 
       try {
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, { refreshToken });
-        const { accessToken } = response.data.data;
-        localStorage.setItem('accessToken', accessToken);
+        const accessToken = await refreshAccessToken();
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
-      } catch {
-        localStorage.clear();
-        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
-        return Promise.reject(error);
+      } catch (refreshError: any) {
+        if ([401, 403].includes(refreshError.response?.status) && localStorage.getItem('refreshToken') === refreshToken) clearSession();
+        return Promise.reject(refreshError);
       }
     }
 

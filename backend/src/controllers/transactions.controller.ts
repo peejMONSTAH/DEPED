@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendBadRequest, sendNotFound, sendForbidden, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { notifyUserNotifications } from './notifications.controller';
@@ -15,6 +15,9 @@ import { EventEmitter } from 'events';
 import { isConfirmedPdsData, pdsProfileProposal } from '../utils/pds-profile.util';
 import { logger } from '../utils/logger';
 import { getSubmissionTransition } from '../utils/transaction-workflow.util';
+import { transactionAccessFilter } from '../utils/transaction-access.util';
+import { transactionCompliance } from '../utils/transaction-compliance.util';
+import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
 const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
 export const transactionEvents = new EventEmitter();
@@ -30,8 +33,9 @@ export const streamTransactions = (req: Request, res: Response) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.write(`data: ${JSON.stringify({ type: 'CONNECTED', timestamp: Date.now() })}\n\n`);
-  const onUpdate = (data: any) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const onUpdate = () => {
+    // Broadcast only invalidation; record details are fetched through the access policy.
+    res.write(`data: ${JSON.stringify({ type: 'TRANSACTIONS_CHANGED', timestamp: Date.now() })}\n\n`);
   };
   transactionEvents.on('change', onUpdate);
   const heartbeat = setInterval(() => { res.write(': heartbeat\n\n'); }, 25000);
@@ -45,22 +49,7 @@ export const streamTransactions = (req: Request, res: Response) => {
 export const getTransactions = async (req: Request, res: Response) => {
   const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
   const { status, type } = req.query as any;
-  const isAdmin = ADMIN_ROLES.includes(req.user?.role as string);
-  const where: any = {};
-
-  if (!isAdmin) {
-    if (!req.user?.personnelId) { sendBadRequest(res, 'No personnel profile linked.'); return; }
-    where.personnelId = req.user.personnelId;
-  } else if (req.user?.role === 'AO_II') {
-    // AO II can only see transactions of Teaching and Non-Teaching personnel under their school
-    const scope = await getStationScope(req.user);
-    if (scope.isScoped) {
-      where.personnel = {
-        user: { role: { name: { in: STATION_SUBJECT_ROLES } } },
-        ...stationPersonnelFilter(scope),
-      };
-    }
-  }
+  const where: any = await transactionAccessFilter(req.user);
 
   if (status) where.status = status as string;
   if (type) where.transactionType = { name: { contains: String(type), mode: 'insensitive' } };
@@ -71,7 +60,7 @@ export const getTransactions = async (req: Request, res: Response) => {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        transactionType: { select: { name: true, requirementTemplates: { select: { id: true, isMandatory: true } } } },
+        transactionType: { select: { name: true, requirementTemplates: { select: { id: true, name: true, description: true, isMandatory: true } } } },
         personnel: {
           select: {
             id: true,
@@ -94,7 +83,6 @@ export const getTransactions = async (req: Request, res: Response) => {
                 },
               },
               orderBy: { updatedAt: 'desc' },
-              take: 1,
             },
           },
         },
@@ -105,13 +93,11 @@ export const getTransactions = async (req: Request, res: Response) => {
   ]);
 
   const formatted = data.map(tx => {
-    const promoApp = tx.personnel?.promotionApplications?.[0];
+    const promoApp = tx.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === tx.id);
     const isPromo = tx.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
     const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || null;
     const cycleName = promoApp?.promotionCycle?.name || null;
-    const mandatoryIds = tx.transactionType.requirementTemplates.filter(r => r.isMandatory).map(r => r.id);
-    const uploadedIds = new Set(tx.uploadedDocuments.map(d => d.requirementTemplateId));
-    const complianceScore = mandatoryIds.length > 0 ? Math.round((mandatoryIds.filter(id => uploadedIds.has(id)).length / mandatoryIds.length) * 100) : 0;
+    const { complianceScore } = transactionCompliance(tx.transactionType.requirementTemplates, tx.uploadedDocuments);
     return {
       ...tx,
       complianceScore,
@@ -139,17 +125,14 @@ export const getMyTransactions = async (req: Request, res: Response) => {
       where: {
         OR: [
           { userId: req.user.userId },
-          { user: { email: { equals: req.user.email, mode: 'insensitive' } } },
+          { user: { email: req.user.email } },
         ],
       },
       select: { id: true },
     });
     if (pRecord) {
       pId = pRecord.id;
-      await prisma.user.update({
-        where: { id: req.user.userId },
-        data: { personnelId: pRecord.id },
-      }).catch((err: any) => logger.error({ err }, 'Failed to link user personnelId in transactions'));
+      // No mirror column to repair; see personnel.controller.ts.
     }
   }
 
@@ -167,7 +150,7 @@ export const getMyTransactions = async (req: Request, res: Response) => {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        transactionType: { select: { name: true } },
+        transactionType: { select: { name: true, requirementTemplates: { select: { id: true, name: true, description: true, isMandatory: true } } } },
         personnel: {
           select: {
             id: true,
@@ -189,29 +172,25 @@ export const getMyTransactions = async (req: Request, res: Response) => {
                 },
               },
               orderBy: { updatedAt: 'desc' },
-              take: 1,
             },
           },
         },
-        uploadedDocuments: { select: { id: true, fileName: true, status: true } },
+        uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true } },
       },
     }),
     prisma.transaction.count({ where }),
   ]);
   const formattedData = data.map(tx => {
-    const validCount = tx.uploadedDocuments.filter(d => (d.status as string) !== 'REJECTED' && (d.status as string) !== 'DEFICIENT').length;
-    const score = tx.uploadedDocuments.length > 0
-      ? Math.round((validCount / (tx.uploadedDocuments.length || 1)) * 100)
-      : (tx.status !== 'DRAFT' ? 100 : 0);
-    const promoApp = tx.personnel?.promotionApplications?.[0];
+    const { complianceScore: score } = transactionCompliance(tx.transactionType.requirementTemplates, tx.uploadedDocuments);
+    const promoApp = tx.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === tx.id);
     const isPromo = tx.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
-    const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I';
-    const cycleName = promoApp?.promotionCycle?.name || 'DepEd Promotion Cycle';
+    const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || null;
+    const cycleName = promoApp?.promotionCycle?.name || null;
     return {
       ...tx,
       complianceScore: score,
       isPromotion: isPromo,
-      promotionDetails: isPromo ? {
+      promotionDetails: isPromo && promoApp ? {
         isSelected: true,
         cycleName,
         targetPosition: targetPos,
@@ -309,15 +288,14 @@ export const createTransaction = async (req: Request, res: Response) => {
 };
 
 /** GET /transactions/:id */
-export const getTransactionById = async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
-  const isAdmin = ADMIN_ROLES.includes(req.user?.role as string);
+export const getTransactionById = async (req: Request, res: Response, next: NextFunction) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
 
   try {
     const [transaction, logs] = await Promise.all([
-      prisma.transaction.findUnique({
-        where: { id },
+      prisma.transaction.findFirst({
+        where: { AND: [{ id }, await transactionAccessFilter(req.user)] },
         include: {
           transactionType: { include: { requirementTemplates: true } },
           personnel: {
@@ -341,7 +319,6 @@ export const getTransactionById = async (req: Request, res: Response) => {
                   },
                 },
                 orderBy: { updatedAt: 'desc' },
-                take: 1,
               },
             },
           },
@@ -362,20 +339,17 @@ export const getTransactionById = async (req: Request, res: Response) => {
     ]);
 
     if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
-    if (!isAdmin && transaction.personnelId !== req.user?.personnelId) { sendForbidden(res, 'You do not have access to this transaction.'); return; }
-    const mandatoryIds = transaction.transactionType.requirementTemplates.filter(r => r.isMandatory).map(r => r.id);
-    const uploadedIds = new Set(transaction.uploadedDocuments.map(d => d.requirementTemplateId));
-    const complianceScore = mandatoryIds.length > 0 ? Math.round((mandatoryIds.filter(templateId => uploadedIds.has(templateId)).length / mandatoryIds.length) * 100) : 0;
-    const promoApp = transaction.personnel?.promotionApplications?.[0];
+    const { complianceScore } = transactionCompliance(transaction.transactionType.requirementTemplates, transaction.uploadedDocuments);
+    const promoApp = transaction.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === transaction.id);
     const isPromo = transaction.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
-    const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || 'Master Teacher I';
-    const cycleName = promoApp?.promotionCycle?.name || 'DepEd Promotion Cycle';
+    const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || null;
+    const cycleName = promoApp?.promotionCycle?.name || null;
 
     sendSuccess(res, {
       ...transaction,
       complianceScore,
       isPromotion: isPromo,
-      promotionDetails: isPromo ? {
+      promotionDetails: isPromo && promoApp ? {
         isSelected: true,
         cycleName,
         targetPosition: targetPos,
@@ -384,7 +358,7 @@ export const getTransactionById = async (req: Request, res: Response) => {
       history: logs,
     });
   } catch (err) {
-    sendNotFound(res, 'Transaction not found.');
+    next(err);
   }
 };
 
@@ -403,6 +377,10 @@ export const submitTransaction = async (req: Request, res: Response) => {
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
   if (transaction.personnelId !== req.user?.personnelId) { sendForbidden(res, 'Forbidden'); return; }
   const allowedStatuses = ['DRAFT', 'DEFICIENCY'];
+  if (['REJECTED', 'ABANDONED', 'ARCHIVED'].includes(transaction.status)) {
+    sendBadRequest(res, 'This transaction is closed and cannot be submitted.', 'TRANSACTION_CLOSED');
+    return;
+  }
   if (!allowedStatuses.includes(transaction.status as string)) {
     sendSuccess(res, { id: transaction.id, referenceNo: `TRX-${transaction.id}`, type: transaction.transactionType.name, status: transaction.status, submissionDate: transaction.submissionDate }, 'Transaction already submitted.');
     return;
@@ -434,6 +412,15 @@ export const submitTransaction = async (req: Request, res: Response) => {
   // The status change and its audit entry must land together; notifying AO II is a
   // post-commit side effect and stays outside so its latency cannot abort the write.
   const updated = await prisma.$transaction(async tx => {
+    await lockTransaction(tx, id);
+    const current = await tx.transaction.findUniqueOrThrow({
+      where: { id }, include: { uploadedDocuments: true, transactionType: { include: { requirementTemplates: true } } },
+    });
+    if (current.status !== transaction.status) throw workflowConflict('The transaction changed. Refresh before submitting again.');
+    const compliance = transactionCompliance(current.transactionType.requirementTemplates, current.uploadedDocuments);
+    if (!compliance.isComplete) throw workflowConflict(compliance.unconfirmedPds
+      ? 'Review and confirm the extracted PDS fields before submitting.'
+      : 'Upload or replace all missing and rejected mandatory documents before submitting.');
     const claimed = await tx.transaction.updateMany({
       where: { id, status: transaction.status },
       data: {
@@ -443,7 +430,7 @@ export const submitTransaction = async (req: Request, res: Response) => {
         ...(shouldEscalate ? { remarks: 'Escalated to HRMO after three correction cycles. Review the submission and prior AO II findings.' } : {}),
       },
     });
-    if (claimed.count !== 1) throw new Error(`Transaction #${id} changed in another session. Refresh before submitting again.`);
+    if (claimed.count !== 1) throw workflowConflict(`Transaction #${id} changed in another session. Refresh before submitting again.`);
     const row = await tx.transaction.findUniqueOrThrow({
       where: { id },
       include: { personnel: { select: { firstName: true, lastName: true, user: { select: { email: true } } } }, transactionType: { select: { name: true } } },
@@ -579,10 +566,12 @@ export const validateTransaction = async (req: Request, res: Response) => {
   const newStatus: any = isRejected ? 'REJECTED' : hasDeficiencies ? 'DEFICIENCY' : 'FOR_APPROVAL';
 
   await prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(201, ${id})`;
-    const current = await tx.transaction.findUnique({ where: { id }, select: { status: true } });
-    if (current?.status !== transaction.status) {
-      throw new Error(`Transaction #${id} changed in another review session. Refresh before submitting a decision.`);
+    await lockTransaction(tx, id);
+    const current = await tx.transaction.findUnique({ where: { id }, include: { uploadedDocuments: true } });
+    if (current?.status !== transaction.status || current.updatedAt.getTime() !== transaction.updatedAt.getTime() ||
+      current.uploadedDocuments.length !== transaction.uploadedDocuments.length ||
+      current.uploadedDocuments.some(d => !transaction.uploadedDocuments.some(old => old.id === d.id && old.updatedAt.getTime() === d.updatedAt.getTime()))) {
+      throw workflowConflict(`Transaction #${id} changed in another review session. Refresh before submitting a decision.`);
     }
     const deficientDocNames: string[] = [];
 
@@ -765,7 +754,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
           plantillaItem: true,
         },
       },
-      transactionType: true,
+      transactionType: { include: { requirementTemplates: true } },
       uploadedDocuments: { include: { requirementTemplate: { select: { name: true } } } },
     },
   });
@@ -782,11 +771,19 @@ export const approveTransaction = async (req: Request, res: Response) => {
   const newStatus = isApproved ? 'APPROVED' : 'REJECTED';
 
   await prisma.$transaction(async (tx) => {
+    await lockTransaction(tx, id);
+    if (isApproved) {
+      const current = await tx.transaction.findUniqueOrThrow({ where: { id }, include: { uploadedDocuments: true, transactionType: { include: { requirementTemplates: true } } } });
+      const compliance = transactionCompliance(current.transactionType.requirementTemplates, current.uploadedDocuments);
+      if (!compliance.isComplete || current.uploadedDocuments.some(d => d.status !== 'VALIDATED')) {
+        throw workflowConflict('All required documents must be present, confirmed and validated by AO II before approval. Return this transaction for correction.');
+      }
+    }
     const claimed = await tx.transaction.updateMany({
       where: { id, status: 'FOR_APPROVAL' },
       data: { status: newStatus, approvalDate: new Date(), remarks: notes },
     });
-    if (claimed.count !== 1) throw new Error(`Transaction #${id} was already processed by another reviewer.`);
+    if (claimed.count !== 1) throw workflowConflict(`Transaction #${id} was already processed by another reviewer.`);
 
     if (isApproved && transaction.personnelId) {
       const pdsDocument = transaction.uploadedDocuments.find(doc => /personal data sheet|\bpds\b/i.test(doc.requirementTemplate.name));
@@ -864,12 +861,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
                 select: { plantillaItemId: true },
               });
 
-              if (currentPersonnel?.plantillaItemId && currentPersonnel.plantillaItemId !== targetPlantilla.id) {
-                await tx.plantillaItem.update({
-                  where: { id: currentPersonnel.plantillaItemId },
-                  data: { isOccupied: false },
-                });
-              }
+              // Any item this person already held is vacated by the rebind below.
 
               const conflictingHolder = await tx.personnel.findFirst({
                 where: { plantillaItemId: targetPlantilla.id, id: { not: transaction.personnelId } },
@@ -878,11 +870,6 @@ export const approveTransaction = async (req: Request, res: Response) => {
               if (conflictingHolder) {
                 throw new Error(`Plantilla item ${targetPlantilla.itemNumber} is already occupied by ${conflictingHolder.employeeId}. Resolve the plantilla assignment before approval.`);
               }
-
-              await tx.plantillaItem.update({
-                where: { id: targetPlantilla.id },
-                data: { isOccupied: true },
-              });
 
               await tx.personnel.update({
                 where: { id: transaction.personnelId },
@@ -1004,9 +991,9 @@ export const approveTransaction = async (req: Request, res: Response) => {
 
 /** GET /transactions/:id/requirements */
 export const getTransactionRequirements = async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
-  const transaction = await prisma.transaction.findUnique({ where: { id }, include: { transactionType: { include: { requirementTemplates: true } }, uploadedDocuments: true } });
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
+  const transaction = await prisma.transaction.findFirst({ where: { AND: [{ id }, await transactionAccessFilter(req.user)] }, include: { transactionType: { include: { requirementTemplates: true } }, uploadedDocuments: true } });
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
   const uploadedMap = new Map(transaction.uploadedDocuments.map(d => [d.requirementTemplateId, d]));
   const checklist = transaction.transactionType.requirementTemplates.map(tmpl => {
@@ -1022,9 +1009,6 @@ export const getTransactionRequirements = async (req: Request, res: Response) =>
       status: uploaded?.status || 'PENDING_UPLOAD',
     };
   });
-  const totalCount = checklist.length;
-  const uploadedCount = checklist.filter(c => c.isUploaded).length;
-  const complianceScore = totalCount > 0 ? Math.round((uploadedCount / totalCount) * 100) : 0;
-  const isComplete = checklist.filter(c => c.isMandatory).every(c => c.isUploaded);
+  const { complianceScore, isComplete } = transactionCompliance(transaction.transactionType.requirementTemplates, transaction.uploadedDocuments);
   sendSuccess(res, { complianceScore, isComplete, status: isComplete ? 'Ready for Validation' : 'Incomplete Submission', recommendation: isComplete ? 'All required documents uploaded. You may submit this transaction for AO II validation.' : 'Please upload all missing required documents before submitting.', checklist });
 };

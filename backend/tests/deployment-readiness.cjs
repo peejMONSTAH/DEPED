@@ -30,6 +30,9 @@ test('a restore drill exists and boots the API, not just pg_restore', () => {
   const drill = repo('scripts/restore-drill.ps1');
   assert.match(drill, /pg_restore/);
   assert.match(drill, /src\/index\.ts/, 'the drill must start the API against the restored database');
+  assert.match(drill, /WORKFLOW_OUTBOX_ENABLED = 'false'/, 'restored outbox emails must not be sent');
+  assert.match(drill, /Get-FileHash/, 'restore must check the backup manifest');
+  assert.match(repo('scripts/backup-daily.ps1'), /--extension=citext/, 'public-schema backups must include email column dependencies');
 });
 
 test('remediation exists for accounts still holding a shared issued password', () => {

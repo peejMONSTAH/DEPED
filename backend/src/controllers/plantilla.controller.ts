@@ -25,9 +25,9 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
     const where: Record<string, any> = {};
 
     if (status === 'VACANT') {
-      where.isOccupied = false;
+      where.occupiedByPersonnel = null;
     } else if (status === 'OCCUPIED') {
-      where.isOccupied = true;
+      where.occupiedByPersonnel = { isNot: null };
     }
 
     if (track === 'TEACHING') {
@@ -85,11 +85,16 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
         },
       },
       orderBy: [
-        { isOccupied: 'asc' }, // Vacant items first for priority ranking awareness
         { salaryGrade: 'desc' },
         { itemNumber: 'asc' },
       ],
     });
+
+    // Vacant items first, for priority ranking awareness. Occupancy is a
+    // relation rather than a column, and Prisma cannot order by the presence
+    // of one, so the stable sort is applied here over the already-materialised
+    // list. The ordering above decides ties, exactly as before.
+    items.sort((a, b) => Number(Boolean(a.occupiedByPersonnel)) - Number(Boolean(b.occupiedByPersonnel)));
 
     // Fetch active promotion cycles to determine if any vacant item is currently open for ranking
     const activeCycles = await prisma.promotionCycle.findMany({
@@ -109,13 +114,10 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
     });
 
     const enriched = items.map((item) => {
+      // The occupant relation is the occupancy. This used to be compared
+      // against a stored flag and repaired when the two disagreed, which they
+      // regularly did; there is nothing left to disagree with.
       const actualIsOccupied = Boolean(item.occupiedByPersonnel);
-      if (item.isOccupied !== actualIsOccupied) {
-        prisma.plantillaItem.update({
-          where: { id: item.id },
-          data: { isOccupied: actualIsOccupied },
-        }).catch((err: any) => logger.error({ err }, 'Failed to auto-heal plantilla occupancy'));
-      }
 
       // Find matching cycle where targetPosition matches positionTitle and (school or district matches)
       const matchingCycle = activeCycles.find((cycle) => {
@@ -169,7 +171,7 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
 export const getAvailablePlantillaItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const items = await prisma.plantillaItem.findMany({
-      where: { isOccupied: false },
+      where: { occupiedByPersonnel: null },
       orderBy: [
         { salaryGrade: 'desc' },
         { positionTitle: 'asc' },
@@ -227,7 +229,8 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
         salaryGrade: item.salaryGrade,
         department: item.department,
         division: item.division,
-        isOccupied: item.isOccupied,
+        // This list is filtered to vacant items, so the answer is fixed.
+        isOccupied: false,
         isOpenForRanking: Boolean(matchingCycle),
         promotionCycle: matchingCycle
           ? {
@@ -328,19 +331,13 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
         salaryGrade: effectiveSalaryGrade,
         department: String(department).trim(),
         division: division ? String(division).trim() : 'SDO Koronadal City',
-        isOccupied: Boolean(assignedPersonnel),
       },
     });
 
     if (assignedPersonnel) {
-      // If personnel already had another plantilla, unbind from it and mark it vacant
-      if (assignedPersonnel.plantillaItemId) {
-        await prisma.plantillaItem.update({
-          where: { id: assignedPersonnel.plantillaItemId },
-          data: { isOccupied: false },
-        }).catch((err: any) => logger.error({ err }, 'Failed to vacate old plantilla on assignment'));
-      }
-
+      // personnel.plantilla_item_id is unique, so rebinding the person below
+      // vacates whichever item they held before. No separate statement, and
+      // therefore no window in which the two records disagree.
       await prisma.personnel.update({
         where: { id: assignedPersonnel.id },
         data: { plantillaItemId: newItem.id, school: newItem.department, district: newItem.division },
@@ -370,7 +367,7 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
           entityType: 'PlantillaItem',
           entityId: newItem.id,
           action: 'PLANTILLA_ITEM_CREATED',
-          detailsJson: { itemNumber: newItem.itemNumber, positionTitle: newItem.positionTitle, isOccupied: newItem.isOccupied },
+          detailsJson: { itemNumber: newItem.itemNumber, positionTitle: newItem.positionTitle, isOccupied: Boolean(assignedPersonnel) },
           userId: req.user.userId,
           status: 'SUCCESS',
         },
@@ -433,10 +430,8 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
 
     if (isOccupied !== undefined) {
       const willBeOccupied = Boolean(isOccupied);
-      updateData.isOccupied = willBeOccupied;
 
       if (!willBeOccupied) {
-        updateData.isOccupied = false;
         // Vacate current occupant if any
         if (existing.occupiedByPersonnel) {
           await prisma.personnel.update({
@@ -472,13 +467,7 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
         if (!isNaN(pId)) {
           const targetPersonnel = await prisma.personnel.findUnique({ where: { id: pId } });
           if (targetPersonnel) {
-            // Vacate old plantilla item of target personnel if they had one
-            if (targetPersonnel.plantillaItemId && targetPersonnel.plantillaItemId !== id) {
-              await prisma.plantillaItem.update({
-                where: { id: targetPersonnel.plantillaItemId },
-                data: { isOccupied: false },
-              }).catch((err: any) => logger.error({ err }, 'Failed to vacate old plantilla on occupant reassign'));
-            }
+            // Any item this person already held is vacated by the rebind below.
 
             // Unbind previous occupant if different
             if (existing.occupiedByPersonnel && existing.occupiedByPersonnel.id !== pId) {
@@ -498,7 +487,6 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
                 district: updateData.division ?? existing.division,
               },
             });
-            updateData.isOccupied = true;
 
             if (req.user?.userId) {
               await prisma.validationLog.create({
@@ -648,11 +636,6 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
         });
       }
 
-      await prisma.plantillaItem.update({
-        where: { id },
-        data: { isOccupied: false },
-      });
-
       if (req.user?.userId) {
         await prisma.validationLog.create({
           data: {
@@ -697,13 +680,7 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
       return;
     }
 
-    // If target personnel already held another plantilla item, vacate their old item
-    if (targetPersonnel.plantillaItemId && targetPersonnel.plantillaItemId !== plantilla.id) {
-      await prisma.plantillaItem.update({
-        where: { id: targetPersonnel.plantillaItemId },
-        data: { isOccupied: false },
-      }).catch((err: any) => logger.error({ err }, 'Failed to vacate previous plantilla in assignPlantillaItem'));
-    }
+    // Any item this person already held is vacated by the rebind below.
 
     // If another personnel was previously assigned to this plantilla, unbind them
     if (plantilla.occupiedByPersonnel && plantilla.occupiedByPersonnel.id !== targetPersonnel.id) {
@@ -722,11 +699,6 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
         school: plantilla.department,
         district: plantilla.division,
       },
-    });
-
-    await prisma.plantillaItem.update({
-      where: { id: plantilla.id },
-      data: { isOccupied: true },
     });
 
     if (req.user?.userId) {

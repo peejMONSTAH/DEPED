@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/transaction_model.dart';
 import '../theme/app_theme.dart';
+import 'status_badge.dart';
 
 class TransactionTrackerCard extends StatelessWidget {
   final TransactionModel transaction;
@@ -11,6 +12,14 @@ class TransactionTrackerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if ([TransactionStatus.REJECTED, TransactionStatus.ABANDONED, TransactionStatus.ARCHIVED, TransactionStatus.UNKNOWN].contains(transaction.status)) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        StatusBadge(status: transaction.status),
+        const SizedBox(height: 12),
+        Text(transaction.remarks ?? 'This transaction is not open for editing.'),
+        const SizedBox(height: 16),
+      ]);
+    }
     int currentStep = 1;
     if (transaction.status == TransactionStatus.SUBMITTED_TO_AO2) {
       currentStep = 2;
@@ -38,10 +47,12 @@ class TransactionTrackerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(6),
@@ -86,8 +97,8 @@ class TransactionTrackerCard extends StatelessWidget {
           _buildTrackerStep(
             stepNum: 1,
             title: 'Personnel Submission',
-            subtitle: '100% Mandatory Documents Uploaded',
-            isDone: currentStep >= 1,
+            subtitle: '${transaction.complianceScore.toInt()}% of mandatory documents uploaded',
+            isDone: transaction.complianceScore >= 100,
             isCurrent: currentStep == 1 && !isReturned,
             isFailed: false,
           ),

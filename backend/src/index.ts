@@ -20,7 +20,7 @@ const startServer = async () => {
     return;
   }
 
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, process.env.API_HOST || '0.0.0.0', () => {
     console.log(`
 ╔══════════════════════════════════════════════════════╗
 ║          Digital 201 Backend API v1.0.0            ║
@@ -33,12 +33,13 @@ const startServer = async () => {
 ╚══════════════════════════════════════════════════════╝
     `);
   });
-  const outboxTimer = startWorkflowOutboxWorker();
+  // A restore drill must never deliver queued emails copied from production.
+  const outboxTimer = process.env.WORKFLOW_OUTBOX_ENABLED === 'false' ? null : startWorkflowOutboxWorker();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info('\n🛑 Received ${signal}. Gracefully shutting down...');
-    clearInterval(outboxTimer);
+    if (outboxTimer) clearInterval(outboxTimer);
     server.close(async () => {
       await prisma.$disconnect();
       logger.info('✅ Database disconnected. Bye!');

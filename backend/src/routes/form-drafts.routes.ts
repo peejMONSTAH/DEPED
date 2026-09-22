@@ -6,6 +6,7 @@ import { z } from 'zod';
 import prisma from '../config/prisma';
 import { authenticate } from '../middleware/auth.middleware';
 import { formTemplates, matchForm } from '../services/form-templates';
+import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
 const router = Router();
 router.use(authenticate);
@@ -42,9 +43,19 @@ router.all('/transactions/:txId/:templateId', async (req, res, next) => {
     }
     const directory = path.resolve(__dirname, '../../uploads/form-drafts', String(txId));
     const target = path.join(directory, `${template.id}.json`);
-    const current = fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : null;
+    const key = { transactionId: txId, templateId: template.id };
+    // Import a legacy disk draft once; leave the source intact for recovery.
+    if (fs.existsSync(target)) {
+      const legacy = JSON.parse(fs.readFileSync(target, 'utf8'));
+      if (legacy && typeof legacy.version === 'string' && legacy.version !== '0') {
+        await prisma.formDraft.createMany({
+          data: [{ ...key, version: legacy.version, payload: legacy }], skipDuplicates: true,
+        });
+      }
+    }
     if (req.method === 'GET') {
-      res.json({ data: current }); return;
+      const current = await prisma.formDraft.findUnique({ where: { transactionId_templateId: key } });
+      res.json({ data: current?.payload || null }); return;
     }
     if (req.method !== 'PUT') { res.sendStatus(405); return; }
     if (!['DRAFT', 'DEFICIENCY'].includes(tx.status)) {
@@ -62,16 +73,21 @@ router.all('/transactions/:txId/:templateId', async (req, res, next) => {
       new Set(parsed.data.entries.map(e => e.id)).size !== parsed.data.entries.length) {
       res.status(400).json({ message: 'Invalid draft data or page selection.' }); return;
     }
-    // Re-read immediately before synchronous atomic replacement to detect a competing tab.
-    const latest = fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : null;
-    if (parsed.data.version !== (latest?.version || '0')) {
-      res.status(409).json({ message: 'A newer draft exists. Reload before editing to avoid overwriting it.' }); return;
-    }
     const saved = { ...parsed.data, version: crypto.randomUUID(), updatedAt: new Date().toISOString(), templateId: template.id };
-    fs.mkdirSync(directory, { recursive: true });
-    const temporary = `${target}.${saved.version}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify(saved), { mode: 0o600 });
-    fs.renameSync(temporary, target);
+    await prisma.$transaction(async db => {
+      await lockTransaction(db, txId);
+      const currentTx = await db.transaction.findUnique({ where: { id: txId } });
+      if (!currentTx || !['DRAFT', 'DEFICIENCY'].includes(currentTx.status)) throw workflowConflict('This transaction is locked for editing.');
+      const validated = await db.uploadedDocument.findMany({ where: { transactionId: txId, status: 'VALIDATED' }, include: { requirementTemplate: true } });
+      if (validated.some(d => matchForm(d.requirementTemplate.name)?.id === template.id)) throw workflowConflict('The validated document is locked.');
+      const latest = await db.formDraft.findUnique({ where: { transactionId_templateId: key } });
+      if (parsed.data.version !== (latest?.version || '0')) throw workflowConflict('A newer draft exists. Reload before editing to avoid overwriting it.');
+      await db.formDraft.upsert({
+        where: { transactionId_templateId: key },
+        create: { ...key, version: saved.version, payload: saved },
+        update: { version: saved.version, payload: saved },
+      });
+    });
     res.json({ data: saved });
   } catch (error) { next(error); }
 });

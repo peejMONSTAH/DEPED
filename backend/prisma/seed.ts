@@ -63,7 +63,6 @@ async function main() {
       salaryGrade: 11,
       department: 'Elementary Teaching Division',
       division: 'CSD Koronadal City',
-      isOccupied: false,
     },
   });
 
@@ -76,7 +75,6 @@ async function main() {
       salaryGrade: 11,
       department: 'Records Office',
       division: 'CSD Koronadal City',
-      isOccupied: false,
     },
   });
 

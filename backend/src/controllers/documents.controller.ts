@@ -1,5 +1,4 @@
-import { Request, Response } from 'express';
-import fs from 'fs';
+import { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden , sendError} from '../utils/response.util';
@@ -12,6 +11,9 @@ import { pdsComparison, readStructuredData } from '../utils/pds-profile.util';
 import { documentAiConfigured, extractPdsWithDocumentAi } from '../services/document-ai.service';
 import { recordAuditLog } from '../utils/audit.util';
 import { logger } from '../utils/logger';
+import { storeDocument, readDocument, discardUncommittedDocument } from '../services/document-storage.service';
+import { canAccessTransaction } from '../utils/transaction-access.util';
+import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
 const canAccessPersonnel = async (req: Request, personnel: { id: number; school: string | null; district: string | null }): Promise<boolean> => {
   if (req.user?.personnelId === personnel.id || req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO') return true;
@@ -23,7 +25,8 @@ const canAccessPersonnel = async (req: Request, personnel: { id: number; school:
  * POST /transactions/:transactionId/documents
  * Upload document and attach to transaction
  */
-export const uploadDocument = async (req: Request, res: Response): Promise<void> => {
+export const uploadDocument = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  let uncommittedPath: string | undefined;
   try {
     const paramId = req.params.transactionId || req.params.id;
   const transactionId = parseInt(paramId, 10);
@@ -66,7 +69,7 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
   }
 
   // Ensure permission: transaction owner or admin/AO staff
-  if (!(await canAccessPersonnel(req, transaction.personnel))) {
+  if (!(await canAccessTransaction(req.user, transactionId))) {
     sendForbidden(res, 'You do not have permission to upload documents for this transaction.');
     return;
   }
@@ -126,6 +129,11 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
   }
 
   const isPdsRequirement = /personal data sheet|\bpds\b/i.test(validTemplate.name);
+  if (structuredData && ((structuredData.templateId === 'pds-2025' && !isPdsRequirement) ||
+      (structuredData.templateId === 'wes' && !/work experience|\bwes\b/i.test(validTemplate.name)))) {
+    sendBadRequest(res, 'The extracted form does not match this document requirement.', 'FORM_REQUIREMENT_MISMATCH');
+    return;
+  }
   if (!structuredData && isPdsRequirement && documentAiConfigured()) {
     try {
       const extracted = await extractPdsWithDocumentAi(file.buffer, file.mimetype);
@@ -147,21 +155,20 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  // Physical file persistence: write to local storage
-  const uploadDir = path.join(process.cwd(), 'uploads', 'documents', String(transactionId));
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-  const cleanFileName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9_\-.]/g, '_')}`;
-  const fullFilePath = path.join(uploadDir, cleanFileName);
-  fs.writeFileSync(fullFilePath, file.buffer);
-  const storagePath = `uploads/documents/${transactionId}/${cleanFileName}`;
+  const storagePath = await storeDocument(file.buffer, file.mimetype, `documents/${transactionId}`);
+  uncommittedPath = storagePath;
 
   const savedDoc = await prisma.$transaction(async db => {
-    // Serialize replacements for the same transaction/requirement without requiring a destructive schema migration.
-    await db.$executeRaw`SELECT pg_advisory_xact_lock(${transactionId}, ${finalTemplateId})`;
+    await lockTransaction(db, transactionId);
+    const current = await db.transaction.findUnique({ where: { id: transactionId } });
+    if (!current || !['DRAFT', 'DEFICIENCY'].includes(current.status)) throw workflowConflict('Documents are locked while this transaction is under review or finalized.');
     const duplicate = await db.uploadedDocument.findFirst({ where: { transactionId, requirementTemplateId: finalTemplateId } });
-    if (duplicate) return db.uploadedDocument.update({
+    if (duplicate?.status === 'VALIDATED') throw workflowConflict('This document has already been validated and cannot be replaced.');
+    if (duplicate) {
+      await db.documentRevision.create({ data: { documentId: duplicate.id, snapshot: JSON.parse(JSON.stringify(duplicate)) } });
+      await db.complianceCheck.deleteMany({ where: { uploadedDocumentId: duplicate.id } });
+    }
+    const saved = duplicate ? await db.uploadedDocument.update({
       where: { id: duplicate.id },
       data: {
         fileName: file.originalname,
@@ -176,9 +183,11 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
         correctedOcrDataJson: Prisma.JsonNull,
         ocrExtractedDataJson: structuredData || Prisma.JsonNull,
         ocrConfidenceScore: structuredData ? (ocrConfidence ?? 0.5) : null,
+        uploadedByUserId: req.user!.userId,
+        uploadDate: new Date(),
+        isDuplicate: false,
       }, include: { requirementTemplate: { select: { name: true } } },
-    });
-    return db.uploadedDocument.create({
+    }) : await db.uploadedDocument.create({
       data: {
         transactionId,
         requirementTemplateId: finalTemplateId,
@@ -194,13 +203,10 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
       },
       include: { requirementTemplate: { select: { name: true } } },
     });
-  });
-
-  try {
-    await prisma.validationLog.create({
+    await db.validationLog.create({
       data: {
         entityType: 'Document',
-        entityId: savedDoc.id,
+        entityId: saved.id,
         action: 'DOCUMENT_UPLOADED',
         detailsJson: {
           fileName: file.originalname,
@@ -212,10 +218,10 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
         status: 'SUCCESS',
       },
     });
-    res.locals.auditLogged = true;
-  } catch (logErr) {
-    logger.warn({ err: logErr }, 'Could not write upload validation log');
-  }
+    return saved;
+  });
+  uncommittedPath = undefined;
+  res.locals.auditLogged = true;
 
   notifyTransactionChange();
 
@@ -228,11 +234,12 @@ export const uploadDocument = async (req: Request, res: Response): Promise<void>
       fileName: savedDoc.fileName,
       fileUrl: `/api/v1/documents/${savedDoc.id}/file`,
       status: savedDoc.status,
+      updatedAt: savedDoc.updatedAt.toISOString(),
       isDuplicate: false,
     }, 'Document uploaded and persisted successfully.');
   } catch (error: any) {
-    logger.error({ err: error }, 'Failed to upload document');
-    sendError(res, 'Failed to upload document.', 500);
+    if (uncommittedPath) await discardUncommittedDocument(uncommittedPath).catch(err => logger.error({ err }, 'Failed to remove uncommitted upload'));
+    next(error);
   }
 };
 
@@ -257,7 +264,7 @@ export const getDocument = async (req: Request, res: Response): Promise<void> =>
     });
 
     if (!doc) { sendNotFound(res, 'Document not found.'); return; }
-    if (!(await canAccessPersonnel(req, doc.transaction.personnel))) {
+    if (!(await canAccessTransaction(req.user, doc.transactionId))) {
       sendForbidden(res);
       return;
     }
@@ -292,11 +299,12 @@ export const getExtractionReview = async (req: Request, res: Response): Promise<
     include: { requirementTemplate: { select: { name: true } }, transaction: { include: { personnel: true } } },
   });
   if (!doc) { sendNotFound(res, 'Document not found.'); return; }
-  if (!(await canAccessPersonnel(req, doc.transaction.personnel))) { sendForbidden(res); return; }
+  if (!(await canAccessTransaction(req.user, doc.transactionId))) { sendForbidden(res); return; }
   const source = doc.correctedOcrDataJson || doc.ocrExtractedDataJson;
   const structured = readStructuredData(source);
   sendSuccess(res, {
     documentId: doc.id,
+    version: doc.updatedAt.toISOString(),
     requirementName: doc.requirementTemplate.name,
     templateId: structured?.templateId || null,
     fields: structured?.fields || {},
@@ -315,8 +323,13 @@ export const confirmExtractionReview = async (req: Request, res: Response): Prom
     include: { transaction: { include: { personnel: true } } },
   });
   if (!doc) { sendNotFound(res, 'Document not found.'); return; }
-  if (!(await canAccessPersonnel(req, doc.transaction.personnel))) { sendForbidden(res); return; }
+  if (!(await canAccessTransaction(req.user, doc.transactionId))) { sendForbidden(res); return; }
+  if (req.user?.personnelId !== doc.transaction.personnelId) { sendForbidden(res, 'Only the personnel who owns the PDS can confirm its extracted information.'); return; }
+  if (doc.status === 'VALIDATED') { sendBadRequest(res, 'Validated document information is locked.'); return; }
   if (!['DRAFT', 'DEFICIENCY'].includes(doc.transaction.status)) { sendBadRequest(res, 'Extraction data is locked while the transaction is under review or finalized.'); return; }
+  if (req.body?.version !== doc.updatedAt.toISOString()) {
+    throw workflowConflict('This document changed. Reopen the review to confirm the latest uploaded file.');
+  }
   const original = readStructuredData(doc.ocrExtractedDataJson);
   if (!original) { sendBadRequest(res, 'No structured fields were detected for this document.', 'NO_EXTRACTED_FIELDS'); return; }
   const incoming = req.body?.fields;
@@ -326,10 +339,15 @@ export const confirmExtractionReview = async (req: Request, res: Response): Prom
     return out;
   }, {});
   const corrected = { templateId: original.templateId, fields, confirmation: { confirmedAt: new Date().toISOString(), confirmedByUserId: req.user!.userId } };
-  await prisma.$transaction([
-    prisma.uploadedDocument.update({ where: { id }, data: { correctedOcrDataJson: corrected } }),
-    prisma.validationLog.create({ data: { entityType: 'Document', entityId: id, action: 'PDS_EXTRACTION_CONFIRMED', detailsJson: { transactionId: doc.transactionId, fieldsReviewed: Object.keys(fields).length }, userId: req.user!.userId } }),
-  ]);
+  await prisma.$transaction(async db => {
+    await lockTransaction(db, doc.transactionId);
+    const current = await db.uploadedDocument.findUniqueOrThrow({ where: { id }, include: { transaction: true } });
+    if (current.status === 'VALIDATED' || !['DRAFT', 'DEFICIENCY'].includes(current.transaction.status) || current.updatedAt.getTime() !== doc.updatedAt.getTime()) {
+      throw workflowConflict('This document changed or is locked. Reload before confirming its information.');
+    }
+    await db.uploadedDocument.update({ where: { id }, data: { correctedOcrDataJson: corrected } });
+    await db.validationLog.create({ data: { entityType: 'Document', entityId: id, action: 'PDS_EXTRACTION_CONFIRMED', detailsJson: { transactionId: doc.transactionId, fieldsReviewed: Object.keys(fields).length }, userId: req.user!.userId } });
+  });
   sendSuccess(res, { documentId: id, confirmation: corrected.confirmation, comparison: pdsComparison(doc.transaction.personnel as any, corrected) }, 'Extracted fields confirmed. They remain pending AO validation and HRMO approval.');
 };
 
@@ -354,23 +372,12 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
     return;
   }
 
-  if (!(await canAccessPersonnel(req, doc.transaction.personnel))) {
+  if (!(await canAccessTransaction(req.user, doc.transactionId))) {
     sendForbidden(res, 'You do not have permission to access this document file.');
     return;
   }
 
-  const fullPath = path.isAbsolute(doc.storagePath)
-    ? doc.storagePath
-    : path.join(process.cwd(), doc.storagePath);
-
-  if (!fs.existsSync(fullPath)) {
-    res.status(404).json({
-      status: 'error',
-      message: `The physical file '${doc.fileName}' was not found on server storage.`,
-      code: 'FILE_NOT_FOUND',
-    });
-    return;
-  }
+  const buffer = await readDocument(doc.storagePath);
 
   res.setHeader('Content-Type', doc.mimeType || 'application/pdf');
   res.setHeader(
@@ -396,6 +403,5 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
     res.locals.auditLogged = true;
   }
 
-  const stream = fs.createReadStream(fullPath);
-  stream.pipe(res);
+  res.send(buffer);
 };

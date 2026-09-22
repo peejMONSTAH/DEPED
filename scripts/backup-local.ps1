@@ -10,7 +10,7 @@ $backupPath = Join-Path $projectRoot "backups/digital201-$stamp"
 New-Item -ItemType Directory -Path $backupPath | Out-Null
 $remoteDump = "/tmp/digital201-$stamp.dump"
 # Stop API writes before invoking this script for a consistent DB/file snapshot.
-docker exec $DatabaseContainer pg_dump -U $DatabaseUser -d $Database --schema=public --format=custom --no-owner --no-privileges --file=$remoteDump
+docker exec $DatabaseContainer pg_dump -U $DatabaseUser -d $Database --schema=public --extension=citext --format=custom --no-owner --no-privileges --file=$remoteDump
 if ($LASTEXITCODE -ne 0) { throw 'Database backup failed; do not run a migration.' }
 docker cp "${DatabaseContainer}:$remoteDump" (Join-Path $backupPath 'database.dump')
 if ($LASTEXITCODE -ne 0) { throw 'Could not copy database backup.' }

@@ -1019,7 +1019,7 @@ export const PersonnelHome: React.FC = () => {
                           </span>
                         </div>
                         <div className="progress-bar" style={{ height: 6, background: 'var(--color-bg-tertiary)', borderRadius: 999 }}>
-                          <div className="progress-fill" style={{ width: `${tx.complianceScore || 50}%`, background: 'var(--color-primary)' }} />
+                          <div className="progress-fill" style={{ width: `${tx.complianceScore ?? 0}%`, background: 'var(--color-primary)' }} />
                         </div>
                       </div>
                     </div>
