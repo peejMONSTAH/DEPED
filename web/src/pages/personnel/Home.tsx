@@ -768,7 +768,11 @@ export const PersonnelHome: React.FC = () => {
       </div>
 
       {/* ─── 4. ASYMMETRIC MAIN GRID (2fr / 1fr) ────────────────────── */}
-      <div className="asymmetric-main-grid">
+      {/* Single full-width column: the Quick Actions and 201 Dossier cards
+          that sat beside this were removed. Quick Actions repeated the sidebar
+          links verbatim, and the dossier asserted "PRC Verification: Verified
+          (LET)" for every user regardless of whether they held a licence. */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
         
         {/* LEFT COLUMN: Open Vacancies & Active Transactions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1285,99 +1289,6 @@ export const PersonnelHome: React.FC = () => {
 
         </div>
 
-        {/* RIGHT COLUMN: Quick Actions & 201 File Summary */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          
-          {/* Quick Actions Bento Card */}
-          <div className="table-card-large">
-            <div className="card-header-flex">
-              <div>
-                <h3 className="card-heading-title">Quick Actions</h3>
-                <div className="card-heading-sub">Frequently used personnel services</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))', gap: 12 }}>
-              <Link to="/personnel/transactions" className="quick-action-tile">
-                <div className="quick-action-tile-icon" style={{ background: 'rgba(56, 139, 253, 0.14)', color: '#388bfd' }}>
-                  <AppIcon name="transactions" size={22} />
-                </div>
-                <span className="quick-action-tile-title">My Transactions</span>
-                <span className="quick-action-sub">Complete assigned requirements</span>
-              </Link>
-
-              <Link to="/personnel/notifications" className="quick-action-tile" style={{ position: 'relative' }}>
-                <div className="quick-action-tile-icon" style={{ background: 'rgba(139, 92, 246, 0.14)', color: '#8b5cf6' }}>
-                  <AppIcon name="notifications" size={22} />
-                </div>
-                <span className="quick-action-tile-title">Notifications</span>
-                <span className="quick-action-sub">Check status alerts</span>
-                {alertsCount > 0 && (
-                  <span className="badge badge-warning" style={{ position: 'absolute', top: 12, right: 12, fontSize: 10, padding: '2px 7px', borderRadius: 999 }}>
-                    {alertsCount}
-                  </span>
-                )}
-              </Link>
-
-              <Link to="/personnel/profile-completion" className="quick-action-tile">
-                <div className="quick-action-tile-icon" style={{ background: 'rgba(234, 179, 8, 0.14)', color: '#eab308' }}>
-                  <AppIcon name="personal" size={22} />
-                </div>
-                <span className="quick-action-tile-title">My 201 File</span>
-                <span className="quick-action-sub">Update PDS & WES</span>
-              </Link>
-
-              <Link to="/personnel/profile" className="quick-action-tile">
-                <div className="quick-action-tile-icon" style={{ background: 'rgba(16, 185, 129, 0.14)', color: '#10b981' }}>
-                  <AppIcon name="repository" size={22} />
-                </div>
-                <span className="quick-action-tile-title">Service Record</span>
-                <span className="quick-action-sub">View DepEd history</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Personnel 201 Dossier Summary Card */}
-          <div className="table-card-large" style={{ background: 'var(--color-bg-card)' }}>
-            <div className="card-header-flex">
-              <div>
-                <h3 className="card-heading-title">201 Personnel Dossier</h3>
-                <div className="card-heading-sub">Master employee profile & service data</div>
-              </div>
-              <AppIcon name="profile" size={20} color="var(--color-primary)" />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: '0.825rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--color-border)' }}>
-                <span className="text-muted">Employee ID:</span>
-                <strong className="font-mono" style={{ color: 'var(--color-primary)' }}>
-                  {user?.personnelId || (user?.id ? `EMP-${user.id}` : 'CSD-KOR-2026')}
-                </strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--color-border)' }}>
-                <span className="text-muted">Personnel Category:</span>
-                <span className="badge badge-info" style={{ fontSize: 10 }}>{roleLabel}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--color-border)' }}>
-                <span className="text-muted">PRC Verification:</span>
-                <span style={{ color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <AppIcon name="approved" size={13} color="#10b981" /> Verified (LET)
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                <span className="text-muted">Division Office:</span>
-                <strong style={{ color: 'var(--color-text-primary)' }}>SDO Koronadal City</strong>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
-              <Link to="/personnel/profile-completion" className="btn btn-secondary btn-sm btn-full" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-                <AppIcon name="edit" size={14} /> Update 201 Dossier File
-              </Link>
-            </div>
-          </div>
-
-        </div>
 
       </div>
 

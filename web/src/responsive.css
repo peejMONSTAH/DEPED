@@ -17,14 +17,7 @@
 /* A grid or flex item defaults to min-width:auto, which is the same trap one
  * level down: the track may be allowed to shrink, but the item inside it is
  * not. */
-.metrics-grid-row > *,
-.quick-action-tile,
-.quick-action-tile > * { min-width: 0; }
-
-/* Long service names and descriptions should wrap rather than set the floor
- * for the column width. */
-.quick-action-tile-title,
-.quick-action-sub { overflow-wrap: anywhere; }
+.metrics-grid-row > * { min-width: 0; }
 .modal-overlay {
   position: fixed !important;
   inset: 0 !important;

@@ -3194,60 +3194,14 @@ tr:hover td {
   }
 }
 
-/* ─── QUICK ACTIONS BENTO TILES ───────────────────────────────── */
-.quick-action-btn,
-.quick-action-tile {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  padding: 18px !important;
-  border-radius: 18px !important;
-  background: var(--color-bg-secondary) !important;
-  border: 1px solid var(--color-border) !important;
-  text-decoration: none !important;
-  color: var(--color-text-primary) !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  cursor: pointer !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
-}
 
-.quick-action-btn:hover,
-.quick-action-tile:hover {
-  transform: translateY(-3px) !important;
-  background: var(--color-bg-hover) !important;
-  border-color: var(--color-primary) !important;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08) !important;
-  text-decoration: none !important;
-}
 
-.quick-action-icon,
-.quick-action-tile-icon {
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin-bottom: 12px !important;
-  flex-shrink: 0 !important;
-}
 
-.quick-action-label,
-.quick-action-tile-title {
-  font-size: 14.5px !important;
-  font-weight: 700 !important;
-  color: var(--color-text-primary) !important;
-  text-decoration: none !important;
-  line-height: 1.3 !important;
-  margin-bottom: 3px !important;
-}
 
-.quick-action-sub {
-  font-size: 12px !important;
-  color: var(--color-text-muted) !important;
-  line-height: 1.3 !important;
-  text-decoration: none !important;
-}
+
+
+
+
 
 /* ─── CHECKLIST ITEMS DESIGN SYSTEM ───────────────────────────── */
 .checklist-container-card {
