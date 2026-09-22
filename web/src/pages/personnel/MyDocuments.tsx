@@ -345,7 +345,7 @@ export const MyDocuments: React.FC = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="my-documents-topbar-actions">
           <button
             type="button"
             className="btn btn-secondary"
@@ -376,61 +376,64 @@ export const MyDocuments: React.FC = () => {
       )}
 
       {/* Tabs Filter Bar */}
-      <div className="my-documents-tabs" role="tablist" aria-label="Document filters">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'ALL'}
-          className={`my-documents-tab ${activeTab === 'ALL' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ALL')}
-        >
-          <span>All Documents</span>
-          <span className="my-documents-tab-count">{counts.all}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'REQUIRED'}
-          className={`my-documents-tab ${activeTab === 'REQUIRED' ? 'active' : ''}`}
-          onClick={() => setActiveTab('REQUIRED')}
-        >
-          <span>Required Checklist</span>
-          <span className="my-documents-tab-count">{counts.required}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'ACTION_NEEDED'}
-          className={`my-documents-tab ${activeTab === 'ACTION_NEEDED' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ACTION_NEEDED')}
-        >
-          <span>Action Needed</span>
-          {counts.actionNeeded > 0 && (
-            <span className="my-documents-tab-count" style={{ background: '#ef4444', color: '#fff' }}>
-              {counts.actionNeeded}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'UNDER_REVIEW'}
-          className={`my-documents-tab ${activeTab === 'UNDER_REVIEW' ? 'active' : ''}`}
-          onClick={() => setActiveTab('UNDER_REVIEW')}
-        >
-          <span>Under Review</span>
-          <span className="my-documents-tab-count">{counts.underReview}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'APPROVED'}
-          className={`my-documents-tab ${activeTab === 'APPROVED' ? 'active' : ''}`}
-          onClick={() => setActiveTab('APPROVED')}
-        >
-          <span>Approved</span>
-          <span className="my-documents-tab-count">{counts.approved}</span>
-        </button>
+      <div className="my-documents-tabs-wrapper">
+        <div className="my-documents-tabs" role="tablist" aria-label="Document filters">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'ALL'}
+            className={`my-documents-tab ${activeTab === 'ALL' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ALL')}
+          >
+            <span>All Documents</span>
+            <span className="my-documents-tab-count">{counts.all}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'REQUIRED'}
+            className={`my-documents-tab ${activeTab === 'REQUIRED' ? 'active' : ''}`}
+            onClick={() => setActiveTab('REQUIRED')}
+          >
+            <span>Required Checklist</span>
+            <span className="my-documents-tab-count">{counts.required}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'ACTION_NEEDED'}
+            className={`my-documents-tab ${activeTab === 'ACTION_NEEDED' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ACTION_NEEDED')}
+          >
+            <span>Action Needed</span>
+            {counts.actionNeeded > 0 && (
+              <span className="my-documents-tab-count" style={{ background: '#ef4444', color: '#fff' }}>
+                {counts.actionNeeded}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'UNDER_REVIEW'}
+            className={`my-documents-tab ${activeTab === 'UNDER_REVIEW' ? 'active' : ''}`}
+            onClick={() => setActiveTab('UNDER_REVIEW')}
+          >
+            <span>Under Review</span>
+            <span className="my-documents-tab-count">{counts.underReview}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'APPROVED'}
+            className={`my-documents-tab ${activeTab === 'APPROVED' ? 'active' : ''}`}
+            onClick={() => setActiveTab('APPROVED')}
+          >
+            <span>Approved</span>
+            <span className="my-documents-tab-count">{counts.approved}</span>
+          </button>
+        </div>
+        <div className="my-documents-tabs-fade-right" aria-hidden="true" />
       </div>
 
       {/* Document Grid */}

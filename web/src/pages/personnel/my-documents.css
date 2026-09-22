@@ -3,14 +3,51 @@
  * Narrow-first: a teacher checking their own file is usually on a phone, so the
  * single-column stack is the base and the second column is the enhancement. */
 
+.my-documents-topbar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .my-documents-topbar-actions {
+    width: 100%;
+  }
+  .my-documents-topbar-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+.my-documents-tabs-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
 .my-documents-tabs {
   display: flex;
   align-items: center;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
-  margin-bottom: 16px;
+  padding-right: 28px;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.my-documents-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.my-documents-tabs-fade-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--color-bg-primary, #ffffff));
 }
 
 .my-documents-tab {

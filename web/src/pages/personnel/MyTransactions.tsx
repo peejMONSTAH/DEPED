@@ -93,8 +93,8 @@ export const MyTransactions: React.FC = () => {
                 style={{ padding: '16px', cursor: 'pointer', border: '1px solid var(--color-border)' }}
                 {...clickable<HTMLDivElement>(() => navigate(`/personnel/checklist?txId=${tx.id}`), `Open checklist for ${tx.transactionType?.name ?? 'transaction'}`)}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                  <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  <div style={{ minWidth: 0, flex: '1 1 200px' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#007bff', fontSize: 12, marginRight: 8 }}>
                       TRX-{tx.id}
                     </span>
@@ -108,12 +108,12 @@ export const MyTransactions: React.FC = () => {
                 </div>
 
                 {/* 4-Stage Live Progress Bar */}
-                <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '10px 12px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6, fontWeight: 600 }}>
-                    <span style={{ color: tracker.color, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ background: 'var(--color-bg-secondary, rgba(0,0,0,0.03))', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--color-border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontSize: 11, marginBottom: 6, fontWeight: 600 }}>
+                    <span style={{ color: tracker.color, display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
                       <AppIcon name="location" size={12} color={tracker.color} /> {tracker.label}
                     </span>
-                    <span className="text-muted">{tracker.step}/4 Steps</span>
+                    <span className="text-muted" style={{ flexShrink: 0 }}>{tracker.step}/4 Steps</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, height: 6 }}>
                     {[1, 2, 3, 4].map(s => (

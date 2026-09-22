@@ -316,31 +316,12 @@ export const ProfileCompletion: React.FC = () => {
   };
 
   const renderFieldLabel = (label: string, fieldKey: string, required = false) => {
-    const locked = isFieldLocked(fieldKey);
+    void fieldKey;
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <label className="form-label" style={{ marginBottom: 0 }}>
+        <label className="form-label" style={{ marginBottom: 0, fontSize: '0.85rem', fontWeight: 600 }}>
           {label} {required && <span style={{ color: 'var(--color-danger)' }}>*</span>}
         </label>
-        {locked && (
-          <span
-            className="badge"
-            style={{
-              fontSize: 9,
-              padding: '1px 6px',
-              fontWeight: 700,
-              background: 'rgba(16, 185, 129, 0.1)',
-              color: '#10b981',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-            }}
-            title="Official DepEd record. Locked and immutable."
-          >
-            <AppIcon name="lock" size={9} color="#10b981" /> LOCKED
-          </span>
-        )}
       </div>
     );
   };
@@ -348,12 +329,13 @@ export const ProfileCompletion: React.FC = () => {
   const getLockedStyle = (fieldKey: string): React.CSSProperties => {
     if (!isFieldLocked(fieldKey)) return {};
     return {
-      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-      borderColor: 'rgba(255, 255, 255, 0.08)',
-      color: 'var(--color-text-primary)',
-      cursor: 'not-allowed',
-      userSelect: 'none',
-      opacity: 0.9,
+      backgroundColor: 'var(--color-bg-secondary, #f8fafc)',
+      borderColor: 'var(--color-border, #e2e8f0)',
+      color: 'var(--color-text-primary, #0f172a)',
+      cursor: 'default',
+      opacity: 0.95,
+      fontSize: '16px',
+      fontWeight: 500,
     };
   };
 
@@ -552,63 +534,73 @@ export const ProfileCompletion: React.FC = () => {
         </div>
       </div>
 
-      {/* Tab Status Indicators */}
-      <div className="card mb-4" style={{ background: 'var(--color-bg-secondary)', borderLeft: '4px solid var(--color-primary)', padding: 'var(--space-3) var(--space-4)' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {tabs.map(tab => (
-            <span
-              key={tab.id}
-              className={`badge ${tab.locked ? 'badge-approved' : savedTabs.has(tab.id) ? 'badge-info' : 'badge-draft'}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              <AppIcon name={tab.locked ? 'lock' : 'check'} size={11} color={tab.locked ? '#10b981' : undefined} />
-              {tab.label} {tab.locked && '(Locked)'}
-            </span>
-          ))}
+      {/* Compact Official Record Status Summary */}
+      <div
+        className="profile-record-status-summary"
+        style={{
+          background: 'rgba(16, 185, 129, 0.08)',
+          border: '1px solid rgba(16, 185, 129, 0.22)',
+          borderRadius: 12,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: 'rgba(16, 185, 129, 0.15)',
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <AppIcon name="lock" size={16} color="#059669" />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
+            Official DepEd Record • Locked
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.35 }}>
+            Verified against SDO Koronadal master plantilla. To request corrections, contact your Station Administrative Officer II.
+          </div>
         </div>
       </div>
 
-      {/* Tab Bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-4)', borderBottom: '1px solid var(--color-border)', paddingBottom: 0, overflowX: 'auto' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            style={{
-              padding: '10px 16px',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent',
-              background: 'transparent',
-              cursor: 'pointer',
-              color: activeTab === tab.id ? 'var(--color-primary-light)' : 'var(--color-text-muted)',
-              fontWeight: activeTab === tab.id ? 700 : 400,
-              fontSize: 'var(--text-sm)',
-              whiteSpace: 'nowrap',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <AppIcon name={tab.icon} size={16} /> {tab.label}
-            {tab.locked ? (
-              <AppIcon name="lock" size={12} color="#10b981" />
-            ) : savedTabs.has(tab.id) ? (
-              <AppIcon name="check" size={12} color="var(--color-success)" />
-            ) : null}
-          </button>
-        ))}
+      {/* Tab Navigation with Continuation Cue */}
+      <div className="profile-tabs-wrapper">
+        <div className="profile-tabs-scroller" role="tablist" aria-label="Profile Sections">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              className={`profile-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+            >
+              <AppIcon name={tab.icon} size={16} />
+              <span>{tab.label}</span>
+              {savedTabs.has(tab.id) && !tab.locked && (
+                <AppIcon name="check" size={12} color="var(--color-success)" />
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="profile-tabs-fade-right" aria-hidden="true" />
       </div>
 
       {/* Tab 1: Personal Information */}
       {activeTab === 'personal' && (
         <form onSubmit={handleSavePersonal} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>Personal Information</h3>
-            {isPersonalLocked && (
-              <span className="badge badge-approved" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-                <AppIcon name="lock" size={12} /> Official DepEd Record Locked
-              </span>
-            )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--color-text-primary)' }}>Personal Information</h3>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
@@ -805,16 +797,13 @@ export const ProfileCompletion: React.FC = () => {
       {/* Tab 2: Personal Data Sheet (PDS) */}
       {activeTab === 'pds' && (
         <form onSubmit={handleSavePds} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--color-text-primary)' }}>
               Personal Data Sheet (PDS) — CS Form No. 212
             </h3>
-            {documentSources.pds && <span className="badge badge-info" title={documentSources.pds.uploadDate ? `Uploaded ${new Date(documentSources.pds.uploadDate).toLocaleString()}` : undefined}>
-              Imported from transaction PDS · {documentSources.pds.status || 'Recorded'}
-            </span>}
-            {isPdsLocked && (
-              <span className="badge badge-approved" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-                <AppIcon name="lock" size={12} /> Official PDS Record Locked
+            {documentSources.pds && (
+              <span className="badge badge-info" style={{ fontSize: 11 }} title={documentSources.pds.uploadDate ? `Uploaded ${new Date(documentSources.pds.uploadDate).toLocaleString()}` : undefined}>
+                Imported from transaction PDS · {documentSources.pds.status || 'Recorded'}
               </span>
             )}
           </div>
@@ -1011,7 +1000,7 @@ export const ProfileCompletion: React.FC = () => {
           </div>
 
           {isPdsLocked && !isEditMode ? (
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <div className="profile-tab-actions" style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
               <button
                 type="button"
                 disabled
@@ -1265,15 +1254,10 @@ export const ProfileCompletion: React.FC = () => {
       {/* Tab 4: Employment & Contact Information */}
       {activeTab === 'employment' && (
         <form onSubmit={handleSaveEmployment} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--color-text-primary)' }}>
               Employment & Contact Information
             </h3>
-            {isEmploymentLocked && (
-              <span className="badge badge-approved" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
-                <AppIcon name="lock" size={12} /> Official Plantilla Record Locked
-              </span>
-            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
@@ -1481,7 +1465,7 @@ export const ProfileCompletion: React.FC = () => {
           </div>
 
           {isEmploymentLocked && !isEditMode ? (
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <div className="profile-tab-actions" style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
               <button
                 type="button"
                 disabled

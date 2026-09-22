@@ -16,14 +16,16 @@ type NotificationItem = {
   relatedEntityType?: string;
 };
 
-type FilterTab = 'ALL' | 'UNREAD' | 'ACCOUNT' | 'TRANSACTIONS';
+type ReadFilter = 'ALL' | 'UNREAD';
+type CategoryFilter = 'ALL' | 'ACCOUNT' | 'TRANSACTIONS';
 
 export const PersonnelNotifications: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL');
+  const [readStatus, setReadStatus] = useState<ReadFilter>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL');
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -116,24 +118,23 @@ export const PersonnelNotifications: React.FC = () => {
 
   const filteredNotifications = useMemo(() => {
     return notifications.filter(n => {
-      if (activeFilter === 'UNREAD') return !n.isRead;
-      if (activeFilter === 'ACCOUNT') {
-        const msg = n.message.toLowerCase();
+      if (readStatus === 'UNREAD' && n.isRead) return false;
+      const msg = n.message.toLowerCase();
+      if (categoryFilter === 'ACCOUNT') {
         return msg.includes('account') || msg.includes('password') || msg.includes('credential');
       }
-      if (activeFilter === 'TRANSACTIONS') {
-        const msg = n.message.toLowerCase();
+      if (categoryFilter === 'TRANSACTIONS') {
         return msg.includes('transaction') || msg.includes('validation') || msg.includes('approval') || msg.includes('submission');
       }
       return true;
     });
-  }, [notifications, activeFilter]);
+  }, [notifications, readStatus, categoryFilter]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <div className="animate-fade-in personnel-content-container">
-      <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24 }}>
+      <div className="topbar" style={{ padding: '0 0 16px 0', marginBottom: 16 }}>
         <div>
           <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>Notification & Compliance Monitoring</div>
           <div className="topbar-subtitle" style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem' }}>
@@ -146,7 +147,7 @@ export const PersonnelNotifications: React.FC = () => {
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={handleMarkAllRead}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 38 }}
             >
               <AppIcon name="approved" size={13} /> Mark All as Read
             </button>
@@ -155,42 +156,63 @@ export const PersonnelNotifications: React.FC = () => {
       </div>
 
       <div className="page-content" style={{ padding: 0 }}>
-        {/* Filter Tabs matching HR Admin */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* Tier 1: Primary Segmented Status Filter */}
+        <div className="notif-segmented-control" role="tablist" aria-label="Filter by status">
           <button
-            className={`btn btn-sm ${activeFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveFilter('ALL')}
+            type="button"
+            role="tab"
+            aria-selected={readStatus === 'ALL'}
+            className={`notif-segment-btn ${readStatus === 'ALL' ? 'active' : ''}`}
+            onClick={() => setReadStatus('ALL')}
           >
-            All Notifications ({notifications.length})
+            All ({notifications.length})
           </button>
           <button
-            className={`btn btn-sm ${activeFilter === 'UNREAD' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveFilter('UNREAD')}
+            type="button"
+            role="tab"
+            aria-selected={readStatus === 'UNREAD'}
+            className={`notif-segment-btn ${readStatus === 'UNREAD' ? 'active' : ''}`}
+            onClick={() => setReadStatus('UNREAD')}
           >
             Unread ({unreadCount})
           </button>
-          <button
-            className={`btn btn-sm ${activeFilter === 'ACCOUNT' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveFilter('ACCOUNT')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <AppIcon name="profile" size={14} /> Account & Credentials
-          </button>
-          <button
-            className={`btn btn-sm ${activeFilter === 'TRANSACTIONS' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveFilter('TRANSACTIONS')}
-          >
-            Transactions & Approvals
-          </button>
+        </div>
+
+        {/* Tier 2: Horizontal Category Chips with Continuation Cue */}
+        <div className="notif-category-chips-wrapper">
+          <div className="notif-category-chips" role="group" aria-label="Filter by topic">
+            <button
+              type="button"
+              className={`notif-chip ${categoryFilter === 'ALL' ? 'active' : ''}`}
+              onClick={() => setCategoryFilter('ALL')}
+            >
+              All Topics
+            </button>
+            <button
+              type="button"
+              className={`notif-chip ${categoryFilter === 'ACCOUNT' ? 'active' : ''}`}
+              onClick={() => setCategoryFilter('ACCOUNT')}
+            >
+              <AppIcon name="profile" size={13} /> Account & Credentials
+            </button>
+            <button
+              type="button"
+              className={`notif-chip ${categoryFilter === 'TRANSACTIONS' ? 'active' : ''}`}
+              onClick={() => setCategoryFilter('TRANSACTIONS')}
+            >
+              <AppIcon name="transactions" size={13} /> Transactions & Approvals
+            </button>
+          </div>
+          <div className="notif-chips-fade-right" aria-hidden="true" />
         </div>
 
         {loading ? (
-          <div className="card text-center" style={{ padding: '36px', borderRadius: 20, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+          <div className="card text-center" style={{ padding: '36px', borderRadius: 16, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
-            <div style={{ color: 'var(--color-text-secondary)' }}>Loading notifications...</div>
+            <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>Loading notifications...</div>
           </div>
         ) : filteredNotifications.length === 0 ? (
-          <div className="card text-center" style={{ padding: '40px 20px', borderRadius: 20, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+          <div className="card text-center" style={{ padding: '40px 20px', borderRadius: 16, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
               <AppIcon name="notifications" size={36} color="var(--color-text-muted)" />
             </div>
@@ -198,39 +220,39 @@ export const PersonnelNotifications: React.FC = () => {
             <div className="text-sm text-muted">You're all caught up for this view!</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {filteredNotifications.map(n => {
               const action = getActionConfig(n);
 
               return (
                 <div
                   key={n.id}
-                  {...(n.isRead ? {} : clickable<HTMLDivElement>(() => handleMarkAsRead(n.id), 'Mark notification as read'))}
+                  {...clickable<HTMLDivElement>(() => {
+                    if (!n.isRead) handleMarkAsRead(n.id);
+                    navigate(action.path);
+                  }, `Open notification: ${n.message}`)}
                   className={`personnel-notif-card hover-lift ${!n.isRead ? 'unread' : ''}`}
                   style={{
-                    background: 'var(--color-bg-card)',
-                    border: '1px solid var(--color-border)',
                     borderLeft: !n.isRead ? `4px solid ${action.color}` : '1px solid var(--color-border)',
-                    cursor: n.isRead ? 'default' : 'pointer',
                   }}
                 >
-                  <div
-                    className="personnel-notif-icon-circle"
-                    style={{
-                      background: `${action.color}15`,
-                      color: action.color,
-                    }}
-                  >
-                    <AppIcon name={action.iconName} size={22} />
-                  </div>
+                  <div className="personnel-notif-header-row">
+                    <div
+                      className="personnel-notif-icon-circle"
+                      style={{
+                        background: `${action.color}15`,
+                        color: action.color,
+                      }}
+                    >
+                      <AppIcon name={action.iconName} size={20} />
+                    </div>
 
-                  <div className="personnel-notif-content">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <div className="personnel-notif-badges-group">
                       <span
                         style={{
                           background: `${action.color}18`,
                           color: action.color,
-                          padding: '2px 9px',
+                          padding: '2px 8px',
                           borderRadius: 999,
                           fontSize: 10.5,
                           fontWeight: 700,
@@ -244,24 +266,33 @@ export const PersonnelNotifications: React.FC = () => {
                         <span className="text-xs text-muted font-mono">Ref: #{n.relatedEntityId}</span>
                       )}
                       {!n.isRead && (
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: action.color }} />
+                        <span
+                          style={{ width: 8, height: 8, borderRadius: '50%', background: action.color }}
+                          title="Unread"
+                        />
                       )}
                     </div>
 
-                    <p className="personnel-notif-msg">{n.message}</p>
+                    <div className="personnel-notif-time text-xs text-muted">
+                      {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
 
+                  <div className="personnel-notif-content">
+                    <p className="personnel-notif-msg">{n.message}</p>
                     <div className="personnel-notif-meta">
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <AppIcon name="pending" size={12} /> {new Date(n.createdAt).toLocaleString()}
+                        <AppIcon name="clock" size={12} />
+                        <span className="notif-desktop-date">{new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} • </span>
+                        {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   </div>
 
-                  <div style={{ alignSelf: 'center', flexShrink: 0, marginLeft: 12 }}>
+                  <div className="personnel-notif-action-wrap">
                     <button
                       type="button"
-                      className={`btn ${action.btnClass} btn-sm`}
-                      style={{ fontSize: 12, padding: '7px 16px', fontWeight: 700, whiteSpace: 'nowrap' }}
+                      className={`btn ${action.btnClass} btn-sm personnel-notif-action-btn`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!n.isRead) handleMarkAsRead(n.id);

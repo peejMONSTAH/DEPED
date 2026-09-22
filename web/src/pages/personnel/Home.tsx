@@ -795,38 +795,12 @@ export const PersonnelHome: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* Quick Access Banner: 201 Documents & Camera Scanner */}
-          <div
-            style={{
-              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.05) 0%, rgba(215, 248, 74, 0.08) 100%)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 20,
-              padding: '22px 24px',
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 20,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 280, flex: '1 1 300px' }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  background: 'rgba(30, 58, 138, 0.1)',
-                  color: 'var(--color-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  border: '1px solid rgba(30, 58, 138, 0.2)'
-                }}
-              >
+          <div className="personnel-home-banner">
+            <div className="personnel-banner-content">
+              <div className="personnel-banner-icon-wrap">
                 <AppIcon name="document" size={24} color="var(--color-primary)" />
               </div>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
                     My 201 Documents & Mobile Scanner
@@ -852,13 +826,14 @@ export const PersonnelHome: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="personnel-banner-actions">
               <Link
                 to="/personnel/documents?action=scan"
                 className="btn btn-secondary"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: 8,
                   padding: '10px 18px',
                   fontSize: 13,
@@ -876,6 +851,7 @@ export const PersonnelHome: React.FC = () => {
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: 8,
                   padding: '10px 20px',
                   fontSize: 13,

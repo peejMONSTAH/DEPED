@@ -94,13 +94,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const displayUser = user || lastUserRef.current;
 
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose?.();
+
+    // Trap focus inside the open mobile drawer
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose?.();
+        return;
+      }
+      if (event.key === 'Tab' && sidebarRef.current) {
+        const focusable = sidebarRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
   const [showAccountSetupModal, setShowAccountSetupModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
@@ -175,10 +199,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     <>
       {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
 
-      <aside id="primary-navigation" aria-label="Main navigation" className={`shell-sidebar ${isOpen ? 'open' : ''}`}>
+      <aside
+        ref={sidebarRef}
+        id="primary-navigation"
+        aria-label="Main navigation"
+        aria-modal={isOpen ? 'true' : undefined}
+        className={`shell-sidebar ${isOpen ? 'open' : ''}`}
+      >
         {/* Brand Header */}
         <div className="shell-sidebar-header">
-          <div className="sidebar-brand-top-row">
+          <div className="sidebar-brand-top-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div className="sidebar-brand-title-block">
               <div className="brand-title-row">
                 <Digital201Logo variant="wordmark" showTag />
@@ -187,6 +217,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 City Schools Division of Koronadal
               </div>
             </div>
+            {/* Mobile close button */}
+            <button
+              type="button"
+              className="shell-sidebar-mobile-close"
+              aria-label="Close navigation"
+              onClick={onClose}
+            >
+              <AppIcon name="close" size={18} />
+            </button>
           </div>
         </div>
 

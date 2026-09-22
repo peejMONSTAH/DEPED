@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation, useOutlet } from 'react-router-dom';
+import { Link, useLocation, useOutlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/admin/Sidebar';
 import { ToastContainer } from '../components/shared/ToastContainer';
@@ -33,6 +33,16 @@ export const PersonnelLayout: React.FC = () => {
   const location = useLocation();
   const currentOutlet = useOutlet();
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const prevSidebarOpen = useRef(sidebarOpen);
+
+  // Restore focus to menu trigger button when drawer closes
+  useEffect(() => {
+    if (prevSidebarOpen.current && !sidebarOpen) {
+      menuTriggerRef.current?.focus();
+    }
+    prevSidebarOpen.current = sidebarOpen;
+  }, [sidebarOpen]);
 
   // Smoothly reset scroll position to top whenever navigating to a new personnel route
   useEffect(() => {
@@ -51,19 +61,35 @@ export const PersonnelLayout: React.FC = () => {
         {/* Responsive Glassmorphic Workspace Area */}
         <div className="app-workspace-area" ref={workspaceRef}>
           {/* Mobile Topbar */}
-          <div className="mobile-admin-topbar">
-            <button
-              type="button"
-              aria-label="Open navigation"
-              aria-expanded={sidebarOpen}
-              aria-controls="primary-navigation"
-              onClick={() => setSidebarOpen(true)}
-              className="mobile-menu-trigger"
-            >
-              <AppIcon name="menu" size={20} />
-            </button>
-            <span className="mobile-app-title">Digital 201 · Personnel</span>
-          </div>
+          <header className="mobile-admin-topbar" role="banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <button
+                ref={menuTriggerRef}
+                type="button"
+                aria-label="Open navigation menu"
+                aria-expanded={sidebarOpen}
+                aria-controls="primary-navigation"
+                onClick={() => setSidebarOpen(true)}
+                className="mobile-menu-trigger"
+              >
+                <AppIcon name="menu" size={20} />
+              </button>
+              <div className="mobile-topbar-brand">
+                <span className="mobile-app-title">Digital 201</span>
+                <span className="mobile-app-badge">Personnel</span>
+              </div>
+            </div>
+
+            <div className="mobile-topbar-actions">
+              <Link
+                to="/personnel/notifications"
+                className="mobile-topbar-action-btn"
+                aria-label="View notifications"
+              >
+                <AppIcon name="notifications" size={18} />
+              </Link>
+            </div>
+          </header>
 
           <main className="workspace-main-content">
             <AnimatePresence mode="wait" initial={false}>
