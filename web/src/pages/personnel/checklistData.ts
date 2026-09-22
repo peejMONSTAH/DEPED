@@ -37,3 +37,54 @@ export function checklistReadiness(items: RequirementItem[]) {
     complete: items.length > 0 && required.every(complete) && items.some(complete) && !items.some(item => item.needsExtractionReview),
   };
 }
+
+/** An Annex C item as one of the clients submitted it. */
+export type SubmittedAnnexCItem = {
+  code: string;
+  title?: string;
+  description?: string;
+  isMandatory?: boolean;
+  submitted: boolean;
+  documentName?: string;
+  personnelDocumentId?: number;
+  uploadedFileUrl?: string;
+  fileSize?: number;
+  mimeType?: string;
+  remarks?: string;
+  verificationStatus?: string;
+  status?: string;
+};
+
+/**
+ * Reads one stored Annex C item whichever client wrote it.
+ *
+ * The web checklist sends `submitted` / `documentName` /
+ * `personnelDocumentId`; the Flutter app sends `isSubmitted` / `fileName` /
+ * `existingDocumentId`. The backend persists the object as received, so both
+ * spellings exist in promotion_applications.score_details_json and anything
+ * reading one spelling silently reports the other as "not attached".
+ *
+ * Accepting both here means existing records read correctly; it does not
+ * excuse the clients disagreeing, which is worth settling at the write side.
+ */
+export function normaliseAnnexCItem(raw: any): SubmittedAnnexCItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const documentId = raw.personnelDocumentId ?? raw.existingDocumentId;
+  return {
+    code: String(raw.code ?? ''),
+    title: raw.title,
+    description: raw.description,
+    isMandatory: raw.isMandatory,
+    // An explicit id or filename is evidence of an attachment even when
+    // neither flag survived the round trip.
+    submitted: Boolean(raw.submitted ?? raw.isSubmitted ?? documentId ?? raw.fileName),
+    documentName: raw.documentName ?? raw.fileName,
+    personnelDocumentId: typeof documentId === 'number' ? documentId : undefined,
+    uploadedFileUrl: raw.uploadedFileUrl,
+    fileSize: raw.fileSize,
+    mimeType: raw.mimeType,
+    remarks: raw.verificationRemarks ?? raw.remarks ?? '',
+    verificationStatus: raw.verificationStatus,
+    status: raw.status,
+  };
+}

@@ -16,6 +16,7 @@ import { deliberationBlockReason, isRequirementsVerified } from '../../promotion
 import { usePending } from '../../hooks/usePending';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { FieldError } from '../../components/common/FieldError';
+import { normaliseAnnexCItem } from '../personnel/checklistData';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -701,7 +702,10 @@ export const PromotionManagement: React.FC = () => {
     const existingItems = Array.isArray(annexC.items) ? annexC.items : [];
 
     const mappedItems = DEFAULT_ANNEX_C_ITEMS.map(def => {
-      const found = existingItems.find((it: any) => it.code === def.code);
+      const raw = existingItems.find((it: any) => it.code === def.code);
+      // Applications submitted from the Flutter app spell these fields
+      // differently; normaliseAnnexCItem reads either.
+      const found = normaliseAnnexCItem(raw);
       const isSubmitted = Boolean(found?.submitted);
       const prevVerification = found?.verificationStatus || (found?.status === 'VERIFIED' ? 'VERIFIED' : (isSubmitted ? 'VERIFIED' : (def.isMandatory ? 'INCOMPLETE' : 'NOT_APPLICABLE')));
       return {
@@ -711,10 +715,10 @@ export const PromotionManagement: React.FC = () => {
         isMandatory: found?.isMandatory ?? def.isMandatory,
         submitted: isSubmitted,
         documentName: found?.documentName,
-        documentType: found?.documentType,
+        documentType: raw?.documentType,
         personnelDocumentId: found?.personnelDocumentId,
         status: (prevVerification as 'VERIFIED' | 'INCOMPLETE' | 'NOT_APPLICABLE') || 'VERIFIED',
-        remarks: found?.verificationRemarks || found?.remarks || '',
+        remarks: found?.remarks || '',
       };
     });
 

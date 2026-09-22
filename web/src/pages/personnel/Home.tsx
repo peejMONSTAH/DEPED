@@ -9,6 +9,7 @@ import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import './vacancy-card.css';
+import { normaliseAnnexCItem } from './checklistData';
 
 type TransactionItem = {
   id: number;
@@ -440,11 +441,14 @@ export const PersonnelHome: React.FC = () => {
     if (existingChecklist && Array.isArray(existingChecklist.items) && existingChecklist.items.length > 0) {
       const itemsMap = new Map(existingChecklist.items.map((it: any) => [it.code, it]));
       const mapped = annexCTemplate.map(def => {
-        const found: any = itemsMap.get(def.code);
+        // Normalised because an application submitted from the Flutter app
+        // spells these fields differently; without this the applicant reopens
+        // their own checklist and finds nothing attached.
+        const found = normaliseAnnexCItem(itemsMap.get(def.code));
         if (found) {
           return {
             ...def,
-            submitted: Boolean(found.submitted),
+            submitted: found.submitted,
             documentName: found.documentName,
             uploadedFileUrl: found.uploadedFileUrl,
             personnelDocumentId: found.personnelDocumentId,
