@@ -1,4 +1,30 @@
 /* Shared responsive contracts; document specimens retain local scrolling. */
+
+/* Desktop defaults for the shared column tracks.
+ *
+ * These were previously declared only inside the max-width media queries, so
+ * above 1024px each call site fell back to its own inline `repeat(N, 1fr)`.
+ * A bare 1fr is minmax(auto, 1fr): the track cannot shrink below the widest
+ * unbreakable content in it, so a long tile label widened the column and the
+ * grid overflowed its card -- visible as clipped tiles on the right edge.
+ * minmax(0, 1fr) lets the track shrink and the content wrap instead. */
+:root {
+  --layout-columns-2: repeat(2, minmax(0, 1fr));
+  --layout-columns-3: repeat(3, minmax(0, 1fr));
+  --layout-columns-4: repeat(4, minmax(0, 1fr));
+}
+
+/* A grid or flex item defaults to min-width:auto, which is the same trap one
+ * level down: the track may be allowed to shrink, but the item inside it is
+ * not. */
+.metrics-grid-row > *,
+.quick-action-tile,
+.quick-action-tile > * { min-width: 0; }
+
+/* Long service names and descriptions should wrap rather than set the floor
+ * for the column width. */
+.quick-action-tile-title,
+.quick-action-sub { overflow-wrap: anywhere; }
 .modal-overlay {
   position: fixed !important;
   inset: 0 !important;

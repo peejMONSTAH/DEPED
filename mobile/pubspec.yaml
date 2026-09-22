@@ -36,6 +36,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
@@ -47,3 +48,19 @@ flutter:
     # network. Files are the exact TTFs the google_fonts package would have
     # downloaded, verified against its own SHA-256 manifest.
     - google_fonts/
+
+# Launcher icon generation. The source is the Koronadal City Division seal.
+# Regenerate after changing it with:  dart run flutter_launcher_icons
+#
+# adaptive_icon_foreground_inset keeps the artwork inside the Android 8+ safe
+# zone. The system masks the foreground into a circle, squircle or rounded
+# square depending on the launcher, clipping anything near the edge. The seal
+# is a full-bleed circle, so without an inset its outer ring and lettering
+# would be cut off on most phones.
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/branding/division-seal.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/branding/division-seal.png"
+  adaptive_icon_foreground_inset: 18

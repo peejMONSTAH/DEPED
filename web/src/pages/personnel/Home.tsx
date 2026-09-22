@@ -701,7 +701,7 @@ export const PersonnelHome: React.FC = () => {
       </div>
 
       {/* ─── 3. METRICS ROW (Strict Database Numbers & Editorial Styling) ─── */}
-      <div className="metrics-grid-row" style={{ gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))' }}>
+      <div className="metrics-grid-row" style={{ gridTemplateColumns: 'var(--layout-columns-4, repeat(4, minmax(0, 1fr)))' }}>
         {/* Metric 1: Active Transactions */}
         <div className="soft-card metric-card">
           <div className="metric-card-top">
@@ -1297,7 +1297,7 @@ export const PersonnelHome: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))', gap: 12 }}>
               <Link to="/personnel/transactions" className="quick-action-tile">
                 <div className="quick-action-tile-icon" style={{ background: 'rgba(56, 139, 253, 0.14)', color: '#388bfd' }}>
                   <AppIcon name="transactions" size={22} />
