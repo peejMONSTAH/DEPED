@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/app_config.dart';
 import '../models/user_model.dart';
 import 'api_service.dart';
+import 'personnel_document_service.dart';
 import 'transaction_service.dart';
 
 class AuthService {
@@ -16,6 +17,7 @@ class AuthService {
     try {
       // Clear previous local transaction store before saving new user session
       await TransactionService.clearLocalStore();
+      await PersonnelDocumentService.clearLocalStore();
 
       final response = await _apiService.dio.post<dynamic>(
         '/auth/login',
@@ -107,6 +109,7 @@ class AuthService {
     } catch (_) {} finally {
       await _storage.deleteAll();
       await TransactionService.clearLocalStore();
+      await PersonnelDocumentService.clearLocalStore();
     }
   }
 }

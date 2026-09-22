@@ -13,6 +13,21 @@ class PersonnelDocumentService {
 
   PersonnelDocumentService(this._apiService);
 
+  /// Discards every cached document for the account that is signing out.
+  ///
+  /// The cache is one static list and one SharedPreferences key for the whole
+  /// device, so without this the next person to sign in on a shared phone is
+  /// served the previous person's 201 file. Called on both sign-in and
+  /// sign-out: clearing on sign-in as well means a logout that never completed
+  /// - a crash, a killed app - still cannot leak into the next session.
+  static Future<void> clearLocalStore() async {
+    _localCache.clear();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefKey);
+    } catch (_) {}
+  }
+
   /// Fetches the stored file itself, so a document can be previewed rather than
   /// only described.
   ///
