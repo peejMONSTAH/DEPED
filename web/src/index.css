@@ -155,7 +155,7 @@ a {
 }
 
 /* ─── BUTTONS ────────────────────────────────────────────────────── */
-button:not(.neuro-login-viewport *):not(.sidebar-theme-toggle-btn, .theme-toggle-btn, .form-entry), input[type="button"]:not(.neuro-login-viewport *), input[type="submit"]:not(.neuro-login-viewport *), .btn:not(.neuro-login-viewport *) {
+button:not(.neuro-login-viewport *):not(.sidebar-theme-toggle-btn, .theme-toggle-btn, .form-entry, .panel-close-button), input[type="button"]:not(.neuro-login-viewport *), input[type="submit"]:not(.neuro-login-viewport *), .btn:not(.neuro-login-viewport *) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -4459,4 +4459,63 @@ tr:hover td {
   .eligibility-dialog__blocked-arrow { justify-content: flex-start; transform: rotate(90deg); width: 20px; margin: .1rem 0; }
   .eligibility-dialog__footer { align-items: flex-start; flex-direction: column; }
   .eligibility-dialog__footer button { width: 100%; }
+}
+
+/* Dismiss control for a details panel or modal header.
+ *
+ * Red because closing discards the view, and because the neutral chip this
+ * replaced was invisible against a tinted header. The glyph and the accessible
+ * name carry the meaning too, so this does not rely on colour alone.
+ *
+ * !important throughout because the global button rule in this file is itself
+ * !important and would otherwise win on every one of these properties. Its
+ * 'padding: 9px 18px' is what actually broke the icon: on a 44px border-box
+ * button that leaves 6px of content width, so a 20px glyph was crushed to a
+ * sliver -- which read as a faint dot rather than an X. */
+.panel-close-button {
+  width: 44px !important;
+  height: 44px !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  background: rgba(220, 38, 38, 0.08) !important;
+  border: 1px solid rgba(220, 38, 38, 0.35) !important;
+  color: #dc2626 !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+}
+
+.panel-close-button:hover {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.panel-close-button:active {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+/* Keyboard users need to see where they are. */
+.panel-close-button:focus-visible {
+  outline: 2px solid #dc2626 !important;
+  outline-offset: 2px !important;
+}
+
+/* flex-shrink:0 so the glyph keeps its size no matter what the parent does. */
+.panel-close-button svg {
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
+  stroke: currentColor;
+  stroke-width: 2.25;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-close-button { transition: none !important; }
 }

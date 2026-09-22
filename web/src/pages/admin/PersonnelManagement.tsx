@@ -544,18 +544,11 @@ export const PersonnelManagement: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelected(null)}
-                    aria-label="Close"
-                    style={{
-                      // 44px minimum touch target.
-                      width: '44px', height: '44px', borderRadius: '10px',
-                      backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', cursor: 'pointer', fontSize: '16px', fontWeight: 700,
-                      transition: 'all 0.15s ease'
-                    }}
-                    title="Close"
+                    aria-label="Close details"
+                    className="panel-close-button"
+                    title="Close details"
                   >
-                    <X size={18} />
+                    <X aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -989,8 +982,9 @@ export const PersonnelManagement: React.FC = () => {
                 type="button"
                 onClick={() => setShowAddModal(false)}
                 aria-label="Close"
-                style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '15px', fontWeight: 700, flexShrink: 0 }}
-              >✕</button>
+                className="panel-close-button"
+                title="Close"
+              ><X aria-hidden="true" /></button>
             </div>
 
             {/* Form Body */}
