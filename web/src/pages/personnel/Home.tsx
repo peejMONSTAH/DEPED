@@ -206,6 +206,12 @@ export const PersonnelHome: React.FC = () => {
   } | null>(null);
   const isChecklistReadOnly = Boolean(selectedCycleForChecklist?.hasApplied && selectedCycleForChecklist?.hasChecklist);
 
+  // Filter open, active opportunities - cancelled/discontinued cycles never appear as available
+  const activeOpenVacancies = React.useMemo(() =>
+    openCycles.filter(c => c.status === 'ACTIVE' && c.status !== 'CANCELLED'),
+    [openCycles]
+  );
+
   const normalizePositionTitle = (value: unknown) => String(value || '')
     .toLowerCase()
     .replace(/\([^)]*\)/g, ' ')
@@ -785,9 +791,9 @@ export const PersonnelHome: React.FC = () => {
         <div className="soft-card metric-card">
           <div className="metric-card-top">
             <span className="metric-label">CAREER VACANCIES</span>
-            <span className="metric-lavender-pill">{openCycles.length} OPEN</span>
+            <span className="metric-lavender-pill">{activeOpenVacancies.length} OPEN</span>
           </div>
-          <div className="metric-value-num">{openCycles.length}</div>
+          <div className="metric-value-num">{activeOpenVacancies.length}</div>
           <div className="metric-footer-note">DepEd Promotion & Reclass Cycles</div>
           <div className="metric-dot-matrix">
             <span className="dot active-dot" />
@@ -1145,7 +1151,7 @@ export const PersonnelHome: React.FC = () => {
                         boxShadow: promotionFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                       }}
                     >
-                      All Open Vacancies ({openCycles.length})
+                      All Open Vacancies ({activeOpenVacancies.length})
                     </button>
                     <button
                       type="button"
@@ -1194,7 +1200,7 @@ export const PersonnelHome: React.FC = () => {
               </div>
             </div>
 
-            {openCycles.length === 0 ? (
+            {((promotionFilter === 'ALL' && activeOpenVacancies.length === 0) || (promotionFilter !== 'ALL' && openCycles.length === 0)) ? (
               <div style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -1242,7 +1248,7 @@ export const PersonnelHome: React.FC = () => {
               </div>
             ) : (
               <div className="vac-list">
-                {(promotionFilter === 'MY_APPLICATIONS' ? openCycles.filter(c => c.hasApplied) : openCycles).map(cycle => {
+                {(promotionFilter === 'MY_APPLICATIONS' ? openCycles.filter(c => c.hasApplied) : activeOpenVacancies).map(cycle => {
                   const isActive = cycle.status === 'ACTIVE';
                   const rules = (cycle as any).rulesConfigurationJson || {};
                   const statusInfo = getApplicationStatusInfo(cycle);

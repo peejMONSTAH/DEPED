@@ -163,7 +163,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       final res = await _apiService.dio
           .get<dynamic>('/promotions/cycles?status=ACTIVE,PLANNING');
       if (res.data != null && res.data['data'] is List) {
-        loadedCycles = res.data['data'] as List<dynamic>;
+        final list = res.data['data'] as List<dynamic>;
+        loadedCycles = list.where((c) => c is Map && c['status'] != 'CANCELLED').toList();
       }
     } catch (_) {}
 

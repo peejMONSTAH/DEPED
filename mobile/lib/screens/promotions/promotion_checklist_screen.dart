@@ -621,6 +621,11 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   Future<void> _submitApplication() async {
     if (_isSubmitting) return;
 
+    if (widget.cycle['status'] == 'CANCELLED') {
+      _showErrorSnackBar('This promotion cycle has been cancelled or discontinued and is no longer accepting applications.');
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       _showErrorSnackBar('Please complete all required applicant details.');
       return;

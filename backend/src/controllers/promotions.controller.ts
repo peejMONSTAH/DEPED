@@ -111,6 +111,9 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
         { promotionApplications: { some: { personnelId: req.user.personnelId } } },
       ],
     };
+  } else if (!status || String(status).toUpperCase() === 'ACTIVE' || String(status).toUpperCase() === 'ONGOING') {
+    // For open opportunity queries without explicit application history, never include cancelled cycles
+    where.status = { not: 'CANCELLED', in: ['ACTIVE', 'PLANNING'] };
   }
 
   // An AO II is told how many of their own station's personnel applied, never
@@ -1723,6 +1726,10 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
 
   const cycle = await prisma.promotionCycle.findUnique({ where: { id: cycleId } });
   if (!cycle || cycle.status !== 'ACTIVE') {
+    if (cycle && cycle.status === 'CANCELLED') {
+      sendBadRequest(res, 'This promotion cycle has been cancelled or discontinued and is no longer accepting applications.', 'CYCLE_DISCONTINUED');
+      return;
+    }
     sendBadRequest(res, 'Promotion cycle is not active.', 'CYCLE_NOT_ACTIVE');
     return;
   }
