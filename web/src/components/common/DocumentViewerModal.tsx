@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
 import { ModalOverlay } from './ModalOverlay';
-import apiClient from '../../api/client';
+import apiClient, { API_BASE_URL } from '../../api/client';
+import { loadDocumentPreview } from './document-preview';
 import './document-viewer-modal.css';
 
 export interface DocumentViewerModalProps {
@@ -72,9 +73,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     setPopupBlockedUrl(null);
 
     try {
-      const response = await apiClient.get(fileUrl, { responseType: 'blob' });
-      const blob: Blob = response.data;
-      const type = blob.type || mimeType || (fileUrl.toLowerCase().includes('.pdf') ? 'application/pdf' : 'image/jpeg');
+      const { blob, type } = await loadDocumentPreview(apiClient, fileUrl, API_BASE_URL, mimeType);
       setResolvedType(type);
 
       const objectUrl = URL.createObjectURL(blob);

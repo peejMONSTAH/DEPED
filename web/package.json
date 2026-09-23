@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "test": "node tests/form-alignment.cjs && node --test tests/session-refresh.cjs tests/checklist-data.cjs tests/annex-c-normalisation.cjs tests/annex-c-verification-modal.cjs tests/scanner-pdf.cjs tests/upload-doctype.cjs tests/scanner-constraints.cjs tests/personnel-documents-ui.cjs tests/scope-access.cjs tests/scanner-upload-flow.cjs tests/document-redundancy.cjs",
+    "test": "node tests/form-alignment.cjs && node --test tests/session-refresh.cjs tests/checklist-data.cjs tests/annex-c-normalisation.cjs tests/annex-c-verification-modal.cjs tests/scanner-pdf.cjs tests/upload-doctype.cjs tests/scanner-constraints.cjs tests/personnel-documents-ui.cjs tests/scope-access.cjs tests/scanner-upload-flow.cjs tests/document-redundancy.cjs tests/document-preview.cjs",
     "check": "npm run build && npm test",
     "start": "serve -s dist -l ${PORT:-4173}"
   },
