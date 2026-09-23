@@ -249,6 +249,14 @@ export const PromotionManagement: React.FC = () => {
   // AO & HRMO Workspace Filters
   const [aoFilter, setAoFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'DEFICIENT'>('ALL');
   const [hrmoFilter, setHrmoFilter] = useState<'ALL' | 'PENDING' | 'FINALIZED'>('ALL');
+  const [hrmoDistrictFilter, setHrmoDistrictFilter] = useState('ALL');
+  const [hrmoSchoolFilter, setHrmoSchoolFilter] = useState('ALL');
+  const hrmoDistricts = Array.from(new Set(submittedApps.map(a => a.district).filter(Boolean))).sort();
+  const hrmoSchools = Array.from(new Set(submittedApps.filter(a => hrmoDistrictFilter === 'ALL' || a.district === hrmoDistrictFilter).map(a => a.school).filter(Boolean))).sort();
+  const hrmoStationApps = filteredSubmittedApps.filter(a =>
+    (hrmoDistrictFilter === 'ALL' || a.district === hrmoDistrictFilter) &&
+    (hrmoSchoolFilter === 'ALL' || a.school === hrmoSchoolFilter)
+  );
 
   const isApplicantReqVerified = (a: any) =>
     a.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED' ||
@@ -271,9 +279,9 @@ export const PromotionManagement: React.FC = () => {
     aoFilter === 'DEFICIENT' ? aoDeficientApps :
     filteredSubmittedApps;
 
-  const hrmoFinalizedApps = filteredSubmittedApps.filter(a => a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating));
-  const hrmoPendingApps = filteredSubmittedApps.filter(a => !(a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating)));
-  const displayedHrmoApps = hrmoFilter === 'PENDING' ? hrmoPendingApps : hrmoFilter === 'FINALIZED' ? hrmoFinalizedApps : filteredSubmittedApps;
+  const hrmoFinalizedApps = hrmoStationApps.filter(a => a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating));
+  const hrmoPendingApps = hrmoStationApps.filter(a => !(a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating)));
+  const displayedHrmoApps = hrmoFilter === 'PENDING' ? hrmoPendingApps : hrmoFilter === 'FINALIZED' ? hrmoFinalizedApps : hrmoStationApps;
 
   const handleOpenConfirmSelection = (app: any) => {
     if (!isHR) {
@@ -468,8 +476,24 @@ export const PromotionManagement: React.FC = () => {
       addToast('Access denied: System Administrator cannot modify promotion cycles. Only HR (HRMO) can update cycle status.', 'ERROR');
       return;
     }
-    // CANCELLED and FINALIZED close the cycle to applicants and reviewers alike.
-    if (newStatus === 'CANCELLED' || newStatus === 'FINALIZED' || newStatus === 'CLOSED') {
+    let cancellationReason: string | undefined;
+    if (newStatus === 'CANCELLED') {
+      const { confirmed, reason } = await confirm({
+        title: 'Cancel promotion cycle',
+        message: 'This will discontinue every application in the cycle, abandon linked unfinished transactions, and notify affected applicants. Finalized cycles cannot be cancelled.',
+        confirmLabel: 'Cancel cycle',
+        tone: 'danger',
+        reason: { label: 'Reason for cancellation', placeholder: 'Explain why this cycle is being cancelled', required: true },
+      });
+      if (!confirmed) return;
+      cancellationReason = reason;
+      if (!cancellationReason || cancellationReason.trim().length < 10) {
+        addToast('Enter a cancellation reason of at least 10 characters.', 'ERROR');
+        return;
+      }
+    }
+    // FINALIZED and CLOSED close the cycle to applicants and reviewers alike.
+    if (newStatus === 'FINALIZED' || newStatus === 'CLOSED') {
       const { confirmed } = await confirm({
         title: `Set cycle to ${newStatus}`,
         message: `Change this promotion cycle to ${newStatus}? Applicants and reviewers lose access to it in its current state.`,
@@ -479,7 +503,7 @@ export const PromotionManagement: React.FC = () => {
     }
 
     try {
-      await apiClient.patch(`/promotions/cycles/${cycleId}`, { status: newStatus });
+      await apiClient.patch(`/promotions/cycles/${cycleId}`, { status: newStatus, ...(cancellationReason && { cancellationReason }) });
       addToast(`Promotion cycle status updated to "${newStatus}"! Real-time synchronization active.`, 'SUCCESS');
       
       setCycles(prev => prev.map(c => c.id === cycleId ? { ...c, status: newStatus } : c));
@@ -588,6 +612,8 @@ export const PromotionManagement: React.FC = () => {
           employeeId: a.personnel?.employeeId || `EMP-${a.personnelId}`,
           name: `${a.personnel?.firstName || ''} ${a.personnel?.lastName || ''}`.trim() || 'Applicant',
           designation: a.personnel?.designation || 'Staff',
+          school: a.personnel?.school || '',
+          district: a.personnel?.district || '',
           performanceRating: a.scoreDetailsJson?.performanceRating || 90,
           status: a.status || 'SUBMITTED',
           scoreDetailsJson: a.scoreDetailsJson || {},
@@ -2996,7 +3022,7 @@ export const PromotionManagement: React.FC = () => {
                             color: aoFilter === 'ALL' ? '#FFFFFF' : 'var(--color-text-secondary)',
                           }}
                         >
-                          All ({filteredSubmittedApps.length})
+                          All ({hrmoStationApps.length})
                         </button>
                         <button
                           type="button"
@@ -3049,11 +3075,25 @@ export const PromotionManagement: React.FC = () => {
                       </div>
                     </div>
 
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18, alignItems: 'center' }}>
+                      <label htmlFor="hrmo-district-filter" style={{ fontSize: 12, fontWeight: 700 }}>District</label>
+                      <select id="hrmo-district-filter" value={hrmoDistrictFilter} onChange={e => { setHrmoDistrictFilter(e.target.value); setHrmoSchoolFilter('ALL'); }} className="form-input" style={{ width: 'auto', minWidth: 160 }}>
+                        <option value="ALL">All districts</option>
+                        {hrmoDistricts.map(district => <option key={district} value={district}>{district}</option>)}
+                      </select>
+                      <label htmlFor="hrmo-school-filter" style={{ fontSize: 12, fontWeight: 700 }}>School</label>
+                      <select id="hrmo-school-filter" value={hrmoSchoolFilter} onChange={e => setHrmoSchoolFilter(e.target.value)} className="form-input" style={{ width: 'auto', minWidth: 200 }}>
+                        <option value="ALL">All schools</option>
+                        {hrmoSchools.map(school => <option key={school} value={school}>{school}</option>)}
+                      </select>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{displayedHrmoApps.length} applicants shown</span>
+                    </div>
+
                     {/* KPI Metric Counter Strip */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                       <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total Applicants</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{filteredSubmittedApps.length}</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{hrmoStationApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
                         <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Complete / Verified</div>

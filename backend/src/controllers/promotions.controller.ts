@@ -331,7 +331,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
 
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
-  const { status, endDate, rulesConfigurationJson } = req.body;
+  const { status, endDate, rulesConfigurationJson, cancellationReason } = req.body;
   let targetStatus = status;
   if (targetStatus === 'COMPLETED') {
     targetStatus = 'CLOSED';
@@ -361,6 +361,15 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
   }
 
   const isCancelling = Boolean(targetStatus) && targetStatus !== previousCycle.status && targetStatus === 'CANCELLED';
+  const reason = typeof cancellationReason === 'string' ? cancellationReason.trim() : '';
+  if (isCancelling && reason.length < 10) {
+    sendBadRequest(res, 'A cancellation reason of at least 10 characters is required.', 'CANCELLATION_REASON_REQUIRED');
+    return;
+  }
+  if (isCancelling && ['FINALIZED', 'PUBLISHED', 'RESOLVED'].includes(previousCycle.status)) {
+    sendBadRequest(res, 'This cycle has finalized results. Review issued appointments before cancellation.', 'CYCLE_ALREADY_FINALIZED');
+    return;
+  }
 
   // Cancelling a cycle must also discontinue its applications and their draft
   // transactions. Doing that outside a transaction could leave a cancelled cycle
@@ -376,7 +385,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
     });
 
     if (isCancelling) {
-      const apps = previousCycle.promotionApplications;
+      const apps = await tx.promotionApplication.findMany({ where: { promotionCycleId: id } });
 
       // One statement for every linked draft transaction instead of one per application.
       const linkedTransactionIds = apps
@@ -389,7 +398,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
             id: { in: linkedTransactionIds },
             status: { in: ['DRAFT', 'PENDING_VALIDATION', 'DEFICIENCY', 'ESCALATED'] },
           },
-          data: { status: 'ABANDONED', remarks: `Promotion cycle "${row.name}" was cancelled by HRMO.` },
+          data: { status: 'ABANDONED', remarks: `Promotion cycle "${row.name}" was cancelled by HRMO: ${reason}` },
         });
       }
 
@@ -406,7 +415,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
               cycleCancelled: true,
               cancelledAt,
               cancelledByUserId: req.user?.userId,
-              cancellationRemarks: 'Promotion cycle was cancelled by HRMO.',
+              cancellationRemarks: reason,
             },
           },
         });
@@ -609,7 +618,7 @@ export const getPromotionApplications = async (req: Request, res: Response): Pro
     where,
     include: {
       personnel: {
-        select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true },
+        select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, district: true },
       },
     },
     orderBy: { applicationDate: 'desc' },
