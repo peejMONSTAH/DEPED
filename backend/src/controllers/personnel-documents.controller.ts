@@ -375,8 +375,12 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
       });
       return created;
     });
-  } catch (error) {
+  } catch (error: any) {
     await discardUncommittedDocument(storagePath).catch(() => logger.error({ detail: storagePath }, 'Uncommitted document cleanup needs retry'));
+    if (error?.message?.includes('The document changed before it could be replaced')) {
+      sendBadRequest(res, error.message, 'CONCURRENT_REPLACEMENT_CONFLICT');
+      return;
+    }
     throw error;
   }
   res.locals.auditLogged = true;
@@ -437,6 +441,25 @@ export const deletePersonnelDocument = async (req: Request, res: Response): Prom
   sendSuccess(res, { id: record.id }, 'Document archived. Previously submitted copies are retained.');
 };
 
+export const isDocumentAccessibleHistoricalEvidence = async (documentId: number, personnelId: number): Promise<boolean> => {
+  const apps = await prisma.promotionApplication.findMany({
+    where: { personnelId },
+    select: { scoreDetailsJson: true },
+  });
+  for (const app of apps) {
+    const details = app.scoreDetailsJson as Record<string, any> | null;
+    const items = details?.annexCChecklist?.items;
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (item.personnelDocumentId === documentId || item.existingDocumentId === documentId) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+};
+
 export const getPersonnelDocumentViewToken = async (req: Request, res: Response): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -447,9 +470,16 @@ export const getPersonnelDocumentViewToken = async (req: Request, res: Response)
     where: { id },
     include: { personnel: true },
   });
-  if (!record || record.deletedAt) {
+  if (!record) {
     sendNotFound(res, 'Document not found.');
     return;
+  }
+  if (record.deletedAt) {
+    const isHistoricalEvidence = await isDocumentAccessibleHistoricalEvidence(record.id, record.personnelId);
+    if (!isHistoricalEvidence) {
+      sendNotFound(res, 'Document not found.');
+      return;
+    }
   }
   let allowed = record.personnelId === req.user?.personnelId || ['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '');
   if (!allowed && req.user?.role === 'AO_II') {
@@ -482,7 +512,14 @@ export const getPersonnelDocumentViewToken = async (req: Request, res: Response)
 
 export const downloadPersonnelDocumentFile = async (req: Request, res: Response): Promise<void> => {
   const record = await prisma.personnelFile.findUnique({ where: { id: Number(req.params.id) }, include: { personnel: true } });
-  if (!record || record.deletedAt) { sendNotFound(res); return; }
+  if (!record) { sendNotFound(res); return; }
+  if (record.deletedAt) {
+    const isHistoricalEvidence = await isDocumentAccessibleHistoricalEvidence(record.id, record.personnelId);
+    if (!isHistoricalEvidence) {
+      sendNotFound(res);
+      return;
+    }
+  }
   
   if (req.docToken) {
     if (req.docToken.documentId !== record.id || req.docToken.docType !== 'personnel') {

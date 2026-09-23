@@ -9,6 +9,23 @@ import { startWorkflowOutboxWorker } from './services/workflow-outbox.service';
 
 const PORT = config.port;
 
+// Third-party clients (notably @google-cloud/documentai's gRPC/auth machinery)
+// schedule background work — token refreshes, keepalives — outside of any
+// request's own promise chain. When that background work rejects, Node's
+// default behaviour is to crash the process, which was taking the whole API
+// down over an unrelated, already-caught OCR failure: a personnel uploading
+// a PDS with no Google credentials configured would kill the server, and the
+// next click from anyone — including "Submit Transaction to AO II" — hit a
+// dead process and silently failed until the platform restarted it.
+// Logging and continuing is correct here: a background job failing must not
+// take down requests that have nothing to do with it.
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection (process kept alive)');
+});
+process.on('uncaughtException', (error) => {
+  logger.error({ err: error }, 'Uncaught exception (process kept alive)');
+});
+
 const startServer = async () => {
   // Do not advertise a healthy production service until its database is reachable.
   try {

@@ -62,6 +62,7 @@ export interface ChecklistFormItem {
   title: string;
   description: string;
   isMandatory: boolean;
+  suggestedDocumentTypeIds?: string[];
   submitted: boolean;
   documentName?: string;
   documentType?: string;
@@ -77,6 +78,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Letter of Intent',
     description: 'Letter of intent addressed to the Head of Office or highest human resource officer indicating position & item number',
     isMandatory: true,
+    suggestedDocumentTypeIds: ['LETTER_OF_INTENT'],
     submitted: false,
   },
   {
@@ -84,6 +86,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Personal Data Sheet (PDS) & Work Experience Sheet',
     description: 'Duly accomplished Personal Data Sheet (PDS) (CS Form No. 212, Revised 2017) and Work Experience Sheet, if applicable',
     isMandatory: true,
+    suggestedDocumentTypeIds: ['PDS', 'WES'],
     submitted: false,
   },
   {
@@ -91,6 +94,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Photocopy of Valid PRC License / Identification Card',
     description: 'Photocopy of valid and updated PRC License/ID, if applicable',
     isMandatory: false,
+    suggestedDocumentTypeIds: ['LICENSE'],
     submitted: false,
   },
   {
@@ -98,6 +102,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Certificate of Eligibility / Report of Rating',
     description: 'Photocopy of Certificate of Eligibility / Rating (CSC / PRC / PBET / LET), if applicable',
     isMandatory: false,
+    suggestedDocumentTypeIds: ['CSC_ELIGIBILITY'],
     submitted: false,
   },
   {
@@ -105,6 +110,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Scholastic / Academic Records (TOR & Diploma)',
     description: 'Photocopy of scholastic/academic record such as Transcript of Records (TOR) and Diploma, including graduate/post-graduate completion',
     isMandatory: true,
+    suggestedDocumentTypeIds: ['TOR', 'DIPLOMA', 'CAV'],
     submitted: false,
   },
   {
@@ -112,6 +118,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Certificates of Training',
     description: 'Photocopy of Certificate/s of Training relevant to the position applied for',
     isMandatory: false,
+    suggestedDocumentTypeIds: ['TRAINING_CERTIFICATE'],
     submitted: false,
   },
   {
@@ -119,6 +126,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Certificate of Employment / Service Record',
     description: 'Photocopy of Certificate of Employment, Contract of Service, or duly signed Service Record, whichever is/are applicable',
     isMandatory: true,
+    suggestedDocumentTypeIds: ['SERVICE_RECORD', 'CERTIFICATE_OF_EMPLOYMENT'],
     submitted: false,
   },
   {
@@ -126,6 +134,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Photocopy of Latest Appointment',
     description: 'Photocopy of latest appointment (KSS Form / CS Form 33), if applicable',
     isMandatory: false,
+    suggestedDocumentTypeIds: ['APPOINTMENT'],
     submitted: false,
   },
   {
@@ -133,6 +142,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Performance Ratings (IPCR)',
     description: 'Photocopy of the Performance Ratings in the last rating period/s covering one (1) year performance prior to the deadline of submission',
     isMandatory: true,
+    suggestedDocumentTypeIds: ['PERFORMANCE_RATING'],
     submitted: false,
   },
   {
@@ -140,6 +150,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Checklist of Requirements & Omnibus Sworn Statement / CAV',
     description: 'Duly signed Checklist of Requirements and Omnibus Sworn Statement on the Certification on Authenticity and Veracity (CAV) and Data Privacy Consent',
     isMandatory: true,
+    suggestedDocumentTypeIds: ['OMNIBUS_SWORN_STATEMENT', 'OTHER'],
     submitted: false,
   },
   {
@@ -147,6 +158,7 @@ export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
     title: 'Other Documents / Means of Verification (MOVs)',
     description: 'Other Means of Verification (MOVs) showing Outstanding Accomplishments, Application of Education, and Application of L&D, or portfolio',
     isMandatory: false,
+    suggestedDocumentTypeIds: ['OTHER'],
     submitted: false,
   },
 ];
@@ -183,6 +195,7 @@ export const PersonnelHome: React.FC = () => {
   const [promotionFilter, setPromotionFilter] = useState<'ALL' | 'MY_APPLICATIONS'>('ALL');
   const [user201Documents, setUser201Documents] = useState<any[]>([]);
   const [picking201ForCode, setPicking201ForCode] = useState<string | null>(null);
+  const [picker201Search, setPicker201Search] = useState('');
   const [uploadingForCode, setUploadingForCode] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<{
     title: string;
@@ -402,6 +415,7 @@ export const PersonnelHome: React.FC = () => {
           title: String(item.title),
           description: String(item.description),
           isMandatory: Boolean(item.isMandatory),
+          suggestedDocumentTypeIds: Array.isArray(item.suggestedDocumentTypeIds) ? item.suggestedDocumentTypeIds : [],
           submitted: false,
         }));
         annexCTemplateRef.current = mapped;
@@ -590,7 +604,7 @@ export const PersonnelHome: React.FC = () => {
 
   const handleSubmitChecklistApplication = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCycleForChecklist) return;
+    if (!selectedCycleForChecklist || isSubmittingChecklist) return;
 
     const mandatoryItems = checklistItems.filter(i => i.isMandatory);
     const missingMandatory = mandatoryItems.filter(i => !i.submitted);
@@ -2253,7 +2267,7 @@ export const PersonnelHome: React.FC = () => {
 
                             <button
                               type="button"
-                              onClick={() => setPicking201ForCode(item.code)}
+                              onClick={() => { setPicker201Search(''); setPicking201ForCode(item.code); }}
                               style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
@@ -2436,119 +2450,231 @@ export const PersonnelHome: React.FC = () => {
       )}
 
       {/* ─── 201 FILE PICKER SUB-MODAL ─── */}
-      {picking201ForCode && (
-        <ModalPortal>
-          <ModalOverlay onDismiss={() => setPicking201ForCode(null)}
-            className="modal-overlay"
-            role="presentation"
-            style={{
-              background: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(6px)',
-              zIndex: 1300,
-            }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setPicking201ForCode(null);
-              }
-            }}
-          >
-            <div
+      {picking201ForCode && (() => {
+        const targetReq = checklistItems.find(it => it.code === picking201ForCode);
+        const suggestedTypes = targetReq?.suggestedDocumentTypeIds || [];
+
+        // 1. Exclude empty placeholders (only documents that actually have an uploaded file)
+        const validDocs = user201Documents.filter((d: any) =>
+          Boolean(d.hasFile && (d.fileUrl || d.storagePath || d.storedFileName || d.originalFileName))
+        );
+
+        // 2. Filter by search query
+        const query = picker201Search.toLowerCase().trim();
+        const searchedDocs = query
+          ? validDocs.filter((d: any) =>
+              (d.documentTypeName && d.documentTypeName.toLowerCase().includes(query)) ||
+              (d.originalFileName && d.originalFileName.toLowerCase().includes(query)) ||
+              (d.customDocumentName && d.customDocumentName.toLowerCase().includes(query))
+            )
+          : validDocs;
+
+        // 3. Sort prioritized (compatible / recommended types first)
+        const sortedDocs = [...searchedDocs].sort((a: any, b: any) => {
+          const aMatch = suggestedTypes.includes(a.documentTypeId);
+          const bMatch = suggestedTypes.includes(b.documentTypeId);
+          if (aMatch && !bMatch) return -1;
+          if (!aMatch && bMatch) return 1;
+          return (b.id || 0) - (a.id || 0);
+        });
+
+        return (
+          <ModalPortal>
+            <ModalOverlay onDismiss={() => setPicking201ForCode(null)}
+              className="modal-overlay"
+              role="presentation"
               style={{
-                width: '100%',
-                maxWidth: 600,
-                maxHeight: '80vh',
-                display: 'flex',
-                flexDirection: 'column',
-                background: 'var(--color-bg-card, #ffffff)',
-                borderRadius: 14,
-                border: '1px solid var(--color-border)',
-                boxShadow: '0 20px 48px rgba(0,0,0,0.3)',
-                overflow: 'hidden',
+                background: 'rgba(0, 0, 0, 0.7)',
+                backdropFilter: 'blur(6px)',
+                zIndex: 1300,
               }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setPicking201ForCode(null);
+                }
+              }}
             >
               <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="picker-201-title"
                 style={{
-                  padding: '14px 20px',
-                  borderBottom: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-secondary)',
+                  width: '100%',
+                  maxWidth: 620,
+                  maxHeight: '85vh',
                   display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  background: 'var(--color-bg-card, #ffffff)',
+                  borderRadius: 14,
+                  border: '1px solid var(--color-border)',
+                  boxShadow: '0 20px 48px rgba(0,0,0,0.3)',
+                  overflow: 'hidden',
                 }}
+                onClick={e => e.stopPropagation()}
               >
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800 }}>
-                    Select 201 File for Item ({picking201ForCode.toUpperCase()})
-                  </h4>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                    Attach an existing document from your verified 201 profile records.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPicking201ForCode(null)}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--color-text-muted)' }}
+                {/* Header with single visible accessible close control */}
+                <div
+                  style={{
+                    padding: '14px 20px',
+                    borderBottom: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-secondary)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
                 >
-                  ✕
-                </button>
-              </div>
-
-              <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--color-bg-card, #ffffff)' }}>
-                {user201Documents.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--color-text-muted)' }}>
-                    <AppIcon name="folder" size={32} />
-                    <p style={{ marginTop: 10, fontSize: '0.85rem' }}>
-                      No files found in your digital 201 records.
-                    </p>
-                    <span style={{ fontSize: '0.78rem' }}>
-                      Please use the "Upload File" option to upload directly from your device or use the Mobile Document Scanner.
-                    </span>
-                  </div>
-                ) : (
-                  user201Documents.map((doc: any) => (
-                    <div
-                      key={doc.id}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 8,
-                        border: '1px solid var(--color-border)',
-                        background: 'var(--color-bg-secondary)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 12,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                          {doc.originalFileName || doc.documentTypeName || '201 Document'}
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                          {[
-                            doc.documentTypeName || '201 File',
-                            formatFileSize(doc.fileSize),
-                            formatUploadedOn(doc.uploadedAt || doc.createdAt),
-                          ].filter(Boolean).join(' • ')}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleAttachFrom201(picking201ForCode, doc)}
-                        style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 6, fontWeight: 700, flexShrink: 0 }}
-                      >
-                        Attach File
-                      </button>
+                  <div>
+                    <h4 id="picker-201-title" style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800 }}>
+                      Select 201 File for Item ({picking201ForCode.toUpperCase()})
+                    </h4>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                      {targetReq?.title ? `Requirement: ${targetReq.title}` : 'Attach an existing file from your digital 201 profile records.'}
                     </div>
-                  ))
-                )}
-              </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPicking201ForCode(null)}
+                    aria-label="Close dialog"
+                    style={{
+                      width: 44,
+                      height: 44,
+                      minWidth: 44,
+                      minHeight: 44,
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 20,
+                      color: 'var(--color-text-muted)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 8,
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
 
-            </div>
-          </ModalOverlay>
-        </ModalPortal>
-      )}
+                {/* Search Filter Input */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-card)' }}>
+                  <input
+                    type="search"
+                    className="form-control"
+                    placeholder="Search documents by name or filename…"
+                    value={picker201Search}
+                    onChange={e => setPicker201Search(e.target.value)}
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                {/* Document List */}
+                <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--color-bg-card, #ffffff)' }}>
+                  {sortedDocs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--color-text-muted)' }}>
+                      <AppIcon name="folder" size={32} />
+                      <p style={{ marginTop: 10, fontSize: '0.85rem', fontWeight: 600 }}>
+                        {validDocs.length === 0
+                          ? 'No uploaded files found in your digital 201 records.'
+                          : 'No 201 files match your search.'}
+                      </p>
+                      <span style={{ fontSize: '0.78rem' }}>
+                        {validDocs.length === 0
+                          ? 'Please use the "Upload File" option in the checklist or upload documents in My Documents first.'
+                          : 'Try adjusting your search query to find your document.'}
+                      </span>
+                    </div>
+                  ) : (
+                    sortedDocs.map((doc: any) => {
+                      const isRecommended = suggestedTypes.includes(doc.documentTypeId);
+                      const isDocExpired = Boolean(doc.expirationDate && new Date(doc.expirationDate) < new Date(new Date().toDateString()));
+
+                      return (
+                        <div
+                          key={doc.id}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: 10,
+                            border: isRecommended ? '1.5px solid #10b981' : '1px solid var(--color-border)',
+                            background: isRecommended ? 'rgba(16, 185, 129, 0.04)' : 'var(--color-bg-secondary)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 12,
+                          }}
+                        >
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+                              {isRecommended && (
+                                <span style={{ fontSize: '0.625rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#059669', textTransform: 'uppercase' }}>
+                                  Recommended
+                                </span>
+                              )}
+                              {isDocExpired && (
+                                <span style={{ fontSize: '0.625rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', textTransform: 'uppercase' }}>
+                                  Expired
+                                </span>
+                              )}
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                                {doc.documentTypeName || '201 File'}
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '0.875rem',
+                                fontWeight: 700,
+                                color: 'var(--color-text-primary)',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                              title={doc.originalFileName || doc.documentTypeName}
+                            >
+                              {doc.originalFileName || doc.documentTypeName || '201 Document'}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                              {[
+                                formatFileSize(doc.fileSize),
+                                formatUploadedOn(doc.uploadedAt || doc.createdAt),
+                              ].filter(Boolean).join(' • ')}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => setViewingDoc({
+                                title: doc.documentTypeName || '201 Document',
+                                fileName: doc.originalFileName || undefined,
+                                fileSize: doc.fileSize || undefined,
+                                fileUrl: doc.fileUrl || `/personnel/documents/${doc.id}/file`,
+                                viewTokenUrl: `/personnel/documents/${doc.id}/view-token`,
+                              })}
+                              style={{ fontSize: '0.75rem', padding: '6px 10px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              title="Preview document before attaching"
+                            >
+                              <AppIcon name="view" size={13} /> Preview
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleAttachFrom201(picking201ForCode, doc)}
+                              style={{ fontSize: '0.75rem', padding: '6px 12px', borderRadius: 6, fontWeight: 700 }}
+                            >
+                              Attach File
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </ModalOverlay>
+          </ModalPortal>
+        );
+      })()}
 
       {viewingDoc && (
         <DocumentViewerModal

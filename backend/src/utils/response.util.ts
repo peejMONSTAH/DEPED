@@ -8,6 +8,9 @@ export interface ApiResponse<T = unknown> {
   /** Correlates a 5xx response with its server log entry. */
   requestId?: string;
   pagination?: PaginationMeta;
+  meta?: Record<string, any>;
+  counts?: Record<string, any>;
+  filterOptions?: Record<string, any>;
 }
 
 export interface PaginationMeta {
@@ -22,11 +25,15 @@ export const sendSuccess = <T>(
   data: T,
   message?: string,
   statusCode = 200,
-  pagination?: PaginationMeta
+  pagination?: PaginationMeta,
+  extra?: Record<string, any>
 ): Response => {
   const response: ApiResponse<T> = { status: 'success', data };
   if (message) response.message = message;
   if (pagination) response.pagination = pagination;
+  if (extra) {
+    Object.assign(response, extra);
+  }
   return res.status(statusCode).json(response);
 };
 

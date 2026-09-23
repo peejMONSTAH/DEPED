@@ -546,7 +546,9 @@ export const Checklist: React.FC = () => {
               disabled={!isComplete || !canEdit || loading || submitting || uploadingReqId !== null}
               style={{ opacity: isComplete ? 1 : 0.6, cursor: isComplete ? 'pointer' : 'not-allowed', padding: '10px 24px', fontWeight: 700 }}
             >
-              {isReturnedState ? 'Resubmit Deficient Document(s) to AO II →' : 'Submit Transaction to AO II for Validation →'}
+              {submitting
+                ? 'Submitting to AO II…'
+                : isReturnedState ? 'Resubmit Deficient Document(s) to AO II →' : 'Submit Transaction to AO II for Validation →'}
             </button>
           )}
         </div>

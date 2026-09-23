@@ -48,14 +48,112 @@ export const streamTransactions = (req: Request, res: Response) => {
 /** GET /transactions */
 export const getTransactions = async (req: Request, res: Response) => {
   const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
-  const { status, type } = req.query as any;
-  const where: any = await transactionAccessFilter(req.user);
+  const { status, type, transactionType, search, district, school, category, personnelType } = req.query as any;
+  const accessFilter: any = await transactionAccessFilter(req.user);
 
-  if (status) where.status = status as string;
-  if (type) where.transactionType = { name: { contains: String(type), mode: 'insensitive' } };
-  const [data, total] = await Promise.all([
+  const nonStatusConditions: any[] = [];
+  if (accessFilter && Object.keys(accessFilter).length > 0) {
+    nonStatusConditions.push(accessFilter);
+  }
+
+  // Personnel station and category conditions
+  const personnelConditions: any[] = [];
+  if (district && String(district).trim() !== '' && String(district).trim() !== 'ALL') {
+    personnelConditions.push({ district: { equals: String(district).trim(), mode: 'insensitive' } });
+  }
+  if (school && String(school).trim() !== '' && String(school).trim() !== 'ALL') {
+    personnelConditions.push({ school: { equals: String(school).trim(), mode: 'insensitive' } });
+  }
+
+  const cat = String(category || personnelType || '').toUpperCase();
+  if (cat === 'TEACHING') {
+    personnelConditions.push({
+      OR: [
+        { designation: { contains: 'Teacher', mode: 'insensitive' } },
+        { designation: { contains: 'Principal', mode: 'insensitive' } },
+        { user: { role: { name: 'TEACHING_PERSONNEL' } } },
+      ],
+    });
+  } else if (cat === 'NON_TEACHING') {
+    personnelConditions.push({
+      AND: [
+        { NOT: { designation: { contains: 'Teacher', mode: 'insensitive' } } },
+        { NOT: { designation: { contains: 'Principal', mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  if (personnelConditions.length > 0) {
+    nonStatusConditions.push({ personnel: { AND: personnelConditions } });
+  }
+
+  // Transaction type filtering
+  const tType = String(transactionType || type || '').trim();
+  if (tType && tType !== 'ALL') {
+    if (tType.toUpperCase() === 'PROMOTION' || cat === 'PROMOTION') {
+      nonStatusConditions.push({
+        transactionType: { name: { contains: 'Promotion', mode: 'insensitive' } },
+      });
+    } else {
+      nonStatusConditions.push({
+        transactionType: { name: { contains: tType, mode: 'insensitive' } },
+      });
+    }
+  }
+
+  // Search filtering across personnel and transaction identifiers
+  if (search && String(search).trim()) {
+    const q = String(search).trim();
+    const searchConditions: any[] = [
+      { personnel: { firstName: { contains: q, mode: 'insensitive' } } },
+      { personnel: { lastName: { contains: q, mode: 'insensitive' } } },
+      { personnel: { employeeId: { contains: q, mode: 'insensitive' } } },
+      { transactionType: { name: { contains: q, mode: 'insensitive' } } },
+    ];
+    const cleanId = q.replace(/^TRX-?/i, '');
+    const numId = parseInt(cleanId, 10);
+    if (!isNaN(numId) && String(numId) === cleanId) {
+      searchConditions.push({ id: numId });
+    }
+    nonStatusConditions.push({ OR: searchConditions });
+  }
+
+  const baseWhereWithoutStatus: any = nonStatusConditions.length > 0
+    ? { AND: nonStatusConditions }
+    : {};
+
+  // Map status filter
+  let statusCondition: any = null;
+  const stat = String(status || '').toUpperCase();
+  if (stat === 'FOR_APPROVAL' || stat === 'AWAITING_APPROVAL') {
+    statusCondition = { status: 'FOR_APPROVAL' };
+  } else if (stat === 'APPROVED' || stat === 'APPROVED_HISTORY') {
+    statusCondition = { status: { in: ['APPROVED', 'COMPLETED'] } };
+  } else if (stat === 'RETURNED' || stat === 'RETURNED_FOR_CORRECTION' || stat === 'DEFICIENCY') {
+    statusCondition = { status: { in: ['DEFICIENCY', 'ESCALATED'] } };
+  } else if (stat === 'REJECTED') {
+    statusCondition = { status: 'REJECTED' };
+  } else if (status && stat !== 'ALL') {
+    statusCondition = { status: status as string };
+  }
+
+  const finalWhere: any = statusCondition
+    ? (nonStatusConditions.length > 0 ? { AND: [...nonStatusConditions, statusCondition] } : statusCondition)
+    : baseWhereWithoutStatus;
+
+  const [
+    data,
+    total,
+    countForApproval,
+    countApproved,
+    countReturned,
+    countRejected,
+    countAll,
+    personnelStations,
+    txTypes,
+  ] = await Promise.all([
     prisma.transaction.findMany({
-      where,
+      where: finalWhere,
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -69,6 +167,9 @@ export const getTransactions = async (req: Request, res: Response) => {
             employeeId: true,
             designation: true,
             address: true,
+            school: true,
+            district: true,
+            dateHired: true,
             promotionApplications: {
               where: {
                 OR: [
@@ -89,8 +190,83 @@ export const getTransactions = async (req: Request, res: Response) => {
         uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true } },
       },
     }),
-    prisma.transaction.count({ where }),
+    prisma.transaction.count({ where: finalWhere }),
+    prisma.transaction.count({
+      where: nonStatusConditions.length > 0
+        ? { AND: [...nonStatusConditions, { status: 'FOR_APPROVAL' }] }
+        : { status: 'FOR_APPROVAL' },
+    }),
+    prisma.transaction.count({
+      where: nonStatusConditions.length > 0
+        ? { AND: [...nonStatusConditions, { status: { in: ['APPROVED', 'COMPLETED'] } }] }
+        : { status: { in: ['APPROVED', 'COMPLETED'] } },
+    }),
+    prisma.transaction.count({
+      where: nonStatusConditions.length > 0
+        ? { AND: [...nonStatusConditions, { status: { in: ['DEFICIENCY', 'ESCALATED'] } }] }
+        : { status: { in: ['DEFICIENCY', 'ESCALATED'] } },
+    }),
+    prisma.transaction.count({
+      where: nonStatusConditions.length > 0
+        ? { AND: [...nonStatusConditions, { status: 'REJECTED' }] }
+        : { status: 'REJECTED' },
+    }),
+    prisma.transaction.count({
+      where: baseWhereWithoutStatus,
+    }),
+    prisma.personnel.findMany({
+      where: {
+        district: { not: null },
+        school: { not: null },
+      },
+      select: { district: true, school: true },
+      distinct: ['district', 'school'],
+    }),
+    prisma.transactionType.findMany({
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    }),
   ]);
+
+  // Build filter options from real personnel station records in the database
+  const districtMap = new Map<string, Set<string>>();
+  const allSchoolsSet = new Set<string>();
+
+  for (const p of personnelStations) {
+    const d = p.district?.trim();
+    const s = p.school?.trim();
+    if (d) {
+      if (!districtMap.has(d)) districtMap.set(d, new Set());
+      if (s) {
+        districtMap.get(d)!.add(s);
+        allSchoolsSet.add(s);
+      }
+    }
+  }
+
+  const districtsList = Array.from(districtMap.keys())
+    .sort((a, b) => a.localeCompare(b))
+    .map(name => ({
+      name,
+      schools: Array.from(districtMap.get(name)!).sort((a, b) => a.localeCompare(b)),
+    }));
+
+  const allSchoolsList = Array.from(allSchoolsSet).sort((a, b) => a.localeCompare(b));
+
+  const counts = {
+    forApproval: countForApproval,
+    approved: countApproved,
+    returned: countReturned,
+    rejected: countRejected,
+    all: countAll,
+  };
+
+  const filterOptions = {
+    districts: districtsList,
+    allSchools: allSchoolsList,
+    transactionTypes: txTypes.map(t => t.name),
+    categories: ['Teaching', 'Non-Teaching'],
+  };
 
   const formatted = data.map(tx => {
     const promoApp = tx.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === tx.id);
@@ -100,6 +276,8 @@ export const getTransactions = async (req: Request, res: Response) => {
     const { complianceScore } = transactionCompliance(tx.transactionType.requirementTemplates, tx.uploadedDocuments);
     return {
       ...tx,
+      school: tx.personnel?.school || null,
+      district: tx.personnel?.district || null,
       complianceScore,
       isPromotion: isPromo,
       promotionDetails: isPromo && promoApp ? {
@@ -111,7 +289,14 @@ export const getTransactions = async (req: Request, res: Response) => {
     };
   });
 
-  sendSuccess(res, formatted, undefined, 200, buildPaginationMeta(page, limit, total));
+  sendSuccess(res, formatted, undefined, 200, buildPaginationMeta(page, limit, total), {
+    counts,
+    filterOptions,
+    meta: {
+      counts,
+      filterOptions,
+    },
+  });
 };
 
 /** GET /transactions/my-transactions */

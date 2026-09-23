@@ -40,51 +40,62 @@ type DocumentTypeConfig = {
   category: string;
 };
 
-type TabFilter = 'ALL' | 'REQUIRED' | 'ACTION_NEEDED' | 'UNDER_REVIEW' | 'APPROVED';
+export type TabFilter = 'ALL' | 'REQUIRED' | 'ACTION_NEEDED' | 'EXPIRING_SOON';
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg';
 
-const formatSize = (bytes?: number | null): string => {
+export const formatSize = (bytes?: number | null): string => {
   if (!bytes) return '—';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const formatDate = (value?: string | null): string => {
+export const formatDate = (value?: string | null): string => {
   if (!value) return '—';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return parsed.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-const isExpired = (doc: PersonnelDocument): boolean => {
+export const isExpired = (doc: { expirationDate?: string | null }): boolean => {
   if (!doc.expirationDate) return false;
   const due = new Date(doc.expirationDate);
   if (Number.isNaN(due.getTime())) return false;
   return due < new Date(new Date().toDateString());
 };
 
-const getStatusMeta = (status: string, expired: boolean): { bg: string; fg: string; label: string } => {
-  if (expired) {
-    return { bg: 'rgba(239, 68, 68, 0.12)', fg: '#dc2626', label: 'Expired' };
+export const isExpiringSoon = (doc: { expirationDate?: string | null }): boolean => {
+  if (!doc.expirationDate || isExpired(doc)) return false;
+  const due = new Date(doc.expirationDate).getTime();
+  if (Number.isNaN(due)) return false;
+  const now = Date.now();
+  return due > now && due - now < 60 * 24 * 60 * 60 * 1000;
+};
+
+/**
+ * Personnel-facing status determination.
+ * Administrative workflow states ('Submitted', 'Under Review', 'Approved') are deliberately omitted.
+ * Only actionable user-facing states are shown.
+ */
+export const getPersonnelStatusMeta = (doc: PersonnelDocument): { bg: string; fg: string; label: string; isActionNeeded: boolean } => {
+  if (!doc.hasFile) {
+    return { bg: 'rgba(100, 116, 139, 0.12)', fg: '#475569', label: 'No file uploaded', isActionNeeded: doc.isRequired };
   }
-  switch (status) {
-    case 'NOT_SUBMITTED':
-      return { bg: 'rgba(100, 116, 139, 0.12)', fg: '#475569', label: 'Not Submitted' };
-    case 'APPROVED':
-      return { bg: 'rgba(16, 185, 129, 0.12)', fg: '#059669', label: 'Approved' };
-    case 'REJECTED':
-      return { bg: 'rgba(239, 68, 68, 0.12)', fg: '#dc2626', label: 'Rejected' };
-    case 'REPLACEMENT_REQUIRED':
-      return { bg: 'rgba(239, 68, 68, 0.12)', fg: '#dc2626', label: 'Replacement Required' };
-    case 'UNDER_REVIEW':
-      return { bg: 'rgba(139, 92, 246, 0.12)', fg: '#7c3aed', label: 'Under Review' };
-    case 'SUBMITTED':
-    default:
-      return { bg: 'rgba(37, 99, 235, 0.12)', fg: '#2563eb', label: 'Submitted' };
+  if (isExpired(doc)) {
+    return { bg: 'rgba(239, 68, 68, 0.12)', fg: '#dc2626', label: 'Expired', isActionNeeded: true };
   }
+  if (doc.status === 'REJECTED') {
+    return { bg: 'rgba(239, 68, 68, 0.12)', fg: '#dc2626', label: 'Rejected', isActionNeeded: true };
+  }
+  if (doc.status === 'REPLACEMENT_REQUIRED') {
+    return { bg: 'rgba(239, 68, 68, 0.12)', fg: '#dc2626', label: 'Replacement required', isActionNeeded: true };
+  }
+  if (isExpiringSoon(doc)) {
+    return { bg: 'rgba(245, 158, 11, 0.14)', fg: '#d97706', label: 'Expiring soon', isActionNeeded: false };
+  }
+  return { bg: 'rgba(16, 185, 129, 0.12)', fg: '#059669', label: 'Uploaded', isActionNeeded: false };
 };
 
 export const MyDocuments: React.FC = () => {
@@ -199,8 +210,8 @@ export const MyDocuments: React.FC = () => {
     setUploadOpen(true);
   };
 
-  const closeUploadModal = () => {
-    if (busy) return;
+  const closeUploadModal = (force = false) => {
+    if (busy && !force) return;
     setUploadOpen(false);
     setTargetDoc(null);
     resetForm();
@@ -253,7 +264,6 @@ export const MyDocuments: React.FC = () => {
     if (expirationDate) form.append('expirationDate', expirationDate);
     if (remarks.trim()) form.append('remarks', remarks.trim());
 
-    // If targeting an existing document (placeholder or replacement)
     if (targetDoc) {
       form.append('replacesDocumentId', String(targetDoc.id));
     }
@@ -277,7 +287,7 @@ export const MyDocuments: React.FC = () => {
           : `Document "${selectedType?.name || 'Document'}" submitted successfully.`,
         'SUCCESS'
       );
-      closeUploadModal();
+      closeUploadModal(true);
       await load();
     } catch (error: any) {
       setFormError(error?.response?.data?.message || 'Upload failed. Please try again.');
@@ -307,19 +317,15 @@ export const MyDocuments: React.FC = () => {
     }
   };
 
-  // Filtered documents
+  // Filtered documents for active tab
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
-      const expired = isExpired(doc);
       if (activeTab === 'REQUIRED') return doc.isRequired;
       if (activeTab === 'ACTION_NEEDED') {
-        return doc.status === 'NOT_SUBMITTED' || doc.status === 'REPLACEMENT_REQUIRED' || doc.status === 'REJECTED' || expired;
+        return getPersonnelStatusMeta(doc).isActionNeeded;
       }
-      if (activeTab === 'UNDER_REVIEW') {
-        return doc.status === 'SUBMITTED' || doc.status === 'UNDER_REVIEW';
-      }
-      if (activeTab === 'APPROVED') {
-        return doc.status === 'APPROVED' && !expired;
+      if (activeTab === 'EXPIRING_SOON') {
+        return isExpiringSoon(doc);
       }
       return true;
     });
@@ -328,33 +334,25 @@ export const MyDocuments: React.FC = () => {
   const counts = useMemo(() => {
     let required = 0;
     let actionNeeded = 0;
-    let underReview = 0;
-    let approved = 0;
+    let expiringSoon = 0;
 
     for (const d of documents) {
       if (d.isRequired) required++;
-      const expired = isExpired(d);
-      if (d.status === 'NOT_SUBMITTED' || d.status === 'REPLACEMENT_REQUIRED' || d.status === 'REJECTED' || expired) {
-        actionNeeded++;
-      }
-      if (d.status === 'SUBMITTED' || d.status === 'UNDER_REVIEW') {
-        underReview++;
-      }
-      if (d.status === 'APPROVED' && !expired) {
-        approved++;
-      }
+      const meta = getPersonnelStatusMeta(d);
+      if (meta.isActionNeeded) actionNeeded++;
+      if (isExpiringSoon(d)) expiringSoon++;
     }
 
-    return { all: documents.length, required, actionNeeded, underReview, approved };
+    return { all: documents.length, required, actionNeeded, expiringSoon };
   }, [documents]);
 
-  const expiringSoonCount = useMemo(() => {
-    return documents.filter(d => {
-      if (!d.expirationDate || isExpired(d)) return false;
-      const due = new Date(d.expirationDate).getTime();
-      return due - Date.now() < 60 * 24 * 60 * 60 * 1000;
-    }).length;
-  }, [documents]);
+  const typeCategoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of types) {
+      map.set(t.id, t.category || 'General');
+    }
+    return map;
+  }, [types]);
 
   return (
     <div className="page-container personnel-content-container">
@@ -388,11 +386,11 @@ export const MyDocuments: React.FC = () => {
       </div>
 
       {/* Expiration Notice Banner */}
-      {expiringSoonCount > 0 && (
+      {counts.expiringSoon > 0 && (
         <div className="dashboard-error" role="status" style={{ margin: '0 0 16px', background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
             <AppIcon name="clock" size={16} />
-            {expiringSoonCount} document{expiringSoonCount === 1 ? '' : 's'} in your 201 file expire within 60 days. Please arrange renewals ahead of time.
+            {counts.expiringSoon} document{counts.expiringSoon === 1 ? '' : 's'} in your 201 file expire within 60 days. Please arrange renewals ahead of time.
           </span>
         </div>
       )}
@@ -437,28 +435,22 @@ export const MyDocuments: React.FC = () => {
           <button
             type="button"
             role="tab"
-            aria-selected={activeTab === 'UNDER_REVIEW'}
-            className={`my-documents-tab ${activeTab === 'UNDER_REVIEW' ? 'active' : ''}`}
-            onClick={() => setActiveTab('UNDER_REVIEW')}
+            aria-selected={activeTab === 'EXPIRING_SOON'}
+            className={`my-documents-tab ${activeTab === 'EXPIRING_SOON' ? 'active' : ''}`}
+            onClick={() => setActiveTab('EXPIRING_SOON')}
           >
-            <span>Under Review</span>
-            <span className="my-documents-tab-count">{counts.underReview}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'APPROVED'}
-            className={`my-documents-tab ${activeTab === 'APPROVED' ? 'active' : ''}`}
-            onClick={() => setActiveTab('APPROVED')}
-          >
-            <span>Approved</span>
-            <span className="my-documents-tab-count">{counts.approved}</span>
+            <span>Expiring Soon</span>
+            {counts.expiringSoon > 0 && (
+              <span className="my-documents-tab-count" style={{ background: '#f59e0b', color: '#fff' }}>
+                {counts.expiringSoon}
+              </span>
+            )}
           </button>
         </div>
         <div className="my-documents-tabs-fade-right" aria-hidden="true" />
       </div>
 
-      {/* Document Grid */}
+      {/* Document Content */}
       {loading ? (
         <div className="table-card-large" style={{ textAlign: 'center', padding: 50 }}>
           <p className="text-muted" style={{ margin: 0, fontWeight: 600 }}>Loading your Digital 201 file…</p>
@@ -477,165 +469,342 @@ export const MyDocuments: React.FC = () => {
           description={
             activeTab === 'ACTION_NEEDED'
               ? 'Great news! You have no missing, rejected, or expired documents requiring attention.'
+              : activeTab === 'EXPIRING_SOON'
+              ? 'No documents in your 201 file are expiring in the next 60 days.'
               : 'No documents match the selected filter category.'
           }
           primaryAction={{ label: 'View All Documents', onClick: () => setActiveTab('ALL'), icon: 'document' }}
         />
       ) : (
-        <div className="my-documents-grid">
-          {filteredDocuments.map(doc => {
-            const expired = isExpired(doc);
-            const statusMeta = getStatusMeta(doc.status, expired);
-            const isDeficient = doc.status === 'REJECTED' || doc.status === 'REPLACEMENT_REQUIRED' || expired;
+        <>
+          {/* ── Desktop View (Compact Table) ────────────────── */}
+          <div className="my-documents-desktop-view">
+            <div className="my-documents-table-wrapper">
+              <table className="my-documents-table" aria-label="Digital 201 documents table">
+                <thead>
+                  <tr>
+                    <th scope="col" style={{ minWidth: 220 }}>Document Name</th>
+                    <th scope="col" style={{ width: 140 }}>Category</th>
+                    <th scope="col" style={{ minWidth: 200 }}>File</th>
+                    <th scope="col" style={{ width: 120 }}>Date</th>
+                    <th scope="col" style={{ width: 170 }}>Status</th>
+                    <th scope="col" style={{ width: 220, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDocuments.map(doc => {
+                    const statusMeta = getPersonnelStatusMeta(doc);
+                    const category = typeCategoryMap.get(doc.documentTypeId) || 'General';
+                    const hasActionBanner = Boolean(doc.rejectionReason || doc.status === 'REPLACEMENT_REQUIRED' || isExpired(doc));
 
-            return (
-              <article
-                key={doc.id}
-                className={`my-document-card ${doc.isRequired ? 'is-required' : ''} ${isDeficient ? 'is-deficient' : ''}`}
-              >
-                {/* Header row */}
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', minWidth: 0 }}>
-                  <div
-                    className={`my-document-icon ${!doc.hasFile ? 'missing' : ''} ${isDeficient ? 'deficient' : ''}`}
-                    aria-hidden="true"
+                    return (
+                      <tr
+                        key={doc.id}
+                        className={statusMeta.isActionNeeded ? 'my-documents-table-row-deficient' : ''}
+                      >
+                        {/* Name & Required Badge */}
+                        <td>
+                          <div className="my-documents-docname-cell">
+                            <div className="my-documents-docname-title">{doc.documentTypeName}</div>
+                            <div className="my-documents-docname-tags">
+                              {doc.isRequired && (
+                                <span className="my-document-required-badge">REQUIRED</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Category */}
+                        <td>
+                          <span className="my-documents-category-tag">{category}</span>
+                        </td>
+
+                        {/* Stored File */}
+                        <td>
+                          {doc.hasFile && doc.originalFileName ? (
+                            <div>
+                              <div
+                                className="my-documents-filename-cell"
+                                title={doc.originalFileName}
+                              >
+                                {doc.originalFileName}
+                              </div>
+                              <div className="my-documents-filesize-text">{formatSize(doc.fileSize)}</div>
+                            </div>
+                          ) : (
+                            <span className="text-muted" style={{ fontSize: '0.8125rem' }}>No file attached</span>
+                          )}
+                        </td>
+
+                        {/* Date */}
+                        <td>
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                            {formatDate(doc.updatedAt || doc.uploadedAt)}
+                          </span>
+                        </td>
+
+                        {/* Action Status Badge & Banner */}
+                        <td>
+                          <div>
+                            <span
+                              className="my-document-badge"
+                              style={{ background: statusMeta.bg, color: statusMeta.fg }}
+                            >
+                              {statusMeta.label}
+                            </span>
+                            {hasActionBanner && (
+                              <div className="my-documents-action-warning-text">
+                                {doc.rejectionReason
+                                  ? doc.rejectionReason
+                                  : isExpired(doc)
+                                  ? 'Expired — renewal needed'
+                                  : 'Replacement required'}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Actions */}
+                        <td>
+                          <div className="my-documents-table-actions">
+                            {doc.hasFile ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => setPreviewDoc(doc)}
+                                  title="View document preview"
+                                >
+                                  <AppIcon name="view" size={14} /> Preview
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => openUploadModal(doc)}
+                                  title="Replace document"
+                                >
+                                  <AppIcon name="sync" size={14} /> Replace
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => {
+                                    setScannerTarget(doc);
+                                    setScannerOpen(true);
+                                  }}
+                                  title="Scan replacement with camera"
+                                >
+                                  <AppIcon name="view" size={14} /> Scan
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm my-document-delete"
+                                  onClick={() => setConfirmDelete(doc)}
+                                  title={doc.isRequired ? 'Reset to empty placeholder' : 'Remove document'}
+                                >
+                                  <AppIcon name="delete" size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => openUploadModal(doc)}
+                                >
+                                  <AppIcon name="upload" size={14} /> Upload
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => {
+                                    setScannerTarget(doc);
+                                    setScannerOpen(true);
+                                  }}
+                                  title="Scan with camera"
+                                >
+                                  <AppIcon name="view" size={14} /> Scan
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ── Mobile View (Responsive Cards with >=44px Touch Targets) ────── */}
+          <div className="my-documents-mobile-view">
+            <div className="my-documents-grid">
+              {filteredDocuments.map(doc => {
+                const statusMeta = getPersonnelStatusMeta(doc);
+                const isDeficient = statusMeta.isActionNeeded;
+                const hasActionBanner = Boolean(doc.rejectionReason || doc.status === 'REPLACEMENT_REQUIRED' || isExpired(doc));
+
+                return (
+                  <article
+                    key={doc.id}
+                    className={`my-document-card ${doc.isRequired ? 'is-required' : ''} ${isDeficient ? 'is-deficient' : ''}`}
                   >
-                    <AppIcon name="document" size={20} />
-                  </div>
+                    {/* Header row */}
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', minWidth: 0 }}>
+                      <div
+                        className={`my-document-icon ${!doc.hasFile ? 'missing' : ''} ${isDeficient ? 'deficient' : ''}`}
+                        aria-hidden="true"
+                      >
+                        <AppIcon name="document" size={20} />
+                      </div>
 
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="my-document-badge-row" style={{ marginBottom: 4 }}>
-                      {doc.isRequired && (
-                        <span className="my-document-required-badge">REQUIRED</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="my-document-badge-row" style={{ marginBottom: 4 }}>
+                          {doc.isRequired && (
+                            <span className="my-document-required-badge">REQUIRED</span>
+                          )}
+                          <span
+                            className="my-document-badge"
+                            style={{ background: statusMeta.bg, color: statusMeta.fg }}
+                          >
+                            {statusMeta.label}
+                          </span>
+                        </div>
+                        <h2 className="my-document-title">{doc.documentTypeName}</h2>
+                        <p className="my-document-filename">
+                          {doc.hasFile && doc.originalFileName ? doc.originalFileName : 'No file attached'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Action Required Banner */}
+                    {hasActionBanner && (
+                      <div className="my-document-rejection">
+                        <strong>Action Required: </strong>
+                        {doc.rejectionReason
+                          ? doc.rejectionReason
+                          : isExpired(doc)
+                          ? 'This document has expired and requires an updated replacement copy.'
+                          : 'A new replacement document is required.'}
+                      </div>
+                    )}
+
+                    {/* Metadata Row */}
+                    <dl className="my-document-meta">
+                      <div>
+                        <dt>Status Date</dt>
+                        <dd>{formatDate(doc.updatedAt || doc.uploadedAt)}</dd>
+                      </div>
+                      {doc.hasFile && (
+                        <div>
+                          <dt>File Size</dt>
+                          <dd>{formatSize(doc.fileSize)}</dd>
+                        </div>
                       )}
-                      <span
-                        className="my-document-badge"
-                        style={{ background: statusMeta.bg, color: statusMeta.fg }}
-                      >
-                        {statusMeta.label}
-                      </span>
-                    </div>
-                    <h2 className="my-document-title">{doc.documentTypeName}</h2>
-                    <p className="my-document-filename">
-                      {doc.hasFile && doc.originalFileName ? doc.originalFileName : 'No file attached'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Rejection / Replacement Banner */}
-                {(doc.rejectionReason || doc.status === 'REPLACEMENT_REQUIRED' || expired) && (
-                  <div className="my-document-rejection">
-                    <strong>Action Required: </strong>
-                    {doc.rejectionReason
-                      ? doc.rejectionReason
-                      : expired
-                      ? 'This document has expired and requires an updated replacement copy.'
-                      : 'A new replacement document is required.'}
-                  </div>
-                )}
-
-                {/* Metadata Row */}
-                <dl className="my-document-meta">
-                  <div>
-                    <dt>Status Date</dt>
-                    <dd>{formatDate(doc.updatedAt || doc.uploadedAt)}</dd>
-                  </div>
-                  {doc.hasFile && (
-                    <div>
-                      <dt>File Size</dt>
-                      <dd>{formatSize(doc.fileSize)}</dd>
-                    </div>
-                  )}
-                  {doc.expirationDate && (
-                    <div>
-                      <dt>{expired ? 'Expired On' : 'Valid Until'}</dt>
-                      <dd style={expired ? { color: '#dc2626', fontWeight: 700 } : undefined}>
-                        {formatDate(doc.expirationDate)}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-
-                {/* Action Buttons */}
-                <div className="my-document-actions">
-                  {doc.hasFile ? (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setPreviewDoc(doc)}
-                        title="View document preview"
-                      >
-                        <AppIcon name="view" size={15} /> View
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => openUploadModal(doc)}
-                        title="Replace this document"
-                      >
-                        <AppIcon name="sync" size={15} /> Replace
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setScannerTarget(doc);
-                          setScannerOpen(true);
-                        }}
-                        title="Scan replacement with camera"
-                      >
-                        <AppIcon name="view" size={15} /> Scan
-                      </button>
-                      {doc.status !== 'APPROVED' && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm my-document-delete"
-                          onClick={() => setConfirmDelete(doc)}
-                          title="Delete or reset document"
-                        >
-                          <AppIcon name="delete" size={15} />
-                        </button>
+                      {doc.expirationDate && (
+                        <div>
+                          <dt>{isExpired(doc) ? 'Expired On' : 'Valid Until'}</dt>
+                          <dd style={isExpired(doc) ? { color: '#dc2626', fontWeight: 700 } : undefined}>
+                            {formatDate(doc.expirationDate)}
+                          </dd>
+                        </div>
                       )}
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => openUploadModal(doc)}
-                      >
-                        <AppIcon name="upload" size={15} /> Upload File
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setScannerTarget(doc);
-                          setScannerOpen(true);
-                        }}
-                      >
-                        <AppIcon name="view" size={15} /> Scan with Camera
-                      </button>
-                    </>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                    </dl>
+
+                    {/* Action Buttons with touch target >= 44x44px */}
+                    <div className="my-document-actions">
+                      {doc.hasFile ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setPreviewDoc(doc)}
+                            title="View document preview"
+                            style={{ minHeight: 44 }}
+                          >
+                            <AppIcon name="view" size={16} /> Preview
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => openUploadModal(doc)}
+                            title="Replace this document"
+                            style={{ minHeight: 44 }}
+                          >
+                            <AppIcon name="sync" size={16} /> Replace
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              setScannerTarget(doc);
+                              setScannerOpen(true);
+                            }}
+                            title="Scan replacement with camera"
+                            style={{ minHeight: 44 }}
+                          >
+                            <AppIcon name="view" size={16} /> Scan
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm my-document-delete"
+                            onClick={() => setConfirmDelete(doc)}
+                            title="Delete or reset document"
+                            style={{ minHeight: 44 }}
+                          >
+                            <AppIcon name="delete" size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => openUploadModal(doc)}
+                            style={{ minHeight: 44 }}
+                          >
+                            <AppIcon name="upload" size={16} /> Upload File
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              setScannerTarget(doc);
+                              setScannerOpen(true);
+                            }}
+                            style={{ minHeight: 44 }}
+                          >
+                            <AppIcon name="view" size={16} /> Scan with Camera
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Upload & Replacement Modal */}
       {uploadOpen && (
         <ModalPortal>
-          <ModalOverlay onDismiss={closeUploadModal}>
+          <ModalOverlay onDismiss={() => closeUploadModal(false)}>
             <div className="modal upload-document-modal" role="dialog" aria-modal="true" aria-labelledby="upload-modal-title">
               <form onSubmit={submitUpload} className="upload-modal-form">
                 <div className="modal-header upload-modal-header">
                   <h2 id="upload-modal-title" style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
                     {modalTitle}
                   </h2>
-                  <button type="button" className="upload-modal-close-btn" onClick={closeUploadModal} aria-label="Close upload dialog" disabled={busy}>
+                  <button
+                    type="button"
+                    className="upload-modal-close-btn"
+                    onClick={() => closeUploadModal(false)}
+                    aria-label="Close dialog"
+                    disabled={busy}
+                  >
                     <AppIcon name="close" size={18} />
                   </button>
                 </div>
@@ -812,7 +981,7 @@ export const MyDocuments: React.FC = () => {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={closeUploadModal}
+                    onClick={() => closeUploadModal(false)}
                     disabled={busy}
                     style={{ minHeight: 44 }}
                   >
@@ -869,6 +1038,15 @@ export const MyDocuments: React.FC = () => {
                 <h2 id="del-doc-title" style={{ margin: 0, fontSize: '1.05rem' }}>
                   {confirmDelete.isRequired ? 'Reset Required Document?' : 'Remove Document?'}
                 </h2>
+                <button
+                  type="button"
+                  className="upload-modal-close-btn"
+                  onClick={() => setConfirmDelete(null)}
+                  aria-label="Close dialog"
+                  disabled={busy}
+                >
+                  <AppIcon name="close" size={18} />
+                </button>
               </div>
               <div className="modal-body">
                 <p style={{ margin: 0 }}>

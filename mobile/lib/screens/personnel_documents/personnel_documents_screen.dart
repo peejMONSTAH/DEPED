@@ -164,9 +164,27 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
 
   List<PersonnelDocument> get _filteredDocuments {
     return _documents.where((doc) {
-      if (_selectedFilter != 'ALL') {
-        if (doc.status.name != _selectedFilter) return false;
+      final expired =
+          doc.expirationDate != null && isDateInPast(doc.expirationDate!);
+      final dt = doc.expirationDate != null
+          ? DateTime.tryParse(doc.expirationDate!)
+          : null;
+      final diffDays = dt != null ? dt.difference(DateTime.now()).inDays : 999;
+      final expiringSoon =
+          doc.hasFile && !expired && diffDays >= 0 && diffDays <= 60;
+      final isActionNeeded = !doc.hasFile ||
+          doc.status == PersonnelDocumentStatus.REJECTED ||
+          doc.status == PersonnelDocumentStatus.REPLACEMENT_REQUIRED ||
+          expired;
+
+      if (_selectedFilter == 'REQUIRED') {
+        if (!doc.isRequired) return false;
+      } else if (_selectedFilter == 'ACTION_NEEDED') {
+        if (!isActionNeeded) return false;
+      } else if (_selectedFilter == 'EXPIRING_SOON') {
+        if (!expiringSoon) return false;
       }
+
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchesName = doc.documentTypeName.toLowerCase().contains(query);
@@ -300,26 +318,49 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
   }
 
   Widget _buildSummaryHeroCard() {
-    final total = _documents.length;
-    final approved = _documents
-        .where((d) => d.status == PersonnelDocumentStatus.APPROVED)
+    final totalUploaded = _documents.where((d) => d.hasFile).length;
+    final missingRequired =
+        _documents.where((d) => d.isRequired && !d.hasFile).length;
+    final expired = _documents
+        .where((d) =>
+            d.hasFile &&
+            d.expirationDate != null &&
+            isDateInPast(d.expirationDate!))
         .length;
+    final expiringSoon = _documents.where((d) {
+      if (!d.hasFile || d.expirationDate == null || isDateInPast(d.expirationDate!)) {
+        return false;
+      }
+      final dt = DateTime.tryParse(d.expirationDate!);
+      if (dt == null) return false;
+      final diff = dt.difference(DateTime.now()).inDays;
+      return diff >= 0 && diff <= 60;
+    }).length;
+    final actionNeeded = missingRequired +
+        expired +
+        _documents
+            .where((d) =>
+                d.status == PersonnelDocumentStatus.REJECTED ||
+                d.status == PersonnelDocumentStatus.REPLACEMENT_REQUIRED)
+            .length;
 
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeading(
-            title: '201 file compliance',
+            title: 'Digital 201 File',
             trailing: StatusPill(
-              label: total == 0
-                  ? 'Nothing uploaded'
-                  : '$approved of $total verified',
-              tone: total == 0
+              label: totalUploaded == 0
+                  ? 'No documents'
+                  : (actionNeeded > 0
+                      ? '$actionNeeded action required'
+                      : '$totalUploaded uploaded'),
+              tone: totalUploaded == 0
                   ? AppStatusTone.neutral
-                  : (approved == total
-                      ? AppStatusTone.success
-                      : AppStatusTone.pending),
+                  : (actionNeeded > 0
+                      ? AppStatusTone.danger
+                      : AppStatusTone.success),
             ),
           ),
           const SizedBox(height: AppSpace.sm),
@@ -327,19 +368,57 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
             'Keep your DepEd records current. Scan a physical credential with your camera, or upload a PDF.',
             style: AppText.caption,
           ),
+          if (expiringSoon > 0) ...[
+            const SizedBox(height: AppSpace.sm),
+            Row(
+              children: [
+                const Icon(LucideIcons.clock,
+                    size: 14, color: Color(0xFFD97706)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '$expiringSoon document${expiringSoon == 1 ? '' : 's'} expire within 60 days.',
+                    style: AppText.caption.copyWith(
+                      color: const Color(0xFFD97706),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildFilterChips() {
+    final actionNeededCount = _documents
+        .where((d) =>
+            !d.hasFile ||
+            d.status == PersonnelDocumentStatus.REJECTED ||
+            d.status == PersonnelDocumentStatus.REPLACEMENT_REQUIRED ||
+            (d.expirationDate != null && isDateInPast(d.expirationDate!)))
+        .length;
+
+    final expiringSoonCount = _documents.where((d) {
+      if (!d.hasFile || d.expirationDate == null || isDateInPast(d.expirationDate!)) {
+        return false;
+      }
+      final dt = DateTime.tryParse(d.expirationDate!);
+      if (dt == null) return false;
+      final diff = dt.difference(DateTime.now()).inDays;
+      return diff >= 0 && diff <= 60;
+    }).length;
+
     final filters = [
-      {'label': 'All', 'key': 'ALL'},
-      {'label': 'Approved', 'key': 'APPROVED'},
-      {'label': 'Submitted', 'key': 'SUBMITTED'},
-      {'label': 'Pending', 'key': 'PENDING'},
-      {'label': 'Under Review', 'key': 'UNDER_REVIEW'},
-      {'label': 'Rejected', 'key': 'REJECTED'},
+      {'label': 'All (${_documents.length})', 'key': 'ALL'},
+      {
+        'label': 'Required (${_documents.where((d) => d.isRequired).length})',
+        'key': 'REQUIRED'
+      },
+      {'label': 'Action Needed ($actionNeededCount)', 'key': 'ACTION_NEEDED'},
+      {'label': 'Expiring Soon ($expiringSoonCount)', 'key': 'EXPIRING_SOON'},
     ];
 
     return SingleChildScrollView(
@@ -391,10 +470,39 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(doc.documentTypeName, style: AppText.heading),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(doc.documentTypeName,
+                                style: AppText.heading),
+                          ),
+                          if (doc.isRequired) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppTheme.primaryLight.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'REQUIRED',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.primaryLight,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                       const SizedBox(height: 2),
                       Text(
-                        doc.originalFileName,
+                        doc.hasFile && doc.originalFileName.isNotEmpty
+                            ? doc.originalFileName
+                            : 'No file attached',
                         style: AppText.caption,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -403,12 +511,31 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                   ),
                 ),
                 const SizedBox(width: AppSpace.sm),
-                _buildStatusChip(doc.status),
+                _buildStatusChip(doc),
               ],
             ),
+            if (doc.rejectionReason != null &&
+                doc.rejectionReason!.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpace.sm),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpace.sm),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFFDC2626).withOpacity(0.2)),
+                ),
+                child: Text(
+                  'Action Required: ${doc.rejectionReason}',
+                  style: AppText.caption.copyWith(
+                    color: const Color(0xFFDC2626),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpace.md),
-            // Wrap, not Row: a long date pair would otherwise overflow the card
-            // on a narrow phone.
             Wrap(
               spacing: AppSpace.md,
               runSpacing: AppSpace.sm,
@@ -430,10 +557,11 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                         expired ? AppStatusTone.danger : AppStatusTone.pending,
                     emphasis: true,
                   ),
-                MetaItem(
-                  icon: LucideIcons.hardDrive,
-                  label: doc.formattedFileSize,
-                ),
+                if (doc.hasFile)
+                  MetaItem(
+                    icon: LucideIcons.hardDrive,
+                    label: doc.formattedFileSize,
+                  ),
               ],
             ),
             const SizedBox(height: AppSpace.md),
@@ -441,7 +569,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
             const SizedBox(height: AppSpace.sm),
             Row(
               children: [
-                if (doc.status != PersonnelDocumentStatus.APPROVED)
+                if (doc.hasFile && doc.status != PersonnelDocumentStatus.APPROVED)
                   TextButton.icon(
                     onPressed: () => _confirmDeleteDocument(doc),
                     icon: const Icon(LucideIcons.trash2,
@@ -455,16 +583,25 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                     ),
                   ),
                 const Spacer(),
-                OutlinedButton(
-                  onPressed: () =>
-                      _openAddDocumentSheet(documentToReplace: doc),
-                  child: const Text('Replace'),
-                ),
-                const SizedBox(width: AppSpace.sm),
-                ElevatedButton(
-                  onPressed: () => _viewDocument(doc),
-                  child: const Text('View'),
-                ),
+                if (doc.hasFile) ...[
+                  OutlinedButton(
+                    onPressed: () =>
+                        _openAddDocumentSheet(documentToReplace: doc),
+                    child: const Text('Replace'),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  ElevatedButton(
+                    onPressed: () => _viewDocument(doc),
+                    child: const Text('View'),
+                  ),
+                ] else ...[
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        _openAddDocumentSheet(documentToReplace: doc),
+                    icon: const Icon(LucideIcons.upload, size: 14),
+                    label: const Text('Upload'),
+                  ),
+                ],
               ],
             ),
           ],
@@ -473,33 +610,64 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
     );
   }
 
-  Widget _buildStatusChip(PersonnelDocumentStatus status) {
+  Widget _buildStatusChip(PersonnelDocument doc) {
+    final expired =
+        doc.expirationDate != null && isDateInPast(doc.expirationDate!);
+    final dt =
+        doc.expirationDate != null ? DateTime.tryParse(doc.expirationDate!) : null;
+    final diffDays =
+        dt != null ? dt.difference(DateTime.now()).inDays : 999;
+    final expiringSoon =
+        doc.hasFile && !expired && diffDays >= 0 && diffDays <= 60;
+
+    final String label;
+    final Color color;
+    final IconData icon;
+
+    if (!doc.hasFile) {
+      label = 'No file uploaded';
+      color = const Color(0xFF64748B);
+      icon = LucideIcons.fileQuestion;
+    } else if (expired) {
+      label = 'Expired';
+      color = const Color(0xFFDC2626);
+      icon = LucideIcons.calendarX;
+    } else if (doc.status == PersonnelDocumentStatus.REJECTED) {
+      label = 'Rejected';
+      color = const Color(0xFFDC2626);
+      icon = LucideIcons.xCircle;
+    } else if (doc.status == PersonnelDocumentStatus.REPLACEMENT_REQUIRED) {
+      label = 'Replacement Required';
+      color = const Color(0xFFDC2626);
+      icon = LucideIcons.refreshCw;
+    } else if (expiringSoon) {
+      label = 'Expiring Soon';
+      color = const Color(0xFFD97706);
+      icon = LucideIcons.clock;
+    } else {
+      label = 'Uploaded';
+      color = const Color(0xFF10B981);
+      icon = LucideIcons.check;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: status.color.withOpacity(0.12),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: status.color.withOpacity(0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            status == PersonnelDocumentStatus.APPROVED
-                ? LucideIcons.checkCheck
-                : (status == PersonnelDocumentStatus.REJECTED
-                    ? LucideIcons.xCircle
-                    : LucideIcons.clock),
-            size: 11,
-            color: status.color,
-          ),
+          Icon(icon, size: 11, color: color),
           const SizedBox(width: 4),
           Text(
-            status.label,
+            label,
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: status.color,
+              color: color,
             ),
           ),
         ],

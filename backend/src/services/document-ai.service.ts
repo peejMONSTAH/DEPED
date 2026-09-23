@@ -57,11 +57,20 @@ export const extractPdsWithDocumentAi = async (buffer: Buffer, mimeType: string)
     apiEndpoint: `${location}-documentai.googleapis.com`,
     ...(inlineCredentials ? { credentials: inlineCredentials } : {}),
   });
-  const name = client.processorPath(config.google.projectId, location, config.google.documentAiProcessorId);
-  const [response] = await (client.processDocument({
-    name,
-    rawDocument: { content: buffer.toString('base64'), mimeType },
-  }) as Promise<any>);
+  let response: any;
+  try {
+    const name = client.processorPath(config.google.projectId, location, config.google.documentAiProcessorId);
+    [response] = await (client.processDocument({
+      name,
+      rawDocument: { content: buffer.toString('base64'), mimeType },
+    }) as Promise<any>);
+  } finally {
+    // A client left open keeps its auth/token-refresh channel alive in the
+    // background, outside this call's own promise chain — closing it here
+    // (success or failure) is what stops a bad credential from surfacing
+    // later as an unrelated unhandled rejection.
+    await client.close().catch(() => {});
+  }
   const document = response.document;
   const text = document?.text || '';
   const rawFields: OcrResult['rawFields'] = [];

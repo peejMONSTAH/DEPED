@@ -28,6 +28,11 @@ class PersonnelDocumentService {
     } catch (_) {}
   }
 
+  /// Clears in-memory cache forcing a fresh network fetch on next request.
+  static void invalidateCache() {
+    _localCache.clear();
+  }
+
   /// Fetches the stored file itself, so a document can be previewed rather than
   /// only described.
   ///
@@ -176,6 +181,7 @@ class PersonnelDocumentService {
       final data = response.data?['data'];
       if (data != null && data is Map<String, dynamic>) {
         final newDoc = PersonnelDocument.fromJson(data);
+        _localCache.removeWhere((d) => d.id == newDoc.id);
         _localCache.insert(0, newDoc);
         await _saveToDisk();
         return newDoc;

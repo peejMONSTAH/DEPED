@@ -203,14 +203,32 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpace.lg),
-          child: EmptyState(
-            icon: LucideIcons.fileX,
-            title: 'Cannot open this document',
-            message: _error!,
-            action: ElevatedButton(
-              onPressed: _load,
-              child: const Text('Try again'),
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              EmptyState(
+                icon: LucideIcons.fileX,
+                title: 'Cannot open this document',
+                message: _error!,
+              ),
+              const SizedBox(height: AppSpace.md),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(LucideIcons.arrowLeft, size: 16),
+                    label: const Text('Go back'),
+                  ),
+                  const SizedBox(width: AppSpace.md),
+                  ElevatedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(LucideIcons.rotateCw, size: 16),
+                    label: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       );
@@ -300,13 +318,40 @@ class _DocumentPreviewScreenState extends State<DocumentPreviewScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: AppSpace.sm),
-                StatusPill(
-                  label: humanizeEnum(doc.status.name),
-                  tone: switch (doc.status) {
-                    PersonnelDocumentStatus.APPROVED => AppStatusTone.success,
-                    PersonnelDocumentStatus.REJECTED => AppStatusTone.danger,
-                    _ => AppStatusTone.info,
+                Builder(
+                  builder: (context) {
+                    final expired =
+                        doc.expirationDate != null && isDateInPast(doc.expirationDate!);
+                    final dt = doc.expirationDate != null
+                        ? DateTime.tryParse(doc.expirationDate!)
+                        : null;
+                    final diffDays =
+                        dt != null ? dt.difference(DateTime.now()).inDays : 999;
+                    final expiringSoon =
+                        doc.hasFile && !expired && diffDays >= 0 && diffDays <= 60;
+
+                    final String label;
+                    final AppStatusTone tone;
+
+                    if (expired) {
+                      label = 'Expired';
+                      tone = AppStatusTone.danger;
+                    } else if (doc.status == PersonnelDocumentStatus.REJECTED) {
+                      label = 'Rejected';
+                      tone = AppStatusTone.danger;
+                    } else if (doc.status ==
+                        PersonnelDocumentStatus.REPLACEMENT_REQUIRED) {
+                      label = 'Replacement Required';
+                      tone = AppStatusTone.danger;
+                    } else if (expiringSoon) {
+                      label = 'Expiring Soon';
+                      tone = AppStatusTone.pending;
+                    } else {
+                      label = 'Uploaded';
+                      tone = AppStatusTone.success;
+                    }
+
+                    return StatusPill(label: label, tone: tone);
                   },
                 ),
               ],

@@ -21,7 +21,7 @@ import { checkPromotionEligibility, resolveCanonicalPosition } from '../utils/de
 import { logger } from '../utils/logger';
 import { computeCycleRanking } from '../services/promotion-ranking.service';
 import { deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
-import { ANNEX_C_REQUIREMENTS } from '../utils/annex-c.util';
+import { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } from '../utils/annex-c.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
@@ -1690,6 +1690,101 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
   const checklistData = req.body?.checklist || null;
   const appliedVia = req.body?.appliedVia || 'WEB_PORTAL';
 
+  // Server-side validation of Annex C requirements and referenced documents
+  if (checklistData && Array.isArray(checklistData.items)) {
+    const validCodes = new Set(ANNEX_C_REQUIREMENTS.map(r => r.code));
+    for (const item of checklistData.items) {
+      if (!item.code || !validCodes.has(String(item.code))) {
+        sendBadRequest(res, `Unknown requirement code: "${item.code}".`, 'INVALID_REQUIREMENT_CODE');
+        return;
+      }
+    }
+
+    const itemsByCode = new Map<string, any>(checklistData.items.map((it: any) => [String(it.code), it]));
+    for (const mCode of MANDATORY_ANNEX_C_CODES) {
+      const item = itemsByCode.get(mCode);
+      const hasAttachment = Boolean(item && (item.submitted || item.isSubmitted || item.personnelDocumentId || item.existingDocumentId));
+      if (!hasAttachment) {
+        sendBadRequest(res, `Mandatory Annex C requirement (${mCode.toUpperCase()}) is missing an attached document.`, 'MANDATORY_REQUIREMENT_MISSING');
+        return;
+      }
+    }
+
+    const existingForCheck = await prisma.promotionApplication.findUnique({
+      where: { personnelId_promotionCycleId: { personnelId: req.user.personnelId, promotionCycleId: cycleId } },
+    });
+
+    const snapshottedItems: any[] = [];
+    for (const item of checklistData.items) {
+      const rawDocId = item.personnelDocumentId ?? item.existingDocumentId;
+      const annexDef = ANNEX_C_REQUIREMENTS.find(r => r.code === item.code);
+      if (rawDocId !== undefined && rawDocId !== null && String(rawDocId).trim() !== '') {
+        const numDocId = Number(rawDocId);
+        if (!Number.isInteger(numDocId) || numDocId <= 0) {
+          sendBadRequest(res, `Invalid document ID format: ${rawDocId}`, 'INVALID_DOCUMENT_ID');
+          return;
+        }
+        const docRecord = await prisma.personnelFile.findUnique({
+          where: { id: numDocId },
+        });
+        if (!docRecord) {
+          sendBadRequest(res, `Referenced personnel document (ID ${numDocId}) not found.`, 'DOCUMENT_NOT_FOUND');
+          return;
+        }
+        if (docRecord.personnelId !== req.user.personnelId) {
+          sendForbidden(res, `Access denied: Document "${docRecord.documentTypeName}" does not belong to your personnel profile.`);
+          return;
+        }
+        if (!docRecord.storagePath) {
+          sendBadRequest(res, `Document "${docRecord.documentTypeName}" has no file uploaded. A document placeholder cannot be attached.`, 'PLACEHOLDER_CANNOT_ATTACH');
+          return;
+        }
+        if (docRecord.deletedAt) {
+          const prevItems = (existingForCheck?.scoreDetailsJson as any)?.annexCChecklist?.items;
+          const isHistoricalRef = Array.isArray(prevItems) && prevItems.some((pi: any) => pi.personnelDocumentId === numDocId || pi.existingDocumentId === numDocId);
+          if (!isHistoricalRef) {
+            sendBadRequest(res, `Document "${docRecord.documentTypeName}" has been archived or deleted and cannot be newly attached.`, 'DOCUMENT_ARCHIVED');
+            return;
+          }
+        }
+
+        snapshottedItems.push({
+          code: item.code,
+          title: item.title || annexDef?.title || docRecord.documentTypeName,
+          description: item.description || annexDef?.description || '',
+          isMandatory: annexDef?.isMandatory ?? Boolean(item.isMandatory),
+          submitted: true,
+          isSubmitted: true,
+          documentName: docRecord.originalFileName || docRecord.documentTypeName,
+          fileName: docRecord.originalFileName || docRecord.documentTypeName,
+          personnelDocumentId: docRecord.id,
+          existingDocumentId: docRecord.id,
+          storagePath: docRecord.storagePath,
+          fileSize: docRecord.fileSize,
+          mimeType: docRecord.mimeType,
+          submittedAt: item.submittedAt || new Date().toISOString(),
+          remarks: item.remarks || '',
+          verificationStatus: item.verificationStatus || 'PENDING',
+        });
+      } else {
+        snapshottedItems.push({
+          code: item.code,
+          title: item.title || annexDef?.title || '',
+          description: item.description || annexDef?.description || '',
+          isMandatory: annexDef?.isMandatory ?? Boolean(item.isMandatory),
+          submitted: false,
+          isSubmitted: false,
+          documentName: null,
+          fileName: null,
+          personnelDocumentId: null,
+          existingDocumentId: null,
+          remarks: item.remarks || '',
+        });
+      }
+    }
+    checklistData.items = snapshottedItems;
+  }
+
   const existing = await prisma.promotionApplication.findUnique({
     where: { personnelId_promotionCycleId: { personnelId: req.user.personnelId, promotionCycleId: cycleId } },
   });
@@ -1710,33 +1805,57 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
       sendSuccess(res, updatedApp, 'Annex C requirements checklist submitted successfully.');
       return;
     }
+    if (existing.status === 'SUBMITTED') {
+      sendSuccess(res, existing, 'Application already submitted for this promotion cycle.');
+      return;
+    }
     sendBadRequest(res, 'You have already applied for this promotion cycle.', 'ALREADY_APPLIED');
     return;
   }
 
   const cycleRules = (cycle.rulesConfigurationJson as any) || {};
   const maxCapacity = Number(cycleRules.maxApplicants) || 10;
-  const appCount = await prisma.promotionApplication.count({ where: { promotionCycleId: cycleId } });
-  if (appCount >= maxCapacity) {
-    sendBadRequest(res, `This promotion cycle has reached its maximum applicant capacity (${maxCapacity}).`, 'CAPACITY_REACHED');
-    return;
-  }
-  const autoApplicantNo = req.body?.applicationCode || `APP-2026-${String(appCount + 1).padStart(4, '0')}`;
 
-  const application = await prisma.promotionApplication.create({
-    data: {
-      personnelId: req.user.personnelId,
-      promotionCycleId: cycleId,
-      status: 'SUBMITTED',
-      applicationDate: new Date(),
-      scoreDetailsJson: {
-        applicantNumber: autoApplicantNo,
-        appliedVia,
-        annexCChecklist: checklistData,
-        submittedAt: new Date().toISOString(),
-      },
-    },
-  });
+  let application;
+  try {
+    application = await prisma.$transaction(async tx => {
+      const appCount = await tx.promotionApplication.count({ where: { promotionCycleId: cycleId } });
+      if (appCount >= maxCapacity) {
+        throw new Error('CAPACITY_REACHED');
+      }
+      const autoApplicantNo = req.body?.applicationCode || `APP-2026-${String(appCount + 1).padStart(4, '0')}`;
+      return tx.promotionApplication.create({
+        data: {
+          personnelId: req.user!.personnelId!,
+          promotionCycleId: cycleId,
+          applicantNumber: autoApplicantNo,
+          status: 'SUBMITTED',
+          applicationDate: new Date(),
+          scoreDetailsJson: {
+            applicantNumber: autoApplicantNo,
+            appliedVia,
+            annexCChecklist: checklistData,
+            submittedAt: new Date().toISOString(),
+          },
+        },
+      });
+    });
+  } catch (err: any) {
+    if (err.message === 'CAPACITY_REACHED') {
+      sendBadRequest(res, `This promotion cycle has reached its maximum applicant capacity (${maxCapacity}).`, 'CAPACITY_REACHED');
+      return;
+    }
+    if (err.code === 'P2002') {
+      const existingAfterRace = await prisma.promotionApplication.findUnique({
+        where: { personnelId_promotionCycleId: { personnelId: req.user!.personnelId!, promotionCycleId: cycleId } },
+      });
+      if (existingAfterRace) {
+        sendSuccess(res, existingAfterRace, 'Promotion application submitted successfully.');
+        return;
+      }
+    }
+    throw err;
+  }
 
   // Notify all AO II & HRMO officers about the new promotion application
   const adminUsers = await prisma.user.findMany({

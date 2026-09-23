@@ -11,6 +11,8 @@ import '../../models/user_model.dart';
 import '../../services/acquisition/document_acquisition_service.dart';
 import '../../services/api_service.dart';
 import '../../services/personnel_document_service.dart';
+import '../../utils/display.dart';
+import '../personnel_documents/document_preview_screen.dart';
 import '../../theme/app_theme.dart';
 
 class PromotionChecklistScreen extends StatefulWidget {
@@ -127,9 +129,9 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
   Future<void> _loadExisting201Documents() async {
     try {
-      final docs = await _personnelDocumentService.getDocuments();
+      final docs = await _personnelDocumentService.getDocuments(forceRefresh: true);
       if (mounted) {
-        setState(() => _existing201Documents = docs);
+        setState(() => _existing201Documents = docs.where((d) => d.hasFile).toList());
       }
     } catch (_) {}
   }
@@ -356,92 +358,252 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   }
 
   void _showSelect201RecordModal(PromotionChecklistItem item) {
+    String query = '';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        constraints:
-            BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-        padding: const EdgeInsets.all(22),
-        decoration: const BoxDecoration(
-          color: AppTheme.lightBgCard,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final validDocs = _existing201Documents.where((d) => d.hasFile).toList();
+
+          final searchedDocs = query.trim().isEmpty
+              ? validDocs
+              : validDocs.where((d) {
+                  final q = query.trim().toLowerCase();
+                  return d.documentTypeName.toLowerCase().contains(q) ||
+                      d.originalFileName.toLowerCase().contains(q) ||
+                      (d.remarks?.toLowerCase().contains(q) ?? false);
+                }).toList();
+
+          final recommended = searchedDocs
+              .where((d) => item.suggestedDocumentTypeIds.contains(d.documentTypeId))
+              .toList();
+          final others = searchedDocs
+              .where((d) => !item.suggestedDocumentTypeIds.contains(d.documentTypeId))
+              .toList();
+          final displayList = [...recommended, ...others];
+
+          return Container(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8),
+            padding: const EdgeInsets.all(22),
+            decoration: const BoxDecoration(
+              color: AppTheme.lightBgCard,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Select Verified 201 Document',
-                  style: GoogleFonts.plusJakartaSans(
-                      fontWeight: FontWeight.bold, fontSize: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select 201 Document for (${item.code.toUpperCase()})',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.title,
+                            style: GoogleFonts.inter(
+                                fontSize: 12, color: AppTheme.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(LucideIcons.x, size: 18),
+                      tooltip: 'Close dialog',
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  icon: const Icon(LucideIcons.x, size: 18),
+                const Divider(height: 18, color: AppTheme.lightBorder),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.lightBorder),
+                  ),
+                  child: TextField(
+                    onChanged: (val) => setModalState(() => query = val),
+                    decoration: InputDecoration(
+                      hintText: 'Search 201 documents...',
+                      hintStyle: GoogleFonts.inter(
+                          fontSize: 13, color: AppTheme.textMuted),
+                      prefixIcon: const Icon(LucideIcons.search,
+                          size: 16, color: AppTheme.textMuted),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: displayList.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Text(
+                              validDocs.isEmpty
+                                  ? 'No uploaded files found in your 201 profile records.'
+                                  : 'No 201 documents match "$query".',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13, color: AppTheme.textMuted),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: displayList.length,
+                          itemBuilder: (c, i) {
+                            final d = displayList[i];
+                            final isRecommended = item.suggestedDocumentTypeIds
+                                .contains(d.documentTypeId);
+                            final expired = d.expirationDate != null &&
+                                isDateInPast(d.expirationDate!);
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              decoration: BoxDecoration(
+                                color: isRecommended
+                                    ? const Color(0xFF10B981).withOpacity(0.04)
+                                    : AppTheme.lightSurface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isRecommended
+                                      ? const Color(0xFF10B981).withOpacity(0.4)
+                                      : AppTheme.lightBorder,
+                                ),
+                              ),
+                              child: ListTile(
+                                leading: Icon(
+                                    d.isPdf
+                                        ? LucideIcons.fileText
+                                        : LucideIcons.image,
+                                    color: AppTheme.primaryLight),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        d.documentTypeName,
+                                        style: GoogleFonts.plusJakartaSans(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13),
+                                      ),
+                                    ),
+                                    if (isRecommended) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981)
+                                              .withOpacity(0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'RECOMMENDED',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFF059669),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                    if (expired)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDC2626)
+                                              .withOpacity(0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'EXPIRED',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            color: const Color(0xFFDC2626),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                subtitle: Text(
+                                    '${d.originalFileName} · ${d.formattedFileSize}'),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(LucideIcons.eye,
+                                          size: 18,
+                                          color: AppTheme.primaryLight),
+                                      tooltip: 'Preview document',
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            fullscreenDialog: true,
+                                            builder: (previewCtx) =>
+                                                DocumentPreviewScreen(
+                                              document: d,
+                                              documentService:
+                                                  _personnelDocumentService,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.of(ctx).pop();
+                                        setState(() {
+                                          item.existingDocumentId = d.id;
+                                          item.isSubmitted = true;
+                                          item.uploadedFileUrl = d.fileUrl;
+                                          item.attachedDocument =
+                                              AcquiredDocument(
+                                            name: d.originalFileName,
+                                            mimeType: d.mimeType,
+                                            sizeBytes: d.fileSize,
+                                            path: d.fileUrl,
+                                          );
+                                        });
+                                        _showSuccessSnackBar(
+                                            'Attached "${d.documentTypeName}" to requirement (${item.code.toUpperCase()}).');
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.brandDark,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 4),
+                                      ),
+                                      child: const Text('Attach',
+                                          style: TextStyle(fontSize: 12)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
-            const Divider(height: 18, color: AppTheme.lightBorder),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _existing201Documents.length,
-                itemBuilder: (c, i) {
-                  final d = _existing201Documents[i];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.lightSurface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.lightBorder),
-                    ),
-                    child: ListTile(
-                      leading: Icon(
-                          d.isPdf ? LucideIcons.fileText : LucideIcons.image,
-                          color: AppTheme.primaryLight),
-                      title: Text(
-                        d.documentTypeName,
-                        style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      subtitle: Text(
-                          '${d.originalFileName} · ${d.formattedFileSize}'),
-                      trailing: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(ctx).pop();
-                          setState(() {
-                            item.existingDocumentId = d.id;
-                            item.isSubmitted = true;
-                            item.uploadedFileUrl = d.fileUrl;
-                            item.attachedDocument = AcquiredDocument(
-                              name: d.originalFileName,
-                              mimeType: d.mimeType,
-                              sizeBytes: d.fileSize,
-                              path: d.fileUrl,
-                            );
-                          });
-                          _showSuccessSnackBar(
-                              'Attached "${d.documentTypeName}" to requirement (${item.code.toUpperCase()}).');
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.brandDark,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 4),
-                        ),
-                        child: const Text('Attach',
-                            style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
