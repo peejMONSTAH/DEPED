@@ -68,7 +68,7 @@
 }
 .dossier-identity { flex: 1; min-width: 0; }
 .dossier-eyebrow {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -83,14 +83,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dossier-identity p { margin: 2px 0 0; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.dossier-identity p { margin: 2px 0 0; font-size: 1rem; color: var(--color-text-secondary); }
 .dossier-chip {
   flex-shrink: 0;
   padding: 4px 10px;
   border-radius: 9999px;
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text-secondary);
 }
@@ -134,7 +134,7 @@
 }
 [data-theme="dark"] .dossier-score { background: linear-gradient(135deg, rgba(143, 211, 168, 0.1), rgba(226, 191, 99, 0.08)); border-color: var(--color-border); }
 .dossier-label, .dossier .dossier-grid dt, .dossier-facts dt {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -143,7 +143,7 @@
 .dossier-score-value { display: flex; align-items: baseline; gap: 6px; margin: 2px 0 6px; }
 .dossier-score-value strong { font-size: 2.25rem; font-weight: 800; line-height: 1; color: var(--color-primary); }
 .dossier-score.is-awaiting .dossier-score-value strong { color: var(--color-text-muted); }
-.dossier-score-value span { font-size: 0.875rem; font-weight: 600; color: var(--color-text-secondary); }
+.dossier-score-value span { font-size: 1rem; font-weight: 600; color: var(--color-text-secondary); }
 
 .dossier-bar {
   position: relative;
@@ -167,7 +167,7 @@
   background: var(--color-gold, #c79a2e);
 }
 .dossier-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0 0; }
-.dossier-facts dd { margin: 2px 0 0; font-size: 0.9375rem; font-weight: 700; }
+.dossier-facts dd { margin: 2px 0 0; font-size: 1.0625rem; font-weight: 700; }
 
 /* Status pills */
 .dossier-status {
@@ -175,7 +175,7 @@
   align-items: center;
   padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -200,18 +200,18 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 800;
   background: var(--color-gold-soft, #f6e7b8);
   color: #6f5212;
 }
-.dossier .dossier-section-head h3 { margin: 0 !important; font-size: 0.9375rem !important; font-weight: 700 !important; letter-spacing: 0 !important; }
-.dossier-subtle { font-size: 0.75rem; color: var(--color-text-secondary); }
+.dossier .dossier-section-head h3 { margin: 0 !important; font-size: 1.0625rem !important; font-weight: 700 !important; letter-spacing: 0 !important; }
+.dossier-subtle { font-size: 0.9375rem; color: var(--color-text-secondary); }
 .dossier-section-head .dossier-status { margin-left: auto; }
 
 .dossier .dossier-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
 .dossier-grid > div { padding: 10px 12px; border-radius: 12px; background: var(--color-bg-tertiary); }
-.dossier-grid dd { margin: 3px 0 0; font-size: 0.875rem; font-weight: 700; }
+.dossier-grid dd { margin: 3px 0 0; font-size: 1rem; font-weight: 700; }
 
 .dossier-remarks {
   margin: 12px 0 0;
@@ -219,14 +219,14 @@
   border-left: 3px solid var(--color-gold, #c79a2e);
   border-radius: 0 10px 10px 0;
   background: var(--color-bg-tertiary);
-  font-size: 0.8125rem;
+  font-size: 1rem;
   line-height: 1.5;
   color: var(--color-text-primary);
 }
 .dossier-remarks span {
   display: block;
   margin-bottom: 2px;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -241,7 +241,7 @@
   padding-bottom: 8px;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--color-border);
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: var(--color-text-secondary);
 }
@@ -252,7 +252,7 @@
   align-items: center;
   gap: 10px;
   padding: 7px 0;
-  font-size: 0.8125rem;
+  font-size: 1rem;
 }
 .dossier-criteria-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dossier-meter { height: 6px; border-radius: 9999px; background: rgba(31, 58, 44, 0.08); overflow: hidden; }

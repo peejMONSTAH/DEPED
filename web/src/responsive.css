@@ -256,12 +256,11 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   scrollbar-gutter: stable;
 }
 .promotion-leaderboard-table {
-  min-width: 980px;
+  min-width: 860px;
   table-layout: auto;
 }
 .promotion-leaderboard-table .promotion-applicant-column {
-  width: 300px;
-  min-width: 300px;
+  min-width: 240px;
 }
 .promotion-applicant-copy { min-width: 0; }
 .promotion-applicant-identity { align-items: flex-start !important; }
@@ -271,9 +270,10 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   overflow-wrap: normal;
   word-break: normal;
 }
-.promotion-leaderboard-table th:nth-child(4) { min-width: 140px; }
-.promotion-leaderboard-table th:nth-child(5) { min-width: 190px; }
-.promotion-leaderboard-table th:nth-child(6) { min-width: 170px; }
+.promotion-leaderboard-table th:nth-child(4) { min-width: 150px; white-space: nowrap; }
+.promotion-leaderboard-table td:nth-child(4) { white-space: nowrap; }
+.promotion-leaderboard-table th:nth-child(5) { min-width: 150px; }
+.promotion-leaderboard-table th:nth-child(6) { min-width: 0; }
 
 @media (max-width: 768px) {
   .promotion-leaderboard-card { padding: 16px !important; }

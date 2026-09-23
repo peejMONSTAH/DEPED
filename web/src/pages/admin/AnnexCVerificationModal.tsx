@@ -334,7 +334,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 <strong>{naCount}</strong> N/A
               </span>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
               {verifiedCount + deficientCount + naCount} of {totalCount} evaluated
             </span>
           </div>
@@ -555,15 +555,15 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 <div className="annex-c-omnibus-left">
                   <ShieldCheck size={18} color="#059669" />
                   <div>
-                    <strong style={{ fontSize: '0.8125rem', color: 'var(--color-text-primary)' }}>
+                    <strong style={{ fontSize: '1rem', color: 'var(--color-text-primary)' }}>
                       Omnibus Sworn Statement & Data Privacy Consent
                     </strong>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                       Certified and digitally signed under Republic Act No. 8792 (E-Commerce Act of 2000)
                     </div>
                   </div>
                 </div>
-                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#059669', background: 'rgba(5, 150, 105, 0.12)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.25)' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#059669', background: 'rgba(5, 150, 105, 0.12)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.25)' }}>
                   Acknowledged
                 </span>
               </div>
@@ -584,7 +584,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                       onChange={() => setCompletenessStatus('COMPLETE')}
                     />
                     <span style={{ color: '#059669' }}>Complete & Verified</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 400 }}>
+                    <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 400 }}>
                       (Endorsed for HRMPSB Deliberation)
                     </span>
                   </label>
@@ -598,7 +598,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                       onChange={() => setCompletenessStatus('INCOMPLETE')}
                     />
                     <span style={{ color: '#dc2626' }}>Incomplete / Deficient</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 400 }}>
+                    <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 400 }}>
                       (Flagged for Deficiency)
                     </span>
                   </label>
@@ -633,7 +633,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 type="button"
                 className="annex-c-btn-secondary"
                 onClick={onClose}
-                style={{ padding: '8px 16px', fontSize: '0.8125rem' }}
+                style={{ padding: '8px 16px', fontSize: '1rem' }}
               >
                 Cancel
               </button>
@@ -780,7 +780,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
 
                 {/* Popup Blocked Warning */}
                 {popupBlockedUrl && (
-                  <div style={{ background: '#eef7f1', borderBottom: '1px solid #cfe8d8', padding: '6px 16px', fontSize: '0.75rem', color: '#1f5c3b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ background: '#eef7f1', borderBottom: '1px solid #cfe8d8', padding: '6px 16px', fontSize: '0.9375rem', color: '#1f5c3b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>Pop-up was blocked by browser.</span>
                     <a href={popupBlockedUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700, textDecoration: 'underline' }}>
                       Click to open
@@ -793,17 +793,17 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                   {docLoading ? (
                     <div className="annex-c-preview-status">
                       <Loader2 size={32} className="spin" color="#2f7d52" />
-                      <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text-secondary)', fontSize: '0.8125rem' }}>
+                      <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text-secondary)', fontSize: '1rem' }}>
                         Loading document preview…
                       </p>
                     </div>
                   ) : docError ? (
                     <div className="annex-c-preview-status">
                       <AlertTriangle size={36} color="#dc2626" />
-                      <p style={{ margin: 0, fontWeight: 700, color: '#dc2626', fontSize: '0.875rem' }}>
+                      <p style={{ margin: 0, fontWeight: 700, color: '#dc2626', fontSize: '1rem' }}>
                         Unable to view document
                       </p>
-                      <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                      <p style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-muted)' }}>
                         {docError}
                       </p>
                       <button
@@ -835,10 +835,10 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                   ) : (
                     <div className="annex-c-preview-status">
                       <FileText size={36} color="var(--color-text-muted)" />
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: '0.875rem' }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem' }}>
                         Preview unavailable for this format
                       </p>
-                      <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                      <p style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-muted)' }}>
                         This file format cannot be rendered inline. You can download the file to inspect it.
                       </p>
                       {blobUrl && (

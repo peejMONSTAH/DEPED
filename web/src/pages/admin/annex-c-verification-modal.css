@@ -51,7 +51,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -110,7 +110,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  font-size: 0.8125rem;
+  font-size: 1rem;
 }
 
 @media (max-width: 860px) {
@@ -130,7 +130,7 @@
 }
 
 .annex-c-cell-label {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: var(--color-text-secondary, #5b6b60);
   font-weight: 600;
   display: block;
@@ -140,7 +140,7 @@
 }
 
 .annex-c-cell-value {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text-primary, #1f2a23);
   white-space: nowrap;
@@ -150,7 +150,7 @@
 }
 
 .annex-c-cell-sub {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted, #5b6b60);
   display: block;
   white-space: nowrap;
@@ -161,7 +161,7 @@
 .annex-c-app-code {
   font-family: var(--font-mono, monospace);
   font-weight: 700;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   color: var(--color-primary, #1f2a23);
   background: rgba(37, 99, 235, 0.08);
   padding: 2px 7px;
@@ -180,7 +180,7 @@
   background: var(--color-bg-tertiary, #eef5ef);
   border-radius: 8px;
   border: 1px solid var(--color-border, #dce6de);
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   margin-top: 8px;
   flex-wrap: wrap;
 }
@@ -196,7 +196,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--color-text-secondary, #475569);
 }
@@ -258,7 +258,7 @@
 }
 
 .annex-c-toolbar-title {
-  font-size: 0.8125rem;
+  font-size: 1rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -272,7 +272,7 @@
 }
 
 .annex-c-btn-secondary {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: var(--color-primary, #1f2a23);
   background: var(--color-bg-card, #ffffff);
@@ -354,7 +354,7 @@
   border-radius: 6px;
   background: var(--color-bg-tertiary, #eef5ef);
   color: var(--color-primary, #1f2a23);
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
@@ -364,13 +364,13 @@
 }
 
 .annex-c-item-title {
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text-primary, #1f2a23);
 }
 
 .annex-c-badge-mandatory {
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 800;
   color: #dc2626;
   background: #fee2e2;
@@ -380,7 +380,7 @@
 }
 
 .annex-c-badge-optional {
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text-muted, #5b6b60);
   background: var(--color-bg-tertiary, #eef5ef);
@@ -390,7 +390,7 @@
 }
 
 .annex-c-active-indicator {
-  font-size: 0.625rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #2f7d52;
   background: rgba(37, 99, 235, 0.1);
@@ -402,7 +402,7 @@
 }
 
 .annex-c-item-desc {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: var(--color-text-secondary, #5b6b60);
   margin: 0;
   line-height: 1.35;
@@ -412,7 +412,7 @@
   background: transparent;
   border: none;
   padding: 0;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: #2f7d52;
   cursor: pointer;
   margin-left: 4px;
@@ -446,7 +446,7 @@
 }
 
 .annex-c-decision-btn {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 4px 9px;
   border-radius: 6px;
@@ -502,7 +502,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   background: rgba(16, 185, 129, 0.08);
   border: 1px solid rgba(16, 185, 129, 0.25);
   color: #065f46;
@@ -523,7 +523,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #2f7d52;
   background: rgba(37, 99, 235, 0.08);
@@ -548,7 +548,7 @@
 }
 
 .annex-c-missing-mandatory {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: #dc2626;
   font-weight: 600;
   display: inline-flex;
@@ -561,7 +561,7 @@
 }
 
 .annex-c-missing-optional {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted, #5b6b60);
   font-style: italic;
 }
@@ -579,7 +579,7 @@
 }
 
 .annex-c-deficiency-label {
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 700;
   color: #991b1b;
   display: flex;
@@ -588,7 +588,7 @@
 }
 
 .annex-c-deficiency-input {
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   padding: 5px 10px;
   border: 1px solid #f87171;
   border-radius: 6px;
@@ -643,7 +643,7 @@
 }
 
 .annex-c-finding-header {
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -660,13 +660,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
 }
 
 .annex-c-remarks-textarea {
-  font-size: 0.8125rem;
+  font-size: 1rem;
   padding: 8px 12px;
   border: 1px solid var(--color-border, #c5d4c8);
   border-radius: 8px;
@@ -707,7 +707,7 @@
   border-radius: 9999px;
   padding: 9px 22px;
   font-weight: 800;
-  font-size: 0.8125rem;
+  font-size: 1rem;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -796,7 +796,7 @@
 
 .annex-c-preview-title {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text-primary, #1f2a23);
   white-space: nowrap;
@@ -806,7 +806,7 @@
 
 .annex-c-preview-sub {
   margin: 1px 0 0;
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   color: var(--color-text-muted, #5b6b60);
   white-space: nowrap;
   overflow: hidden;
@@ -828,7 +828,7 @@
   min-height: 32px;
   min-width: 32px;
   padding: 0 8px;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   border: 1px solid var(--color-border, #c5d4c8);
   background: var(--color-bg-card, #ffffff);
@@ -865,7 +865,7 @@
 
 .annex-c-zoom-text {
   font-family: var(--font-mono, monospace);
-  font-size: 0.6875rem;
+  font-size: 0.875rem;
   font-weight: 600;
   padding: 0 6px;
   color: var(--color-text-secondary, #475569);
@@ -883,7 +883,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -899,7 +899,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   background: #2f7d52;
   color: #ffffff;
@@ -972,14 +972,14 @@
 }
 
 .annex-c-placeholder-title {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--color-text-primary, #1f2a23);
   margin: 0;
 }
 
 .annex-c-placeholder-desc {
-  font-size: 0.8125rem;
+  font-size: 1rem;
   max-width: 340px;
   line-height: 1.5;
   margin: 0;

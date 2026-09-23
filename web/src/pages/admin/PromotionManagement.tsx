@@ -1139,11 +1139,8 @@ export const PromotionManagement: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ flex: '1 1 400px' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, fontFamily: 'var(--font-sans)' }}>
-            Two-Stage Merit Selection & Ranking System
+            Promotions
           </h2>
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', margin: '4px 0 0 0' }}>
-            AO II submits initial candidate ratings → HRMO Staff finalizes scores → Realtime Ranking Leaderboard updates live across dashboards.
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1163,7 +1160,7 @@ export const PromotionManagement: React.FC = () => {
               gap: '6px',
               padding: '6px 14px',
               borderRadius: '8px',
-              fontSize: '0.75rem',
+              fontSize: '0.9375rem',
               fontWeight: 600,
               background: 'var(--color-bg-tertiary)',
               border: '1px solid var(--color-border)',
@@ -1186,10 +1183,10 @@ export const PromotionManagement: React.FC = () => {
           {/* Header & Refresh */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h3 style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
+              <h3 style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
                 Promotion Cycles
               </h3>
-              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
                 {cycles.length} {cycles.length === 1 ? 'cycle' : 'cycles'} found
               </span>
             </div>
@@ -1227,7 +1224,7 @@ export const PromotionManagement: React.FC = () => {
               style={{
                 width: '100%',
                 padding: '7px 12px 7px 32px',
-                fontSize: '0.75rem',
+                fontSize: '0.9375rem',
                 borderRadius: '8px',
                 border: '1px solid var(--color-border)',
                 background: 'var(--color-bg-tertiary)',
@@ -1249,7 +1246,7 @@ export const PromotionManagement: React.FC = () => {
                   cursor: 'pointer',
                   color: 'var(--color-text-muted)',
                   padding: 0,
-                  fontSize: '12px',
+                  fontSize: '14px',
                 }}
               >
                 ✕
@@ -1259,7 +1256,7 @@ export const PromotionManagement: React.FC = () => {
 
           {/* Status Filter Tabs */}
           <div>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 5 }}>
               <Filter size={11} /> Filter by Status
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -1278,7 +1275,7 @@ export const PromotionManagement: React.FC = () => {
                     onClick={() => handleCycleFilterChange(tab.key as any)}
                     style={{
                       padding: '4px 10px',
-                      fontSize: '0.6875rem',
+                      fontSize: '0.875rem',
                       fontWeight: isActive ? 800 : 600,
                       borderRadius: '8px',
                       cursor: 'pointer',
@@ -1329,10 +1326,10 @@ export const PromotionManagement: React.FC = () => {
                 >
                   <Archive size={30} style={{ color: 'var(--color-text-muted)' }} />
                 </div>
-                <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
+                <div style={{ fontSize: '1.1875rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
                   No {cycleStatusFilter !== 'ALL' ? `${cycleStatusFilter.toLowerCase()} ` : ''}cycles found
                 </div>
-                <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: '0 0 20px 0', maxWidth: '440px', lineHeight: 1.55 }}>
+                <p style={{ fontSize: '1rem', color: 'var(--color-text-muted)', margin: '0 0 20px 0', maxWidth: '440px', lineHeight: 1.55 }}>
                   {cycleSearchQuery
                     ? `No promotion cycles match "${cycleSearchQuery}". Try clearing your search query or switching status filters.`
                     : cycleStatusFilter !== 'ALL'
@@ -1348,7 +1345,7 @@ export const PromotionManagement: React.FC = () => {
                         handleCycleSearchChange('');
                       }}
                       className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
+                      style={{ fontSize: '1rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
                     >
                       Reset to All Cycles
                     </button>
@@ -1359,7 +1356,7 @@ export const PromotionManagement: React.FC = () => {
                       onClick={() => setShowConfigModal(true)}
                       className="btn btn-primary btn-sm"
                       style={{
-                        fontSize: '0.8125rem',
+                        fontSize: '1rem',
                         fontWeight: 700,
                         padding: '8px 18px',
                         borderRadius: '10px',
@@ -1430,8 +1427,8 @@ export const PromotionManagement: React.FC = () => {
                       }
                     }}
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: '12px',
+                      padding: '16px 18px',
+                      borderRadius: '14px',
                       background: isSelected ? (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1') : 'var(--color-bg-tertiary)',
                       border: `1.5px solid ${isSelected ? '#2F7D52' : 'var(--color-border)'}`,
                       boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none',
@@ -1440,12 +1437,12 @@ export const PromotionManagement: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        {cycle.type || 'Natural Vacancy'}
+                      <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 700, }}>
+                        {String(cycle.type || 'NATURAL_VACANCY').toLowerCase().replace(/_/g, ' ').replace(/^./, (c: string) => c.toUpperCase())}
                       </span>
                       <span
                         style={{
-                          fontSize: '0.625rem',
+                          fontSize: '0.875rem',
                           fontWeight: 700,
                           padding: '2px 8px',
                           borderRadius: '9999px',
@@ -1461,13 +1458,13 @@ export const PromotionManagement: React.FC = () => {
                         {statusLabel}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? (theme === 'dark' ? '#8FD3A8' : '#276A45') : 'var(--color-text-primary)', lineHeight: 1.3, marginBottom: '6px' }}>
-                      {cycle.name}
+                    <div style={{ fontSize: '1.125rem', fontWeight: 700, color: isSelected ? (theme === 'dark' ? '#8FD3A8' : '#276A45') : 'var(--color-text-primary)', lineHeight: 1.35, marginBottom: '8px' }}>
+                      {String(cycle.name || '').replace(/^Ranking for (Natural )?Vacancy:s*/i, '')}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                      <span>{cycle.applicantCount || 0} applicants</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+                      <span>{cycle.applicantCount || 0} {(cycle.applicantCount || 0) === 1 ? 'applicant' : 'applicants'}</span>
                       {cycle.endDate && (
-                        <span>End: {new Date(cycle.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        <span>Ends {new Date(cycle.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       )}
                     </div>
                   </div>
@@ -1489,7 +1486,6 @@ export const PromotionManagement: React.FC = () => {
             >
               <AppIcon name="chevron-left" size={14} /> Back to promotion cycles
             </button>
-            <span className="promotion-detail-context">Viewing cycle details, applicants, ratings and CAR</span>
           </div>
           {selectedCycle && (
             <>
@@ -1530,12 +1526,12 @@ export const PromotionManagement: React.FC = () => {
                     {/* Top Meta Bar */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                           SDO Koronadal City • {selectedCycle.rulesConfigurationJson?.district || 'Division Proper'}
                         </span>
                         <span style={{ color: 'var(--color-border)' }}>•</span>
                         <span style={{
-                          fontSize: '0.6875rem',
+                          fontSize: '0.875rem',
                           fontWeight: 700,
                           padding: '2px 8px',
                           borderRadius: '6px',
@@ -1551,14 +1547,14 @@ export const PromotionManagement: React.FC = () => {
 
                         {isHR && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
-                            <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Status:</span>
+                            <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Status:</span>
                             <select
                               aria-label="Promotion cycle status"
                               value={selectedCycle.status}
                               onChange={(e) => handleUpdateCycleStatus(selectedCycle.id, e.target.value)}
                               style={{
                                 padding: '2px 8px',
-                                fontSize: '11px',
+                                fontSize: '14px',
                                 fontWeight: 700,
                                 borderRadius: '6px',
                                 background: 'var(--color-bg-tertiary)',
@@ -1593,7 +1589,7 @@ export const PromotionManagement: React.FC = () => {
                             border: 'none',
                             borderRadius: '8px',
                             padding: '7px 15px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 6,
@@ -1614,7 +1610,7 @@ export const PromotionManagement: React.FC = () => {
                             color: 'var(--color-text-primary)',
                             borderRadius: '8px',
                             padding: '7px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 6,
@@ -1634,17 +1630,15 @@ export const PromotionManagement: React.FC = () => {
                           {selectedCycle.rulesConfigurationJson?.targetPosition || selectedCycle.name}
                         </h2>
                         {selectedCycle.rulesConfigurationJson?.school && selectedCycle.rulesConfigurationJson?.school !== 'All Schools in District' && (
-                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                          <span style={{ fontSize: '1rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
                             @ {selectedCycle.rulesConfigurationJson.school}
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span>Cycle: <strong>{selectedCycle.name}</strong></span>
                         <span>•</span>
                         <span>{formatDateString(selectedCycle.startDate)} to {formatDateString(selectedCycle.endDate)}</span>
-                        <span>•</span>
-                        <span>DepEd Merit Selection Plan</span>
                       </div>
                     </div>
 
@@ -1665,7 +1659,7 @@ export const PromotionManagement: React.FC = () => {
                             {cycleVacantPositions} {cycleVacantPositions === 1 ? 'Slot' : 'Slots'}
                           </span>
                           <span style={{
-                            fontSize: '0.625rem',
+                            fontSize: '0.875rem',
                             fontWeight: 700,
                             padding: '2px 6px',
                             borderRadius: '4px',
@@ -1707,7 +1701,7 @@ export const PromotionManagement: React.FC = () => {
                           Candidate Pool
                         </div>
                         <div className="promotion-summary-value promotion-summary-value--large">
-                          {filteredLeaderboard.length} <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Applicants</span>
+                          {filteredLeaderboard.length} <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Applicants</span>
                         </div>
                       </div>
                     </div>
@@ -1733,7 +1727,7 @@ export const PromotionManagement: React.FC = () => {
                   style={{
                     padding: '7px 16px',
                     borderRadius: '7px',
-                    fontSize: '0.8125rem',
+                    fontSize: '1rem',
                     fontWeight: 700,
                     border: 'none',
                     cursor: 'pointer',
@@ -1742,7 +1736,7 @@ export const PromotionManagement: React.FC = () => {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  Realtime Ranking Leaderboard
+                  Ranking
                 </button>
 
                 <button
@@ -1751,7 +1745,7 @@ export const PromotionManagement: React.FC = () => {
                   style={{
                     padding: '7px 16px',
                     borderRadius: '7px',
-                    fontSize: '0.8125rem',
+                    fontSize: '1rem',
                     fontWeight: 700,
                     border: 'none',
                     cursor: 'pointer',
@@ -1760,7 +1754,7 @@ export const PromotionManagement: React.FC = () => {
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  Comparative Assessment Result (CAR)
+                  CAR results
                 </button>
 
                 {isHR && (
@@ -1770,7 +1764,7 @@ export const PromotionManagement: React.FC = () => {
                     style={{
                       padding: '7px 16px',
                       borderRadius: '7px',
-                      fontSize: '0.8125rem',
+                      fontSize: '1rem',
                       fontWeight: 700,
                       border: 'none',
                       cursor: 'pointer',
@@ -1779,7 +1773,7 @@ export const PromotionManagement: React.FC = () => {
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    AO II Requirements Desk
+                    Requirements check
                   </button>
                 )}
 
@@ -1790,7 +1784,7 @@ export const PromotionManagement: React.FC = () => {
                     style={{
                       padding: '7px 16px',
                       borderRadius: '7px',
-                      fontSize: '0.8125rem',
+                      fontSize: '1rem',
                       fontWeight: 700,
                       border: 'none',
                       cursor: 'pointer',
@@ -1799,7 +1793,7 @@ export const PromotionManagement: React.FC = () => {
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    HRMO Deliberation Workspace
+                    Board deliberation
                   </button>
                 )}
 
@@ -1810,7 +1804,7 @@ export const PromotionManagement: React.FC = () => {
                     style={{
                       padding: '7px 16px',
                       borderRadius: '7px',
-                      fontSize: '0.8125rem',
+                      fontSize: '1rem',
                       fontWeight: 700,
                       border: 'none',
                       cursor: 'pointer',
@@ -1819,7 +1813,7 @@ export const PromotionManagement: React.FC = () => {
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    HR Candidate Selection
+                    Candidate selection
                   </button>
                 )}
               </div>
@@ -1832,7 +1826,7 @@ export const PromotionManagement: React.FC = () => {
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-                            Realtime Ranking Leaderboard
+                            Ranking
                           </h3>
                           <span style={{
                             display: 'inline-flex',
@@ -1842,7 +1836,7 @@ export const PromotionManagement: React.FC = () => {
                             borderRadius: '9999px',
                             background: theme === 'dark' ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
                             border: '1px solid rgba(16, 185, 129, 0.25)',
-                            fontSize: '0.6875rem',
+                            fontSize: '0.875rem',
                             fontWeight: 700,
                             color: theme === 'dark' ? '#34D399' : '#059669',
                           }}>
@@ -1850,9 +1844,6 @@ export const PromotionManagement: React.FC = () => {
                             Live
                           </span>
                         </div>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
-                          Synchronized standings across AO II initial evaluations and HRMO deliberations.
-                        </p>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1868,7 +1859,7 @@ export const PromotionManagement: React.FC = () => {
                             style={{
                               width: '100%',
                               padding: '6px 12px 6px 28px',
-                              fontSize: '0.75rem',
+                              fontSize: '0.9375rem',
                               borderRadius: '7px',
                               border: '1px solid var(--color-border)',
                               background: 'var(--color-bg-tertiary)',
@@ -1883,7 +1874,7 @@ export const PromotionManagement: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSearchQuery('')}
-                              style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '10px', color: 'var(--color-text-muted)' }}
+                              style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '14px', color: 'var(--color-text-muted)' }}
                             >
                               ✕
                             </button>
@@ -1897,7 +1888,7 @@ export const PromotionManagement: React.FC = () => {
                           style={{
                             padding: '6px 12px',
                             borderRadius: '7px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 600,
                             border: '1px solid var(--color-border)',
                             background: 'var(--color-bg-tertiary)',
@@ -1919,7 +1910,7 @@ export const PromotionManagement: React.FC = () => {
                           style={{
                             padding: '6px 12px',
                             borderRadius: '7px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 600,
                             border: '1px solid var(--color-border)',
                             background: 'var(--color-bg-tertiary)',
@@ -1948,7 +1939,7 @@ export const PromotionManagement: React.FC = () => {
                       border: '1px solid var(--color-border)',
                       flexWrap: 'wrap',
                       gap: '8px',
-                      fontSize: '0.75rem',
+                      fontSize: '0.9375rem',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', color: 'var(--color-text-secondary)' }}>
                         <span>Total: <strong style={{ color: 'var(--color-text-primary)' }}>100.00 pts</strong></span>
@@ -1959,22 +1950,19 @@ export const PromotionManagement: React.FC = () => {
                         <span style={{ color: 'var(--color-border)' }}>•</span>
                         <span>Authorized Vacancy: <strong style={{ color: '#059669' }}>{cycleVacantPositions} {cycleVacantPositions === 1 ? 'Slot' : 'Slots'}</strong></span>
                       </div>
-                      <span style={{ color: 'var(--color-text-muted)', fontSize: '0.6875rem' }}>
-                        Rows with green accent are within available vacancy quota
-                      </span>
                     </div>
 
                     {/* LEADERBOARD TABLE WITH EXPANDABLE PARTICIPANTS */}
                     <div className="table-wrapper promotion-leaderboard-table-wrapper" style={{ border: '1px solid var(--color-border)', borderRadius: '10px', width: '100%', overflowX: 'auto', background: 'var(--color-bg-card)' }}>
-                      <table className="table promotion-leaderboard-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                      <table className="table promotion-leaderboard-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1rem' }}>
                         <thead>
                           <tr style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
                             <th style={{ padding: '10px 8px', textAlign: 'center', width: '40px' }} />
-                            <th style={{ padding: '10px 10px', textAlign: 'center', width: '55px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Rank</th>
-                            <th className="promotion-applicant-column" style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Applicant</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Applicant No.</th>
-                            <th style={{ padding: '10px 16px', textAlign: 'center', width: '200px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Score Breakdown & Total</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'right', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.6875rem' }}>Actions</th>
+                            <th style={{ padding: '10px 10px', textAlign: 'center', width: '55px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.875rem' }}>Rank</th>
+                            <th className="promotion-applicant-column" style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.875rem' }}>Applicant</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.875rem' }}>Applicant No.</th>
+                            <th style={{ padding: '10px 16px', textAlign: 'center', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.875rem' }}>Score</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'right', width: '1%', whiteSpace: 'nowrap', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', fontSize: '0.875rem' }}>Actions</th>
                           </tr>
                         </thead>
 
@@ -1983,10 +1971,10 @@ export const PromotionManagement: React.FC = () => {
                             <tr>
                               <td colSpan={6} style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                                  <div style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
                                     {searchQuery ? 'No applicants match your search' : 'No candidates registered in this cycle yet'}
                                   </div>
-                                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '400px', margin: 0 }}>
+                                  <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', maxWidth: '400px', margin: 0 }}>
                                     {searchQuery ? 'Try clearing or changing your search terms.' : 'Submit applicant dossiers using the Register Applicant button to begin deliberations.'}
                                   </p>
                                   {searchQuery ? (
@@ -1994,7 +1982,7 @@ export const PromotionManagement: React.FC = () => {
                                       type="button"
                                       onClick={() => setSearchQuery('')}
                                       className="btn btn-secondary btn-sm"
-                                      style={{ marginTop: '8px', fontSize: '0.75rem' }}
+                                      style={{ marginTop: '8px', fontSize: '0.9375rem' }}
                                     >
                                       Clear Search Filter
                                     </button>
@@ -2003,7 +1991,7 @@ export const PromotionManagement: React.FC = () => {
                                       type="button"
                                       onClick={() => setShowAppModal(true)}
                                       className="btn btn-primary btn-sm"
-                                      style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.75rem' }}
+                                      style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.9375rem' }}
                                     >
                                       <AppIcon name="checklist" size={13} /> Submit Applicant Form
                                     </button>
@@ -2103,7 +2091,7 @@ export const PromotionManagement: React.FC = () => {
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: '0.75rem',
+                                        fontSize: '0.9375rem',
                                         fontWeight: 800,
                                         fontFamily: 'var(--font-mono)',
                                         background: rank === 1
@@ -2142,7 +2130,7 @@ export const PromotionManagement: React.FC = () => {
                                           alignItems: 'center',
                                           justifyContent: 'center',
                                           fontWeight: 700,
-                                          fontSize: '0.6875rem',
+                                          fontSize: '0.875rem',
                                           color: isPromoted ? '#ffffff' : 'var(--color-text-secondary)',
                                           border: '1px solid var(--color-border)',
                                           flexShrink: 0,
@@ -2151,12 +2139,12 @@ export const PromotionManagement: React.FC = () => {
                                         </div>
                                         <div className="promotion-applicant-copy">
                                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-text-primary)' }}>
                                               {item.name}
                                             </span>
                                             {isWithinQuota && (
                                               <span style={{
-                                                fontSize: '0.625rem',
+                                                fontSize: '0.875rem',
                                                 fontWeight: 700,
                                                 color: '#059669',
                                                 background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
@@ -2169,7 +2157,7 @@ export const PromotionManagement: React.FC = () => {
                                             )}
                                             {isPromoted && (
                                               <span style={{
-                                                fontSize: '0.625rem',
+                                                fontSize: '0.875rem',
                                                 fontWeight: 700,
                                                 color: '#059669',
                                                 background: theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
@@ -2181,7 +2169,7 @@ export const PromotionManagement: React.FC = () => {
                                               </span>
                                             )}
                                           </div>
-                                          <div className="promotion-applicant-meta" style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                          <div className="promotion-applicant-meta" style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                                             {item.designation || 'Candidate'} • <span>{item.station || 'Division Office'}</span>
                                             {(item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber) && (
                                               <span style={{ marginLeft: '6px', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
@@ -2198,7 +2186,7 @@ export const PromotionManagement: React.FC = () => {
                                       <span style={{
                                         fontFamily: 'var(--font-mono)',
                                         fontWeight: 600,
-                                        fontSize: '0.75rem',
+                                        fontSize: '0.9375rem',
                                         color: 'var(--color-text-secondary)',
                                         background: 'var(--color-bg-tertiary)',
                                         padding: '3px 8px',
@@ -2224,9 +2212,9 @@ export const PromotionManagement: React.FC = () => {
                                               }}>
                                                 {totalScore.toFixed(2)}
                                               </span>
-                                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>/ 100</span>
+                                              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>/ 100</span>
                                             </div>
-                                            <div style={{ fontSize: '0.6875rem', color: '#059669', fontFamily: 'var(--font-mono)', marginTop: '1px', fontWeight: 600 }}>
+                                            <div style={{ fontSize: '0.875rem', color: '#059669', fontFamily: 'var(--font-mono)', marginTop: '1px', fontWeight: 600 }}>
                                               HRMPSB Deliberated
                                             </div>
                                             <div style={{ width: '100%', height: '3px', background: 'var(--color-border)', borderRadius: '2px', marginTop: '4px', overflow: 'hidden' }}>
@@ -2241,7 +2229,7 @@ export const PromotionManagement: React.FC = () => {
                                         ) : (
                                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                             <span style={{
-                                              fontSize: '0.75rem',
+                                              fontSize: '0.9375rem',
                                               fontWeight: 700,
                                               color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706',
                                               background: isComplete
@@ -2259,7 +2247,7 @@ export const PromotionManagement: React.FC = () => {
                                             }}>
                                               {isComplete ? 'Reqs Complete' : isDeficient ? 'Reqs Deficient' : 'Unverified'}
                                             </span>
-                                            <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '3px' }}>
+                                            <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '3px' }}>
                                               {isComplete ? 'Ready for Deliberation' : 'Pending AO II Check'}
                                             </span>
                                           </div>
@@ -2279,7 +2267,7 @@ export const PromotionManagement: React.FC = () => {
                                               handleOpenAoRating(item);
                                             }}
                                             style={{
-                                              fontSize: '0.6875rem',
+                                              fontSize: '0.875rem',
                                               color: '#ffffff',
                                               border: 'none',
                                               background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
@@ -2308,7 +2296,7 @@ export const PromotionManagement: React.FC = () => {
                                               handleOpenHrmoRating(item);
                                             }}
                                             style={{
-                                              fontSize: '0.6875rem',
+                                              fontSize: '0.875rem',
                                               color: '#ffffff',
                                               border: 'none',
                                               background: hasHrmoRating ? '#059669' : '#2F7D52',
@@ -2336,7 +2324,7 @@ export const PromotionManagement: React.FC = () => {
                                             setShowApplicantInfoModal(true);
                                           }}
                                           style={{
-                                            fontSize: '0.6875rem',
+                                            fontSize: '0.875rem',
                                             color: 'var(--color-text-primary)',
                                             border: '1px solid var(--color-border)',
                                             background: 'var(--color-bg-card)',
@@ -2358,7 +2346,7 @@ export const PromotionManagement: React.FC = () => {
                                             toggleParticipantExpand(item.id);
                                           }}
                                           style={{
-                                            fontSize: '0.6875rem',
+                                            fontSize: '0.875rem',
                                             color: isExpanded ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                                             border: '1px solid var(--color-border)',
                                             background: isExpanded ? 'var(--color-bg-tertiary)' : 'var(--color-bg-card)',
@@ -2390,11 +2378,11 @@ export const PromotionManagement: React.FC = () => {
                                             padding: '14px',
                                           }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border)' }}>
-                                              <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                                 Stage 1 • AO II Documentary Check (Annex C)
                                               </span>
                                               <span style={{
-                                                fontSize: '0.75rem',
+                                                fontSize: '0.9375rem',
                                                 fontWeight: 800,
                                                 color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706',
                                                 background: isComplete
@@ -2409,7 +2397,7 @@ export const PromotionManagement: React.FC = () => {
                                               </span>
                                             </div>
 
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.9375rem' }}>
                                               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
                                                 <span>Verification Status:</span>
                                                 <strong style={{ color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706' }}>
@@ -2429,7 +2417,7 @@ export const PromotionManagement: React.FC = () => {
                                                 </div>
                                               )}
                                               {reqCheck?.remarks && (
-                                                <div style={{ marginTop: '4px', padding: '6px 8px', background: 'var(--color-bg-tertiary)', borderRadius: '6px', fontSize: '0.6875rem', fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
+                                                <div style={{ marginTop: '4px', padding: '6px 8px', background: 'var(--color-bg-tertiary)', borderRadius: '6px', fontSize: '0.875rem', fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
                                                   "{reqCheck.remarks}"
                                                 </div>
                                               )}
@@ -2442,7 +2430,7 @@ export const PromotionManagement: React.FC = () => {
                                                     handleOpenAoRating(item);
                                                   }}
                                                   className="btn btn-primary btn-sm"
-                                                  style={{ fontSize: '0.6875rem', padding: '5px 12px', borderRadius: '6px', marginTop: '6px' }}
+                                                  style={{ fontSize: '0.875rem', padding: '5px 12px', borderRadius: '6px', marginTop: '6px' }}
                                                 >
                                                   {isComplete ? 'Review / Update Verification' : 'Check Requirements (Annex C)'}
                                                 </button>
@@ -2458,16 +2446,16 @@ export const PromotionManagement: React.FC = () => {
                                             padding: '14px',
                                           }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border)' }}>
-                                              <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                                 Stage 2 • HRMO Deliberation
                                               </span>
-                                              <span style={{ fontSize: '0.8125rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: hasHrmoRating ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+                                              <span style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: hasHrmoRating ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
                                                 {hasHrmoRating ? `${hrmoSubtotal.toFixed(2)} / ${isCycleTeaching ? '40.00' : '20.00'}` : 'Pending Deliberation'}
                                               </span>
                                             </div>
 
                                             {hasHrmoRating ? (
-                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.9375rem' }}>
                                                 {isCycleTeaching ? (
                                                   <>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
@@ -2497,14 +2485,14 @@ export const PromotionManagement: React.FC = () => {
                                                 )}
                                                 <div style={{ marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
                                                   <span style={{ color: 'var(--color-text-secondary)' }}>Total Deliberation Score:</span>
-                                                  <span style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                                                  <span style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', fontSize: '1rem' }}>
                                                     {(aoSubtotal + hrmoSubtotal).toFixed(2)} / 100.00
                                                   </span>
                                                 </div>
                                               </div>
                                             ) : (
                                               <div style={{ padding: '10px 0', textAlign: 'center' }}>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: '0 0 10px 0' }}>
+                                                <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', margin: '0 0 10px 0' }}>
                                                   {hasAoRating ? 'Awaiting Final Deliberation by HRMO Board.' : 'Stage 2 deliberation opens once AO II evaluation is complete.'}
                                                 </p>
                                                 {isHR && (() => {
@@ -2521,7 +2509,7 @@ export const PromotionManagement: React.FC = () => {
                                                         handleOpenHrmoRating(item);
                                                       }}
                                                       className={awaitingAo ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
-                                                      style={{ fontSize: '0.6875rem', padding: '4px 12px', borderRadius: '6px', cursor: awaitingAo ? 'not-allowed' : 'pointer' }}
+                                                      style={{ fontSize: '0.875rem', padding: '4px 12px', borderRadius: '6px', cursor: awaitingAo ? 'not-allowed' : 'pointer' }}
                                                     >
                                                       {awaitingAo ? 'Awaiting AO II verification' : 'Deliberate Candidate'}
                                                     </button>
@@ -2542,10 +2530,10 @@ export const PromotionManagement: React.FC = () => {
                                             justifyContent: 'space-between',
                                           }}>
                                             <div>
-                                              <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border)' }}>
+                                              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border)' }}>
                                                 Candidate Promotion Status
                                               </div>
-                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.75rem' }}>
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.9375rem' }}>
                                                 <div style={{ color: 'var(--color-text-secondary)' }}>
                                                   <strong>Quota Stand:</strong> <span style={{ color: isWithinQuota ? '#059669' : 'var(--color-text-muted)', fontWeight: 700 }}>{isWithinQuota ? `Rank #${rank} (Within ${cycleVacantPositions} Vacancy Cutoff)` : `Rank #${rank} (Waitlist Eligibility Pool)`}</span>
                                                 </div>
@@ -2570,7 +2558,7 @@ export const PromotionManagement: React.FC = () => {
                                                   setShowApplicantInfoModal(true);
                                                 }}
                                                 className="btn btn-secondary btn-sm"
-                                                style={{ fontSize: '0.6875rem', padding: '4px 10px', borderRadius: '6px' }}
+                                                style={{ fontSize: '0.875rem', padding: '4px 10px', borderRadius: '6px' }}
                                               >
                                                 Full Profile
                                               </button>
@@ -2582,7 +2570,7 @@ export const PromotionManagement: React.FC = () => {
                                                     handleOpenConfirmSelection(item);
                                                   }}
                                                   className="btn btn-primary btn-sm"
-                                                  style={{ fontSize: '0.6875rem', padding: '4px 10px', borderRadius: '6px' }}
+                                                  style={{ fontSize: '0.875rem', padding: '4px 10px', borderRadius: '6px' }}
                                                 >
                                                   {isPromoted ? 'Modify Selection' : 'Select for Promotion'}
                                                 </button>
@@ -2605,7 +2593,7 @@ export const PromotionManagement: React.FC = () => {
                                         borderBottom: '1px dashed var(--color-border)',
                                       }}>
                                         <div style={{
-                                          fontSize: '0.6875rem',
+                                          fontSize: '0.875rem',
                                           fontWeight: 700,
                                           letterSpacing: '0.06em',
                                           color: 'var(--color-text-muted)',
@@ -2656,7 +2644,7 @@ export const PromotionManagement: React.FC = () => {
                       }}>
                         <div>
                           <div style={{
-                            fontSize: '0.6875rem',
+                            fontSize: '0.875rem',
                             fontWeight: 800,
                             letterSpacing: '0.1em',
                             color: 'var(--color-primary)',
@@ -2703,7 +2691,7 @@ export const PromotionManagement: React.FC = () => {
                               ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5')
                               : (theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB'),
                             color: isCycleTeaching ? (theme === 'dark' ? '#34D399' : '#059669') : (theme === 'dark' ? '#FBBF24' : '#D97706'),
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             padding: '6px 14px',
                             borderRadius: '9999px',
                             fontWeight: 800,
@@ -2764,22 +2752,22 @@ export const PromotionManagement: React.FC = () => {
                       </div>
 
                       {/* Official DepEd Metadata Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '12px', fontSize: '0.8125rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '12px', fontSize: '1rem' }}>
                         <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Position:</span>
-                          <strong style={{ color: 'var(--color-text-primary)', fontSize: '0.9375rem', fontWeight: 800 }}>{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Teacher / Plantilla Post'}</strong>
+                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Position:</span>
+                          <strong style={{ color: 'var(--color-text-primary)', fontSize: '1.0625rem', fontWeight: 800 }}>{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Teacher / Plantilla Post'}</strong>
                         </div>
                         <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Office / Unit where vacancy exists:</span>
-                          <strong style={{ color: 'var(--color-primary)', fontSize: '0.9375rem', fontWeight: 800 }}>{selectedCycle?.name || 'Schools Division Office — Koronadal'}</strong>
+                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Office / Unit where vacancy exists:</span>
+                          <strong style={{ color: 'var(--color-primary)', fontSize: '1.0625rem', fontWeight: 800 }}>{selectedCycle?.name || 'Schools Division Office — Koronadal'}</strong>
                         </div>
                         <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Plantilla Item Number:</span>
-                          <strong style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', fontWeight: 700 }}>{selectedCycle?.rulesConfigurationJson?.plantillaItemNo || `DEPEDB-TCHR1-${selectedCycle?.id || '2026'}-001`}</strong>
+                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Plantilla Item Number:</span>
+                          <strong style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', fontSize: '1.0625rem', fontWeight: 700 }}>{selectedCycle?.rulesConfigurationJson?.plantillaItemNo || `DEPEDB-TCHR1-${selectedCycle?.id || '2026'}-001`}</strong>
                         </div>
                         <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Date of Final Deliberation:</span>
-                          <strong style={{ color: '#059669', fontSize: '0.9375rem', fontWeight: 800 }}>
+                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Date of Final Deliberation:</span>
+                          <strong style={{ color: '#059669', fontSize: '1.0625rem', fontWeight: 800 }}>
                             {formatDateString(selectedCycle?.endDate)}
                           </strong>
                         </div>
@@ -2788,16 +2776,16 @@ export const PromotionManagement: React.FC = () => {
 
                     {/* Official CAR Summary Deliberation Table */}
                     <div className="table-wrapper" style={{ border: '1px solid var(--color-border)', borderRadius: '10px', width: '100%', overflowX: 'auto', background: 'var(--color-bg-card)' }}>
-                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+                      <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1rem' }}>
                         <thead>
                           <tr style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
-                            <th style={{ padding: '10px 12px', textAlign: 'center', width: '55px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Rank</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Candidate Name</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '160px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Plantilla Item</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '130px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Stage 1 (AO)</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '130px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Stage 2 (HRMO)</th>
-                            <th style={{ padding: '10px 16px', textAlign: 'center', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Total CAR Score</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'right', width: '140px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.6875rem', letterSpacing: '0.04em' }}>Board Status</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'center', width: '55px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Rank</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Candidate Name</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '160px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Plantilla Item</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '130px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Stage 1 (AO)</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '130px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Stage 2 (HRMO)</th>
+                            <th style={{ padding: '10px 16px', textAlign: 'center', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Total CAR Score</th>
+                            <th style={{ padding: '10px 14px', textAlign: 'right', width: '140px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Board Status</th>
                           </tr>
                         </thead>
 
@@ -2843,7 +2831,7 @@ export const PromotionManagement: React.FC = () => {
                                         width: '24px',
                                         height: '24px',
                                         borderRadius: '50%',
-                                        fontSize: '0.75rem',
+                                        fontSize: '0.9375rem',
                                         fontWeight: 800,
                                         fontFamily: 'var(--font-mono)',
                                         background: isWithinQuota ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5') : 'var(--color-bg-tertiary)',
@@ -2854,11 +2842,11 @@ export const PromotionManagement: React.FC = () => {
                                       </span>
                                     </td>
                                     <td style={{ padding: '12px 14px' }}>
-                                      <div style={{ fontWeight: 700, color: 'var(--color-text-primary)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <div style={{ fontWeight: 700, color: 'var(--color-text-primary)', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                         <span>{item.name}</span>
                                         {isWithinQuota && (
                                           <span style={{
-                                            fontSize: '0.625rem',
+                                            fontSize: '0.875rem',
                                             fontWeight: 700,
                                             color: '#059669',
                                             background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
@@ -2870,11 +2858,11 @@ export const PromotionManagement: React.FC = () => {
                                           </span>
                                         )}
                                       </div>
-                                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                                      <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                                         {item.designation || 'Teacher'} • {item.station}
                                       </div>
                                     </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                                    <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>
                                       {item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber || selectedCycle?.rulesConfigurationJson?.plantillaItemNo || 'Pending Allocation'}
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
@@ -2886,20 +2874,20 @@ export const PromotionManagement: React.FC = () => {
                                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                                       <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '3px' }}>
                                         <span style={{
-                                          fontSize: '1.0625rem',
+                                          fontSize: '1.1875rem',
                                           fontWeight: 800,
                                           fontFamily: 'var(--font-mono)',
                                           color: isWithinQuota ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
                                         }}>
                                           {totalScore.toFixed(2)}
                                         </span>
-                                        <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>/ 100</span>
+                                        <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>/ 100</span>
                                       </div>
                                     </td>
                                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                                       {isPromoted ? (
                                         <span style={{
-                                          fontSize: '0.625rem',
+                                          fontSize: '0.875rem',
                                           background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5',
                                           color: theme === 'dark' ? '#34D399' : '#059669',
                                           padding: '2px 7px',
@@ -2911,7 +2899,7 @@ export const PromotionManagement: React.FC = () => {
                                         </span>
                                       ) : isWithinQuota ? (
                                         <span style={{
-                                          fontSize: '0.625rem',
+                                          fontSize: '0.875rem',
                                           background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
                                           color: '#059669',
                                           padding: '2px 7px',
@@ -2923,7 +2911,7 @@ export const PromotionManagement: React.FC = () => {
                                         </span>
                                       ) : (
                                         <span style={{
-                                          fontSize: '0.625rem',
+                                          fontSize: '0.875rem',
                                           background: 'var(--color-bg-tertiary)',
                                           color: 'var(--color-text-muted)',
                                           padding: '2px 7px',
@@ -2948,7 +2936,7 @@ export const PromotionManagement: React.FC = () => {
                                         borderBottom: '1px dashed var(--color-border)',
                                       }}>
                                         <div style={{
-                                          fontSize: '0.6875rem',
+                                          fontSize: '0.875rem',
                                           fontWeight: 700,
                                           letterSpacing: '0.06em',
                                           color: 'var(--color-text-muted)',
@@ -2988,20 +2976,17 @@ export const PromotionManagement: React.FC = () => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
                       <div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.4)', marginBottom: '8px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.4)', marginBottom: '8px' }}>
                           <AppIcon name="checklist" size={13} color="var(--color-primary)" />
-                          Stage 1 • AO II Documentary Completeness Verification
+                          Stage 1
                         </div>
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                          Administrative Officer II Requirements Desk (Annex C Checklist)
+                          Requirements check (Annex C)
                         </h3>
-                        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', margin: '4px 0 0 0' }}>
-                          Inspect submitted documents for items a–k, verify authenticity and completeness, and endorse applicants for HRMPSB score deliberation.
-                        </p>
                         
                         {/* District Jurisdiction Status Pill */}
                         <div style={{ marginTop: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <AppIcon name="location" size={12} color="var(--color-primary)" /> Division Scope: {cycleDistrict || 'Division-Wide'} ({cycleSchool || 'All Schools'})
                           </span>
                         </div>
@@ -3014,7 +2999,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setAoFilter('ALL')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3030,7 +3015,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setAoFilter('PENDING')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3046,7 +3031,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setAoFilter('VERIFIED')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3062,7 +3047,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setAoFilter('DEFICIENT')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3077,41 +3062,41 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18, alignItems: 'center' }}>
-                      <label htmlFor="hrmo-district-filter" style={{ fontSize: 12, fontWeight: 700 }}>District</label>
+                      <label htmlFor="hrmo-district-filter" style={{ fontSize: 14, fontWeight: 700 }}>District</label>
                       <select id="hrmo-district-filter" value={hrmoDistrictFilter} onChange={e => { setHrmoDistrictFilter(e.target.value); setHrmoSchoolFilter('ALL'); }} className="form-input" style={{ width: 'auto', minWidth: 160 }}>
                         <option value="ALL">All districts</option>
                         {hrmoDistricts.map(district => <option key={district} value={district}>{district}</option>)}
                       </select>
-                      <label htmlFor="hrmo-school-filter" style={{ fontSize: 12, fontWeight: 700 }}>School</label>
+                      <label htmlFor="hrmo-school-filter" style={{ fontSize: 14, fontWeight: 700 }}>School</label>
                       <select id="hrmo-school-filter" value={hrmoSchoolFilter} onChange={e => setHrmoSchoolFilter(e.target.value)} className="form-input" style={{ width: 'auto', minWidth: 200 }}>
                         <option value="ALL">All schools</option>
                         {hrmoSchools.map(school => <option key={school} value={school}>{school}</option>)}
                       </select>
-                      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{displayedHrmoApps.length} applicants shown</span>
+                      <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{displayedHrmoApps.length} applicants shown</span>
                     </div>
 
                     {/* KPI Metric Counter Strip */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                       <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total Applicants</div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total Applicants</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{hrmoStationApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Complete / Verified</div>
+                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Complete / Verified</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#34D399' : '#059669' }}>{aoVerifiedApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid #FECACA' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#F87171' : '#DC2626', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Incomplete / Deficient</div>
+                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#F87171' : '#DC2626', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Incomplete / Deficient</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#F87171' : '#DC2626' }}>{aoDeficientApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Verification</div>
+                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Verification</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#D97706' }}>{aoPendingApps.length}</div>
                       </div>
                     </div>
 
                     {/* Criteria Reference Strip */}
-                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.9375rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 800, color: 'var(--color-primary)' }}>Official DepEd Mandate (DepEd Order No. 007, s. 2023 / DepEd Order No. 19, s. 2022):</span>
                       <span>Administrative Officer II verifies completeness and authenticity of Annex C documentary requirements (items a–k). Score deliberation (100 pts) is conducted by the HRMPSB Board.</span>
                     </div>
@@ -3166,23 +3151,23 @@ export const PromotionManagement: React.FC = () => {
                                   justifyContent: 'center',
                                   color: '#ffffff',
                                   fontWeight: 800,
-                                  fontSize: '1rem',
+                                  fontSize: '1.125rem',
                                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                 }}>
                                   {app.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'AP'}
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.2 }}>
+                                  <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.2 }}>
                                     {app.name}
                                   </div>
-                                  <div style={{ fontSize: '0.75rem', color: isCycleTeaching ? 'var(--color-primary)' : '#D97706', marginTop: '2px', fontWeight: 600 }}>
+                                  <div style={{ fontSize: '0.9375rem', color: isCycleTeaching ? 'var(--color-primary)' : '#D97706', marginTop: '2px', fontWeight: 600 }}>
                                     {app.designation || 'Teacher / Plantilla Candidate'}
                                   </div>
                                 </div>
                               </div>
 
                               <span style={{
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 padding: '3px 8px',
                                 borderRadius: '6px',
                                 fontWeight: 700,
@@ -3217,7 +3202,7 @@ export const PromotionManagement: React.FC = () => {
                             </div>
 
                             {/* Application Code & Metadata */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-secondary)', padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--color-border)', fontFamily: 'var(--font-mono)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--color-text-secondary)', padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--color-border)', fontFamily: 'var(--font-mono)' }}>
                               <span>Code: <strong style={{ color: 'var(--color-primary)' }}>{app.scoreDetailsJson?.applicantNumber || app.employeeId}</strong></span>
                               <span>Date: {app.dateSubmitted || '2026 Active'}</span>
                             </div>
@@ -3225,16 +3210,16 @@ export const PromotionManagement: React.FC = () => {
                             {/* Annex C Requirements Summary Cards */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, 1fr))', gap: '8px', marginBottom: '14px' }}>
                               <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Annex C Items</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{totalItems} items <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>(a to k)</span></div>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Annex C Items</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{totalItems} items <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>(a to k)</span></div>
                               </div>
                               <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Scanned / Attached</div>
-                                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: attachedDocsCount > 0 ? '#059669' : 'var(--color-text-muted)' }}>{attachedDocsCount} documents</div>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Scanned / Attached</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 800, color: attachedDocsCount > 0 ? '#059669' : 'var(--color-text-muted)' }}>{attachedDocsCount} documents</div>
                               </div>
                               <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px', gridColumn: 'span 2' }}>
-                                <div style={{ fontSize: '0.625rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Omnibus Sworn Statement</div>
-                                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: checklist?.applicantInfo?.omnibusSwornStatement ? '#059669' : '#D97706' }}>
+                                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Omnibus Sworn Statement</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 700, color: checklist?.applicantInfo?.omnibusSwornStatement ? '#059669' : '#D97706' }}>
                                   {swornStatement}
                                 </div>
                               </div>
@@ -3242,7 +3227,7 @@ export const PromotionManagement: React.FC = () => {
 
                             {/* Remarks Snippet */}
                             {reqCheck?.remarks && (
-                              <div style={{ fontSize: '0.6875rem', color: isDeficient ? '#DC2626' : 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', borderLeft: isDeficient ? '3px solid #DC2626' : '3px solid #059669' }}>
+                              <div style={{ fontSize: '0.875rem', color: isDeficient ? '#DC2626' : 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', borderLeft: isDeficient ? '3px solid #DC2626' : '3px solid #059669' }}>
                                 "{reqCheck.remarks}"
                               </div>
                             )}
@@ -3257,7 +3242,7 @@ export const PromotionManagement: React.FC = () => {
                                 setSelectedApplicantInfo(app);
                                 setShowApplicantInfoModal(true);
                               }}
-                              style={{ flex: 1, fontSize: '0.75rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', borderRadius: '9999px', fontWeight: 700 }}
+                              style={{ flex: 1, fontSize: '0.9375rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', borderRadius: '9999px', fontWeight: 700 }}
                             >
                               201 File
                             </button>
@@ -3267,7 +3252,7 @@ export const PromotionManagement: React.FC = () => {
                               onClick={() => handleOpenAoRating(app)}
                               style={{
                                 flex: 2,
-                                fontSize: '0.75rem',
+                                fontSize: '0.9375rem',
                                 background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
                                 color: '#ffffff',
                                 border: 'none',
@@ -3303,16 +3288,13 @@ export const PromotionManagement: React.FC = () => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
                       <div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#059669', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(5, 150, 105, 0.4)', marginBottom: '8px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#059669', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(5, 150, 105, 0.4)', marginBottom: '8px' }}>
                           <AppIcon name="approvals" size={13} color="#059669" />
-                          Stage 2 • HRMO Merit Promotion Board Final Deliberation
+                          Stage 2
                         </div>
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                          HRMO Board Final Deliberation & CAR Ranking Desk
+                          Board deliberation
                         </h3>
-                        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', margin: '4px 0 0 0' }}>
-                          Evaluate demo teaching / potential tests, record board remarks, background investigation status, and lock final 100.00-point CAR results.
-                        </p>
                       </div>
 
                       {/* Filter Switcher Pills */}
@@ -3322,7 +3304,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setHrmoFilter('ALL')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3338,7 +3320,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setHrmoFilter('PENDING')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3354,7 +3336,7 @@ export const PromotionManagement: React.FC = () => {
                           onClick={() => setHrmoFilter('FINALIZED')}
                           style={{
                             padding: '6px 14px',
-                            fontSize: '0.75rem',
+                            fontSize: '0.9375rem',
                             fontWeight: 700,
                             borderRadius: '6px',
                             border: 'none',
@@ -3371,30 +3353,30 @@ export const PromotionManagement: React.FC = () => {
                     {/* KPI Metric Counter Strip */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                       <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total In Deliberation</div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total In Deliberation</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{filteredSubmittedApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Deliberated & Ranked</div>
+                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Deliberated & Ranked</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#34D399' : '#059669' }}>{hrmoFinalizedApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A' }}>
-                        <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Board Score</div>
+                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Board Score</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#D97706' }}>{hrmoPendingApps.length}</div>
                       </div>
                       <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Combined CAR Target</div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Combined CAR Target</div>
                         <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-primary)' }}>100.00 pts Master Score</div>
                       </div>
                     </div>
 
                     {/* Criteria Reference Strip */}
-                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.75rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 800, color: '#059669' }}>Official DepEd Deliberation Criteria (100.00 pts HR Deliberation):</span>
+                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.9375rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 800, color: '#059669' }}>Scoring:</span>
                       {isCycleTeaching ? (
-                        <span>Education (10) + Training (10) + Experience (10) + Performance (30) + PPST COIs Demo (25) + PPST NCOIs (15) = <strong style={{ color: '#059669' }}>100.00 pts CAR Deliberation Total</strong></span>
+                        <span>Education (10) + Training (10) + Experience (10) + Performance (30) + PPST COIs Demo (25) + PPST NCOIs (15) = <strong style={{ color: '#059669' }}>100 pts</strong></span>
                       ) : (
-                        <span>Education (10) + Training (10) + Experience (10) + Performance (20) + Accomplishments (5) + App Edu (15) + App L&D (10) + Potential/Exams (20) = <strong style={{ color: '#D97706' }}>100.00 pts CAR Deliberation Total</strong></span>
+                        <span>Education (10) + Training (10) + Experience (10) + Performance (20) + Accomplishments (5) + App Edu (15) + App L&D (10) + Potential/Exams (20) = <strong style={{ color: '#D97706' }}>100 pts</strong></span>
                       )}
                     </div>
                   </div>
@@ -3443,23 +3425,23 @@ export const PromotionManagement: React.FC = () => {
                                   justifyContent: 'center',
                                   color: '#ffffff',
                                   fontWeight: 800,
-                                  fontSize: '1rem',
+                                  fontSize: '1.125rem',
                                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                                 }}>
                                   {app.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'AP'}
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.2 }}>
+                                  <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.2 }}>
                                     {app.name}
                                   </div>
-                                  <div style={{ fontSize: '0.75rem', color: isCycleTeaching ? 'var(--color-primary)' : '#D97706', marginTop: '2px', fontWeight: 600 }}>
+                                  <div style={{ fontSize: '0.9375rem', color: isCycleTeaching ? 'var(--color-primary)' : '#D97706', marginTop: '2px', fontWeight: 600 }}>
                                     {app.designation || 'Teacher / Plantilla Candidate'}
                                   </div>
                                 </div>
                               </div>
 
                               <span style={{
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 padding: '3px 8px',
                                 borderRadius: '6px',
                                 fontWeight: 700,
@@ -3483,21 +3465,21 @@ export const PromotionManagement: React.FC = () => {
                             <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '10px', marginBottom: '14px' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px', marginBottom: '10px' }}>
                                 <div style={{ background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : isReqDeficient ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB'), padding: '8px 10px', borderRadius: '8px', border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.3)' : isReqDeficient ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)' }}>
-                                  <div style={{ fontSize: '0.625rem', color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', textTransform: 'uppercase', fontWeight: 700 }}>Stage 1 • AO Reqs</div>
-                                  <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '0.875rem', color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', textTransform: 'uppercase', fontWeight: 700 }}>Stage 1 • AO Reqs</div>
+                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', marginTop: '2px' }}>
                                     {isReqComplete ? 'Verified Complete' : isReqDeficient ? 'Deficient' : 'Pending Check'}
                                   </div>
                                 </div>
                                 <div style={{ background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1'), padding: '8px 10px', borderRadius: '8px', border: isFinalized ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(37, 99, 235, 0.3)' }}>
-                                  <div style={{ fontSize: '0.625rem', color: isFinalized ? '#059669' : 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 2 • HR Deliberation</div>
-                                  <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: isFinalized ? '#059669' : 'var(--color-primary)', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '0.875rem', color: isFinalized ? '#059669' : 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 2 • HR Deliberation</div>
+                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: isFinalized ? '#059669' : 'var(--color-primary)', marginTop: '2px' }}>
                                     {isFinalized ? `${overallScore.toFixed(2)} / 100` : 'Pending Board'}
                                   </div>
                                 </div>
                               </div>
 
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1', padding: '10px 14px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>Combined CAR Total:</span>
+                                <span style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', fontWeight: 700 }}>Combined CAR Total:</span>
                                 <strong style={{ fontSize: '1.125rem', color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', fontWeight: 900 }}>
                                   {isFinalized ? `${overallScore.toFixed(2)} / 100.00 pts` : 'Awaiting Deliberation'}
                                 </strong>
@@ -3505,7 +3487,7 @@ export const PromotionManagement: React.FC = () => {
                             </div>
 
                             {/* Governance Tags */}
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px', fontSize: '0.6875rem' }}>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px', fontSize: '0.875rem' }}>
                               <span style={{ padding: '4px 10px', borderRadius: '6px', background: biStatus === 'YES' ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2'), color: biStatus === 'YES' ? '#059669' : '#DC2626', border: biStatus === 'YES' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(220, 38, 38, 0.3)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 BI: {biStatus === 'YES' ? <><AppIcon name="check" size={10} color="#059669" /> Passed</> : <><AppIcon name="close" size={10} color="#DC2626" /> Failed</>}
                               </span>
@@ -3516,7 +3498,7 @@ export const PromotionManagement: React.FC = () => {
 
                             {/* Remarks Snippet */}
                             {finalRating.hrmoRemarks && (
-                              <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: '8px', border: '1px solid var(--color-border)', borderLeft: '3px solid #059669' }}>
+                              <div style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: '8px', border: '1px solid var(--color-border)', borderLeft: '3px solid #059669' }}>
                                 "{finalRating.hrmoRemarks}"
                               </div>
                             )}
@@ -3531,7 +3513,7 @@ export const PromotionManagement: React.FC = () => {
                                 setSelectedApplicantInfo(app);
                                 setShowApplicantInfoModal(true);
                               }}
-                              style={{ flex: 1, fontSize: '0.75rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', borderRadius: '9999px', fontWeight: 700 }}
+                              style={{ flex: 1, fontSize: '0.9375rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', borderRadius: '9999px', fontWeight: 700 }}
                             >
                               201 File
                             </button>
@@ -3542,7 +3524,7 @@ export const PromotionManagement: React.FC = () => {
                                 onClick={() => handleOpenHrmoRating(app)}
                                 style={{
                                   flex: 2,
-                                  fontSize: '0.75rem',
+                                  fontSize: '0.9375rem',
                                   background: isFinalized ? 'var(--color-bg-tertiary)' : 'var(--color-primary)',
                                   border: isFinalized ? '1px solid var(--color-border)' : 'none',
                                   color: isFinalized ? 'var(--color-text-primary)' : '#FFFFFF',
@@ -3561,7 +3543,7 @@ export const PromotionManagement: React.FC = () => {
                             ) : (
                               <div style={{
                                 flex: 2,
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 color: 'var(--color-text-secondary)',
                                 background: 'var(--color-bg-tertiary)',
                                 padding: '6px 10px',
@@ -3592,13 +3574,10 @@ export const PromotionManagement: React.FC = () => {
                       <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
                         HR Candidate Selection for Promotion
                       </h3>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', margin: '4px 0 0 0' }}>
-                        Review final overall candidate scores and select qualified personnel for promotion. Candidate selection triggers automated document submission notifications to the applicant.
-                      </p>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '0.75rem', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5', color: theme === 'dark' ? '#34D399' : '#059669', padding: '4px 14px', borderRadius: '9999px', fontWeight: 700, border: '1px solid rgba(5, 150, 105, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.9375rem', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5', color: theme === 'dark' ? '#34D399' : '#059669', padding: '4px 14px', borderRadius: '9999px', fontWeight: 700, border: '1px solid rgba(5, 150, 105, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <AppIcon name="promotions" size={13} color={theme === 'dark' ? '#34D399' : '#059669'} /> Vacancies Available: {selectedCycle?.rulesConfigurationJson?.vacantPositions || 1} Post(s)
                       </span>
                     </div>
@@ -3626,23 +3605,23 @@ export const PromotionManagement: React.FC = () => {
                               <span style={{
                                 width: '26px', height: '26px', borderRadius: '50%',
                                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                fontWeight: 800, fontSize: '0.75rem',
+                                fontWeight: 800, fontSize: '0.9375rem',
                                 background: item.rank === 1 ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.25)' : '#FEF3C7') : 'var(--color-bg-card)',
                                 color: item.rank === 1 ? '#D97706' : 'var(--color-text-secondary)',
                                 border: item.rank === 1 ? '1px solid rgba(217, 119, 6, 0.4)' : '1px solid var(--color-border)',
                               }}>
                                 #{item.rank}
                               </span>
-                              <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontWeight: 700 }}>
+                              <span style={{ fontSize: '0.9375rem', fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontWeight: 700 }}>
                                 {item.applicantNumber ? `App No: ${item.applicantNumber}` : item.employeeId}
                               </span>
                             </div>
                             {isOfficiallyApproved ? (
-                              <span style={{ fontSize: '0.6875rem', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', border: '1px solid rgba(5, 150, 105, 0.4)', padding: '3px 9px', borderRadius: '9999px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ fontSize: '0.875rem', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', border: '1px solid rgba(5, 150, 105, 0.4)', padding: '3px 9px', borderRadius: '9999px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 <AppIcon name="promotions" size={10} color={theme === 'dark' ? '#34D399' : '#15803D'} /> OFFICIALLY PROMOTED
                               </span>
                             ) : isSelectedPendingDocs ? (
-                              <span style={{ fontSize: '0.6875rem', background: theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7', color: theme === 'dark' ? '#FBBF24' : '#B45309', border: '1px solid rgba(217, 119, 6, 0.4)', padding: '3px 9px', borderRadius: '9999px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ fontSize: '0.875rem', background: theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7', color: theme === 'dark' ? '#FBBF24' : '#B45309', border: '1px solid rgba(217, 119, 6, 0.4)', padding: '3px 9px', borderRadius: '9999px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 <AppIcon name="pending" size={10} color={theme === 'dark' ? '#FBBF24' : '#B45309'} /> PENDING HR DOC APPROVAL
                               </span>
                             ) : (
@@ -3650,15 +3629,15 @@ export const PromotionManagement: React.FC = () => {
                             )}
                           </div>
 
-                          <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '2px' }}>{item.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginBottom: item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber ? '6px' : '14px' }}>{item.designation}</div>
+                          <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '2px' }}>{item.name}</div>
+                          <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginBottom: item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber ? '6px' : '14px' }}>{item.designation}</div>
 
                           {(item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber) && (
                             <div style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 6,
-                              fontSize: '0.75rem',
+                              fontSize: '0.9375rem',
                               fontWeight: 700,
                               background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1',
                               color: 'var(--color-primary)',
@@ -3673,22 +3652,22 @@ export const PromotionManagement: React.FC = () => {
                           )}
 
                           <div style={{ background: 'var(--color-bg-card)', padding: '12px 14px', borderRadius: '10px', marginBottom: '14px', border: '1px solid var(--color-border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', marginBottom: '4px' }}>
                               <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>AO Initial Rating:</span>
                               <span style={{ color: '#059669', fontWeight: 700 }}>{item.initialTotalScore > 0 ? `${item.initialTotalScore} / 100` : 'Pending AO'}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', marginBottom: '4px' }}>
                               <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>HR Board Final Score:</span>
                               <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{item.finalTotalScore > 0 ? `+${item.finalTotalScore} pts` : 'Pending HR'}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem' }}>
                               <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Combined Overall Total:</span>
                               <span style={{ color: 'var(--color-text-primary)', fontWeight: 800 }}>{item.overallTotalScore} pts</span>
                             </div>
                           </div>
 
                           {isSelectedPendingDocs && item.transactionId && (
-                            <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
+                            <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.9375rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
                               <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Appointment TRX #{item.transactionId} ({item.transactionStatus || 'DRAFT'})</span>
                               <a href={`/admin/validation?tx=${item.transactionId}`} style={{ color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>Validate Docs →</a>
                             </div>
@@ -3702,7 +3681,7 @@ export const PromotionManagement: React.FC = () => {
                                 setSelectedApplicantInfo(item);
                                 setShowApplicantInfoModal(true);
                               }}
-                              style={{ fontSize: '0.75rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)', flex: 1, borderRadius: '9999px', fontWeight: 700 }}
+                              style={{ fontSize: '0.9375rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)', flex: 1, borderRadius: '9999px', fontWeight: 700 }}
                             >
                               View Info
                             </button>
@@ -3716,7 +3695,7 @@ export const PromotionManagement: React.FC = () => {
                                     onClick={() => handleTogglePromotionCandidate(item, false)}
                                     style={{
                                       flex: 1,
-                                      fontSize: '0.75rem',
+                                      fontSize: '0.9375rem',
                                       background: isOfficiallyApproved ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7'),
                                       color: isOfficiallyApproved ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#B45309'),
                                       border: isOfficiallyApproved ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(217, 119, 6, 0.4)',
@@ -3733,7 +3712,7 @@ export const PromotionManagement: React.FC = () => {
                                     onClick={() => handleOpenConfirmSelection(item)}
                                     title="Reassign to another designated plantilla post"
                                     style={{
-                                      fontSize: '0.6875rem',
+                                      fontSize: '0.875rem',
                                       borderRadius: '9999px',
                                       fontWeight: 700,
                                       padding: '4px 10px',
@@ -3750,7 +3729,7 @@ export const PromotionManagement: React.FC = () => {
                                   onClick={() => handleOpenConfirmSelection(item)}
                                   style={{
                                     flex: 2,
-                                    fontSize: '0.75rem',
+                                    fontSize: '0.9375rem',
                                     background: 'var(--color-primary)',
                                     color: '#ffffff',
                                     border: 'none',
@@ -3769,7 +3748,7 @@ export const PromotionManagement: React.FC = () => {
                             ) : (
                               <div style={{
                                 flex: 2,
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 color: 'var(--color-text-secondary)',
                                 background: 'var(--color-bg-tertiary)',
                                 padding: '6px 10px',
@@ -3845,7 +3824,7 @@ export const PromotionManagement: React.FC = () => {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span style={{
-                    fontSize: '0.6875rem',
+                    fontSize: '0.875rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -3861,7 +3840,7 @@ export const PromotionManagement: React.FC = () => {
                     <AppIcon name="approvals" size={12} color={theme === 'dark' ? '#34D399' : '#059669'} />
                     Stage 2 • Merit Promotion Selection Board (MPSB)
                   </span>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                     DepEd SDO Koronadal City
                   </span>
                 </div>
@@ -3908,20 +3887,20 @@ export const PromotionManagement: React.FC = () => {
                     {selectedAppForModal.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'AP'}
                   </div>
                   <div>
-                    <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                    <div style={{ fontSize: '1.1875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                       {selectedAppForModal.name}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                    <div style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', fontWeight: 600 }}>
                       {selectedAppForModal.designation || 'Plantilla Candidate'} • <span style={{ color: 'var(--color-text-secondary)' }}>{selectedAppForModal.station || 'Division of Koronadal City'}</span>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', color: 'var(--color-primary)', padding: '4px 10px', borderRadius: '6px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8', fontWeight: 600 }}>
+                  <span style={{ fontSize: '0.9375rem', fontFamily: 'var(--font-mono)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', color: 'var(--color-primary)', padding: '4px 10px', borderRadius: '6px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8', fontWeight: 600 }}>
                     {selectedAppForModal.applicantNumber || `APP-${String(selectedAppForModal.id).padStart(4, '0')}`}
                   </span>
-                  <span style={{ fontSize: '0.75rem', background: modalTrack === 'NON_TEACHING' ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB') : (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5'), color: modalTrack === 'NON_TEACHING' ? '#D97706' : '#059669', padding: '4px 10px', borderRadius: '6px', border: modalTrack === 'NON_TEACHING' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid rgba(5, 150, 105, 0.3)', fontWeight: 700 }}>
+                  <span style={{ fontSize: '0.9375rem', background: modalTrack === 'NON_TEACHING' ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB') : (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5'), color: modalTrack === 'NON_TEACHING' ? '#D97706' : '#059669', padding: '4px 10px', borderRadius: '6px', border: modalTrack === 'NON_TEACHING' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid rgba(5, 150, 105, 0.3)', fontWeight: 700 }}>
                     {modalTrack === 'NON_TEACHING' ? 'Non-Teaching Track' : 'Teaching Track'}
                   </span>
                 </div>
@@ -3946,10 +3925,10 @@ export const PromotionManagement: React.FC = () => {
                     gap: '12px',
                   }}>
                     <div>
-                      <div style={{ fontSize: '0.6875rem', color: isReqComplete ? '#059669' : '#D97706', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
+                      <div style={{ fontSize: '0.875rem', color: isReqComplete ? '#059669' : '#D97706', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
                         Stage 1 • AO II Documentary Requirements Check
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                         {reqCheck?.remarks || (isReqComplete ? 'All Annex C documentary requirements verified complete and authentic.' : isReqDeficient ? 'Requirements incomplete / deficient.' : 'Awaiting AO II completeness verification.')}
                       </div>
                     </div>
@@ -3957,7 +3936,7 @@ export const PromotionManagement: React.FC = () => {
                       <span style={{
                         background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7'),
                         color: isReqComplete ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#D97706'),
-                        fontSize: '0.75rem',
+                        fontSize: '0.9375rem',
                         padding: '4px 10px',
                         borderRadius: '6px',
                         fontWeight: 800,
@@ -3981,12 +3960,12 @@ export const PromotionManagement: React.FC = () => {
                 borderRadius: '12px',
                 padding: '16px',
               }}>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
                   HRMPSB Deliberation • Basic Qualification Criteria ({modalTrack === 'NON_TEACHING' ? '50.00 pts Max' : '60.00 pts Max'})
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Education (Max 10)</label>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Education (Max 10)</label>
                     <input
                       aria-label="Education (Max 10)"
                       type="number"
@@ -3999,7 +3978,7 @@ export const PromotionManagement: React.FC = () => {
                     />
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Training (Max 10)</label>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Training (Max 10)</label>
                     <input
                       aria-label="Training (Max 10)"
                       type="number"
@@ -4012,7 +3991,7 @@ export const PromotionManagement: React.FC = () => {
                     />
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Experience (Max 10)</label>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Experience (Max 10)</label>
                     <input
                       aria-label="Experience (Max 10)"
                       type="number"
@@ -4025,7 +4004,7 @@ export const PromotionManagement: React.FC = () => {
                     />
                   </div>
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                       Performance ({modalTrack === 'NON_TEACHING' ? 'Max 20' : 'Max 30'})
                     </label>
                     <input aria-label="Performance Score"
@@ -4043,7 +4022,7 @@ export const PromotionManagement: React.FC = () => {
                 {modalTrack === 'NON_TEACHING' && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Accomplishments (Max 5)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Accomplishments (Max 5)</label>
                       <input
                         aria-label="Accomplishments (Max 5)"
                         type="number"
@@ -4056,7 +4035,7 @@ export const PromotionManagement: React.FC = () => {
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of Education (Max 15)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of Education (Max 15)</label>
                       <input
                         aria-label="App of Education (Max 15)"
                         type="number"
@@ -4069,7 +4048,7 @@ export const PromotionManagement: React.FC = () => {
                       />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of L&D (Max 10)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of L&D (Max 10)</label>
                       <input
                         aria-label="App of L&D (Max 10)"
                         type="number"
@@ -4094,10 +4073,10 @@ export const PromotionManagement: React.FC = () => {
                   padding: '18px',
                 }}>
                   <div className="hrmo-criteria-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Teaching Merit Criteria (40.00 pts Max)
                     </div>
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                       Evaluated via Classroom Observation Tool (COT) & Portfolio MOVs
                     </span>
                   </div>
@@ -4107,17 +4086,17 @@ export const PromotionManagement: React.FC = () => {
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '14px', borderRadius: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
                             1. PPST COIs — Demonstration Teaching / Classroom Observation
                           </label>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                             Max 25.00 pts (COT Rubric Level 3-7 ratings calibrated to 25 pts)
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                          <button type="button" onClick={() => setHrmoPpstCoiScore(25)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.4)', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', cursor: 'pointer', fontWeight: 700 }}>Max (25)</button>
-                          <button type="button" onClick={() => setHrmoPpstCoiScore(23.5)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>23.50</button>
-                          <button type="button" onClick={() => setHrmoPpstCoiScore(20)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>20.00</button>
+                          <button type="button" onClick={() => setHrmoPpstCoiScore(25)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.4)', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', cursor: 'pointer', fontWeight: 700 }}>Max (25)</button>
+                          <button type="button" onClick={() => setHrmoPpstCoiScore(23.5)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>23.50</button>
+                          <button type="button" onClick={() => setHrmoPpstCoiScore(20)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>20.00</button>
                         </div>
                       </div>
                       <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -4135,12 +4114,12 @@ export const PromotionManagement: React.FC = () => {
                             type="number"
                             max={25} min={0} step="0.01"
                             className="form-input"
-                            style={{ width: '85px', textAlign: 'center', fontWeight: 800, color: '#059669', fontSize: '0.9375rem', fontFamily: 'var(--font-mono)' }}
+                            style={{ width: '85px', textAlign: 'center', fontWeight: 800, color: '#059669', fontSize: '1.0625rem', fontFamily: 'var(--font-mono)' }}
                             value={hrmoPpstCoiScore}
                             onChange={(e) => setHrmoPpstCoiScore(Number(e.target.value))}
                             required
                           />
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>/ 25</span>
+                          <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>/ 25</span>
                         </div>
                       </div>
                     </div>
@@ -4149,17 +4128,17 @@ export const PromotionManagement: React.FC = () => {
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '14px', borderRadius: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                         <div>
-                          <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
                             2. PPST NCOIs — Portfolio Annotation & Behavioral Event Interview (BEI)
                           </label>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                             Max 15.00 pts (Means of Verification, Portfolio Evidence & Interview)
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                          <button type="button" onClick={() => setHrmoPpstNcoiScore(15)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.4)', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', cursor: 'pointer', fontWeight: 700 }}>Max (15)</button>
-                          <button type="button" onClick={() => setHrmoPpstNcoiScore(13.5)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>13.50</button>
-                          <button type="button" onClick={() => setHrmoPpstNcoiScore(12)} style={{ fontSize: '0.6875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>12.00</button>
+                          <button type="button" onClick={() => setHrmoPpstNcoiScore(15)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.4)', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', cursor: 'pointer', fontWeight: 700 }}>Max (15)</button>
+                          <button type="button" onClick={() => setHrmoPpstNcoiScore(13.5)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>13.50</button>
+                          <button type="button" onClick={() => setHrmoPpstNcoiScore(12)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>12.00</button>
                         </div>
                       </div>
                       <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -4177,12 +4156,12 @@ export const PromotionManagement: React.FC = () => {
                             type="number"
                             max={15} min={0} step="0.01"
                             className="form-input"
-                            style={{ width: '85px', textAlign: 'center', fontWeight: 800, color: '#059669', fontSize: '0.9375rem', fontFamily: 'var(--font-mono)' }}
+                            style={{ width: '85px', textAlign: 'center', fontWeight: 800, color: '#059669', fontSize: '1.0625rem', fontFamily: 'var(--font-mono)' }}
                             value={hrmoPpstNcoiScore}
                             onChange={(e) => setHrmoPpstNcoiScore(Number(e.target.value))}
                             required
                           />
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>/ 15</span>
+                          <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>/ 15</span>
                         </div>
                       </div>
                     </div>
@@ -4197,17 +4176,17 @@ export const PromotionManagement: React.FC = () => {
                   padding: '18px',
                 }}>
                   <div className="hrmo-criteria-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Non-Teaching Potential Criteria (20.00 pts Max)
                     </div>
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                       Written Exam + Behavioral Event Interview + Skills Test
                     </span>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Written Examination (Max 5)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Written Examination (Max 5)</label>
                       <input
                         aria-label="Written Examination (Max 5)"
                         type="number"
@@ -4220,7 +4199,7 @@ export const PromotionManagement: React.FC = () => {
                       />
                     </div>
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>BEI Interview (Max 5)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>BEI Interview (Max 5)</label>
                       <input
                         aria-label="BEI Interview (Max 5)"
                         type="number"
@@ -4233,7 +4212,7 @@ export const PromotionManagement: React.FC = () => {
                       />
                     </div>
                     <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Skills Test (Max 10)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Skills Test (Max 10)</label>
                       <input
                         aria-label="Skills Test (Max 10)"
                         type="number"
@@ -4283,10 +4262,10 @@ export const PromotionManagement: React.FC = () => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
                       <div>
-                        <div style={{ fontSize: '0.6875rem', color: '#059669', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
+                        <div style={{ fontSize: '0.875rem', color: '#059669', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
                           HRMPSB Deliberated Comparative Assessment Result (CAR) Total
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                        <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>
                           {modalTrack === 'NON_TEACHING'
                             ? `Education (${edu}) + Training (${train}) + Experience (${exp}) + Perf (${perf}) + Accomp (${hrmoAccomplishmentsScore}) + AppEdu (${hrmoAppEduScore}) + AppLD (${hrmoAppLdScore}) + Potential (${(Number(hrmoWrittenScore) + Number(hrmoBeiScore) + Number(hrmoSkillsScore)).toFixed(1)})`
                             : `Education (${edu}) + Training (${train}) + Experience (${exp}) + Perf (${perf}) + PPST COT (${hrmoPpstCoiScore}) + Portfolio (${hrmoPpstNcoiScore})`}
@@ -4297,7 +4276,7 @@ export const PromotionManagement: React.FC = () => {
                         <span style={{ fontSize: '1.75rem', fontWeight: 900, color: '#059669', fontFamily: 'var(--font-mono)' }}>
                           {combined.toFixed(2)}
                         </span>
-                        <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 700 }}>/ 100.00 pts</span>
+                        <span style={{ fontSize: '1rem', color: 'var(--color-text-secondary)', fontWeight: 700 }}>/ 100.00 pts</span>
                       </div>
                     </div>
 
@@ -4305,7 +4284,7 @@ export const PromotionManagement: React.FC = () => {
                       <div style={{ width: `${Math.min(100, combined)}%`, height: '100%', background: isOutstanding ? 'linear-gradient(90deg, #10b981 0%, #d97706 100%)' : 'linear-gradient(90deg, #2f7d52 0%, #10b981 100%)', borderRadius: '4px', transition: 'width 0.3s ease' }} />
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                       <span>Grade: <strong style={{ color: isOutstanding ? '#059669' : 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{isOutstanding ? <><AppIcon name="award" size={12} color="#059669" /> Highly Qualified / Superior Merit</> : <><AppIcon name="check" size={12} color="var(--color-primary)" /> Qualified for Deliberation</>}</strong></span>
                       <span>Cut-off Threshold: 50.00 pts</span>
                     </div>
@@ -4320,7 +4299,7 @@ export const PromotionManagement: React.FC = () => {
                 borderRadius: '12px',
                 padding: '18px',
               }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <AppIcon name="approvals" size={14} color="var(--color-primary)" />
                   Official DepEd CAR Governance & Appointing Fields
                 </div>
@@ -4329,7 +4308,7 @@ export const PromotionManagement: React.FC = () => {
                 <div className="hrmo-governance-grid" style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '14px', marginBottom: '14px', minWidth: 0 }}>
                   {/* Background Investigation Segment */}
                   <div style={{ minWidth: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                       1. Background Investigation (BI)
                     </label>
                     <div className="hrmo-bi-options" style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '6px' }}>
@@ -4339,7 +4318,7 @@ export const PromotionManagement: React.FC = () => {
                         style={{
                           padding: '7px 10px',
                           borderRadius: '8px',
-                          fontSize: '0.75rem',
+                          fontSize: '0.9375rem',
                           fontWeight: 700,
                           border: forBackgroundInvestigation === 'YES' ? '1.5px solid #10b981' : '1px solid var(--color-border)',
                           background: forBackgroundInvestigation === 'YES' ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : 'var(--color-bg-card)',
@@ -4359,7 +4338,7 @@ export const PromotionManagement: React.FC = () => {
                         style={{
                           padding: '7px 10px',
                           borderRadius: '8px',
-                          fontSize: '0.75rem',
+                          fontSize: '0.9375rem',
                           fontWeight: 700,
                           border: forBackgroundInvestigation === 'NO' ? '1.5px solid #ef4444' : '1px solid var(--color-border)',
                           background: forBackgroundInvestigation === 'NO' ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.2)' : '#FEE2E2') : 'var(--color-bg-card)',
@@ -4378,7 +4357,7 @@ export const PromotionManagement: React.FC = () => {
 
                   {/* Probation Selection */}
                   <div style={{ minWidth: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                       2. Probation Period
                     </label>
                     <select
@@ -4386,7 +4365,7 @@ export const PromotionManagement: React.FC = () => {
                       className="form-input"
                       value={forProbation}
                       onChange={(e) => setForProbation(e.target.value)}
-                      style={{ fontSize: '0.75rem', fontWeight: 600, width: '100%', minWidth: 0 }}
+                      style={{ fontSize: '0.9375rem', fontWeight: 600, width: '100%', minWidth: 0 }}
                     >
                       <option value="6 months">6 months (Sec. F of DO 019, s. 2022)</option>
                       <option value="1 year">1 year (Sec. F of DO 019, s. 2022)</option>
@@ -4396,7 +4375,7 @@ export const PromotionManagement: React.FC = () => {
 
                   {/* For Appointment Status */}
                   <div style={{ minWidth: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                       3. For Appointment Status
                     </label>
                     <input
@@ -4406,7 +4385,7 @@ export const PromotionManagement: React.FC = () => {
                       value={forAppointment}
                       onChange={(e) => setForAppointment(e.target.value)}
                       placeholder="e.g. Recommended for Appointment"
-                      style={{ fontSize: '0.75rem' }}
+                      style={{ fontSize: '0.9375rem' }}
                     />
                   </div>
                 </div>
@@ -4414,21 +4393,21 @@ export const PromotionManagement: React.FC = () => {
                 {/* Remarks & Quick Preset Prompts */}
                 <div>
                   <div className="hrmo-remarks-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', margin: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)', margin: 0 }}>
                       4. Board Final Remarks / Deliberation Summary
                     </label>
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
                         onClick={() => setHrmoRemarks('Demonstrated proficient pedagogical mastery during demonstration teaching; recommended for plantilla appointment.')}
-                        style={{ fontSize: '0.625rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
+                        style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
                       >
                         + Superior Demo
                       </button>
                       <button
                         type="button"
                         onClick={() => setHrmoRemarks('Meets all DepEd CAR standards with complete authenticated credentials.')}
-                        style={{ fontSize: '0.625rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
+                        style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
                       >
                         + Meets Standards
                       </button>
@@ -4441,7 +4420,7 @@ export const PromotionManagement: React.FC = () => {
                     placeholder="Enter board deliberation notes and findings..."
                     value={hrmoRemarks}
                     onChange={(e) => setHrmoRemarks(e.target.value)}
-                    style={{ fontSize: '0.75rem', resize: 'vertical' }}
+                    style={{ fontSize: '0.9375rem', resize: 'vertical' }}
                   />
                 </div>
               </div>
@@ -4459,7 +4438,7 @@ export const PromotionManagement: React.FC = () => {
                   type="button"
                   className="btn btn-ghost"
                   onClick={() => setShowHrmoModal(false)}
-                  style={{ fontSize: '0.8125rem', borderRadius: '9999px', fontWeight: 700 }}
+                  style={{ fontSize: '1rem', borderRadius: '9999px', fontWeight: 700 }}
                 >
                   Cancel
                 </button>
@@ -4473,7 +4452,7 @@ export const PromotionManagement: React.FC = () => {
                     padding: '10px 22px',
                     borderRadius: '9999px',
                     fontWeight: 800,
-                    fontSize: '0.875rem',
+                    fontSize: '1rem',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
@@ -4533,9 +4512,6 @@ export const PromotionManagement: React.FC = () => {
                 <h3 style={{ fontSize: '1.1875rem', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
                   Register Applicant Profile
                 </h3>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '2px 0 0 0' }}>
-                  Civil Service Form No. 212 (Personal Data Sheet) — Complete applicant information for onboarding & merit ranking
-                </p>
               </div>
               <button
                 type="button"
@@ -4552,7 +4528,7 @@ export const PromotionManagement: React.FC = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  fontSize: '15px',
+                  fontSize: '16px',
                   fontWeight: 700,
                   flexShrink: 0,
                 }}
@@ -4591,14 +4567,14 @@ export const PromotionManagement: React.FC = () => {
                       <AppIcon name="plantilla" size={20} />
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2F7D52' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2F7D52' }}>
                         Assigned Plantilla Item & School Station (Decided)
                       </div>
-                      <div style={{ fontWeight: 800, fontSize: '0.9375rem', color: 'var(--color-text-primary)', marginTop: '2px' }}>
+                      <div style={{ fontWeight: 800, fontSize: '1.0625rem', color: 'var(--color-text-primary)', marginTop: '2px' }}>
                         {selectedCycle?.rulesConfigurationJson?.targetPosition || selectedCycle?.name || 'Teacher I'}
                         {cyclePlantillaNo ? ` • Plantilla #${cyclePlantillaNo}` : ''}
                       </div>
-                      <div style={{ fontSize: '0.78125rem', color: 'var(--color-text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span>Station: {selectedCycle?.rulesConfigurationJson?.school || selectedCycle?.rulesConfigurationJson?.schoolStation || 'SDO Koronadal City'}</span>
                         <span>•</span>
                         <span>District: {selectedCycle?.rulesConfigurationJson?.district || selectedCycle?.rulesConfigurationJson?.designatedDistrict || 'District 1'}</span>
@@ -4607,10 +4583,10 @@ export const PromotionManagement: React.FC = () => {
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Cycle Capacity
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: '0.875rem', color: 'var(--color-primary)' }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-primary)' }}>
                       {submittedApps.length} / {selectedCycle?.rulesConfigurationJson?.maxApplicants || 10} Registered
                     </div>
                   </div>
@@ -4619,7 +4595,7 @@ export const PromotionManagement: React.FC = () => {
                 {/* Section 1: Personal Information (PDS Form 212) */}
                 <div>
                   <div style={{
-                    fontSize: '0.75rem',
+                    fontSize: '0.9375rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
@@ -4633,7 +4609,7 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         First Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input
@@ -4654,7 +4630,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Middle Name
                       </label>
                       <input
@@ -4668,7 +4644,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Last Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input
@@ -4689,7 +4665,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Suffix
                       </label>
                       <select
@@ -4708,7 +4684,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input aria-label="Date of Birth"
@@ -4721,7 +4697,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <select aria-label="Sex / Gender"
@@ -4736,7 +4712,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Civil Status <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <select aria-label="Civil Status"
@@ -4756,7 +4732,7 @@ export const PromotionManagement: React.FC = () => {
                 {/* Section 2: Contact Details & Residence */}
                 <div>
                   <div style={{
-                    fontSize: '0.75rem',
+                    fontSize: '0.9375rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
@@ -4770,7 +4746,7 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '12px' }}>
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Email Address (Portal Account) <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
                       <input
@@ -4785,7 +4761,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Mobile / Contact Number
                       </label>
                       <input
@@ -4801,7 +4777,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
-                      <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8125rem' }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '1rem' }}>
                         Residential Address
                       </label>
                       <input
@@ -4819,7 +4795,7 @@ export const PromotionManagement: React.FC = () => {
                 {/* Section 3: Applicant Registry & Status */}
                 <div>
                   <div style={{
-                    fontSize: '0.75rem',
+                    fontSize: '0.9375rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
@@ -4843,17 +4819,17 @@ export const PromotionManagement: React.FC = () => {
                     gap: '12px',
                   }}>
                     <div>
-                      <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
                         System Candidate ID
                       </div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-primary)', fontSize: '0.9375rem', marginTop: '2px' }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-primary)', fontSize: '1.0625rem', marginTop: '2px' }}>
                         APP-2026-XXXX (Candidate Applicant)
                       </div>
-                      <div style={{ fontSize: '0.78125rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
                         No portal account or login credentials issued during evaluation.
                       </div>
                     </div>
-                    <span className="badge badge-info" style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <span className="badge badge-info" style={{ fontSize: '14px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                       <AppIcon name="clock" size={12} /> Evaluation Candidate
                     </span>
                   </div>
@@ -4872,7 +4848,7 @@ export const PromotionManagement: React.FC = () => {
                   <div style={{ color: '#2F7D52', marginTop: '2px' }}>
                     <AppIcon name="checklist" size={18} />
                   </div>
-                  <div style={{ fontSize: '0.8125rem', lineHeight: '1.45', color: 'var(--color-text-secondary)' }}>
+                  <div style={{ fontSize: '1rem', lineHeight: '1.45', color: 'var(--color-text-secondary)' }}>
                     <strong style={{ color: 'var(--color-text-primary)' }}>Account Provisioning Policy:</strong> Candidate applicants are not given portal accounts during the evaluation stage. A portal login account will be officially provisioned and activated <strong>only if the candidate is recommended and selected for the plantilla item</strong>. Upon appointment, their Newly Hired Appointment compliance checklist will be unlocked for document submission.
                   </div>
                 </div>
@@ -4959,15 +4935,15 @@ export const PromotionManagement: React.FC = () => {
                       <AppIcon name="promotions" size={15} color="#ffffff" />
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                         Applicant Capacity & Vacant Plantilla Quota
                       </div>
-                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                      <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                         Input total applicant capacity and how many applicants will be chosen for promotion.
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 800, background: 'var(--color-primary)', color: '#ffffff', padding: '3px 10px', borderRadius: '9999px' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 800, background: 'var(--color-primary)', color: '#ffffff', padding: '3px 10px', borderRadius: '9999px' }}>
                     Top Priority
                   </span>
                 </div>
@@ -4975,7 +4951,7 @@ export const PromotionManagement: React.FC = () => {
                 {/* 2-Column Grid at Top: Max Applicants Capacity & Applicants to be Chosen */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px', marginBottom: '14px' }}>
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <AppIcon name="users" size={13} color="var(--color-primary)" />
                       Max Applicants Capacity <span style={{ color: 'var(--color-danger)' }}>*</span>
                     </label>
@@ -4992,16 +4968,16 @@ export const PromotionManagement: React.FC = () => {
                           setNewMaxApplicants(10);
                         }
                       }}
-                      style={{ fontWeight: 700, fontSize: '0.9375rem' }}
+                      style={{ fontWeight: 700, fontSize: '1.0625rem' }}
                       required
                     />
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
                       Total applicant submissions allowed before pool closes.
                     </div>
                   </div>
 
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <AppIcon name="approved" size={13} color="#10B981" />
                       Applicants That Will Be Chosen <span style={{ color: 'var(--color-danger)' }}>*</span>
                     </label>
@@ -5018,10 +4994,10 @@ export const PromotionManagement: React.FC = () => {
                           handleVacantPositionsChange(1);
                         }
                       }}
-                      style={{ fontWeight: 700, fontSize: '0.9375rem', borderColor: '#10B981' }}
+                      style={{ fontWeight: 700, fontSize: '1.0625rem', borderColor: '#10B981' }}
                       required
                     />
-                    <div style={{ fontSize: '0.6875rem', color: '#059669', marginTop: '4px', fontWeight: 600 }}>
+                    <div style={{ fontSize: '0.875rem', color: '#059669', marginTop: '4px', fontWeight: 600 }}>
                       {Number(newVacantPositions) || 1} applicant{(Number(newVacantPositions) || 1) > 1 ? 's' : ''} to be promoted ({Number(newVacantPositions) || 1} plantilla slot{(Number(newVacantPositions) || 1) > 1 ? 's' : ''} below).
                     </div>
                   </div>
@@ -5030,15 +5006,15 @@ export const PromotionManagement: React.FC = () => {
                 {/* Dynamic Plantilla Input Slots (If N applicants chosen => N plantillas inputted) */}
                 <div style={{ paddingTop: '12px', borderTop: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid #DDF0E3' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <label style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <AppIcon name="employment" size={14} color="var(--color-primary)" />
                       Designated Vacant Plantilla Items ({Number(newVacantPositions) || 1} Required)
                     </label>
-                    <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
                       {designatedPlantillas.filter(Boolean).length} of {Number(newVacantPositions) || 1} Selected
                     </span>
                   </div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>
                     Because <strong>{Number(newVacantPositions) || 1} applicant{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</strong> will be chosen, input/select <strong>{Number(newVacantPositions) || 1} vacant plantilla post{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</strong>. Chosen personnels will be assigned to these plantillas.
                   </div>
 
@@ -5099,20 +5075,20 @@ export const PromotionManagement: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 fontWeight: 900,
                                 boxShadow: currentValue ? '0 2px 6px rgba(16, 185, 129, 0.3)' : 'none',
                               }}>
                                 {currentValue ? <Check size={12} strokeWidth={3} /> : idx + 1}
                               </span>
                               <div>
-                                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                                <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                                   Plantilla Post #{idx + 1}
                                 </span>
                                 {isFirst && (
                                   <span style={{
                                     marginLeft: '8px',
-                                    fontSize: '0.625rem',
+                                    fontSize: '0.875rem',
                                     fontWeight: 700,
                                     color: 'var(--color-primary)',
                                     background: 'rgba(59, 130, 246, 0.12)',
@@ -5128,7 +5104,7 @@ export const PromotionManagement: React.FC = () => {
 
                             {currentValue && !isPickerOpen && (
                               <span style={{
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 fontWeight: 800,
                                 color: '#10B981',
                                 background: 'rgba(16, 185, 129, 0.12)',
@@ -5172,13 +5148,13 @@ export const PromotionManagement: React.FC = () => {
                                     <Building2 size={18} />
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                                    <div style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                                       {selectedPlantilla.positionTitle}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                                       <span style={{
                                         fontFamily: 'monospace',
-                                        fontSize: '0.6875rem',
+                                        fontSize: '0.875rem',
                                         fontWeight: 800,
                                         background: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#DCE6DE',
                                         color: 'var(--color-text-primary)',
@@ -5188,7 +5164,7 @@ export const PromotionManagement: React.FC = () => {
                                         {selectedPlantilla.itemNumber}
                                       </span>
                                       <span style={{
-                                        fontSize: '0.6875rem',
+                                        fontSize: '0.875rem',
                                         fontWeight: 700,
                                         color: '#0284C7',
                                         background: 'rgba(2, 132, 199, 0.1)',
@@ -5198,7 +5174,7 @@ export const PromotionManagement: React.FC = () => {
                                         Salary Grade {selectedPlantilla.salaryGrade}
                                       </span>
                                       <span style={{
-                                        fontSize: '0.6875rem',
+                                        fontSize: '0.875rem',
                                         fontWeight: 700,
                                         color: '#059669',
                                         background: 'rgba(16, 185, 129, 0.1)',
@@ -5220,7 +5196,7 @@ export const PromotionManagement: React.FC = () => {
                                     }}
                                     className="btn btn-secondary btn-sm"
                                     style={{
-                                      fontSize: '0.6875rem',
+                                      fontSize: '0.875rem',
                                       padding: '4px 10px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -5235,7 +5211,7 @@ export const PromotionManagement: React.FC = () => {
                                     onClick={() => handleDesignatedPlantillaChange(idx, '')}
                                     className="btn btn-danger-outline btn-sm"
                                     style={{
-                                      fontSize: '0.6875rem',
+                                      fontSize: '0.875rem',
                                       padding: '4px 8px',
                                       display: 'inline-flex',
                                       alignItems: 'center',
@@ -5250,7 +5226,7 @@ export const PromotionManagement: React.FC = () => {
                               </div>
 
                               <div style={{
-                                fontSize: '0.6875rem',
+                                fontSize: '0.875rem',
                                 color: 'var(--color-text-secondary)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -5279,7 +5255,7 @@ export const PromotionManagement: React.FC = () => {
                               marginTop: '4px',
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px' }}>
-                                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <Building2 size={15} color="var(--color-primary)" />
                                   Browse & Select Vacant Plantilla Post #{idx + 1}
                                 </div>
@@ -5294,7 +5270,7 @@ export const PromotionManagement: React.FC = () => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '4px',
-                                    fontSize: '0.6875rem',
+                                    fontSize: '0.875rem',
                                     fontWeight: 700,
                                   }}
                                 >
@@ -5318,7 +5294,7 @@ export const PromotionManagement: React.FC = () => {
                                       width: '100%',
                                       padding: '7px 10px 7px 30px',
                                       borderRadius: '8px',
-                                      fontSize: '0.75rem',
+                                      fontSize: '0.9375rem',
                                       border: '1px solid var(--color-border)',
                                       background: theme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : '#F7FAF6',
                                       color: 'var(--color-text-primary)',
@@ -5334,7 +5310,7 @@ export const PromotionManagement: React.FC = () => {
                                       type="button"
                                       onClick={() => setPlantillaPickerTrack(trackOption)}
                                       style={{
-                                        fontSize: '0.6875rem',
+                                        fontSize: '0.875rem',
                                         fontWeight: plantillaPickerTrack === trackOption ? 800 : 600,
                                         padding: '4px 8px',
                                         borderRadius: '6px',
@@ -5386,10 +5362,10 @@ export const PromotionManagement: React.FC = () => {
                                     }}>
                                       <Building2 size={24} style={{ color: 'var(--color-text-muted)' }} />
                                     </div>
-                                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
+                                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
                                       No vacant plantilla items found
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '280px', lineHeight: 1.4 }}>
+                                    <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', maxWidth: '280px', lineHeight: 1.4 }}>
                                       {plantillaPickerSearch || plantillaPickerTrack !== 'ALL'
                                         ? 'Try clearing your search query or switching to All tracks.'
                                         : 'There are currently no vacant plantilla items available in inventory.'}
@@ -5432,11 +5408,11 @@ export const PromotionManagement: React.FC = () => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                           <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                              <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                                              <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                                                 {p.positionTitle}
                                               </span>
                                               <span style={{
-                                                fontSize: '0.625rem',
+                                                fontSize: '0.875rem',
                                                 fontWeight: 800,
                                                 color: '#0284C7',
                                                 background: 'rgba(2, 132, 199, 0.1)',
@@ -5446,7 +5422,7 @@ export const PromotionManagement: React.FC = () => {
                                                 SG {p.salaryGrade}
                                               </span>
                                               <span style={{
-                                                fontSize: '0.625rem',
+                                                fontSize: '0.875rem',
                                                 fontWeight: 800,
                                                 color: '#10B981',
                                                 background: 'rgba(16, 185, 129, 0.1)',
@@ -5456,7 +5432,7 @@ export const PromotionManagement: React.FC = () => {
                                                 VACANT
                                               </span>
                                             </div>
-                                            <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                                            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                                               <strong style={{ fontFamily: 'monospace', color: 'var(--color-text-primary)' }}>{p.itemNumber}</strong> • {p.department} ({p.division || 'SDO Koronadal'})
                                             </div>
                                           </div>
@@ -5466,7 +5442,7 @@ export const PromotionManagement: React.FC = () => {
                                           type="button"
                                           className={`btn btn-sm ${isItemChosen ? 'btn-success' : 'btn-primary'}`}
                                           style={{
-                                            fontSize: '0.6875rem',
+                                            fontSize: '0.875rem',
                                             padding: '4px 10px',
                                             borderRadius: '6px',
                                             fontWeight: 700,
@@ -5524,10 +5500,10 @@ export const PromotionManagement: React.FC = () => {
                                   <Plus size={16} strokeWidth={2.5} />
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                                     Select Vacant Plantilla Item for Post #{idx + 1}
                                   </div>
-                                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
+                                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                                     Click to browse {availableItems.length} vacant plantilla item{availableItems.length !== 1 ? 's' : ''} available for allocation
                                   </div>
                                 </div>
@@ -5536,7 +5512,7 @@ export const PromotionManagement: React.FC = () => {
                               <span
                                 className="btn btn-primary btn-sm"
                                 style={{
-                                  fontSize: '0.75rem',
+                                  fontSize: '0.9375rem',
                                   padding: '6px 14px',
                                   borderRadius: '8px',
                                   fontWeight: 700,
@@ -5573,15 +5549,15 @@ export const PromotionManagement: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <CheckCircle2 size={18} color="#10B981" />
                     <div>
-                      <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#059669' }}>
+                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>
                         Plantilla Position & Jurisdiction Auto-Synchronized
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                         Position: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.positionTitle}</strong> (SG {linkedPlantilla.salaryGrade}) • District: <strong style={{ color: 'var(--color-text-primary)' }}>{newCycleDistrict}</strong> • Station: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.department || 'All Schools in District'}</strong> • Track: <strong style={{ color: '#059669' }}>{newCycleTrack === 'TEACHING' ? 'Teaching Track (100 pts)' : 'Non-Teaching Track (100 pts)'}</strong>
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.15)', padding: '3px 8px', borderRadius: '6px' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.15)', padding: '3px 8px', borderRadius: '6px' }}>
                     ● Plantilla Locked
                   </span>
                 </div>
@@ -5592,7 +5568,7 @@ export const PromotionManagement: React.FC = () => {
                   background: theme === 'dark' ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB',
                   border: '1px solid rgba(245, 158, 11, 0.25)',
                   marginBottom: '18px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.9375rem',
                   color: theme === 'dark' ? '#FBBF24' : '#D97706',
                   display: 'flex',
                   alignItems: 'center',
@@ -5606,7 +5582,7 @@ export const PromotionManagement: React.FC = () => {
               {/* Cycle Information & Schedule (Spacious 2-Column Grid) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '14px', marginBottom: '16px' }}>
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
                     Cycle Title <span style={{ color: 'var(--color-danger)' }}>*</span>
                   </label>
                   <input aria-label="Cycle Title"
@@ -5622,7 +5598,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
                     Promotion Type
                   </label>
                   <select
@@ -5637,7 +5613,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
                     Application Start Date
                   </label>
                   <input
@@ -5651,7 +5627,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
                     Application Deadline / End Date
                   </label>
                   <input
@@ -5665,7 +5641,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.75rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
                     Initial Cycle Status
                   </label>
                   <select
@@ -5744,18 +5720,18 @@ export const PromotionManagement: React.FC = () => {
                 <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
                   {selectedCandidateForConfirm.name}
                 </div>
-                <div style={{ fontSize: '0.8125rem', color: theme === 'dark' ? '#34D399' : '#059669', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ fontSize: '1rem', color: theme === 'dark' ? '#34D399' : '#059669', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span>{selectedCandidateForConfirm.employeeId}</span> · 
                   <span>Rank #{selectedCandidateForConfirm.rank} ({selectedCandidateForConfirm.overallTotalScore} pts)</span>
                 </div>
               </div>
 
               <div style={{ background: 'var(--color-bg-tertiary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', marginBottom: '8px' }}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>Current Designation:</span>
                   <strong style={{ color: 'var(--color-text-primary)' }}>{selectedCandidateForConfirm.designation}</strong>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
                   <span style={{ color: 'var(--color-text-secondary)' }}>Target Promoted Rank:</span>
                   <strong style={{ color: 'var(--color-primary)' }}>{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Next Salary Rank'}</strong>
                 </div>
@@ -5786,7 +5762,7 @@ export const PromotionManagement: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      fontSize: '0.8125rem',
+                      fontSize: '1rem',
                       fontWeight: 800,
                       color: 'var(--color-primary)',
                       marginBottom: '8px',
@@ -5795,7 +5771,7 @@ export const PromotionManagement: React.FC = () => {
                         <AppIcon name="employment" size={15} color="var(--color-primary)" />
                         Assignation to Plantilla Item Post <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </span>
-                      <span style={{ fontSize: '0.6875rem', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
                         {cyclePlantillas.length > 0 ? `${cyclePlantillas.length} Post${cyclePlantillas.length > 1 ? 's' : ''} in Cycle` : 'Open Registry'}
                       </span>
                     </label>
@@ -5808,7 +5784,7 @@ export const PromotionManagement: React.FC = () => {
                           onChange={(e) => setSelectedPlantillaForCandidate(e.target.value)}
                           style={{
                             background: 'var(--color-bg-card)',
-                            fontSize: '0.8125rem',
+                            fontSize: '1rem',
                             fontWeight: 700,
                             padding: '8px 10px',
                             width: '100%',
@@ -5828,7 +5804,7 @@ export const PromotionManagement: React.FC = () => {
                             );
                           })}
                         </select>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
                           This personnel will be allocated to this specific plantilla post. When the promotion appointment is officially approved, this item will be occupied by them.
                         </div>
                       </div>
@@ -5840,7 +5816,7 @@ export const PromotionManagement: React.FC = () => {
                           onChange={(e) => setSelectedPlantillaForCandidate(e.target.value)}
                           style={{
                             background: 'var(--color-bg-card)',
-                            fontSize: '0.8125rem',
+                            fontSize: '1rem',
                             fontWeight: 700,
                             padding: '8px 10px',
                             width: '100%',
@@ -5853,7 +5829,7 @@ export const PromotionManagement: React.FC = () => {
                             </option>
                           ))}
                         </select>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
                           Assign one of the available vacant plantilla posts from the Division Registry.
                         </div>
                       </div>
@@ -5863,10 +5839,10 @@ export const PromotionManagement: React.FC = () => {
               })()}
 
               <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.12)' : '#FFFBEB', padding: '14px 16px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #FDE68A' }}>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#B45309', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#B45309', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <AppIcon name="checklist" size={14} color={theme === 'dark' ? '#FBBF24' : '#B45309'} /> Next Steps & Requirements Trigger
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
+                <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
                   Selecting this candidate will send an immediate real-time web & mobile notification requiring <strong>{selectedCandidateForConfirm.name}</strong> to submit official <strong>Promotion Appointment Documents</strong> (CS Form 33, Oath of Office, PDF, IPCRF). The official position update will take effect after verification by AO II and final approval by HRMO.
                 </div>
               </div>
