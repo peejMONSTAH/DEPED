@@ -28,6 +28,11 @@ const FIELD_MATCHERS: Array<[string, RegExp[]]> = [
   ['residential.city', [/residential.*city/, /city municipality/]],
   ['residential.province', [/residential.*province/, /^province$/]],
   ['residentialZip', [/residential.*zip/, /zip code/]],
+  ['designation', [/^position title$/, /^position$/, /^designation$/]],
+  ['dateHired', [/date of appointment/, /date hired/, /appointment date/]],
+  ['appointmentStatus', [/^appointment status$/, /^employment status$/]],
+  ['school', [/^school$/, /^station$/, /^school assignment$/]],
+  ['district', [/^district$/]],
 ];
 
 const anchorText = (text: string, anchor: any): string => {

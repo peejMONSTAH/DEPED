@@ -10,6 +10,18 @@ import { logger } from '../utils/logger';
 import { generateDocumentAccessToken } from '../utils/jwt.util';
 import { denyOutOfScope } from '../utils/access-denial.util';
 
+import { Gender, CivilStatus, AppointmentStatus } from '@prisma/client';
+import {
+  buildExtractionComparison,
+  FIELD_DEFINITIONS,
+  DOCUMENT_FIELD_MAP,
+  EXTRACTABLE_DOCUMENT_TYPES,
+  isDocumentExtractionResult,
+  mapTrustedOcrFields,
+  DocumentExtractionResult,
+} from '../utils/document-extraction.util';
+import { documentAiConfigured, extractPdsWithDocumentAi } from '../services/document-ai.service';
+
 const parseDocumentId = (raw: unknown): number | null => {
   const id = Number(raw);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
@@ -232,6 +244,9 @@ export interface PersonnelDocumentRecord {
   replacesDocumentId?: number;
   isRequired: boolean;
   hasFile: boolean;
+  ocrConfidenceScore?: number | null;
+  ocrStatus?: string | null;
+  ocrProcessedAt?: string | null;
 }
 
 /** Loaded alongside every document so `reviewedBy` can be a name, not an id. */
@@ -272,6 +287,9 @@ const toApiShape = (record: StoredDocument): PersonnelDocumentRecord => ({
   ...(record.replacesDocumentId ? { replacesDocumentId: record.replacesDocumentId } : {}),
   isRequired: record.isRequired ?? true,
   hasFile: Boolean(record.storagePath),
+  ocrConfidenceScore: record.ocrConfidenceScore ?? null,
+  ocrStatus: record.ocrStatus ?? null,
+  ocrProcessedAt: record.ocrProcessedAt ? record.ocrProcessedAt.toISOString() : null,
 });
 
 /**
@@ -447,6 +465,11 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
             remarks: req.body.remarks ? String(req.body.remarks) : null,
             status: PersonnelDocumentStatus.SUBMITTED,
             rejectionReason: null,
+            ocrExtractedDataJson: Prisma.JsonNull,
+            ocrConfidenceScore: null,
+            ocrStatus: EXTRACTABLE_DOCUMENT_TYPES.includes(definition.id as typeof EXTRACTABLE_DOCUMENT_TYPES[number]) ? 'PENDING' : null,
+            ocrProcessedAt: null,
+            ocrErrorMessage: null,
             updatedAt: new Date(),
           },
           include: withReviewer,
@@ -497,6 +520,7 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
           remarks: req.body.remarks ? String(req.body.remarks) : null,
           status: PersonnelDocumentStatus.SUBMITTED,
           isRequired: definition.id === 'OTHER' ? false : (replaceableRecord ? replaceableRecord.isRequired : false),
+          ocrStatus: EXTRACTABLE_DOCUMENT_TYPES.includes(definition.id as typeof EXTRACTABLE_DOCUMENT_TYPES[number]) ? 'PENDING' : null,
           ...(replacementId ? { replacesDocumentId: replacementId } : {}),
         },
         include: withReviewer,
@@ -734,4 +758,296 @@ export const downloadPersonnelDocumentFile = async (req: Request, res: Response)
   }
 
   res.send(bytes);
+};
+
+export const extractPersonnelDocument = async (req: Request, res: Response): Promise<void> => {
+  const id = parseDocumentId(req.params.id);
+  if (!id) {
+    sendBadRequest(res, 'Invalid document ID.');
+    return;
+  }
+
+  const record = await prisma.personnelFile.findUnique({
+    where: { id },
+    include: { personnel: true },
+  });
+  if (!record || record.deletedAt) {
+    sendNotFound(res, 'Document not found.');
+    return;
+  }
+
+  if (!(await canAccessPersonnel(req.user, record.personnelId))) {
+    await refusePersonnelDocument(req, res, id, 'PERSONNEL_DOCUMENT_EXTRACT');
+    return;
+  }
+
+  if (!record.storagePath) {
+    sendBadRequest(res, 'Document has no file attached.');
+    return;
+  }
+
+  if (req.user?.personnelId !== record.personnelId) {
+    sendForbidden(res, 'Only the document owner can review extracted profile changes.');
+    return;
+  }
+  if (!['PDS', 'APPOINTMENT'].includes(record.documentTypeId)) {
+    sendBadRequest(res, 'This document type does not have a supported profile-field extraction mapping.');
+    return;
+  }
+  if (!documentAiConfigured()) {
+    sendBadRequest(res, 'Document extraction is not configured. Your uploaded file is safe and can be reviewed later.');
+    return;
+  }
+
+  try {
+    const bytes = await readDocument(record.storagePath);
+    const aiRes = await extractPdsWithDocumentAi(bytes, record.mimeType || 'application/pdf');
+    const extracted = mapTrustedOcrFields(record.documentTypeId, aiRes.fields, aiRes.confidence);
+    if (Object.keys(extracted.fields).filter(key => extracted.fields[key as keyof typeof extracted.fields]).length === 0) {
+      throw new Error('No supported profile fields were found in this document.');
+    }
+
+    const updated = await prisma.personnelFile.update({
+      where: { id: record.id },
+      data: {
+        ocrExtractedDataJson: extracted as unknown as Prisma.InputJsonValue,
+        ocrConfidenceScore: extracted.confidence,
+        ocrStatus: 'NEEDS_REVIEW',
+        ocrProcessedAt: new Date(),
+        ocrErrorMessage: null,
+      },
+    });
+
+    const comparison = buildExtractionComparison(extracted, record.personnel, record.documentTypeId);
+
+    sendSuccess(
+      res,
+      {
+        documentId: updated.id,
+        ocrStatus: updated.ocrStatus,
+        confidenceScore: updated.ocrConfidenceScore,
+        fields: comparison,
+      },
+      'Extraction completed successfully.'
+    );
+  } catch (err: any) {
+    await prisma.personnelFile.update({
+      where: { id: record.id },
+      data: {
+        ocrStatus: 'FAILED',
+        ocrErrorMessage: 'Extraction failed',
+      },
+    });
+    logger.warn({ err, documentId: record.id }, 'Personnel document extraction failed');
+    sendBadRequest(res, 'The document could not be read. The uploaded file is still saved; try extraction again later.');
+  }
+};
+
+export const getExtractionReview = async (req: Request, res: Response): Promise<void> => {
+  const id = parseDocumentId(req.params.id);
+  if (!id) {
+    sendBadRequest(res, 'Invalid document ID.');
+    return;
+  }
+
+  const record = await prisma.personnelFile.findUnique({
+    where: { id },
+    include: { personnel: true },
+  });
+  if (!record || record.deletedAt) {
+    sendNotFound(res, 'Document not found.');
+    return;
+  }
+
+  if (!(await canAccessPersonnel(req.user, record.personnelId))) {
+    await refusePersonnelDocument(req, res, id, 'PERSONNEL_DOCUMENT_EXTRACTION_REVIEW');
+    return;
+  }
+
+  if (req.user?.personnelId !== record.personnelId) {
+    sendForbidden(res, 'Only the document owner can review extracted profile changes.');
+    return;
+  }
+  const extractedJson = record.ocrExtractedDataJson;
+  if (!isDocumentExtractionResult(extractedJson)) {
+    sendNotFound(res, 'No extraction data available for this document.');
+    return;
+  }
+
+  const comparison = buildExtractionComparison(extractedJson, record.personnel, record.documentTypeId);
+
+  sendSuccess(res, {
+    documentId: record.id,
+    documentTypeId: record.documentTypeId,
+    documentTypeName: record.documentTypeName,
+    originalFileName: record.originalFileName,
+    ocrStatus: record.ocrStatus || 'NEEDS_REVIEW',
+    confidenceScore: record.ocrConfidenceScore ?? extractedJson.confidence,
+    processedAt: record.ocrProcessedAt?.toISOString() ?? null,
+    fields: comparison,
+  });
+};
+
+export const applyExtractionTo201 = async (req: Request, res: Response): Promise<void> => {
+  const id = parseDocumentId(req.params.id);
+  if (!id) {
+    sendBadRequest(res, 'Invalid document ID.');
+    return;
+  }
+
+  const approvedFields: unknown[] = Array.isArray(req.body.approvedFields) ? req.body.approvedFields : [];
+  if (approvedFields.length === 0) {
+    sendBadRequest(res, 'No fields selected for update.');
+    return;
+  }
+
+  const record = await prisma.personnelFile.findUnique({
+    where: { id },
+    include: { personnel: true },
+  });
+  if (!record || record.deletedAt) {
+    sendNotFound(res, 'Document not found.');
+    return;
+  }
+
+  if (!(await canAccessPersonnel(req.user, record.personnelId))) {
+    await refusePersonnelDocument(req, res, id, 'PERSONNEL_DOCUMENT_APPLY_EXTRACTION');
+    return;
+  }
+
+  if (req.user?.personnelId !== record.personnelId) {
+    sendForbidden(res, 'Only the document owner can apply extracted profile changes.');
+    return;
+  }
+
+  if (record.ocrStatus !== 'NEEDS_REVIEW' || !isDocumentExtractionResult(record.ocrExtractedDataJson)) {
+    sendBadRequest(res, 'This document has no pending server-extracted fields. Run extraction first.');
+    return;
+  }
+  if (record.ocrExtractedDataJson.confidence < 0.8) {
+    sendBadRequest(res, 'Extraction confidence is too low to update the 201 record. Request manual review.');
+    return;
+  }
+  const allowed = DOCUMENT_FIELD_MAP[record.documentTypeId] || [];
+  if (approvedFields.some(field => typeof field !== 'string' || !allowed.includes(field as keyof typeof FIELD_DEFINITIONS)) ||
+      new Set(approvedFields).size !== approvedFields.length) {
+    sendBadRequest(res, 'One or more selected fields are not valid for this document type.');
+    return;
+  }
+
+  try {
+    const result = await prisma.$transaction(async tx => {
+      // Lock personnel row
+      await tx.$executeRaw`SELECT id FROM personnel WHERE id = ${record.personnelId} FOR UPDATE`;
+      await tx.$executeRaw`SELECT id FROM personnel_files WHERE id = ${record.id} FOR UPDATE`;
+      const currentFile = await tx.personnelFile.findUnique({ where: { id: record.id } });
+      if (!currentFile || currentFile.deletedAt || currentFile.ocrStatus !== 'NEEDS_REVIEW' ||
+          !isDocumentExtractionResult(currentFile.ocrExtractedDataJson)) {
+        throw new Error('The document changed before these fields could be applied. Refresh and review again.');
+      }
+      const currentPersonnel = await tx.personnel.findUnique({ where: { id: record.personnelId } });
+      if (!currentPersonnel) throw new Error('Personnel record not found.');
+
+      const updatePayload: Record<string, any> = {};
+      const auditDiff: Array<{ field: string; oldValue: any; newValue: any }> = [];
+
+      for (const selectedField of approvedFields) {
+        const field = selectedField as keyof typeof FIELD_DEFINITIONS;
+        const def = FIELD_DEFINITIONS[field];
+        const rawVal = currentFile.ocrExtractedDataJson.fields[field];
+        if (typeof rawVal !== 'string' || !rawVal.trim()) throw new Error(`No extracted value exists for ${field}.`);
+        let formattedVal: any = rawVal;
+
+        if (def.type === 'date') {
+          const d = /^\d{4}-\d{2}-\d{2}$/.test(rawVal) ? new Date(`${rawVal}T00:00:00.000Z`) : new Date(NaN);
+          if (!isNaN(d.getTime()) && d.toISOString().slice(0, 10) === rawVal) {
+            formattedVal = d;
+          } else {
+            throw new Error(`The extracted date for ${field} is invalid.`);
+          }
+        } else if (def.type === 'gender') {
+          const upper = String(rawVal).toUpperCase();
+          if (['MALE', 'FEMALE', 'OTHER'].includes(upper)) {
+            formattedVal = upper as Gender;
+          } else {
+            throw new Error(`The extracted value for ${field} is invalid.`);
+          }
+        } else if (def.type === 'civilStatus') {
+          const upper = String(rawVal).toUpperCase();
+          if (['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(upper)) {
+            formattedVal = upper as CivilStatus;
+          } else {
+            throw new Error(`The extracted value for ${field} is invalid.`);
+          }
+        } else if (def.type === 'appointmentStatus') {
+          const upper = String(rawVal).toUpperCase();
+          if (['PERMANENT', 'PROVISIONAL', 'TEMPORARY', 'SUBSTITUTE', 'CASUAL', 'CONTRACTUAL', 'COTERMINOUS'].includes(upper)) {
+            formattedVal = upper as AppointmentStatus;
+          } else {
+            throw new Error(`The extracted value for ${field} is invalid.`);
+          }
+        } else {
+          formattedVal = String(rawVal).trim();
+        }
+
+        const oldVal = (currentPersonnel as any)[field];
+        updatePayload[field] = formattedVal;
+        auditDiff.push({
+          field,
+          oldValue: oldVal instanceof Date ? oldVal.toISOString().slice(0, 10) : oldVal,
+          newValue: formattedVal instanceof Date ? formattedVal.toISOString().slice(0, 10) : formattedVal,
+        });
+      }
+
+      if (auditDiff.length === 0) {
+        throw new Error('No valid fields could be applied.');
+      }
+
+      // Check profileComplete condition
+      const merged = { ...currentPersonnel, ...updatePayload };
+      const profileComplete = Boolean(
+        merged.firstName &&
+        merged.lastName &&
+        merged.birthDate &&
+        merged.gender &&
+        merged.civilStatus &&
+        merged.contactNumber &&
+        merged.address &&
+        merged.dateHired
+      );
+      updatePayload.profileComplete = profileComplete;
+
+      const updatedPersonnel = await tx.personnel.update({
+        where: { id: record.personnelId },
+        data: updatePayload,
+      });
+
+      await tx.personnelFile.update({
+        where: { id: record.id },
+        data: { ocrStatus: 'APPLIED' },
+      });
+
+      await tx.validationLog.create({
+        data: {
+          entityType: 'Personnel',
+          entityId: record.personnelId,
+          userId: req.user!.userId,
+          action: 'DIGITAL_201_FIELDS_UPDATED_FROM_DOCUMENT',
+          detailsJson: {
+            documentId: record.id,
+            documentTypeId: record.documentTypeId,
+            originalFileName: record.originalFileName,
+            appliedFields: auditDiff,
+          },
+        },
+      });
+
+      return { updatedPersonnel, appliedDiff: auditDiff };
+    });
+
+    res.locals.auditLogged = true;
+    sendSuccess(res, result, `Successfully applied ${result.appliedDiff.length} fields to your Digital 201 Record.`);
+  } catch (err: any) {
+    sendBadRequest(res, err?.message || 'Could not apply extracted fields to profile.');
+  }
 };

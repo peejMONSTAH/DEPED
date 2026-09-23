@@ -10,6 +10,9 @@ import {
   deletePersonnelDocument,
   downloadPersonnelDocumentFile,
   getPersonnelDocumentViewToken,
+  extractPersonnelDocument,
+  getExtractionReview,
+  applyExtractionTo201,
 } from '../controllers/personnel-documents.controller';
 import { config } from '../config';
 
@@ -47,5 +50,10 @@ router.put('/:id', upload.single('file'), replacePersonnelDocument);
 router.delete('/:id', deletePersonnelDocument);
 router.get('/:id/view-token', getPersonnelDocumentViewToken);
 router.get('/:id/file', downloadPersonnelDocumentFile);
+
+// Extraction and 201 synchronization endpoints
+router.post('/:id/extract', extractPersonnelDocument);
+router.get('/:id/extraction-review', getExtractionReview);
+router.post('/:id/apply-extraction', applyExtractionTo201);
 
 export default router;
