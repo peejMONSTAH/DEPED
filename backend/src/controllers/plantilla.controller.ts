@@ -4,6 +4,7 @@ import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden ,
 import { getStationScope, promotionApplicationScopeFilter, stationPlantillaFilter } from '../utils/scope.util';
 import { getAutoSalaryGrade, getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { logger } from '../utils/logger';
+import { validPlantillaLocation } from '../utils/plantilla-location.util';
 
 /**
  * GET /api/v1/plantilla
@@ -301,6 +302,10 @@ export const createPlantillaItem = async (req: Request, res: Response): Promise<
       sendBadRequest(res, 'itemNumber, positionTitle, and department are required.');
       return;
     }
+    if (!validPlantillaLocation(department, division)) {
+      sendBadRequest(res, 'Select a school that belongs to the selected district.');
+      return;
+    }
 
     const effectiveSalaryGrade = salaryGrade !== undefined && Number(salaryGrade) > 0
       ? Number(salaryGrade)
@@ -433,6 +438,11 @@ export const updatePlantillaItem = async (req: Request, res: Response): Promise<
       sendBadRequest(res, 'Enter the authorized salary grade (1–33) for this position.'); return;
     }
     if (division !== undefined) updateData.division = String(division).trim();
+    if ((department !== undefined || division !== undefined) &&
+        !validPlantillaLocation(updateData.department ?? existing.department, updateData.division ?? existing.division)) {
+      sendBadRequest(res, 'Select a school that belongs to the selected district.');
+      return;
+    }
 
     if (isOccupied !== undefined) {
       const willBeOccupied = Boolean(isOccupied);

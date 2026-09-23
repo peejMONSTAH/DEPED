@@ -138,8 +138,9 @@ export const PlantillaManagement: React.FC = () => {
   const [formItemNumber, setFormItemNumber] = useState('');
   const [formPositionTitle, setFormPositionTitle] = useState('Teacher I');
   const [formSalaryGrade, setFormSalaryGrade] = useState<number>(11);
-  const [formDepartment, setFormDepartment] = useState('Koronadal Central Elementary School 1');
-  const [formDivision, setFormDivision] = useState('SDO Koronadal City - District 1');
+  const [formDepartment, setFormDepartment] = useState('');
+  const [formDivision, setFormDivision] = useState('');
+  const selectedFormDistrict = DEPED_KORONADAL_DISTRICTS.find(d => formDivision === `SDO Koronadal City - ${d.name}`);
   const [formIsOccupied, setFormIsOccupied] = useState(false);
   const [formPersonnelId, setFormPersonnelId] = useState<number | ''>('');
   const [formPersonnelSearch, setFormPersonnelSearch] = useState('');
@@ -260,8 +261,8 @@ export const PlantillaManagement: React.FC = () => {
     setFormItemNumber(`OSEC-DECSB-TCH3-${Math.floor(100000 + Math.random() * 900000)}-2026`);
     setFormPositionTitle('Teacher I');
     setFormSalaryGrade(getAutoSalaryGrade('Teacher I'));
-    setFormDepartment('Koronadal Central Elementary School 1');
-    setFormDivision('SDO Koronadal City - District 1');
+    setFormDepartment('');
+    setFormDivision('');
     setFormIsOccupied(false);
     setFormPersonnelId('');
     setFormPersonnelSearch('');
@@ -293,6 +294,11 @@ export const PlantillaManagement: React.FC = () => {
 
     if (formIsOccupied && !formPersonnelId) {
       addToast('Please choose a personnel to assign to this occupied plantilla item.', 'WARNING');
+      return;
+    }
+    if (!(formDivision === 'SDO Koronadal City' && formDepartment === 'Schools Division Office') &&
+        (!selectedFormDistrict || ![...selectedFormDistrict.schools, 'All Schools in District'].includes(formDepartment))) {
+      addToast('Select a district and a school in that district.', 'WARNING');
       return;
     }
 
@@ -1105,32 +1111,32 @@ export const PlantillaManagement: React.FC = () => {
                     >
                       <optgroup label="1. Teaching Personnel — Current ECP Positions">
                         {TEACHING_POSITIONS.filter(p => !p.includes('(') && !p.includes('Special') && !p.includes('Principal') && !p.includes('Head Teacher')).map((p) => (
-                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </optgroup>
                       <optgroup label="Special Science / Special Needs Education Titles">
                         {TEACHING_POSITIONS.filter(p => p.includes('Special') || p.includes('SPED')).map((p) => (
-                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </optgroup>
                       <optgroup label="2. School Administration / School Heads — Current ECP Titles">
                         {TEACHING_POSITIONS.filter(p => p.startsWith('School Principal')).map((p) => (
-                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </optgroup>
                       <optgroup label="Existing / Legacy Positions">
                         {TEACHING_POSITIONS.filter(p => p.includes('Head Teacher') || p.includes('Assistant')).map((p) => (
-                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </optgroup>
                       <optgroup label="Newer DepEd Staffing Framework — Counselor Series">
                         {NON_TEACHING_POSITIONS.filter(p => p.includes('Counselor')).map((p) => (
-                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </optgroup>
                       <optgroup label="Administrative & Office Staff Roles">
                         {NON_TEACHING_POSITIONS.filter(p => !p.includes('Counselor')).map((p) => (
-                          <option key={p} value={p}>{p} (SG {getAutoSalaryGrade(p)})</option>
+                          <option key={p} value={p}>{p}</option>
                         ))}
                       </optgroup>
                     </select>
@@ -1163,40 +1169,37 @@ export const PlantillaManagement: React.FC = () => {
 
                 <div>
                   <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                    Station / School Assignment *
+                    District *
                   </label>
                   <select
-                    aria-label="Station / School Assignment"
+                    aria-label="District"
                     className="form-control"
-                    value={formDepartment}
+                    value={formDivision}
                     onChange={(e) => {
-                      setFormDepartment(e.target.value);
-                      const isD6 = DEPED_KORONADAL_DISTRICTS[1]?.schools.includes(e.target.value);
-                      setFormDivision(isD6 ? 'SDO Koronadal City - District 6' : 'SDO Koronadal City - District 1');
+                      setFormDivision(e.target.value);
+                      setFormDepartment(e.target.value === 'SDO Koronadal City' ? 'Schools Division Office' : '');
                     }}
                     style={{ fontSize: '0.8125rem' }}
                   >
-                    {DEPED_KORONADAL_DISTRICTS.flatMap((d) =>
-                      d.schools.map((s) => (
-                        <option key={s} value={s}>{s} ({d.name})</option>
-                      ))
-                    )}
+                    <option value="">Select district</option>
+                    <option value="SDO Koronadal City">Division Office (division-wide)</option>
+                    {DEPED_KORONADAL_DISTRICTS.map(d => (
+                      <option key={d.id} value={`SDO Koronadal City - ${d.name}`}>{d.name}</option>
+                    ))}
                   </select>
                 </div>
 
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
-                    Division & District
-                  </label>
-                  <input
-                    aria-label="Division & District"
-                    type="text"
-                    className="form-control"
-                    value={formDivision}
-                    onChange={(e) => setFormDivision(e.target.value)}
-                    style={{ fontSize: '0.8125rem' }}
-                  />
-                </div>
+                {selectedFormDistrict && (
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>School *</label>
+                    <select aria-label="School" className="form-control" value={formDepartment}
+                      onChange={e => setFormDepartment(e.target.value)} style={{ fontSize: '0.8125rem' }}>
+                      <option value="">Select school</option>
+                      <option value="All Schools in District">District-wide (all schools)</option>
+                      {selectedFormDistrict.schools.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
