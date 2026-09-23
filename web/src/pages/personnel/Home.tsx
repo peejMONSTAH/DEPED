@@ -208,7 +208,7 @@ export const PersonnelHome: React.FC = () => {
 
   // Filter open, active opportunities - cancelled/discontinued cycles never appear as available
   const activeOpenVacancies = React.useMemo(() =>
-    openCycles.filter(c => c.status === 'ACTIVE' && c.status !== 'CANCELLED'),
+    openCycles.filter(c => c.status === 'ACTIVE'),
     [openCycles]
   );
 

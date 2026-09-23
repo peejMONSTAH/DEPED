@@ -251,17 +251,19 @@ export const PersonnelNotifications: React.FC = () => {
             {n.relatedEntityId && (
               <span className="notif-inbox-ref">Ref: #{n.relatedEntityId}</span>
             )}
-            <span className="notif-inbox-time">{timeFormatted}</span>
-            {!n.isRead && <span className="notif-unread-dot" title="Unread" />}
           </div>
 
           <div className="notif-inbox-title">{action.title}</div>
           {action.body && <div className="notif-inbox-preview">{action.body}</div>}
         </div>
 
-        {/* Chevron affordance */}
-        <div className="notif-inbox-arrow" aria-hidden="true">
-          <AppIcon name="chevron-right" size={16} />
+        {/* Right Meta Column: Timestamp, Unread Dot, Action Affordance */}
+        <div className="notif-inbox-right-meta">
+          <span className="notif-inbox-time">{timeFormatted}</span>
+          {!n.isRead && <span className="notif-unread-dot" title="Unread" />}
+          <div className="notif-inbox-arrow" aria-hidden="true">
+            <AppIcon name="chevron-right" size={16} />
+          </div>
         </div>
       </div>
     );
