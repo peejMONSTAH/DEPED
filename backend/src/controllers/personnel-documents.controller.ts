@@ -1,13 +1,26 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import { storeDocument, readDocument, discardUncommittedDocument } from '../services/document-storage.service';
-import { getStationScope, isWithinStation } from '../utils/scope.util';
+import { canAccessPersonnel } from '../utils/scope.util';
 import { Prisma, PersonnelDocumentStatus } from '@prisma/client';
 import prisma from '../config/prisma';
-import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden } from '../utils/response.util';
+import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden, sendConflict } from '../utils/response.util';
 import { recordAuditLog } from '../utils/audit.util';
 import { logger } from '../utils/logger';
 import { generateDocumentAccessToken } from '../utils/jwt.util';
+import { denyOutOfScope } from '../utils/access-denial.util';
+
+const parseDocumentId = (raw: unknown): number | null => {
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+};
+
+/**
+ * A 201 document is reachable exactly when its owner's personnel record is:
+ * PersonnelFile -> Personnel -> station, through the one scope policy.
+ */
+const refusePersonnelDocument = (req: Request, res: Response, documentId: number, action: string): Promise<void> =>
+  denyOutOfScope(req, res, { entityType: 'PersonnelDocument', entityId: documentId, action }, 'Document not found.');
 
 export interface DocumentTypeDefinition {
   id: string;
@@ -53,6 +66,67 @@ export const CONFIGURABLE_DOCUMENT_TYPES: DocumentTypeDefinition[] = [
   { id: 'RESUME_CV', name: 'Resume / CV', supportsExpiration: false, description: 'Curriculum vitae. This does not replace the Personal Data Sheet, which is a separate required form.', category: 'Personal' },
   { id: 'OTHER', name: 'Other', supportsExpiration: false, description: 'Any other supporting document or MOV for comparative assessment', category: 'General', annexCCode: 'k' },
 ];
+
+export interface RequirementIdentity {
+  key: string;
+  isSingleInstance: boolean;
+  annexCCode?: string;
+  customName?: string;
+}
+
+/**
+ * Resolves the canonical requirement identity and determines whether the
+ * requirement is single-instance (strictly one current active file in the 201 library)
+ * or multi-instance (multiple distinct files permitted, such as training certificates or COEs).
+ */
+export function resolveRequirementIdentity(
+  documentTypeId: string,
+  documentTypeName?: string | null
+): RequirementIdentity {
+  const normName = (documentTypeName || '').trim();
+
+  // 1. Check if documentTypeName specifically targets an Annex C requirement item (a through k)
+  // e.g. "Annex C a: Letter of Intent", "Annex C (b) Personal Data Sheet", "Annex C - e"
+  const annexMatch = normName.match(/^Annex\s+C\s*[\(\[-]?\s*([a-k])\b/i);
+  if (annexMatch) {
+    const code = annexMatch[1].toLowerCase();
+    return {
+      key: `ANNEX_C_${code}`,
+      isSingleInstance: true,
+      annexCCode: code,
+      customName: normName,
+    };
+  }
+
+  const def = CONFIGURABLE_DOCUMENT_TYPES.find(t => t.id === documentTypeId);
+
+  // 2. Types naturally permitting multiples:
+  // - TRAINING_CERT: multiple certificates across distinct trainings
+  // - COE: multiple certificates of employment / service records from different employers
+  if (documentTypeId === 'TRAINING_CERT' || documentTypeId === 'COE') {
+    return {
+      key: `DOC_TYPE:${documentTypeId}`,
+      isSingleInstance: false,
+      annexCCode: def?.annexCCode,
+    };
+  }
+
+  // 3. General OTHER documents (not bound to an Annex C requirement code):
+  if (documentTypeId === 'OTHER') {
+    return {
+      key: normName ? `OTHER:${normName.toLowerCase()}` : 'OTHER:GENERAL',
+      isSingleInstance: false, // General OTHER allows multiple distinct files
+      customName: normName,
+    };
+  }
+
+  // 4. All other standard defined document types are single-instance 201 records
+  return {
+    key: `DOC_TYPE:${documentTypeId}`,
+    isSingleInstance: true,
+    annexCCode: def?.annexCCode,
+  };
+}
 
 export const BASELINE_REQUIRED_DOCUMENTS: Record<string, string[]> = {
   TEACHING_PERSONNEL: [
@@ -272,7 +346,14 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
   const expirationDate = parseIsoDate(req.body.expirationDate);
   if (expirationDate === null) { sendBadRequest(res, 'Enter the expiry date as YYYY-MM-DD.'); return; }
 
-  const replacementId = req.body.replacesDocumentId ? Number(req.body.replacesDocumentId) : null;
+  const customDocName = req.body.customDocumentName ? String(req.body.customDocumentName).trim() : '';
+  const docTypeName = definition.id === 'OTHER'
+    ? (customDocName || 'Other document')
+    : definition.name;
+
+  const targetReqIdentity = resolveRequirementIdentity(definition.id, docTypeName);
+
+  let replacementId = req.body.replacesDocumentId ? Number(req.body.replacesDocumentId) : null;
   if (replacementId && !Number.isInteger(replacementId)) { sendBadRequest(res, 'Invalid replacement document.'); return; }
   
   let replaceableRecord: StoredDocument | null = null;
@@ -283,26 +364,73 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
     });
     if (!replaceableRecord) { sendNotFound(res, 'Replacement source document not found.'); return; }
   } else {
-    // If no replacementId was passed, check if there's an existing NOT_SUBMITTED placeholder for this document type
-    replaceableRecord = await prisma.personnelFile.findFirst({
-      where: {
-        personnelId: req.user.personnelId,
-        documentTypeId: definition.id,
-        status: PersonnelDocumentStatus.NOT_SUBMITTED,
-        deletedAt: null,
-      },
-      include: withReviewer,
-    });
+    // 1. Check if there is an empty NOT_SUBMITTED placeholder for this requirement
+    if (definition.id === 'OTHER' && customDocName) {
+      replaceableRecord = await prisma.personnelFile.findFirst({
+        where: {
+          personnelId: req.user.personnelId,
+          documentTypeId: 'OTHER',
+          documentTypeName: { equals: customDocName, mode: 'insensitive' },
+          status: PersonnelDocumentStatus.NOT_SUBMITTED,
+          deletedAt: null,
+        },
+        include: withReviewer,
+      });
+    } else {
+      replaceableRecord = await prisma.personnelFile.findFirst({
+        where: {
+          personnelId: req.user.personnelId,
+          documentTypeId: definition.id,
+          status: PersonnelDocumentStatus.NOT_SUBMITTED,
+          deletedAt: null,
+        },
+        include: withReviewer,
+      });
+    }
+
+    // 2. If no placeholder exists and this is a single-instance requirement, verify if an active file already exists
+    if (!replaceableRecord && targetReqIdentity.isSingleInstance) {
+      const allActiveDocs = await prisma.personnelFile.findMany({
+        where: {
+          personnelId: req.user.personnelId,
+          deletedAt: null,
+          status: { not: PersonnelDocumentStatus.NOT_SUBMITTED },
+        },
+        include: withReviewer,
+      });
+
+      const existingConflict = allActiveDocs.find(doc => {
+        const docReq = resolveRequirementIdentity(doc.documentTypeId, doc.documentTypeName);
+        return docReq.key === targetReqIdentity.key;
+      });
+
+      if (existingConflict) {
+        sendConflict(
+          res,
+          `A document is already on file for this requirement ("${existingConflict.documentTypeName}"). Use Replace to update it.`,
+          'DOCUMENT_ALREADY_EXISTS',
+          {
+            existingDocumentId: existingConflict.id,
+            documentTypeId: existingConflict.documentTypeId,
+            documentTypeName: existingConflict.documentTypeName,
+            originalFileName: existingConflict.originalFileName,
+            fileSize: existingConflict.fileSize,
+            uploadedAt: existingConflict.createdAt.toISOString(),
+          }
+        );
+        return;
+      }
+    }
   }
 
   const storagePath = await storeDocument(file.buffer, file.mimetype, `personnel/${req.user.personnelId}`);
-  const docTypeName = definition.id === 'OTHER'
-    ? String(req.body.customDocumentName || 'Other document')
-    : definition.name;
 
   let record: StoredDocument;
   try {
     record = await prisma.$transaction(async tx => {
+      // Serialize concurrent uploads for this personnel record
+      await tx.$executeRaw`SELECT id FROM personnel WHERE id = ${req.user!.personnelId!} FOR UPDATE`;
+
       // If fulfilling an existing placeholder (NOT_SUBMITTED)
       if (replaceableRecord && replaceableRecord.status === PersonnelDocumentStatus.NOT_SUBMITTED) {
         const updated = await tx.personnelFile.update({
@@ -335,6 +463,24 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
         return updated;
       }
 
+      // Concurrency check for ordinary uploads without replacementId
+      if (!replacementId && targetReqIdentity.isSingleInstance) {
+        const activeDocsInTx = await tx.personnelFile.findMany({
+          where: {
+            personnelId: req.user!.personnelId!,
+            deletedAt: null,
+            status: { not: PersonnelDocumentStatus.NOT_SUBMITTED },
+          },
+        });
+        const conflictInTx = activeDocsInTx.find(doc => {
+          const docReq = resolveRequirementIdentity(doc.documentTypeId, doc.documentTypeName);
+          return docReq.key === targetReqIdentity.key;
+        });
+        if (conflictInTx) {
+          throw new Error('CONCURRENT_DOCUMENT_CONFLICT');
+        }
+      }
+
       // If replacing an existing submitted/approved/deficient file or creating a new document
       const created = await tx.personnelFile.create({
         data: {
@@ -350,7 +496,7 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
           expirationDate: expirationDate ?? null,
           remarks: req.body.remarks ? String(req.body.remarks) : null,
           status: PersonnelDocumentStatus.SUBMITTED,
-          isRequired: replaceableRecord ? replaceableRecord.isRequired : false,
+          isRequired: definition.id === 'OTHER' ? false : (replaceableRecord ? replaceableRecord.isRequired : false),
           ...(replacementId ? { replacesDocumentId: replacementId } : {}),
         },
         include: withReviewer,
@@ -377,6 +523,10 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
     });
   } catch (error: any) {
     await discardUncommittedDocument(storagePath).catch(() => logger.error({ detail: storagePath }, 'Uncommitted document cleanup needs retry'));
+    if (error?.message === 'CONCURRENT_DOCUMENT_CONFLICT' || error?.message?.includes('CONCURRENT_DOCUMENT_CONFLICT')) {
+      sendConflict(res, 'A document is already on file for this requirement. Use Replace to update it.', 'DOCUMENT_ALREADY_EXISTS');
+      return;
+    }
     if (error?.message?.includes('The document changed before it could be replaced')) {
       sendBadRequest(res, error.message, 'CONCURRENT_REPLACEMENT_CONFLICT');
       return;
@@ -407,34 +557,58 @@ export const replacePersonnelDocument = async (req: Request, res: Response): Pro
 };
 
 export const deletePersonnelDocument = async (req: Request, res: Response): Promise<void> => {
-  const record = await prisma.personnelFile.findUnique({ where: { id: Number(req.params.id) } });
+  const id = parseDocumentId(req.params.id);
+  if (!id) { sendBadRequest(res, 'Invalid document ID.'); return; }
+  const record = await prisma.personnelFile.findUnique({ where: { id } });
   if (!record || record.deletedAt) { sendNotFound(res); return; }
-  if (record.personnelId !== req.user?.personnelId && !['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '')) { sendForbidden(res); return; }
-  if (record.status === PersonnelDocumentStatus.APPROVED) { sendBadRequest(res, 'Approved records must be retained.'); return; }
-
-  if (record.isRequired) {
-    if (record.status === PersonnelDocumentStatus.NOT_SUBMITTED) {
-      sendBadRequest(res, 'Required document checklist items cannot be removed.');
+  if (record.personnelId !== req.user?.personnelId && !['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '')) {
+    // Someone who cannot even see the document learns nothing about it.
+    if (!(await canAccessPersonnel(req.user, record.personnelId))) {
+      await denyOutOfScope(req, res, { entityType: 'PersonnelDocument', entityId: id, action: 'PERSONNEL_DOCUMENT_DELETE' }, 'Resource not found');
       return;
     }
-    // Reset required item back to unsubmitted placeholder
-    await prisma.personnelFile.update({
-      where: { id: record.id },
-      data: {
-        status: PersonnelDocumentStatus.NOT_SUBMITTED,
-        originalFileName: null,
-        storedFileName: null,
-        storagePath: null,
-        mimeType: null,
-        fileSize: null,
-        issueDate: null,
-        expirationDate: null,
-        remarks: null,
-        rejectionReason: null,
+    sendForbidden(res);
+    return;
+  }
+  if (record.status === PersonnelDocumentStatus.APPROVED) { sendBadRequest(res, 'Approved records must be retained.'); return; }
+  const isBaselineType = Object.values(BASELINE_REQUIRED_DOCUMENTS).some(list => list.includes(record.documentTypeId));
+
+  if (record.isRequired && isBaselineType && record.documentTypeId !== 'OTHER') {
+    // Check if another active document exists for this same documentTypeId
+    const otherActive = await prisma.personnelFile.findFirst({
+      where: {
+        personnelId: record.personnelId,
+        documentTypeId: record.documentTypeId,
+        id: { not: record.id },
+        deletedAt: null,
       },
     });
-    sendSuccess(res, { id: record.id }, 'Document reset to unsubmitted placeholder.');
-    return;
+
+    // Only preserve as an unsubmitted placeholder if NO other active document of this type exists
+    if (!otherActive) {
+      if (record.status === PersonnelDocumentStatus.NOT_SUBMITTED) {
+        sendBadRequest(res, 'Required document checklist items cannot be removed.');
+        return;
+      }
+      // Reset required item back to unsubmitted placeholder
+      await prisma.personnelFile.update({
+        where: { id: record.id },
+        data: {
+          status: PersonnelDocumentStatus.NOT_SUBMITTED,
+          originalFileName: null,
+          storedFileName: null,
+          storagePath: null,
+          mimeType: null,
+          fileSize: null,
+          issueDate: null,
+          expirationDate: null,
+          remarks: null,
+          rejectionReason: null,
+        },
+      });
+      sendSuccess(res, { id: record.id }, 'Document reset to unsubmitted placeholder.');
+      return;
+    }
   }
 
   await prisma.personnelFile.update({ where: { id: record.id }, data: { deletedAt: new Date() } });
@@ -461,17 +635,19 @@ export const isDocumentAccessibleHistoricalEvidence = async (documentId: number,
 };
 
 export const getPersonnelDocumentViewToken = async (req: Request, res: Response): Promise<void> => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
+  const id = parseDocumentId(req.params.id);
+  if (!id) {
     sendBadRequest(res, 'Invalid document ID.');
     return;
   }
-  const record = await prisma.personnelFile.findUnique({
-    where: { id },
-    include: { personnel: true },
-  });
+  const record = await prisma.personnelFile.findUnique({ where: { id } });
   if (!record) {
     sendNotFound(res, 'Document not found.');
+    return;
+  }
+  // No token is minted for a document outside the caller's scope.
+  if (!(await canAccessPersonnel(req.user, record.personnelId))) {
+    await refusePersonnelDocument(req, res, id, 'PERSONNEL_DOCUMENT_VIEW_TOKEN');
     return;
   }
   if (record.deletedAt) {
@@ -480,14 +656,6 @@ export const getPersonnelDocumentViewToken = async (req: Request, res: Response)
       sendNotFound(res, 'Document not found.');
       return;
     }
-  }
-  let allowed = record.personnelId === req.user?.personnelId || ['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '');
-  if (!allowed && req.user?.role === 'AO_II') {
-    allowed = isWithinStation(await getStationScope(req.user), record.personnel);
-  }
-  if (!allowed) {
-    sendForbidden(res);
-    return;
   }
   if (!record.storagePath) {
     sendNotFound(res, 'Document has no file attached.');
@@ -511,28 +679,31 @@ export const getPersonnelDocumentViewToken = async (req: Request, res: Response)
 };
 
 export const downloadPersonnelDocumentFile = async (req: Request, res: Response): Promise<void> => {
-  const record = await prisma.personnelFile.findUnique({ where: { id: Number(req.params.id) }, include: { personnel: true } });
-  if (!record) { sendNotFound(res); return; }
+  const id = parseDocumentId(req.params.id);
+  if (!id) { sendBadRequest(res, 'Invalid document ID.'); return; }
+
+  // A view token names exactly one document. Compared before the lookup, so a
+  // valid token for one id cannot be used to probe which other ids exist.
+  if (req.docToken && (req.docToken.documentId !== id || req.docToken.docType !== 'personnel')) {
+    sendForbidden(res, 'Invalid document access token.');
+    return;
+  }
+
+  const record = await prisma.personnelFile.findUnique({ where: { id } });
+  if (!record) { sendNotFound(res, 'Document not found.'); return; }
+
+  // A valid signature is not authorization: scope is re-evaluated on every download.
+  if (!(await canAccessPersonnel(req.user, record.personnelId))) {
+    await refusePersonnelDocument(req, res, id, 'PERSONNEL_DOCUMENT_DOWNLOAD');
+    return;
+  }
   if (record.deletedAt) {
     const isHistoricalEvidence = await isDocumentAccessibleHistoricalEvidence(record.id, record.personnelId);
     if (!isHistoricalEvidence) {
-      sendNotFound(res);
+      sendNotFound(res, 'Document not found.');
       return;
     }
   }
-  
-  if (req.docToken) {
-    if (req.docToken.documentId !== record.id || req.docToken.docType !== 'personnel') {
-      sendForbidden(res, 'Invalid document access token.');
-      return;
-    }
-  }
-
-  let allowed = record.personnelId === req.user?.personnelId || ['HRMO', 'SYSTEM_ADMIN'].includes(req.user?.role || '');
-  if (!allowed && req.user?.role === 'AO_II') {
-    allowed = isWithinStation(await getStationScope(req.user), record.personnel);
-  }
-  if (!allowed) { sendForbidden(res); return; }
 
   if (!record.storagePath) {
     sendNotFound(res, 'Document has no file attached.');

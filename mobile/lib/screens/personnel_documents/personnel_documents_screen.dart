@@ -73,6 +73,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
         documentService: _documentService,
         acquisitionService: _acquisitionService,
         documentToReplace: documentToReplace,
+        existingDocuments: _documents,
         onDocumentUploaded: () => _loadDocuments(forceRefresh: true),
       ),
     );

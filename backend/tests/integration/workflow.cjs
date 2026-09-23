@@ -182,7 +182,11 @@ test('OCR confirmation must belong to the owner and the exact file version revie
   const params = { documentId: String(upload.body.data.id) };
   const review = await invoke(getExtractionReview, { params, user: people.other });
   const body = { version: review.body.data.version, fields: { firstName: 'Corrected' } };
-  assert.equal((await invoke(confirmExtractionReview, { params, user: people.owner, body })).statusCode, 403);
+  // Another station's personnel cannot see this document at all, so the refusal
+  // is the same 404 a missing document gets (one policy for out-of-scope records).
+  const before = await db.uploadedDocument.findUnique({ where: { id: upload.body.data.id } });
+  assert.equal((await invoke(confirmExtractionReview, { params, user: people.owner, body })).statusCode, 404);
+  assert.deepEqual(await db.uploadedDocument.findUnique({ where: { id: upload.body.data.id } }), before);
   assert.equal((await invoke(confirmExtractionReview, { params, user: people.other, body: { ...body, version: 'old-version' } })).statusCode, 409);
   assert.equal((await invoke(confirmExtractionReview, { params, user: people.other, body })).statusCode, 200);
 });

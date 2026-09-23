@@ -24,6 +24,17 @@ export const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Drops every cached response. Called whenever the signed-in identity changes
+ * (sign-in, sign-out, magic link, an ended session). Query keys do not carry
+ * the account or its station, so without this the next person on a shared
+ * browser would briefly be shown the previous account's records.
+ */
+export const resetClientCaches = (): void => {
+  void queryClient.cancelQueries();
+  queryClient.clear();
+};
+
 /** Query keys in one place so invalidation cannot drift from the queries it targets. */
 export const queryKeys = {
   notifications: ['notifications'] as const,

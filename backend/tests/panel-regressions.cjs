@@ -44,6 +44,9 @@ const cases = [
   ['promotions','post','/cycles',['HRMO']],
   ['promotions','post','/cycles/:id/applications/:appId/final-rating',['HRMO']],
   ['promotions','post','/cycles/:id/apply',['TEACHING_PERSONNEL','NON_TEACHING_PERSONNEL']],
+  // Re-ranks every station's applicants: HRMO only, never a station officer.
+  ['promotions','post','/cycles/:id/generate-ranking',['HRMO']],
+  ['promotions','post','/cycles/:id/applications/:appId/verify-requirements',['AO_II','HRMO']],
   ['audit','get','/reports/compliance-summary',['SYSTEM_ADMIN']],
   ['audit','get','/reports/personnel-demographics',['SYSTEM_ADMIN']],
 ];

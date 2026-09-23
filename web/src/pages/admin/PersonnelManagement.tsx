@@ -9,6 +9,7 @@ import { personnelDisplayName } from '../../utils/personnel-display';
 import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
+import { accessDeniedMessage, isAccessDenied } from '../../api/access';
 import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
 import { usePending } from '../../hooks/usePending';
@@ -77,8 +78,16 @@ export const PersonnelManagement: React.FC = () => {
     setEditStatus(p.status || 'ACTIVE');
     apiClient.get(`/personnel/${p.id}`).then(response => {
       const detail = response.data?.data;
-      if (detail) setSelected(detail);
-    }).catch(() => undefined);
+      // Only if the officer has not moved on to another record meanwhile.
+      if (detail) setSelected(current => (current?.id === p.id ? detail : current));
+    }).catch(err => {
+      if (!isAccessDenied(err)) return;
+      // No longer this officer's record to see: nothing from the list row stays open.
+      setSelected(current => (current?.id === p.id ? null : current));
+      setIsEditing201(false);
+      addToast(accessDeniedMessage('personnel record'), 'ERROR');
+      void fetchPersonnel();
+    });
   };
 
   const handleApply201Changes = async () => {
@@ -110,6 +119,13 @@ export const PersonnelManagement: React.FC = () => {
       setIsEditing201(false);
       addToast('201 File changes applied and stored in database successfully!', 'SUCCESS');
     } catch (err: any) {
+      if (err.response?.status === 404) {
+        setSelected(null);
+        setIsEditing201(false);
+        addToast(accessDeniedMessage('personnel record'), 'ERROR');
+        void fetchPersonnel();
+        return;
+      }
       console.error('Failed to update 201 file in database:', err);
       addToast(err.response?.data?.message || 'Failed to save 201 file changes.', 'ERROR');
     } finally {

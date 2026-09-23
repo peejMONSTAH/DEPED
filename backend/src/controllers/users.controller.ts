@@ -5,16 +5,17 @@ import {
   sendSuccess, sendCreated, sendError, sendNotFound, sendBadRequest, sendForbidden,
   getPaginationParams, buildPaginationMeta,
 } from '../utils/response.util';
-import { UserRole, AccountStatus } from '@prisma/client';
+import { Prisma, UserRole, AccountStatus } from '@prisma/client';
 import { notifyUserNotifications } from './notifications.controller';
 import {
   getStationScope,
-  hasStationAssignment,
-  isWithinStation,
-  stationPersonnelFilter,
+  sameStation,
+  userInScope,
+  userReviewFilter,
   STATION_SUBJECT_ROLES,
 } from '../utils/scope.util';
 import { validateAccountInput, validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
+import { denyOutOfScope } from '../utils/access-denial.util';
 import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
 import { config } from '../config';
@@ -30,37 +31,29 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
   const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
   const { role, search } = req.query;
 
-  const where: Record<string, any> = {};
-  if (role) where.role = { name: role as UserRole };
+  // Every condition is ANDed, so role, search and paging only narrow the scope.
+  const conditions: Prisma.UserWhereInput[] = [];
+  if (role) conditions.push({ role: { name: role as UserRole } });
 
-  // Scope AO II to strictly see and manage only Teaching and Non-Teaching personnel under their assigned station/district
+  // An AO II manages the teaching and non-teaching accounts of their own station.
   const scope = await getStationScope(req.user);
   if (scope.isScoped) {
-    if (role && STATION_SUBJECT_ROLES.includes(role as UserRole)) {
-      where.role = { name: role as UserRole };
-    } else {
-      where.role = { name: { in: STATION_SUBJECT_ROLES } };
-    }
-    where.personnel = stationPersonnelFilter(scope);
+    conditions.push({ role: { name: { in: STATION_SUBJECT_ROLES } } }, userReviewFilter(scope));
   }
 
   if (search) {
-    const searchFilter = [
-      { email: { contains: String(search), mode: 'insensitive' } },
-      { personnel: { firstName: { contains: String(search), mode: 'insensitive' } } },
-      { personnel: { lastName: { contains: String(search), mode: 'insensitive' } } },
-      { personnel: { employeeId: { contains: String(search), mode: 'insensitive' } } },
-    ];
-    if (where.OR) {
-      where.AND = [
-        { OR: where.OR },
-        { OR: searchFilter },
-      ];
-      delete where.OR;
-    } else {
-      where.OR = searchFilter;
-    }
+    const q = String(search);
+    conditions.push({
+      OR: [
+        { email: { contains: q, mode: 'insensitive' } },
+        { personnel: { firstName: { contains: q, mode: 'insensitive' } } },
+        { personnel: { lastName: { contains: q, mode: 'insensitive' } } },
+        { personnel: { employeeId: { contains: q, mode: 'insensitive' } } },
+      ],
+    });
   }
+
+  const where: Prisma.UserWhereInput = conditions.length ? { AND: conditions } : {};
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -394,12 +387,9 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
 
   if (!user) { sendNotFound(res, 'User not found.'); return; }
 
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped && targetId !== req.user?.userId) {
-    if (!isPersonnelRole(user.role.name) || !isWithinStation(scope, user.personnel)) {
-      sendForbidden(res, 'Access denied. You can only view users under your assigned school station.');
-      return;
-    }
+  if (targetId !== req.user?.userId && !(await userInScope(await getStationScope(req.user), targetId))) {
+    await denyOutOfScope(req, res, { entityType: 'User', entityId: targetId, action: 'USER_VIEW' }, 'User not found.');
+    return;
   }
 
   sendSuccess(res, user);
@@ -433,11 +423,22 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     if (roleRecord) updateData.roleId = roleRecord.id;
   }
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: updateData,
-    include: { role: { select: { name: true } } },
+  // A role is an authorization scope. Sessions issued under the old one end,
+  // so every client must re-authenticate and drop what it cached.
+  const roleChanged = typeof updateData.roleId === 'number' && updateData.roleId !== existing.roleId;
+  const updated = await prisma.$transaction(async tx => {
+    const row = await tx.user.update({
+      where: { id: userId },
+      data: updateData,
+      include: { role: { select: { name: true } } },
+    });
+    if (roleChanged) {
+      await tx.refreshToken.updateMany({ where: { userId, revoked: false }, data: { revoked: true } });
+    }
+    return row;
   });
+  // authenticate() caches role and status for 30s; the change applies from the next request.
+  invalidateAuthUserCache(userId);
 
   await prisma.validationLog.create({
     data: {
@@ -595,9 +596,9 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true, personnel: true } });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
 
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped && (!isPersonnelRole(user.role.name) || !isWithinStation(scope, user.personnel))) {
-    sendForbidden(res, 'You can only distribute credentials to personnel in your assigned school.'); return;
+  if (!(await userInScope(await getStationScope(req.user), userId))) {
+    await denyOutOfScope(req, res, { entityType: 'User', entityId: userId, action: 'CREDENTIALS_DISTRIBUTE' }, 'User not found.');
+    return;
   }
   if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
 
@@ -800,7 +801,7 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
 
   if (req.user?.role === 'AO_II') {
     const scope = await getStationScope(req.user);
-    if (!scope.school || (finalSchool && finalSchool.trim().toLowerCase() !== scope.school.trim().toLowerCase())) {
+    if (scope.kind !== 'STATION' || !scope.school || (finalSchool && !sameStation(finalSchool, scope.school))) {
       sendForbidden(res, 'You can only request accounts for your assigned school.'); return;
     }
     finalSchool = scope.school;

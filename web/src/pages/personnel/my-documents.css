@@ -461,3 +461,103 @@
   align-items: center;
   gap: 5px;
 }
+
+/* ── Redundant Upload Prevention & Conflict Guidance ── */
+.my-documents-active-conflict-panel {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.my-documents-active-conflict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.my-documents-active-conflict-text {
+  font-size: 0.875rem;
+  color: #92400e;
+  font-weight: 500;
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+.my-documents-active-doc-preview-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.my-documents-active-doc-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.my-documents-active-doc-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #0f172a;
+}
+
+.my-documents-active-doc-filename {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8125rem;
+  color: #3b82f6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.my-documents-active-doc-subtext {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.my-documents-active-doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.my-documents-pending-scan-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: #065f46;
+}
+
+.my-documents-conflict-banner {
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+  color: #991b1b;
+}

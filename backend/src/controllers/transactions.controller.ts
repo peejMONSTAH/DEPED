@@ -4,9 +4,9 @@ import { sendSuccess, sendCreated, sendBadRequest, sendNotFound, sendForbidden, 
 import { notifyUserNotifications } from './notifications.controller';
 import {
   getStationScope,
-  isWithinStation,
+  normalizeStationName,
+  stationOfficerUserIds,
   stationPersonnelFilter,
-  STATION_SUBJECT_ROLES,
 } from '../utils/scope.util';
 import { generateMagicToken, passwordTokenVersion } from '../utils/jwt.util';
 import { config } from '../config';
@@ -15,7 +15,8 @@ import { EventEmitter } from 'events';
 import { isConfirmedPdsData, pdsProfileProposal } from '../utils/pds-profile.util';
 import { logger } from '../utils/logger';
 import { getSubmissionTransition } from '../utils/transaction-workflow.util';
-import { transactionAccessFilter } from '../utils/transaction-access.util';
+import { canAccessTransaction, transactionAccessFilter } from '../utils/transaction-access.util';
+import { denyOutOfScope } from '../utils/access-denial.util';
 import { transactionCompliance } from '../utils/transaction-compliance.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
@@ -49,6 +50,7 @@ export const streamTransactions = (req: Request, res: Response) => {
 export const getTransactions = async (req: Request, res: Response) => {
   const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
   const { status, type, transactionType, search, district, school, category, personnelType } = req.query as any;
+  const scope = await getStationScope(req.user);
   const accessFilter: any = await transactionAccessFilter(req.user);
 
   const nonStatusConditions: any[] = [];
@@ -56,13 +58,16 @@ export const getTransactions = async (req: Request, res: Response) => {
     nonStatusConditions.push(accessFilter);
   }
 
-  // Personnel station and category conditions
+  // Personnel station and category conditions. These only narrow the access
+  // filter above; station columns are citext, so `equals` is exact.
   const personnelConditions: any[] = [];
-  if (district && String(district).trim() !== '' && String(district).trim() !== 'ALL') {
-    personnelConditions.push({ district: { equals: String(district).trim(), mode: 'insensitive' } });
+  const districtFilter = normalizeStationName(district);
+  if (districtFilter && districtFilter !== 'ALL') {
+    personnelConditions.push({ district: { equals: districtFilter } });
   }
-  if (school && String(school).trim() !== '' && String(school).trim() !== 'ALL') {
-    personnelConditions.push({ school: { equals: String(school).trim(), mode: 'insensitive' } });
+  const schoolFilter = normalizeStationName(school);
+  if (schoolFilter && schoolFilter !== 'ALL') {
+    personnelConditions.push({ school: { equals: schoolFilter } });
   }
 
   const cat = String(category || personnelType || '').toUpperCase();
@@ -214,10 +219,10 @@ export const getTransactions = async (req: Request, res: Response) => {
     prisma.transaction.count({
       where: baseWhereWithoutStatus,
     }),
+    // Filter options name only the stations the caller can already see.
     prisma.personnel.findMany({
       where: {
-        district: { not: null },
-        school: { not: null },
+        AND: [{ district: { not: null }, school: { not: null } }, stationPersonnelFilter(scope)],
       },
       select: { district: true, school: true },
       distinct: ['district', 'school'],
@@ -472,6 +477,19 @@ export const createTransaction = async (req: Request, res: Response) => {
   sendCreated(res, { id: transaction.id, type: transaction.transactionType.name, status: transaction.status, submissionDate: transaction.submissionDate }, 'Transaction initiated successfully.');
 };
 
+/**
+ * A scoped lookup found nothing. When the id exists in another scope the attempt
+ * is audited; the caller gets the same 404 either way.
+ */
+const refuseTransaction = async (req: Request, res: Response, id: number, action: string): Promise<void> => {
+  const exists = await prisma.transaction.findUnique({ where: { id }, select: { id: true } });
+  if (exists) {
+    await denyOutOfScope(req, res, { entityType: 'Transaction', entityId: id, action }, 'Transaction not found.');
+    return;
+  }
+  sendNotFound(res, 'Transaction not found.');
+};
+
 /** GET /transactions/:id */
 export const getTransactionById = async (req: Request, res: Response, next: NextFunction) => {
   const id = Number(req.params.id);
@@ -523,7 +541,7 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
       }),
     ]);
 
-    if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
+    if (!transaction) { await refuseTransaction(req, res, id, 'TRANSACTION_VIEW'); return; }
     const { complianceScore } = transactionCompliance(transaction.transactionType.requirementTemplates, transaction.uploadedDocuments);
     const promoApp = transaction.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === transaction.id);
     const isPromo = transaction.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
@@ -646,33 +664,29 @@ export const submitTransaction = async (req: Request, res: Response) => {
   });
   res.locals.auditLogged = true;
   const applicantName = updated.personnel ? `${updated.personnel.firstName} ${updated.personnel.lastName}` : 'Personnel Staff';
-  const targetNotifyUsers = await prisma.user.findMany({
-    where: shouldEscalate
-      ? { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' }
-      : {
-          role: { name: 'AO_II' }, accountStatus: 'ACTIVE',
-          personnel: transaction.personnelId ? {
-            OR: [
-              ...(transaction.personnel?.school ? [{ school: { equals: transaction.personnel.school, mode: 'insensitive' as const } }] : []),
-              ...(!transaction.personnel?.school && transaction.personnel?.district ? [{ district: { equals: transaction.personnel.district, mode: 'insensitive' as const } }] : []),
-            ],
-          } : undefined,
-        },
-    select: { id: true },
-  });
-  if (targetNotifyUsers.length > 0) {
+  // Only the AO II of the personnel's own station hears about a submission. A
+  // record with no station, or a station with no active AO II, belongs to no
+  // officer: HRMO is told instead, since it alone can assign the station.
+  const stationOfficers = shouldEscalate ? [] : await stationOfficerUserIds(transaction.personnel?.school);
+  const routeToHrmo = shouldEscalate || stationOfficers.length === 0;
+  const targetUserIds = routeToHrmo
+    ? (await prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' }, select: { id: true } })).map(u => u.id)
+    : stationOfficers;
+  if (targetUserIds.length > 0) {
     await prisma.notification.createMany({
-      data: targetNotifyUsers.map(u => ({
-        userId: u.id,
+      data: targetUserIds.map(userId => ({
+        userId,
         message: shouldEscalate
           ? `Transaction #${id} (${updated.transactionType.name}) for ${applicantName} reached three correction cycles and requires HRMO review.`
-          : `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for validation.`,
-        type: shouldEscalate ? 'WARNING' as const : 'INFO' as const,
+          : routeToHrmo
+            ? `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} has no AO II for its station. Assign the personnel's station so it can be validated.`
+            : `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for validation.`,
+        type: routeToHrmo ? 'WARNING' as const : 'INFO' as const,
         relatedEntityId: id,
         relatedEntityType: 'Transaction',
       })),
     });
-    notifyUserNotifications(targetNotifyUsers.map(u => u.id));
+    notifyUserNotifications(targetUserIds);
   }
   notifyTransactionChange();
   void processWorkflowOutbox();
@@ -702,21 +716,20 @@ export const validateTransaction = async (req: Request, res: Response) => {
     },
   });
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
+  // Validation is independent review; nobody reviews their own submission.
+  if (req.user?.personnelId && req.user.personnelId === transaction.personnelId) {
+    sendForbidden(res, 'You cannot validate your own transaction.');
+    return;
+  }
+  // Scope comes before workflow state, so a transaction in another station is
+  // indistinguishable from a missing one -- its status included.
+  if (!(await canAccessTransaction(req.user, id, 'review'))) {
+    await denyOutOfScope(req, res, { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_VALIDATE' }, 'Transaction not found.');
+    return;
+  }
   if (!['PENDING_VALIDATION', 'DEFICIENCY', 'RETURNED'].includes(transaction.status)) {
     sendBadRequest(res, `Transaction #${id} cannot be validated while its status is "${transaction.status}".`, 'INVALID_VALIDATION_STATE');
     return;
-  }
-
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped && scope.personnelId !== transaction.personnelId) {
-    const roleName = transaction.personnel?.user?.role?.name as typeof STATION_SUBJECT_ROLES[number];
-    if (!STATION_SUBJECT_ROLES.includes(roleName)) {
-      sendForbidden(res, 'Access denied. You can only validate transactions of school personnel.');
-      return;
-    }
-    if (!isWithinStation(scope, transaction.personnel)) {
-      sendForbidden(res, 'Access denied. You can only validate transactions under your assigned school station.'); return;
-    }
   }
 
   if (!Array.isArray(documentValidations) || documentValidations.length === 0) {
@@ -1179,7 +1192,7 @@ export const getTransactionRequirements = async (req: Request, res: Response) =>
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
   const transaction = await prisma.transaction.findFirst({ where: { AND: [{ id }, await transactionAccessFilter(req.user)] }, include: { transactionType: { include: { requirementTemplates: true } }, uploadedDocuments: true } });
-  if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
+  if (!transaction) { await refuseTransaction(req, res, id, 'TRANSACTION_REQUIREMENTS_VIEW'); return; }
   const uploadedMap = new Map(transaction.uploadedDocuments.map(d => [d.requirementTemplateId, d]));
   const checklist = transaction.transactionType.requirementTemplates.map(tmpl => {
     const uploaded = uploadedMap.get(tmpl.id);

@@ -7,6 +7,11 @@ import '../config/app_config.dart';
 class ApiService {
   static String baseUrl = AppConfig.defaultBaseUrl;
 
+  /// Called once the server has refused the session outright: a revoked or
+  /// expired refresh token, as after a password or role change. Everything
+  /// cached under that session must go with it. Registered in main().
+  static Future<void> Function()? onSessionEnded;
+
   late final Dio dio;
   final FlutterSecureStorage _storage;
   final Dio _refreshClient;
@@ -112,6 +117,7 @@ class ApiService {
       if ((status == 401 || status == 403) && await _storage.read(key: AppConfig.keyRefreshToken) == refreshToken) {
         await _storage.delete(key: AppConfig.keyAccessToken);
         await _storage.delete(key: AppConfig.keyRefreshToken);
+        await onSessionEnded?.call();
       }
       debugPrint('Token refresh failed (${status ?? 'network'}): ${error.message}');
     } catch (error) {

@@ -13,11 +13,19 @@ class AuthService {
 
   AuthService(this._apiService);
 
+  /// Drops every record cached on this device. The caches are device-wide, not
+  /// per account, so this runs whenever the signed-in identity changes: sign-in,
+  /// sign-out, and a session the server has ended (ApiService.onSessionEnded).
+  static Future<void> clearAccountCaches() async {
+    await TransactionService.clearLocalStore();
+    await PersonnelDocumentService.clearLocalStore();
+  }
+
   Future<UserModel> login(String email, String password) async {
     try {
-      // Clear previous local transaction store before saving new user session
-      await TransactionService.clearLocalStore();
-      await PersonnelDocumentService.clearLocalStore();
+      // Nothing cached by a previous account may be shown to this one, even if
+      // that account's sign-out never completed.
+      await clearAccountCaches();
 
       final response = await _apiService.dio.post<dynamic>(
         '/auth/login',
@@ -108,8 +116,7 @@ class AuthService {
       }
     } catch (_) {} finally {
       await _storage.deleteAll();
-      await TransactionService.clearLocalStore();
-      await PersonnelDocumentService.clearLocalStore();
+      await clearAccountCaches();
     }
   }
 }

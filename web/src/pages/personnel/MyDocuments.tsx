@@ -98,6 +98,55 @@ export const getPersonnelStatusMeta = (doc: PersonnelDocument): { bg: string; fg
   return { bg: 'rgba(16, 185, 129, 0.12)', fg: '#059669', label: 'Uploaded', isActionNeeded: false };
 };
 
+export interface RequirementIdentity {
+  key: string;
+  isSingleInstance: boolean;
+  annexCCode?: string;
+  customName?: string;
+}
+
+export function resolveRequirementIdentity(
+  documentTypeId: string,
+  documentTypeName?: string | null
+): RequirementIdentity {
+  const normName = (documentTypeName || '').trim();
+
+  // 1. Annex C requirement item check (a through k)
+  const annexMatch = normName.match(/^Annex\s+C\s*[\(\[-]?\s*([a-k])\b/i);
+  if (annexMatch) {
+    const code = annexMatch[1].toLowerCase();
+    return {
+      key: `ANNEX_C_${code}`,
+      isSingleInstance: true,
+      annexCCode: code,
+      customName: normName,
+    };
+  }
+
+  // 2. Types allowing multiples:
+  if (documentTypeId === 'TRAINING_CERT' || documentTypeId === 'COE') {
+    return {
+      key: `DOC_TYPE:${documentTypeId}`,
+      isSingleInstance: false,
+    };
+  }
+
+  // 3. General OTHER documents:
+  if (documentTypeId === 'OTHER') {
+    return {
+      key: normName ? `OTHER:${normName.toLowerCase()}` : 'OTHER:GENERAL',
+      isSingleInstance: false,
+      customName: normName,
+    };
+  }
+
+  // 4. All other standard defined document types are single-instance
+  return {
+    key: `DOC_TYPE:${documentTypeId}`,
+    isSingleInstance: true,
+  };
+}
+
 export const MyDocuments: React.FC = () => {
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,11 +184,13 @@ export const MyDocuments: React.FC = () => {
   const [expirationDate, setExpirationDate] = useState('');
   const [remarks, setRemarks] = useState('');
   const [formError, setFormError] = useState('');
+  const [conflictDoc, setConflictDoc] = useState<PersonnelDocument | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isSubmittingRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,6 +216,50 @@ export const MyDocuments: React.FC = () => {
 
   const selectedType = useMemo(() => types.find(t => t.id === typeId), [types, typeId]);
 
+  // Active documents currently on file in 201 library
+  const activeDocs = useMemo(() => {
+    return documents.filter(doc => doc.hasFile);
+  }, [documents]);
+
+  // Map of requirement key -> existing active document
+  const activeDocByReqKey = useMemo(() => {
+    const map = new Map<string, PersonnelDocument>();
+    for (const doc of activeDocs) {
+      const req = resolveRequirementIdentity(doc.documentTypeId, doc.documentTypeName);
+      map.set(req.key, doc);
+    }
+    return map;
+  }, [activeDocs]);
+
+  // Canonical identity of the selected type/custom name in the modal
+  const currentReqIdentity = useMemo(() => {
+    if (!typeId) return null;
+    const docTypeName = typeId === 'OTHER' ? (customName.trim() || 'Other document') : (selectedType?.name || '');
+    return resolveRequirementIdentity(typeId, docTypeName);
+  }, [typeId, customName, selectedType]);
+
+  // Existing active document that conflicts with an ordinary upload for this requirement
+  const existingActiveDocForSelected = useMemo(() => {
+    if (!currentReqIdentity || !currentReqIdentity.isSingleInstance) return null;
+    // If the modal was opened to replace a specific document (targetDoc has file and matching ID), do not treat as conflict
+    if (targetDoc && targetDoc.hasFile && targetDoc.id) {
+      return null;
+    }
+    return activeDocByReqKey.get(currentReqIdentity.key) || null;
+  }, [currentReqIdentity, targetDoc, activeDocByReqKey]);
+
+  const handleSwitchToReplace = (docToReplace: PersonnelDocument) => {
+    setTargetDoc(docToReplace);
+    setTypeId(docToReplace.documentTypeId);
+    if (docToReplace.documentTypeId === 'OTHER') {
+      setCustomName(docToReplace.documentTypeName || '');
+    }
+    if (docToReplace.issueDate) setIssueDate(docToReplace.issueDate);
+    if (docToReplace.expirationDate) setExpirationDate(docToReplace.expirationDate);
+    setConflictDoc(null);
+    setFormError('');
+  };
+
   const modalTitle = useMemo(() => {
     if (targetDoc && targetDoc.hasFile && targetDoc.documentTypeName && targetDoc.documentTypeName !== 'undefined') {
       return `Replace: ${targetDoc.documentTypeName}`;
@@ -188,6 +283,7 @@ export const MyDocuments: React.FC = () => {
     setExpirationDate('');
     setRemarks('');
     setFormError('');
+    setConflictDoc(null);
     setUploadProgress(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -237,7 +333,9 @@ export const MyDocuments: React.FC = () => {
 
   const submitUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy) return;
+    if (busy || isSubmittingRef.current) return;
+    setFormError('');
+
     if (!typeId) {
       setFormError('Please select a document type.');
       return;
@@ -268,11 +366,15 @@ export const MyDocuments: React.FC = () => {
       form.append('replacesDocumentId', String(targetDoc.id));
     }
 
+    isSubmittingRef.current = true;
     setBusy(true);
     setUploadProgress(0);
 
     try {
       await apiClient.post('/personnel/documents', form, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
             const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -290,10 +392,41 @@ export const MyDocuments: React.FC = () => {
       closeUploadModal(true);
       await load();
     } catch (error: any) {
-      setFormError(error?.response?.data?.message || 'Upload failed. Please try again.');
+      const responseData = error?.response?.data;
+      const conflictData = responseData?.data;
+      if (error?.response?.status === 409 && conflictData?.existingDocumentId) {
+        setConflictDoc({
+          id: conflictData.existingDocumentId,
+          personnelId: 0,
+          documentTypeId: conflictData.documentTypeId,
+          documentTypeName: conflictData.documentTypeName,
+          originalFileName: conflictData.originalFileName,
+          storedFileName: null,
+          mimeType: null,
+          fileSize: conflictData.fileSize,
+          fileUrl: `/personnel/documents/${conflictData.existingDocumentId}/file`,
+          storagePath: null,
+          issueDate: null,
+          expirationDate: null,
+          remarks: null,
+          status: 'APPROVED',
+          rejectionReason: null,
+          uploadedAt: conflictData.uploadedAt || new Date().toISOString(),
+          updatedAt: conflictData.uploadedAt || new Date().toISOString(),
+          isRequired: false,
+          hasFile: true,
+        });
+        setFormError(
+          responseData?.message ||
+          'A document is already on file for this requirement. Click Replace to update it.'
+        );
+      } else {
+        setFormError(responseData?.message || error?.message || 'Upload failed. Please check your document and try again.');
+      }
     } finally {
       setBusy(false);
       setUploadProgress(null);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -817,16 +950,23 @@ export const MyDocuments: React.FC = () => {
                       id="doc-type-select"
                       className="form-select"
                       value={typeId}
-                      disabled={busy || Boolean(targetDoc)}
+                      disabled={busy || Boolean(targetDoc && targetDoc.id)}
                       onChange={e => {
                         setTypeId(e.target.value);
                         setFormError('');
+                        setConflictDoc(null);
                       }}
                     >
                       <option value="">Choose document type…</option>
-                      {types.map(t => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
+                      {types.map(t => {
+                        const req = resolveRequirementIdentity(t.id, t.name);
+                        const hasActive = req.isSingleInstance && activeDocByReqKey.has(req.key);
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {hasActive ? `${t.name} (On file — Replace only)` : t.name}
+                          </option>
+                        );
+                      })}
                     </select>
                     {selectedType?.description && (
                       <p className="text-muted" style={{ fontSize: '0.75rem', margin: '4px 0 0' }}>
@@ -844,116 +984,204 @@ export const MyDocuments: React.FC = () => {
                         className="form-control"
                         placeholder="e.g., Certificate of Commendation"
                         value={customName}
-                        onChange={e => setCustomName(e.target.value)}
+                        onChange={e => {
+                          setCustomName(e.target.value);
+                          setConflictDoc(null);
+                        }}
                         disabled={busy}
                       />
                     </div>
                   )}
 
-                  {/* Dropzone & File Selector */}
-                  <div className="form-group">
-                    <label className="form-label">Document File * (PDF, PNG, JPG up to 10 MB)</label>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept={ACCEPTED}
-                      style={{ display: 'none' }}
-                      onChange={e => handlePickFile(e.target.files?.[0] || null)}
-                    />
+                  {/* If an active document already exists for this requirement, guide user to Preview or Replace */}
+                  {existingActiveDocForSelected ? (
+                    <div className="my-documents-active-conflict-panel" role="region" aria-label="Existing document notice">
+                      <div className="my-documents-active-conflict-badge">
+                        <AppIcon name="clock" size={14} color="#b45309" />
+                        <span>Document Already on File</span>
+                      </div>
 
-                    <div
-                      className={`my-document-dropzone ${dragActive ? 'drag-active' : ''}`}
-                      onDragOver={e => { e.preventDefault(); setDragActive(true); }}
-                      onDragLeave={() => setDragActive(false)}
-                      onDrop={e => {
-                        e.preventDefault();
-                        setDragActive(false);
-                        handlePickFile(e.dataTransfer.files?.[0] || null);
-                      }}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {file ? (
-                        <>
-                          <AppIcon name="check" size={28} color="#059669" />
-                          <div style={{ fontWeight: 700, color: '#059669' }}>{file.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                            {formatSize(file.size)} · Click or drop another file to replace
+                      <p className="my-documents-active-conflict-text">
+                        A document is already on file for this requirement. Preview it or replace it.
+                      </p>
+
+                      <div className="my-documents-active-doc-preview-card">
+                        <div className="my-documents-active-doc-meta">
+                          <div className="my-documents-active-doc-title">
+                            {existingActiveDocForSelected.documentTypeName}
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <AppIcon name="upload" size={28} color="var(--color-primary)" />
-                          <div style={{ fontWeight: 700 }}>Choose a file or drag and drop here</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                            PDF, JPEG, or PNG up to 10 MB
+                          <div className="my-documents-active-doc-filename" title={existingActiveDocForSelected.originalFileName || ''}>
+                            {existingActiveDocForSelected.originalFileName}
                           </div>
-                        </>
+                          <div className="my-documents-active-doc-subtext">
+                            Uploaded {formatDate(existingActiveDocForSelected.updatedAt || existingActiveDocForSelected.uploadedAt)}
+                            {existingActiveDocForSelected.fileSize ? ` · ${formatSize(existingActiveDocForSelected.fileSize)}` : ''}
+                          </div>
+                        </div>
+
+                        <div className="my-documents-active-doc-actions">
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setPreviewDoc(existingActiveDocForSelected)}
+                          >
+                            <AppIcon name="view" size={14} /> Preview
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleSwitchToReplace(existingActiveDocForSelected)}
+                          >
+                            <AppIcon name="sync" size={14} /> Replace
+                          </button>
+                        </div>
+                      </div>
+
+                      {file && (
+                        <div className="my-documents-pending-scan-notice">
+                          <AppIcon name="check" size={16} color="#059669" />
+                          <span>
+                            <strong>{file.name}</strong> ({formatSize(file.size)}) is ready to replace this file. Click <strong>Replace</strong> above to proceed.
+                          </span>
+                        </div>
                       )}
                     </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setScannerTarget(
-                            targetDoc
-                              ? targetDoc
-                              : selectedType
-                              ? ({ documentTypeId: selectedType.id, documentTypeName: selectedType.name } as PersonnelDocument)
-                              : null
-                          );
-                          setScannerOpen(true);
-                        }}
-                        disabled={busy}
-                        style={{ minHeight: 38 }}
-                      >
-                        <AppIcon name="view" size={14} /> Scan page with camera instead
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="doc-issue-date">Issue Date</label>
-                      <input
-                        id="doc-issue-date"
-                        type="date"
-                        className="form-control"
-                        value={issueDate}
-                        onChange={e => setIssueDate(e.target.value)}
-                        disabled={busy}
-                      />
-                    </div>
-
-                    {selectedType?.supportsExpiration && (
+                  ) : (
+                    <>
+                      {/* Dropzone & File Selector */}
                       <div className="form-group">
-                        <label className="form-label" htmlFor="doc-exp-date">Expiration Date</label>
+                        <label className="form-label">Document File * (PDF, PNG, JPG up to 10 MB)</label>
                         <input
-                          id="doc-exp-date"
-                          type="date"
+                          ref={fileInputRef}
+                          type="file"
+                          accept={ACCEPTED}
+                          style={{ display: 'none' }}
+                          onChange={e => handlePickFile(e.target.files?.[0] || null)}
+                        />
+
+                        <div
+                          className={`my-document-dropzone ${dragActive ? 'drag-active' : ''}`}
+                          onDragOver={e => { e.preventDefault(); setDragActive(true); }}
+                          onDragLeave={() => setDragActive(false)}
+                          onDrop={e => {
+                            e.preventDefault();
+                            setDragActive(false);
+                            handlePickFile(e.dataTransfer.files?.[0] || null);
+                          }}
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          {file ? (
+                            <>
+                              <AppIcon name="check" size={28} color="#059669" />
+                              <div style={{ fontWeight: 700, color: '#059669' }}>{file.name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                {formatSize(file.size)} · Click or drop another file to replace
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <AppIcon name="upload" size={28} color="var(--color-primary)" />
+                              <div style={{ fontWeight: 700 }}>Choose a file or drag and drop here</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                PDF, JPEG, or PNG up to 10 MB
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => {
+                              setScannerTarget(
+                                targetDoc
+                                  ? targetDoc
+                                  : selectedType
+                                  ? ({ documentTypeId: selectedType.id, documentTypeName: selectedType.name } as PersonnelDocument)
+                                  : null
+                              );
+                              setScannerOpen(true);
+                            }}
+                            disabled={busy}
+                            style={{ minHeight: 38 }}
+                          >
+                            <AppIcon name="view" size={14} /> Scan page with camera instead
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Dates */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                        <div className="form-group">
+                          <label className="form-label" htmlFor="doc-issue-date">Issue Date</label>
+                          <input
+                            id="doc-issue-date"
+                            type="date"
+                            className="form-control"
+                            value={issueDate}
+                            onChange={e => setIssueDate(e.target.value)}
+                            disabled={busy}
+                          />
+                        </div>
+
+                        {selectedType?.supportsExpiration && (
+                          <div className="form-group">
+                            <label className="form-label" htmlFor="doc-exp-date">Expiration Date</label>
+                            <input
+                              id="doc-exp-date"
+                              type="date"
+                              className="form-control"
+                              value={expirationDate}
+                              onChange={e => setExpirationDate(e.target.value)}
+                              disabled={busy}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="doc-remarks">Remarks (Optional)</label>
+                        <textarea
+                          id="doc-remarks"
                           className="form-control"
-                          value={expirationDate}
-                          onChange={e => setExpirationDate(e.target.value)}
+                          rows={2}
+                          placeholder="Add any notes or context about this document…"
+                          value={remarks}
+                          onChange={e => setRemarks(e.target.value)}
                           disabled={busy}
                         />
                       </div>
-                    )}
-                  </div>
+                    </>
+                  )}
 
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="doc-remarks">Remarks (Optional)</label>
-                    <textarea
-                      id="doc-remarks"
-                      className="form-control"
-                      rows={2}
-                      placeholder="Add any notes or context about this document…"
-                      value={remarks}
-                      onChange={e => setRemarks(e.target.value)}
-                      disabled={busy}
-                    />
-                  </div>
+                  {/* Backend Conflict Banner (if server returned 409 on submit) */}
+                  {conflictDoc && (
+                    <div className="my-documents-conflict-banner" role="alert">
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                        A document is already on file for this requirement:
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <strong>{conflictDoc.originalFileName}</strong> ({formatSize(conflictDoc.fileSize)})
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setPreviewDoc(conflictDoc)}
+                        >
+                          <AppIcon name="view" size={14} /> Preview
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleSwitchToReplace(conflictDoc)}
+                        >
+                          <AppIcon name="sync" size={14} /> Replace with this file
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Upload Progress */}
                   {uploadProgress !== null && (
@@ -987,14 +1215,16 @@ export const MyDocuments: React.FC = () => {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={busy || !file || !typeId}
-                    style={{ minHeight: 44 }}
-                  >
-                    {busy ? 'Submitting…' : targetDoc && targetDoc.hasFile ? 'Replace Document' : 'Submit Document'}
-                  </button>
+                  {!existingActiveDocForSelected && (
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={busy || !file || !typeId}
+                      style={{ minHeight: 44 }}
+                    >
+                      {busy ? 'Submitting…' : targetDoc && targetDoc.hasFile ? 'Replace Document' : 'Submit Document'}
+                    </button>
+                  )}
                 </div>
               </form>
             </div>

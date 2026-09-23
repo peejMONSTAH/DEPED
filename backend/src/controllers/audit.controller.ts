@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendError, sendBadRequest, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
-import { getStationScope, stationPersonnelFilter } from '../utils/scope.util';
+import { getStationScope, personnelScopeFilter, stationPersonnelFilter, transactionScopeFilter } from '../utils/scope.util';
 import { deriveAuditCategory } from '../utils/audit.util';
 import { logger } from '../utils/logger';
 
@@ -30,12 +30,13 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
       };
     }
 
+    // An AO II reads their own actions and those of the personnel they review.
     const scope = await getStationScope(req.user);
     if (scope.isScoped) {
       where.user = {
         OR: [
           { id: req.user!.userId },
-          { personnel: stationPersonnelFilter(scope) },
+          { personnel: personnelScopeFilter(scope, 'review') },
         ],
       };
     }
@@ -75,10 +76,7 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
 export const getComplianceReport = async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = await getStationScope(req.user);
-    const txWhere: any = {};
-    if (scope.isScoped) {
-      txWhere.personnel = stationPersonnelFilter(scope);
-    }
+    const txWhere: any = transactionScopeFilter(scope);
 
     const [total, approved, rejected, pending] = await Promise.all([
       prisma.transaction.count({ where: txWhere }),
@@ -104,7 +102,7 @@ export const getComplianceReport = async (req: Request, res: Response): Promise<
 export const getDemographicsReport = async (req: Request, res: Response): Promise<void> => {
   try {
     const scope = await getStationScope(req.user);
-    const pWhere: any = scope.isScoped ? stationPersonnelFilter(scope) : {};
+    const pWhere: any = stationPersonnelFilter(scope);
 
     const [total, byStatus] = await Promise.all([
       prisma.personnel.count({ where: pWhere }),

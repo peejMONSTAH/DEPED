@@ -518,11 +518,15 @@ export const PersonnelHome: React.FC = () => {
 
     setUploadingForCode(code);
     try {
+      const existingItem = checklistItems.find(it => it.code === code);
       const formData = new FormData();
       formData.append('file', file);
       formData.append('documentTypeId', 'OTHER');
       formData.append('customDocumentName', `Annex C (${code.toUpperCase()}) - ${file.name}`);
       formData.append('remarks', `Submitted for promotion requirement ${code.toUpperCase()}`);
+      if (existingItem?.personnelDocumentId) {
+        formData.append('replacesDocumentId', String(existingItem.personnelDocumentId));
+      }
 
       let docId: number | undefined;
       let fileUrl: string | undefined;

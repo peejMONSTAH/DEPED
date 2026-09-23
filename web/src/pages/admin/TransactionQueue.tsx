@@ -1,12 +1,14 @@
 import { ModalOverlay } from '../../components/common/ModalOverlay';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { SkeletonTable, SkeletonBox } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
 import { AppIcon } from '../../components/common/AppIcon';
 import { transactionsApi } from '../../api/transactions.api';
+import { isAccessDenied, accessDeniedMessage } from '../../api/access';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import type { Transaction } from '../../types';
 import { clickableRow } from '../../a11y/clickable';
@@ -42,37 +44,55 @@ export const TransactionQueue: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const { user } = useAuthContext();
+  const { addToast } = useToast();
   const canValidate = user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN';
   const canApprove = user?.role === 'HRMO' || user?.role === 'SYSTEM_ADMIN';
 
+  // The record the officer is looking at now. A response for any other id
+  // arrived late and must not replace what is on screen.
+  const requestedTxId = useRef<number | null>(null);
+
   const loadTransactionDetail = useCallback(async (txId: number) => {
+    requestedTxId.current = txId;
     setIsLoadingDetail(true);
     try {
       const res = await transactionsApi.getById(txId);
-      if (res.data?.data) {
-        setSelectedTx(res.data.data);
-      }
+      if (requestedTxId.current !== txId) return;
+      setSelectedTx(res.data?.data ?? null);
     } catch (err) {
-      console.error('Failed to load transaction details:', err);
+      if (requestedTxId.current !== txId) return;
+      if (isAccessDenied(err)) {
+        // A copied link or edited id: show nothing of the record, say why, and
+        // return to the queue the server did return.
+        requestedTxId.current = null;
+        setSelectedTx(null);
+        addToast(accessDeniedMessage('transaction'), 'ERROR');
+        navigate('/admin/transactions', { replace: true });
+      } else {
+        console.error('Failed to load transaction details:', err);
+      }
     } finally {
-      setIsLoadingDetail(false);
+      if (requestedTxId.current === txId || requestedTxId.current === null) setIsLoadingDetail(false);
     }
-  }, []);
+  }, [addToast, navigate]);
 
   useEffect(() => {
     if (routeTxId) {
       const parsedId = parseInt(routeTxId, 10);
       if (!isNaN(parsedId)) {
         const found = transactions.find(t => t.id === parsedId);
-        if (found) {
-          setSelectedTx((prev: any) => (prev?.id === parsedId ? prev : found));
-        }
+        // Never keep showing a different record while this one loads.
+        setSelectedTx((prev: any) => (prev?.id === parsedId ? prev : (found ?? null)));
         loadTransactionDetail(parsedId);
+      } else {
+        setSelectedTx(null);
+        navigate('/admin/transactions', { replace: true });
       }
     } else {
+      requestedTxId.current = null;
       setSelectedTx(null);
     }
-  }, [routeTxId, transactions, loadTransactionDetail]);
+  }, [routeTxId, transactions, loadTransactionDetail, navigate]);
 
   const handleCloseModal = () => {
     setSelectedTx(null);

@@ -27,7 +27,9 @@ router.get('/cycles/:id/applications', authorize('HRMO', 'AO_II'), getPromotionA
 router.get('/cycles/:id/car-document', authorize('HRMO', 'AO_II'), generateCarDocument);
 router.post('/cycles/:id/generate-document', authorize('HRMO', 'AO_II'), generateCarDocument);
 router.post('/cycles/:id/manual-application', authorize('HRMO', 'AO_II'), submitManualApplication);
-router.post('/cycles/:id/generate-ranking', authorize('HRMO', 'AO_II'), generateRanking);
+// Re-ranks every station's applicants and reports the division-wide total, so it
+// is HRMO's (BUSINESS_RULES: HRMO generates rankings). No AO II screen calls it.
+router.post('/cycles/:id/generate-ranking', authorize('HRMO'), generateRanking);
 router.get('/cycles/:id/ranking-results', authorize('HRMO', 'AO_II'), getRankingResults);
 router.get('/cycles/:id/leaderboard', authorize('HRMO', 'AO_II'), getCycleLeaderboard);
 router.post('/cycles/:id/applications/:appId/verify-requirements', authorize('AO_II', 'HRMO'), validateBody(verifyRequirementsSchema), verifyApplicationRequirements);

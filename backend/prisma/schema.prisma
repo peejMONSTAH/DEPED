@@ -90,10 +90,14 @@ model Personnel {
   civilStatus           CivilStatus?           @map("civil_status")
   contactNumber         String?                @map("contact_number")
   address               String?
-  // Station assignment. Authorization scope for AO II is resolved from these two
-  // columns only; never re-derive it from address/designation/lastName free text.
-  school                String?
-  district              String?
+  /// Station assignment. AO II authorization scope is resolved from `school`
+  /// only (src/utils/scope.util.ts); never re-derive it from address,
+  /// designation or lastName free text, and never widen it to `district`.
+  /// citext, so a plain `equals` is an exact case-insensitive match. Do not add
+  /// `mode: 'insensitive'` to station filters: it compiles to ILIKE, where `_`
+  /// and `%` are wildcards. A trigger canonicalises whitespace on write.
+  school                String?                @db.Citext
+  district              String?                @db.Citext
   designation           String
   dateHired             DateTime?              @map("date_hired")
   /// Printed in the service record STATUS column. Null means not on file, which
@@ -324,7 +328,7 @@ model PersonnelFile {
   storagePath        String?                 @map("storage_path")
   mimeType           String?                 @map("mime_type")
   fileSize           Int?                    @map("file_size")
-  isRequired         Boolean                 @default(true) @map("is_required")
+  isRequired         Boolean                 @default(false) @map("is_required")
   issueDate          DateTime?               @map("issue_date") @db.Date
   expirationDate     DateTime?               @map("expiration_date") @db.Date
   remarks            String?

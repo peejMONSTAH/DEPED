@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AuthUser } from '../types';
 import { authApi } from '../api/auth.api';
+import { resetClientCaches } from '../api/queryClient';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -32,9 +33,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
+  // Every change of signed-in identity starts from an empty cache: nothing
+  // fetched under one account or station may be shown to the next.
   const login = useCallback(async (email: string, password: string) => {
     const response = await authApi.login(email, password);
     const { accessToken, refreshToken, user: authUser } = response.data.data!;
+    resetClientCaches();
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(authUser));
@@ -42,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginWithTokens = useCallback((accessToken: string, refreshToken: string, authUser: AuthUser) => {
+    resetClientCaches();
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(authUser));
@@ -67,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     localStorage.clear();
+    resetClientCaches();
     setUser(null);
   }, []);
 

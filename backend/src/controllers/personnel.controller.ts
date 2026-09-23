@@ -1,16 +1,19 @@
 import { Request, Response } from 'express';
-import { validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
+import { validatePersonnelInput } from '../utils/personnel-validation.util';
 import prisma from '../config/prisma';
 import { sendSuccess, sendNotFound, sendBadRequest, sendForbidden, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
+import { Prisma, UserRole } from '@prisma/client';
 import {
   getStationScope,
   hasStationAssignment,
-  isWithinStation,
-  stationPersonnelFilter,
-  STATION_SUBJECT_ROLES,
+  personnelInScope,
+  personnelScopeFilter,
+  stationKey,
 } from '../utils/scope.util';
 import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { logger } from '../utils/logger';
+import { denyOutOfScope } from '../utils/access-denial.util';
+import { invalidateAuthUserCache } from '../middleware/auth.middleware';
 
 const personnelSelect = {
   id: true, employeeId: true, firstName: true, lastName: true, middleName: true,
@@ -569,47 +572,38 @@ export const getAllPersonnel = async (req: Request, res: Response): Promise<void
   const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
   const { search, status, excludeAdmin } = req.query;
 
-  const where: Record<string, any> = {};
-  if (status) where.status = status;
+  // Every condition is ANDed, so search, status and paging only ever narrow
+  // the scope; none of them can widen it.
+  const conditions: Prisma.PersonnelWhereInput[] = [];
+  if (status) conditions.push({ status: status as any });
 
   if (excludeAdmin === 'true' || excludeAdmin === '1') {
-    where.user = {
-      role: {
-        name: {
-          notIn: ['SYSTEM_ADMIN', 'HRMO', 'AO_II'],
-        },
-      },
-    };
+    conditions.push({ user: { role: { name: { notIn: [UserRole.SYSTEM_ADMIN, UserRole.HRMO, UserRole.AO_II] } } } });
   }
 
-  // Scope AO II to strictly see only Teaching and Non-Teaching personnel under their assigned school station/district
+  // An AO II lists the teaching and non-teaching personnel of their own station.
   const scope = await getStationScope(req.user);
   if (scope.isScoped) {
     if (!hasStationAssignment(scope)) {
       sendForbidden(res, 'No school assignment is configured for this account.');
       return;
     }
-    where.user = { role: { name: { in: STATION_SUBJECT_ROLES } } };
-    Object.assign(where, stationPersonnelFilter(scope));
+    conditions.push(personnelScopeFilter(scope, 'review'));
   }
 
   if (search) {
-    const searchFilter = [
-      { firstName: { contains: String(search), mode: 'insensitive' } },
-      { lastName: { contains: String(search), mode: 'insensitive' } },
-      { employeeId: { contains: String(search), mode: 'insensitive' } },
-      { designation: { contains: String(search), mode: 'insensitive' } },
-    ];
-    if (where.OR) {
-      where.AND = [
-        { OR: where.OR },
-        { OR: searchFilter },
-      ];
-      delete where.OR;
-    } else {
-      where.OR = searchFilter;
-    }
+    const q = String(search);
+    conditions.push({
+      OR: [
+        { firstName: { contains: q, mode: 'insensitive' } },
+        { lastName: { contains: q, mode: 'insensitive' } },
+        { employeeId: { contains: q, mode: 'insensitive' } },
+        { designation: { contains: q, mode: 'insensitive' } },
+      ],
+    });
   }
+
+  const where: Prisma.PersonnelWhereInput = conditions.length ? { AND: conditions } : {};
 
   const [data, total] = await Promise.all([
     prisma.personnel.findMany({ where, skip, take: limit, select: personnelSelectLite, orderBy: { lastName: 'asc' } }),
@@ -635,12 +629,9 @@ export const getPersonnelById = async (req: Request, res: Response): Promise<voi
   });
   if (!personnel) { sendNotFound(res, 'Personnel not found.'); return; }
 
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped && scope.personnelId !== targetId) {
-    if (!isPersonnelRole(personnel.user?.role?.name) || !isWithinStation(scope, personnel)) {
-      sendForbidden(res, 'Access denied. You can only view personnel records under your assigned school station.');
-      return;
-    }
+  if (!(await personnelInScope(await getStationScope(req.user), targetId))) {
+    await denyOutOfScope(req, res, { entityType: 'Personnel', entityId: targetId, action: 'PERSONNEL_VIEW' }, 'Personnel not found.');
+    return;
   }
 
   sendSuccess(res, personnel);
@@ -666,12 +657,9 @@ export const getPersonnelServiceRecord = async (req: Request, res: Response): Pr
     return;
   }
 
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped && scope.personnelId !== targetId) {
-    if (!isPersonnelRole(personnel.user?.role?.name) || !isWithinStation(scope, personnel)) {
-      sendForbidden(res, 'Access denied. You can only view service records under your assigned school station.');
-      return;
-    }
+  if (!(await personnelInScope(await getStationScope(req.user), targetId))) {
+    await denyOutOfScope(req, res, { entityType: 'Personnel', entityId: targetId, action: 'SERVICE_RECORD_VIEW' }, 'Personnel not found.');
+    return;
   }
 
   const payload = buildServiceRecordPayload(personnel);
@@ -703,11 +691,9 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
   }
 
   const scope = await getStationScope(req.user);
-  if (scope.isScoped && scope.personnelId !== id) {
-    if (!isPersonnelRole(existingPersonnel.user?.role?.name) || !isWithinStation(scope, existingPersonnel)) {
-      sendForbidden(res, 'Access denied. You can only update personnel under your assigned school station.');
-      return;
-    }
+  if (!(await personnelInScope(scope, id))) {
+    await denyOutOfScope(req, res, { entityType: 'Personnel', entityId: id, action: 'PERSONNEL_UPDATE' }, 'Personnel record not found.');
+    return;
   }
 
   const updateData: Record<string, unknown> = {};
@@ -753,9 +739,11 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
     updateData.status = valid.includes(s) ? s : 'ACTIVE';
   }
 
-  // Validate Plantilla assignment before entering the atomic update.
+  // Validate Plantilla assignment before entering the atomic update. Like the
+  // station, an item can belong to another station's department, so assigning
+  // one stays division-level.
   let requestedPlantillaId: number | null | undefined;
-  if (req.body.plantillaItemId !== undefined) {
+  if (!scope.isScoped && req.body.plantillaItemId !== undefined) {
     requestedPlantillaId = req.body.plantillaItemId ? parseInt(String(req.body.plantillaItemId), 10) : null;
     if (requestedPlantillaId !== null && (!Number.isInteger(requestedPlantillaId) || requestedPlantillaId <= 0)) {
       sendBadRequest(res, 'Invalid plantilla item ID.'); return;
@@ -793,10 +781,25 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
   );
   updateData.profileComplete = isComplete;
 
+  // An AO II's station is their authorization scope. Moving it ends their
+  // sessions, so every client they are signed in on must re-authenticate and
+  // drop records cached under the old station.
+  const reassignsOfficer = existingPersonnel.user?.role?.name === UserRole.AO_II && (
+    ('school' in updateData && stationKey(updateData.school) !== stationKey(existingPersonnel.school)) ||
+    ('district' in updateData && stationKey(updateData.district) !== stationKey(existingPersonnel.district))
+  );
+
   // Moving plantillaItemId is the whole change: the item this person held is
   // vacated and the new one filled by the same write, so the two can no longer
   // be left disagreeing by a failure between statements.
-  const updated = await prisma.personnel.update({ where: { id }, data: updateData, select: personnelSelect });
+  const updated = await prisma.$transaction(async tx => {
+    const row = await tx.personnel.update({ where: { id }, data: updateData, select: personnelSelect });
+    if (reassignsOfficer) {
+      await tx.refreshToken.updateMany({ where: { userId: existingPersonnel.userId, revoked: false }, data: { revoked: true } });
+    }
+    return row;
+  });
+  if (reassignsOfficer) invalidateAuthUserCache(existingPersonnel.userId);
 
   // Record audit log
   await prisma.validationLog.create({
@@ -804,7 +807,7 @@ export const updatePersonnelById = async (req: Request, res: Response): Promise<
       entityType: 'Personnel',
       entityId: id,
       action: '201_FILE_UPDATED',
-      detailsJson: { updatedFields: Object.keys(updateData) },
+      detailsJson: { updatedFields: Object.keys(updateData), ...(reassignsOfficer ? { officerSessionsRevoked: true } : {}) },
       userId: req.user?.userId || 0,
       status: 'SUCCESS',
     },

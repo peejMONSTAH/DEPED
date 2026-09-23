@@ -82,7 +82,9 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 404) {
-        setError('The requested document file could not be found or has not been uploaded yet.');
+        // The server answers a document outside the viewer's station exactly
+        // like a missing one, so this message covers both on purpose.
+        setError('This document is unavailable, or you do not have access to it.');
       } else if (status === 403) {
         setError('You do not have authorization to view this document.');
       } else if (status === 401) {

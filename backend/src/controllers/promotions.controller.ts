@@ -10,9 +10,14 @@ import { PromotionCycleStatus, PromotionCycleType } from '@prisma/client';
 import {
   getStationScope,
   isWithinDistrict,
-  isWithinStation,
-  stationPersonnelFilter,
+  personnelInScope,
+  promotionApplicationScopeFilter,
+  sameStation,
+  stationOfficerUserIds,
+  StationScope,
 } from '../utils/scope.util';
+import { denyOutOfScope } from '../utils/access-denial.util';
+import { isPersonnelRole } from '../utils/personnel-validation.util';
 import { generateEmployeeNumber } from './users.controller';
 import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
 import { config } from '../config';
@@ -25,6 +30,22 @@ import { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } from '../utils/annex-c.
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
+
+/**
+ * Applications an account sees in promotion lists, rankings, exports and
+ * applicant counts. An AO II sees their own station's applicants only; HRMO
+ * sees the division. Built on the one scope policy in scope.util.
+ */
+const reviewableApplications = (scope: StationScope) => promotionApplicationScopeFilter(scope, 'review');
+
+/** HRMO plus the AO II of the applicant's station, never every AO II in the division. */
+const promotionReviewerIds = async (applicantSchool: unknown): Promise<number[]> => {
+  const [hrmo, officers] = await Promise.all([
+    prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' }, select: { id: true } }),
+    stationOfficerUserIds(applicantSchool),
+  ]);
+  return Array.from(new Set([...hrmo.map(u => u.id), ...officers]));
+};
 
 const normalizePositionTitle = (value: unknown): string => String(value || '')
   .normalize('NFKD')
@@ -92,6 +113,11 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
     };
   }
 
+  // An AO II is told how many of their own station's personnel applied, never
+  // the division-wide total, which would disclose other stations' activity.
+  const scope = await getStationScope(req.user);
+  const countedApplications = scope.role === 'AO_II' ? { where: reviewableApplications(scope) } : true;
+
   const [data, total] = await Promise.all([
     prisma.promotionCycle.findMany({
       where,
@@ -99,7 +125,7 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {
-        _count: { select: { promotionApplications: true } },
+        _count: { select: { promotionApplications: countedApplications } },
       },
     }),
     prisma.promotionCycle.count({ where }),
@@ -498,12 +524,7 @@ export const generateRanking = async (req: Request, res: Response): Promise<void
 export const getRankingResults = async (req: Request, res: Response): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
-  const where: any = { promotionCycleId: id };
-
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped) {
-    where.personnel = stationPersonnelFilter(scope);
-  }
+  const where = { AND: [{ promotionCycleId: id }, reviewableApplications(await getStationScope(req.user))] };
 
   const [cycle, applications] = await Promise.all([
     prisma.promotionCycle.findUnique({ where: { id } }),
@@ -579,12 +600,7 @@ export const getRankingResults = async (req: Request, res: Response): Promise<vo
 export const getPromotionApplications = async (req: Request, res: Response): Promise<void> => {
   const cycleId = parseInt(req.params.id, 10);
   if (isNaN(cycleId)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
-  const where: any = { promotionCycleId: cycleId };
-
-  const scope = await getStationScope(req.user);
-  if (scope.isScoped) {
-    where.personnel = stationPersonnelFilter(scope);
-  }
+  const where = { AND: [{ promotionCycleId: cycleId }, reviewableApplications(await getStationScope(req.user))] };
 
   const applications = await prisma.promotionApplication.findMany({
     where,
@@ -630,6 +646,16 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
       return;
     }
 
+    // Who may verify is decided by the applicant's own station, never by the
+    // cycle: Morales and Matulas share District 1, so a district check alone let
+    // either AO II verify the other's applicants. Checked before anything about
+    // the application is read back or revealed.
+    const scope = await getStationScope(req.user);
+    if (!(await personnelInScope(scope, app.personnelId, 'review'))) {
+      await denyOutOfScope(req, res, { entityType: 'PromotionApplication', entityId: appId, action: 'REQUIREMENTS_VERIFY' }, 'Promotion application not found for this cycle.');
+      return;
+    }
+
     const cycle = await prisma.promotionCycle.findUnique({
       where: { id: cycleId },
     });
@@ -639,16 +665,19 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
       return;
     }
 
+    if (cycle.status === 'CANCELLED' || (app.scoreDetailsJson as Record<string, any> | null)?.stageStatus === 'CANCELLED') {
+      sendBadRequest(res, 'This promotion cycle was cancelled. Its applications can no longer be verified.', 'CYCLE_CANCELLED');
+      return;
+    }
+
     const rules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
     const cycleDistrict = rules.district;
 
-    // Strict District Jurisdiction Check for AO II officers
-    if (req.user?.role === 'AO_II') {
-      const aoScope = await getStationScope(req.user);
-      if (!isWithinDistrict(aoScope, cycleDistrict)) {
-        sendForbidden(res, `District Scope Restriction: Only Administrative Officer II (AO II) assigned to ${cycleDistrict} can verify requirements for this promotion cycle. Your assigned jurisdiction is ${aoScope.district || 'Different District / Unassigned'}.`);
-        return;
-      }
+    // A district-restricted cycle further limits which AO II may verify. It
+    // narrows station scope; it never stands in for it.
+    if (req.user?.role === 'AO_II' && !isWithinDistrict(scope, cycleDistrict)) {
+      sendForbidden(res, `District Scope Restriction: Only Administrative Officer II (AO II) assigned to ${cycleDistrict} can verify requirements for this promotion cycle. Your assigned jurisdiction is ${scope.district || 'Different District / Unassigned'}.`);
+      return;
     }
 
     const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
@@ -690,13 +719,20 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
       annexCChecklist: updatedAnnexC || currentDetails.annexCChecklist,
     };
 
-    const updated = await prisma.promotionApplication.update({
-      where: { id: appId },
+    // The write carries the scope too, so it cannot land if the applicant left
+    // the officer's station after the check above.
+    const claimed = await prisma.promotionApplication.updateMany({
+      where: { AND: [{ id: appId, promotionCycleId: cycleId }, reviewableApplications(scope)] },
       data: {
         status: 'UNDER_REVIEW',
         scoreDetailsJson: updatedDetails,
       },
     });
+    if (claimed.count !== 1) {
+      await denyOutOfScope(req, res, { entityType: 'PromotionApplication', entityId: appId, action: 'REQUIREMENTS_VERIFY' }, 'Promotion application not found for this cycle.');
+      return;
+    }
+    const updated = await prisma.promotionApplication.findUniqueOrThrow({ where: { id: appId } });
 
     // Notify all HRMO officers that requirements completeness has been checked
     const hrmoUsers = await prisma.user.findMany({
@@ -938,10 +974,13 @@ export const getCycleLeaderboard = async (req: Request, res: Response): Promise<
 
   const cycleId = parseInt(req.params.id, 10);
   if (isNaN(cycleId)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
+  // Each row carries the applicant's full score details and Annex C checklist,
+  // so the leaderboard is scoped exactly like the applications list.
+  const scope = await getStationScope(req.user);
   const [cycle, applications] = await Promise.all([
     prisma.promotionCycle.findUnique({ where: { id: cycleId } }),
     prisma.promotionApplication.findMany({
-      where: { promotionCycleId: cycleId },
+      where: { AND: [{ promotionCycleId: cycleId }, reviewableApplications(scope)] },
       include: {
         personnel: {
           select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true },
@@ -1443,11 +1482,14 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
 
   const cycleRules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
   const targetPos = cycleRules.targetPosition || 'Teacher I';
-  const schoolStation = cycleRules.schoolStation || cycleRules.designatedSchool || null;
-  const district = cycleRules.designatedDistrict || null;
+  let schoolStation = cycleRules.schoolStation || cycleRules.designatedSchool || null;
+  let district = cycleRules.designatedDistrict || null;
+  const scope = await getStationScope(req.user);
+  const stationRefusal = 'You can only register applicants for your assigned station.';
 
   const targetCode = applicantId || employeeId;
   let targetPersonnelId = personnelId ? parseInt(personnelId, 10) : undefined;
+  let lookupMissMessage = 'Selected personnel record not found.';
 
   // Case 1: Full PDS registration for newly registered external applicant (e.g. Teacher I Newly Hired)
   if (!targetPersonnelId && firstName && lastName) {
@@ -1465,12 +1507,25 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
 
     let existingUser = await prisma.user.findUnique({
       where: { email: cleanEmail },
-      include: { personnel: true },
+      include: { personnel: true, role: { select: { name: true } } },
     });
 
     if (existingUser && existingUser.personnel) {
       targetPersonnelId = existingUser.personnel.id;
     } else {
+      // A new applicant record takes a station, and the station decides which
+      // AO II owns it. An AO II registers applicants into their own station
+      // only -- never into a cycle designated for another -- and never attaches
+      // a record to an account that is not personnel. Decided before any write.
+      if (scope.isScoped) {
+        const attachesToNonPersonnel = Boolean(existingUser) && !isPersonnelRole(existingUser?.role?.name);
+        if (scope.kind !== 'STATION' || !scope.school || attachesToNonPersonnel || (schoolStation && !sameStation(schoolStation, scope.school))) {
+          sendForbidden(res, stationRefusal);
+          return;
+        }
+        schoolStation = scope.school;
+        district = scope.district || district;
+      }
       const isTeaching = targetPos.toLowerCase().includes('teacher') || targetPos.toLowerCase().includes('principal');
       const roleName = isTeaching ? 'TEACHING_PERSONNEL' : 'NON_TEACHING_PERSONNEL';
       const roleRecord = await prisma.role.findFirst({ where: { name: roleName as any } });
@@ -1537,7 +1592,8 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
       },
     });
 
-    if (!found) { sendNotFound(res, `No personnel record matches applicant code "${targetCode}".`); return; }
+    lookupMissMessage = `No personnel record matches applicant code "${targetCode}".`;
+    if (!found) { sendNotFound(res, lookupMissMessage); return; }
     targetPersonnelId = found.id;
   }
 
@@ -1551,10 +1607,18 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
     select: {
       id: true,
       designation: true,
+      school: true,
       plantillaItem: { select: { positionTitle: true } },
     },
   });
-  if (!targetPersonnel) { sendNotFound(res, 'Selected personnel record not found.'); return; }
+  if (!targetPersonnel) { sendNotFound(res, lookupMissMessage); return; }
+
+  // An AO II registers only their own station's personnel. Anyone else reads as
+  // the same miss as an unknown code, so this cannot be used to find people.
+  if (!(await personnelInScope(scope, targetPersonnel.id, 'review'))) {
+    await denyOutOfScope(req, res, { entityType: 'Personnel', entityId: targetPersonnel.id, action: 'PROMOTION_MANUAL_APPLICATION' }, lookupMissMessage);
+    return;
+  }
 
   const candidateCurrentPos = targetPersonnel.designation || targetPersonnel.plantillaItem?.positionTitle || '';
   if (candidateCurrentPos && candidateCurrentPos !== 'External Applicant') {
@@ -1625,29 +1689,27 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
   // Auto-rank applicants immediately upon application form submission
   await computeCycleRankingInternal(cycleId);
 
-  // Notify all AO II & HRMO officers about the application form submission
-  const adminUsers = await prisma.user.findMany({
-    where: { role: { name: { in: ['AO_II', 'HRMO'] } } },
-    select: { id: true },
-  });
-  if (adminUsers.length > 0) {
-    const targetPersonnel = await prisma.personnel.findUnique({
+  // HRMO and the applicant's own station officers; the message names the
+  // applicant, so no other station's AO II may receive it.
+  const reviewerIds = await promotionReviewerIds(targetPersonnel.school);
+  if (reviewerIds.length > 0) {
+    const applicant = await prisma.personnel.findUnique({
       where: { id: targetPersonnelId },
       select: { firstName: true, lastName: true, employeeId: true },
     });
-    const applicantName = targetPersonnel ? `${targetPersonnel.firstName} ${targetPersonnel.lastName}`.trim() : 'Candidate Applicant';
-    const empId = targetPersonnel?.employeeId || autoApplicantNo;
+    const applicantName = applicant ? `${applicant.firstName} ${applicant.lastName}`.trim() : 'Candidate Applicant';
+    const empId = applicant?.employeeId || autoApplicantNo;
 
     await prisma.notification.createMany({
-      data: adminUsers.map(u => ({
-        userId: u.id,
+      data: reviewerIds.map(userId => ({
+        userId,
         message: `📋 New Promotion Application Received: ${applicantName} (${empId}) registered for ${cycle.name}.`,
         type: 'INFO',
         relatedEntityId: cycleId,
         relatedEntityType: 'PromotionCycle',
       })),
     });
-    notifyUserNotifications(adminUsers.map(u => u.id));
+    notifyUserNotifications(reviewerIds);
   }
 
   notifyTransactionChange();
@@ -1715,7 +1777,12 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     });
 
     const snapshottedItems: any[] = [];
+    const seenCodes = new Set<string>();
     for (const item of checklistData.items) {
+      const codeStr = String(item.code || '');
+      if (seenCodes.has(codeStr)) continue;
+      seenCodes.add(codeStr);
+
       const rawDocId = item.personnelDocumentId ?? item.existingDocumentId;
       const annexDef = ANNEX_C_REQUIREMENTS.find(r => r.code === item.code);
       if (rawDocId !== undefined && rawDocId !== null && String(rawDocId).trim() !== '') {
@@ -1857,29 +1924,27 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     throw err;
   }
 
-  // Notify all AO II & HRMO officers about the new promotion application
-  const adminUsers = await prisma.user.findMany({
-    where: { role: { name: { in: ['AO_II', 'HRMO'] } } },
-    select: { id: true },
+  // HRMO and the applicant's own station officers; the message names the
+  // applicant, so no other station's AO II may receive it.
+  const applicantPersonnel = await prisma.personnel.findUnique({
+    where: { id: req.user.personnelId },
+    select: { firstName: true, lastName: true, employeeId: true, school: true },
   });
-  if (adminUsers.length > 0) {
-    const applicantPersonnel = await prisma.personnel.findUnique({
-      where: { id: req.user.personnelId },
-      select: { firstName: true, lastName: true, employeeId: true },
-    });
+  const reviewerIds = await promotionReviewerIds(applicantPersonnel?.school);
+  if (reviewerIds.length > 0) {
     const applicantName = applicantPersonnel ? `${applicantPersonnel.firstName} ${applicantPersonnel.lastName}`.trim() : 'Personnel Applicant';
     const empId = applicantPersonnel?.employeeId || `EMP-${req.user.personnelId}`;
 
     await prisma.notification.createMany({
-      data: adminUsers.map(u => ({
-        userId: u.id,
+      data: reviewerIds.map(userId => ({
+        userId,
         message: `📋 New Promotion Application Received: ${applicantName} (${empId}) applied for ${cycle.name}.`,
         type: 'INFO',
         relatedEntityId: cycleId,
         relatedEntityType: 'PromotionCycle',
       })),
     });
-    notifyUserNotifications(adminUsers.map(u => u.id));
+    notifyUserNotifications(reviewerIds);
   }
 
   notifyTransactionChange();
@@ -1905,25 +1970,14 @@ export const createRulesConfig = async (req: Request, res: Response): Promise<vo
 
 // ── Career History & 201 Files ─────────────────────────────────────────────
 
-const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
-
 export const getCareerHistory = async (req: Request, res: Response): Promise<void> => {
   const personnelId = parseInt(req.params.personnelId, 10);
   if (isNaN(personnelId)) { sendBadRequest(res, 'Invalid personnel ID format.'); return; }
-  const isAdmin = ADMIN_ROLES.includes(req.user!.role);
 
-  if (!isAdmin && req.user?.personnelId !== personnelId) {
-    sendForbidden(res, 'You do not have permission to view this career history.');
+  // Personnel read their own history, an AO II their station's, HRMO all.
+  if (!(await personnelInScope(await getStationScope(req.user), personnelId))) {
+    await denyOutOfScope(req, res, { entityType: 'Personnel', entityId: personnelId, action: 'CAREER_HISTORY_VIEW' }, 'Personnel not found.');
     return;
-  }
-
-  if (req.user!.role === 'AO_II') {
-    const scope = await getStationScope(req.user);
-    const target = await prisma.personnel.findUnique({ where: { id: personnelId }, select: { id: true, school: true, district: true } });
-    if (!isWithinStation(scope, target)) {
-      sendForbidden(res, 'You do not have permission to view career history outside your assigned school.');
-      return;
-    }
   }
 
   const entries = await prisma.careerHistoryEntry.findMany({
@@ -2258,8 +2312,9 @@ export const generateCarDocument = async (req: Request, res: Response): Promise<
       return;
     }
 
+    // An AO II exports their own station's applicants; HRMO the whole cycle.
     const { CarDocumentService } = await import('../services/car-document.service');
-    const result = await CarDocumentService.generateCarDocument(cycleId);
+    const result = await CarDocumentService.generateCarDocument(cycleId, reviewableApplications(await getStationScope(req.user)));
 
     res.setHeader('Content-Type', result.mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);

@@ -1,11 +1,15 @@
 import axios from 'axios';
 import { singleFlight } from './session-refresh';
+import { resetClientCaches } from './queryClient';
 
 export const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL || '/api/v1').replace(/\/$/, '');
 export const apiUrl = (path: string) => `${API_BASE_URL}/${path.replace(/^\//, '')}`;
 
+// Also reached when the server ends a session, e.g. after the officer's station
+// is reassigned: nothing cached under the old assignment survives it.
 function clearSession() {
   for (const key of ['accessToken', 'refreshToken', 'user']) localStorage.removeItem(key);
+  resetClientCaches();
   if (window.location.pathname !== '/login') window.location.href = '/login';
 }
 
@@ -36,6 +40,15 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // When sending FormData (file uploads), remove default Content-Type so Axios/browser
+    // sets multipart/form-data with the correct boundary parameter.
+    if (config.data instanceof FormData && config.headers) {
+      if (typeof (config.headers as any).delete === 'function') {
+        (config.headers as any).delete('Content-Type');
+      } else {
+        delete (config.headers as any)['Content-Type'];
+      }
     }
     return config;
   },

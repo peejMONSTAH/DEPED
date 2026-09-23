@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/auth/splash_screen.dart';
+import 'services/api_service.dart';
+import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // A session the server has ended takes its cached records with it.
+  ApiService.onSessionEnded = AuthService.clearAccountCaches;
 
   // Every font the app uses is bundled under google_fonts/ and declared in
   // pubspec.yaml, so there is no reason to reach fonts.gstatic.com at runtime.

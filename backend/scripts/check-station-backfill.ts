@@ -1,9 +1,11 @@
 /**
- * Read-only review of the station backfill. Run after `prisma migrate deploy`.
+ * Read-only review of station assignments. Run after `prisma migrate deploy`.
  *
- * AO II visibility is now resolved from personnel.school / personnel.district, so any
- * officer without one sees nothing, and any personnel record without one is invisible
- * to every officer. This reports both before anyone notices in production.
+ * AO II visibility is resolved from personnel.school alone (src/utils/scope.util.ts):
+ * an officer without a school sees only their own record, and a personnel record
+ * without a school is invisible to every AO II and handled by HRMO. District
+ * never widens an officer's reach. This reports both gaps before anyone notices
+ * in production.
  */
 import prisma from '../src/config/prisma';
 import { UserRole } from '@prisma/client';
@@ -24,17 +26,14 @@ async function main() {
   for (const officer of officers) {
     const school = officer.personnel?.school ?? null;
     const district = officer.personnel?.district ?? null;
-    if (!school && !district) strandedOfficers.push(officer.email);
+    if (!school) strandedOfficers.push(officer.email);
 
+    // citext: a plain equality is the exact, case-insensitive match authorization uses.
     const reach = school
       ? await prisma.personnel.count({
-          where: { school: { equals: school, mode: 'insensitive' }, user: { role: { name: { in: SUBJECT_ROLES } } } },
+          where: { school: { equals: school }, user: { role: { name: { in: SUBJECT_ROLES } } } },
         })
-      : district
-        ? await prisma.personnel.count({
-            where: { district: { equals: district, mode: 'insensitive' }, user: { role: { name: { in: SUBJECT_ROLES } } } },
-          })
-        : 0;
+      : 0;
 
     console.log(`  ${officer.email.padEnd(38)} school=${label(school).padEnd(46)} district=${label(district).padEnd(12)} sees ${reach} personnel`);
   }
@@ -52,20 +51,20 @@ async function main() {
   }
 
   const unassigned = await prisma.personnel.count({
-    where: { school: null, district: null, user: { role: { name: { in: SUBJECT_ROLES } } } },
+    where: { school: null, user: { role: { name: { in: SUBJECT_ROLES } } } },
   });
 
   console.log('\n=== Attention ===');
   if (strandedOfficers.length) {
-    console.log(`  ${strandedOfficers.length} AO II account(s) have no station and will see nothing:`);
+    console.log(`  ${strandedOfficers.length} AO II account(s) have no school and will see only their own record:`);
     strandedOfficers.forEach(email => console.log(`    - ${email}`));
   } else {
-    console.log('  Every AO II account has a station.');
+    console.log('  Every AO II account has a school.');
   }
   console.log(
     unassigned
-      ? `  ${unassigned} teaching/non-teaching record(s) have no station and are invisible to every AO II.`
-      : '  Every teaching/non-teaching record has a station.',
+      ? `  ${unassigned} teaching/non-teaching record(s) have no school: invisible to every AO II, handled by HRMO until one is assigned.`
+      : '  Every teaching/non-teaching record has a school.',
   );
   console.log();
 }

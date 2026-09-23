@@ -31,7 +31,10 @@ class TransactionService {
       saveLocalTransaction(tx);
       return tx;
     } on DioException catch (error) {
-      if (error.response?.statusCode == 404) {
+      // The server refused the record: it is gone, or no longer this account's.
+      // Drop the cached copy too, so it is never shown in place of the refusal.
+      final status = error.response?.statusCode;
+      if (status == 404 || status == 403) {
         await removeLocalTransaction(id);
         throw const TransactionUnavailableException(
           'This transaction is no longer available in your account.',

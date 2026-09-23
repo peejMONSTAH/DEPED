@@ -350,7 +350,11 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
       const pdfBytes = await pdfDoc.save();
       const safeName = `${documentTypeName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_scanned_${Date.now()}.pdf`;
-      const compiledFile = new File([pdfBytes.buffer as ArrayBuffer], safeName, { type: 'application/pdf' });
+      const cleanBuffer = pdfBytes.buffer.slice(
+        pdfBytes.byteOffset,
+        pdfBytes.byteOffset + pdfBytes.byteLength
+      ) as ArrayBuffer;
+      const compiledFile = new File([cleanBuffer], safeName, { type: 'application/pdf' });
 
       stopCamera();
       onScanComplete(compiledFile);
@@ -497,93 +501,104 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
           {/* Bottom Bar Controls */}
           <div className="doc-scanner-controls">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                capture="environment"
-                style={{ display: 'none' }}
-                onChange={handleFallbackFilePick}
-              />
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => fileInputRef.current?.click()}
-                title="Add photo from gallery or file"
-              >
-                <Upload size={14} /> Add photo
-              </button>
+            {/* Row 1: Capture & Tool Controls */}
+            <div className="doc-scanner-capture-row">
+              {/* Left Tools: Add photo & Rotate */}
+              <div className="doc-scanner-left-tools">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  style={{ display: 'none' }}
+                  onChange={handleFallbackFilePick}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm doc-scanner-tool-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Add photo from gallery or file"
+                >
+                  <Upload size={14} /> <span>Add photo</span>
+                </button>
 
-              {pages.length > 0 && (
-                <>
+                {pages.length > 0 && (
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary btn-sm doc-scanner-tool-btn"
                     onClick={handleRotateActivePage}
                     title="Rotate selected page"
                   >
-                    <RotateCw size={14} /> Rotate
+                    <RotateCw size={14} /> <span>Rotate</span>
                   </button>
-                  {activePageIndex > 0 && (
+                )}
+              </div>
+
+              {/* Center Shutter Button: distinct tap target */}
+              <div className="doc-scanner-shutter-container">
+                {hasLiveFrames && !cameraError && (
+                  <button
+                    type="button"
+                    className="doc-scanner-shutter-btn"
+                    onClick={handleCapture}
+                    title="Capture document page"
+                    aria-label="Capture page"
+                  >
+                    <Camera size={26} color="#3b82f6" />
+                  </button>
+                )}
+              </div>
+
+              {/* Right Tools: Page reorder controls */}
+              <div className="doc-scanner-right-tools">
+                {pages.length > 1 && (
+                  <div className="doc-scanner-page-nav">
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary btn-sm doc-scanner-nav-btn"
                       onClick={() => handleMovePage(activePageIndex, 'left')}
+                      disabled={activePageIndex === 0}
                       title="Move page left"
+                      aria-label="Move page left"
                     >
                       <ChevronLeft size={14} />
                     </button>
-                  )}
-                  {activePageIndex < pages.length - 1 && (
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary btn-sm doc-scanner-nav-btn"
                       onClick={() => handleMovePage(activePageIndex, 'right')}
+                      disabled={activePageIndex === pages.length - 1}
                       title="Move page right"
+                      aria-label="Move page right"
                     >
                       <ChevronRight size={14} />
                     </button>
-                  )}
-                </>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Center Shutter Button */}
-            {hasLiveFrames && !cameraError && (
-              <button
-                type="button"
-                className="doc-scanner-shutter-btn"
-                onClick={handleCapture}
-                title="Capture document page"
-                aria-label="Capture page"
-              >
-                <Camera size={26} color="#3b82f6" />
-              </button>
-            )}
-
-            {/* Right Complete Action */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', minWidth: 100 }}>
-              {pages.length > 0 && (
+            {/* Row 2: Dedicated Completion Action (no overlap with shutter) */}
+            {pages.length > 0 && (
+              <div className="doc-scanner-completion-row">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary doc-scanner-use-doc-btn"
                   onClick={handleCompleteScan}
                   disabled={compiling}
-                  style={{ gap: 6, fontWeight: 700 }}
                 >
                   {compiling ? (
                     <>
-                      <Loader2 size={16} className="spin" /> Compiling PDF…
+                      <Loader2 size={18} className="spin" /> Compiling Document ({pages.length})…
                     </>
                   ) : (
                     <>
-                      <Check size={16} /> Save Document ({pages.length})
+                      <Check size={18} /> Use Document ({pages.length})
                     </>
                   )}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </ModalOverlay>

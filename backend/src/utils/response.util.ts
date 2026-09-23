@@ -68,6 +68,17 @@ export const sendForbidden = (res: Response, message = 'Forbidden'): Response =>
 export const sendBadRequest = (res: Response, message: string, code = 'VALIDATION_ERROR'): Response =>
   sendError(res, message, 400, code);
 
+export const sendConflict = <T = unknown>(
+  res: Response,
+  message: string,
+  code = 'CONFLICT',
+  data?: T
+): Response => {
+  const response: ApiResponse<T> = { status: 'error', message, code };
+  if (data !== undefined) response.data = data;
+  return res.status(409).json(response);
+};
+
 export const getPaginationParams = (query: Record<string, unknown>) => {
   const page = Math.max(1, parseInt(String(query.page || 1), 10));
   const limit = Math.min(100, Math.max(1, parseInt(String(query.limit || 10), 10)));

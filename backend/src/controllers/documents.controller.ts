@@ -6,7 +6,6 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 
 import { notifyTransactionChange } from './transactions.controller';
-import { getStationScope, isWithinStation } from '../utils/scope.util';
 import { pdsComparison, readStructuredData } from '../utils/pds-profile.util';
 import { documentAiConfigured, extractPdsWithDocumentAi } from '../services/document-ai.service';
 import { recordAuditLog } from '../utils/audit.util';
@@ -15,12 +14,15 @@ import { storeDocument, readDocument, discardUncommittedDocument } from '../serv
 import { canAccessTransaction } from '../utils/transaction-access.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 import { generateDocumentAccessToken } from '../utils/jwt.util';
+import { denyOutOfScope } from '../utils/access-denial.util';
 
-const canAccessPersonnel = async (req: Request, personnel: { id: number; school: string | null; district: string | null }): Promise<boolean> => {
-  if (req.user?.personnelId === personnel.id || req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO') return true;
-  if (req.user?.role !== 'AO_II') return false;
-  return isWithinStation(await getStationScope(req.user), personnel);
-};
+/**
+ * A document is reachable exactly when its parent transaction is: the chain
+ * UploadedDocument -> Transaction -> Personnel -> station is resolved by the
+ * transaction access policy, never by the document on its own.
+ */
+const refuseDocument = (req: Request, res: Response, documentId: number, action: string): Promise<void> =>
+  denyOutOfScope(req, res, { entityType: 'Document', entityId: documentId, action }, 'Document not found.');
 
 /**
  * POST /transactions/:transactionId/documents
@@ -69,9 +71,9 @@ export const uploadDocument = async (req: Request, res: Response, next: NextFunc
     return;
   }
 
-  // Ensure permission: transaction owner or admin/AO staff
+  // Transaction owner, the AO II of its station, or division staff.
   if (!(await canAccessTransaction(req.user, transactionId))) {
-    sendForbidden(res, 'You do not have permission to upload documents for this transaction.');
+    await denyOutOfScope(req, res, { entityType: 'Transaction', entityId: transactionId, action: 'DOCUMENT_UPLOAD' }, 'Transaction not found.');
     return;
   }
 
@@ -266,7 +268,7 @@ export const getDocument = async (req: Request, res: Response): Promise<void> =>
 
     if (!doc) { sendNotFound(res, 'Document not found.'); return; }
     if (!(await canAccessTransaction(req.user, doc.transactionId))) {
-      sendForbidden(res);
+      await refuseDocument(req, res, id, 'DOCUMENT_METADATA_VIEW');
       return;
     }
 
@@ -300,7 +302,7 @@ export const getExtractionReview = async (req: Request, res: Response): Promise<
     include: { requirementTemplate: { select: { name: true } }, transaction: { include: { personnel: true } } },
   });
   if (!doc) { sendNotFound(res, 'Document not found.'); return; }
-  if (!(await canAccessTransaction(req.user, doc.transactionId))) { sendForbidden(res); return; }
+  if (!(await canAccessTransaction(req.user, doc.transactionId))) { await refuseDocument(req, res, id, 'EXTRACTION_REVIEW_VIEW'); return; }
   const source = doc.correctedOcrDataJson || doc.ocrExtractedDataJson;
   const structured = readStructuredData(source);
   sendSuccess(res, {
@@ -324,7 +326,7 @@ export const confirmExtractionReview = async (req: Request, res: Response): Prom
     include: { transaction: { include: { personnel: true } } },
   });
   if (!doc) { sendNotFound(res, 'Document not found.'); return; }
-  if (!(await canAccessTransaction(req.user, doc.transactionId))) { sendForbidden(res); return; }
+  if (!(await canAccessTransaction(req.user, doc.transactionId))) { await refuseDocument(req, res, id, 'EXTRACTION_REVIEW_CONFIRM'); return; }
   if (req.user?.personnelId !== doc.transaction.personnelId) { sendForbidden(res, 'Only the personnel who owns the PDS can confirm its extracted information.'); return; }
   if (doc.status === 'VALIDATED') { sendBadRequest(res, 'Validated document information is locked.'); return; }
   if (!['DRAFT', 'DEFICIENCY'].includes(doc.transaction.status)) { sendBadRequest(res, 'Extraction data is locked while the transaction is under review or finalized.'); return; }
@@ -352,9 +354,14 @@ export const confirmExtractionReview = async (req: Request, res: Response): Prom
   sendSuccess(res, { documentId: id, confirmation: corrected.confirmation, comparison: pdsComparison(doc.transaction.personnel as any, corrected) }, 'Extracted fields confirmed. They remain pending AO validation and HRMO approval.');
 };
 
+const parseDocumentId = (raw: unknown): number | null => {
+  const id = Number(raw);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+};
+
 export const getDocumentViewToken = async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.documentId || req.params.id, 10);
-  if (isNaN(id) || id <= 0) {
+  const id = parseDocumentId(req.params.documentId || req.params.id);
+  if (!id) {
     sendBadRequest(res, 'Invalid document ID.');
     return;
   }
@@ -369,8 +376,9 @@ export const getDocumentViewToken = async (req: Request, res: Response): Promise
     return;
   }
 
+  // No token is minted for a document outside the caller's scope.
   if (!(await canAccessTransaction(req.user, doc.transactionId))) {
-    sendForbidden(res);
+    await refuseDocument(req, res, id, 'DOCUMENT_VIEW_TOKEN');
     return;
   }
 
@@ -395,31 +403,34 @@ export const getDocumentViewToken = async (req: Request, res: Response): Promise
  * Authenticated file streaming & download
  */
 export const downloadDocumentFile = async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.documentId || req.params.id, 10);
-  if (isNaN(id) || id <= 0) {
+  const id = parseDocumentId(req.params.documentId || req.params.id);
+  if (!id) {
     sendBadRequest(res, 'Invalid document ID.');
+    return;
+  }
+
+  // A view token names exactly one document. Compared before the lookup, so a
+  // valid token for one id cannot be used to probe which other ids exist.
+  if (req.docToken && (req.docToken.documentId !== id || req.docToken.docType !== 'transaction')) {
+    sendForbidden(res, 'Invalid document access token.');
     return;
   }
 
   const doc = await prisma.uploadedDocument.findUnique({
     where: { id },
-    include: { transaction: { select: { personnelId: true, personnel: { select: { id: true, school: true, district: true } } } } },
+    include: { transaction: { select: { personnelId: true } } },
   });
 
   if (!doc) {
-    sendNotFound(res, 'Document record not found.');
+    sendNotFound(res, 'Document not found.');
     return;
   }
 
-  if (req.docToken) {
-    if (req.docToken.documentId !== doc.id || req.docToken.docType !== 'transaction') {
-      sendForbidden(res, 'Invalid document access token.');
-      return;
-    }
-  }
-
+  // A valid signature is not authorization: scope is re-evaluated against the
+  // database on every download, so a token minted before a reassignment stops
+  // working the moment the document leaves the holder's scope.
   if (!(await canAccessTransaction(req.user, doc.transactionId))) {
-    sendForbidden(res, 'You do not have permission to access this document file.');
+    await refuseDocument(req, res, id, 'DOCUMENT_DOWNLOAD');
     return;
   }
 

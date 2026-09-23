@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { transactionAccessFilter } from '../utils/transaction-access.util';
-import { getStationScope, stationPersonnelFilter } from '../utils/scope.util';
+import { getStationScope, personnelScopeFilter } from '../utils/scope.util';
 import { sendSuccess } from '../utils/response.util';
 
 export function provisioningPredicates(now: Date) {
@@ -35,8 +35,10 @@ export async function getDashboardSummary(req: Request, res: Response) {
     });
     return;
   }
+  // Every count below runs inside the caller's scope, so a station's dashboard
+  // discloses nothing about other stations' activity.
   const where = await transactionAccessFilter(req.user);
-  const personnelWhere = stationPersonnelFilter(await getStationScope(req.user));
+  const personnelWhere = personnelScopeFilter(await getStationScope(req.user), 'review');
   // Calendar boundaries are fixed to the division's timezone, not the host's timezone.
   const localNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
   const monday = new Date(Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate()));

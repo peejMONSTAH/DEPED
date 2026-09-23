@@ -8,11 +8,13 @@ import '../../models/personnel_document_model.dart';
 import '../../services/acquisition/document_acquisition_service.dart';
 import '../../services/personnel_document_service.dart';
 import '../../theme/app_theme.dart';
+import 'document_preview_screen.dart';
 
 class AddDocumentSheet extends StatefulWidget {
   final PersonnelDocumentService documentService;
   final DocumentAcquisitionService acquisitionService;
   final PersonnelDocument? documentToReplace;
+  final List<PersonnelDocument>? existingDocuments;
   final VoidCallback onDocumentUploaded;
 
   const AddDocumentSheet({
@@ -20,6 +22,7 @@ class AddDocumentSheet extends StatefulWidget {
     required this.documentService,
     required this.acquisitionService,
     this.documentToReplace,
+    this.existingDocuments,
     required this.onDocumentUploaded,
   }) : super(key: key);
 
@@ -44,14 +47,72 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
   UploadStateInfo _uploadState =
       const UploadStateInfo(state: UploadProgressState.idle);
 
-  bool get isReplacing => widget.documentToReplace != null;
+  PersonnelDocument? _targetDocToReplace;
+  bool get isReplacing => _targetDocToReplace != null;
+
+  String? _resolveRequirementKey(String? typeId, String? customName) {
+    if (typeId == null) return null;
+    final normalized = typeId.toUpperCase().trim();
+    final trimmedCustom = (customName ?? '').trim();
+
+    final annexMatch = RegExp(r'^Annex\s+C\s*[\(\[-]?\s*([a-k])\b', caseSensitive: false)
+        .firstMatch(trimmedCustom);
+    if (annexMatch != null) {
+      final code = annexMatch.group(1)!.toLowerCase();
+      return 'ANNEX_C_$code';
+    }
+
+    const multi = {'TRAINING_CERT', 'COE'};
+    if (multi.contains(normalized)) {
+      return null;
+    }
+
+    if (normalized == 'OTHER') {
+      if (trimmedCustom.isEmpty) return null;
+      return 'OTHER:${trimmedCustom.toLowerCase()}';
+    }
+
+    return 'DOC_TYPE:$normalized';
+  }
+
+  PersonnelDocument? get _existingActiveDoc {
+    if (isReplacing) return null;
+    final docs = widget.existingDocuments;
+    if (docs == null || docs.isEmpty) return null;
+
+    final targetKey = _resolveRequirementKey(_selectedTypeId, _customNameController.text);
+    if (targetKey == null) return null;
+
+    for (final doc in docs) {
+      if (!doc.hasFile) continue;
+      if (doc.status == PersonnelDocumentStatus.NOT_SUBMITTED) continue;
+      final docKey = _resolveRequirementKey(doc.documentTypeId, doc.documentTypeName);
+      if (docKey == targetKey) {
+        return doc;
+      }
+    }
+    return null;
+  }
+
+  bool _hasActiveDocForType(String typeId) {
+    if (isReplacing) return false;
+    final docs = widget.existingDocuments;
+    if (docs == null || docs.isEmpty) return false;
+    if (typeId == 'OTHER' || typeId == 'TRAINING_CERT' || typeId == 'COE') return false;
+    final reqKey = 'DOC_TYPE:${typeId.toUpperCase()}';
+    return docs.any((d) =>
+        d.hasFile &&
+        d.status != PersonnelDocumentStatus.NOT_SUBMITTED &&
+        _resolveRequirementKey(d.documentTypeId, d.documentTypeName) == reqKey);
+  }
 
   @override
   void initState() {
     super.initState();
     _loadDocumentTypes();
 
-    if (isReplacing) {
+    if (widget.documentToReplace != null) {
+      _targetDocToReplace = widget.documentToReplace;
       final doc = widget.documentToReplace!;
       _selectedTypeId = doc.documentTypeId;
       if (doc.documentTypeId == 'OTHER') {
@@ -254,6 +315,17 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
       return;
     }
 
+    if (!isReplacing && _existingActiveDoc != null) {
+      setState(() {
+        _uploadState = const UploadStateInfo(
+          state: UploadProgressState.error,
+          errorMessage:
+              'A document is already on file for this requirement. Tap "Replace" to update it with your selected file.',
+        );
+      });
+      return;
+    }
+
     if (_acquiredDocument == null && !isReplacing) {
       setState(() {
         _uploadState = const UploadStateInfo(
@@ -281,8 +353,9 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
           : null;
 
       if (isReplacing) {
+        final docId = (_targetDocToReplace ?? widget.documentToReplace)!.id;
         await widget.documentService.replaceDocument(
-          documentId: widget.documentToReplace!.id,
+          documentId: docId,
           document: _acquiredDocument,
           documentTypeId: _selectedTypeId,
           customDocumentName: _customNameController.text.trim(),
@@ -361,10 +434,17 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      final errorStr = e.toString();
+      final isConflict = errorStr.contains('DOCUMENT_ALREADY_EXISTS') ||
+          errorStr.contains('already on file') ||
+          errorStr.contains('409');
+
       setState(() {
         _uploadState = UploadStateInfo(
           state: UploadProgressState.error,
-          errorMessage: e.toString().replaceAll('Exception:', '').trim(),
+          errorMessage: isConflict
+              ? 'A document is already on file for this requirement. Tap "Replace" to update it with your selected file.'
+              : errorStr.replaceAll('Exception:', '').trim(),
         );
       });
     }
@@ -404,6 +484,190 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
         }
       });
     }
+  }
+
+  Widget _buildExistingActiveDocCard(PersonnelDocument doc) {
+    final sizeKb = (doc.fileSize / 1024).round();
+    final formattedSize = sizeKb > 1024
+        ? '${(sizeKb / 1024).toStringAsFixed(1)} MB'
+        : '$sizeKb KB';
+
+    String dateStr = '';
+    try {
+      final parsed = DateTime.parse(doc.uploadedAt);
+      dateStr = DateFormat('MMM d, yyyy').format(parsed);
+    } catch (_) {
+      dateStr = doc.uploadedAt;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(LucideIcons.shieldAlert,
+                    size: 16, color: Color(0xFFD97706)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Document Already on File',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF92400E),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDE68A),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '1 Active Copy Only',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF78350F),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'You already have an active document for this requirement. To update it with a new file or scan, use Replace to preserve your submission history.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              height: 1.4,
+              color: const Color(0xFF92400E),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.fileText, size: 18, color: Color(0xFFD97706)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc.originalFileName,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Uploaded $dateStr • $formattedSize',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        fullscreenDialog: true,
+                        builder: (ctx) => DocumentPreviewScreen(
+                          document: doc,
+                          documentService: widget.documentService,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(LucideIcons.eye, size: 15),
+                  label: const Text('Preview'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF92400E),
+                    side: const BorderSide(color: Color(0xFFF59E0B)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _targetDocToReplace = doc;
+                      if (_targetDocToReplace!.issueDate != null && _issueDate == null) {
+                        _issueDate = DateTime.tryParse(_targetDocToReplace!.issueDate!);
+                      }
+                      if (_targetDocToReplace!.expirationDate != null && _expirationDate == null) {
+                        _expirationDate = DateTime.tryParse(_targetDocToReplace!.expirationDate!);
+                      }
+                      if (_targetDocToReplace!.remarks != null && _remarksController.text.isEmpty) {
+                        _remarksController.text = _targetDocToReplace!.remarks!;
+                      }
+                    });
+                  },
+                  icon: const Icon(LucideIcons.refreshCw, size: 15),
+                  label: const Text('Replace'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD97706),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -509,6 +773,83 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       ),
                     ],
 
+                    // Replacement Banner if active
+                    if (isReplacing && _targetDocToReplace != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: AppTheme.primaryLight.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryLight.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(LucideIcons.refreshCw,
+                                  size: 16, color: AppTheme.primaryLight),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Replacing Document',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.brandDark,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _targetDocToReplace!.originalFileName,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (widget.documentToReplace == null)
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _targetDocToReplace = null;
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  'Cancel',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // 1. Document Type Dropdown
                     Text(
                       'Document Type *',
@@ -545,6 +886,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                   }
                                 },
                           items: _documentTypes.map((type) {
+                            final hasActive = _hasActiveDocForType(type.id);
                             return DropdownMenuItem<String>(
                               value: type.id,
                               child: Row(
@@ -560,8 +902,28 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                                         fontWeight: FontWeight.w600,
                                         color: AppTheme.textPrimary,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  if (hasActive)
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF3C7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'On file',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFFB45309),
+                                        ),
+                                      ),
+                                    ),
                                   if (type.supportsExpiration)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
@@ -631,6 +993,12 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    // Existing Document Active Conflict Card (Single copy rule)
+                    if (_existingActiveDoc != null && !isReplacing) ...[
+                      _buildExistingActiveDocCard(_existingActiveDoc!),
                       const SizedBox(height: 14),
                     ],
 

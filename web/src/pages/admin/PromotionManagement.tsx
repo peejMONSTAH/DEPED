@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
+import { accessDeniedMessage } from '../../api/access';
 import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { Search, Filter, CheckCircle2, Clock, XCircle, AlertCircle, PlayCircle, Layers, RefreshCw, Archive, ChevronDown, ChevronUp, Building2, Check, X, Sparkles, Plus, Edit3, Trash2 } from 'lucide-react';
 import { clickable, clickableRow } from '../../a11y/clickable';
@@ -17,6 +18,7 @@ import { usePending } from '../../hooks/usePending';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { FieldError } from '../../components/common/FieldError';
 import { normaliseAnnexCItem } from '../personnel/checklistData';
+import { AnnexCVerificationModal } from './AnnexCVerificationModal';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -422,32 +424,12 @@ export const PromotionManagement: React.FC = () => {
   const [plantillaPickerSearch, setPlantillaPickerSearch] = useState<string>('');
   const [plantillaPickerTrack, setPlantillaPickerTrack] = useState<'ALL' | 'TEACHING' | 'NON_TEACHING'>('ALL');
 
-  // Detect current user's AO district jurisdiction
-  const currentUserDistrict = (() => {
-    if (!user) return undefined;
-    const u = user as any;
-    const text = `${u.firstName || ''} ${u.lastName || ''} ${u.email || ''} ${u.role || ''} ${u.school || ''} ${u.address || ''} ${u.designation || ''}`.toLowerCase();
-    if (text.includes('district 1') || text.includes('district1') || text.includes('dist 1') || text.includes('ao1') || text.includes('ao_1')) return 'District 1';
-    if (text.includes('district 6') || text.includes('district6') || text.includes('dist 6') || text.includes('ao6') || text.includes('ao_6')) return 'District 6';
-    
-    // Check school keywords
-    const s1 = ['matulas', 'morales', 'salkan', 'koronadal central'];
-    if (s1.some(s => text.includes(s))) return 'District 1';
-    const s6 = ['villegas', 'carpenter', 'mapambucol', 'barrio 8', 'mangga', 'gawel', 'takilay'];
-    if (s6.some(s => text.includes(s))) return 'District 6';
-    return undefined;
-  })();
-
+  // Which applicants an AO II may see and verify is decided by the server from
+  // the officer's station on record: other stations' applicants are never
+  // returned, and a cycle restricted to another district is refused with the
+  // server's reason. The client does not guess a jurisdiction from displayed text.
   const cycleDistrict = selectedCycle?.rulesConfigurationJson?.district;
   const cycleSchool = selectedCycle?.rulesConfigurationJson?.school;
-
-  const isAoDistrictAllowed = (() => {
-    if (user?.role === 'HRMO') return true;
-    if (user?.role !== 'AO_II') return true;
-    if (!cycleDistrict || cycleDistrict === 'ALL' || cycleDistrict === 'All Districts / Division-Wide') return true;
-    if (!currentUserDistrict) return true;
-    return currentUserDistrict.toLowerCase().trim() === cycleDistrict.toLowerCase().trim();
-  })();
 
 
 
@@ -692,10 +674,6 @@ export const PromotionManagement: React.FC = () => {
       addToast('Forbidden: Only Administrative Officer II (AO II) and HRMO officers can verify requirements completeness.', 'ERROR');
       return;
     }
-    if (!isAoDistrictAllowed) {
-      addToast(`District Jurisdiction Restriction: Only AO II officers assigned to ${cycleDistrict || 'the designated district'} can evaluate candidates in this promotion cycle. Your assigned district is ${currentUserDistrict || 'Unassigned / Different District'}.`, 'ERROR');
-      return;
-    }
     setSelectedAppForModal(app);
 
     const annexC = app.scoreDetailsJson?.annexCChecklist || {};
@@ -765,7 +743,19 @@ export const PromotionManagement: React.FC = () => {
         reqCompletenessStatus === 'COMPLETE' ? 'SUCCESS' : 'WARNING'
       );
     } catch (err: any) {
+      if (err.response?.status === 404) {
+        // Not this officer's applicant to review (another station, or gone):
+        // close the checklist, drop its contents and reload what the server shows.
+        addToast(accessDeniedMessage('applicant'), 'ERROR');
+        setShowAoModal(false);
+        setSelectedAppForModal(null);
+        setReqVerificationItems([]);
+        await fetchApplicationsForCycle(selectedCycle.id);
+        await fetchLeaderboard(selectedCycle.id);
+        return;
+      }
       // Keep the modal open so the officer can retry rather than assume it saved.
+      // A 403 carries the server's reason, e.g. a cycle restricted to another district.
       addToast(
         err.response?.data?.message || `Could not record the requirements verification for ${selectedAppForModal.name}. Please try again.`,
         'ERROR'
@@ -3230,52 +3220,27 @@ export const PromotionManagement: React.FC = () => {
                             >
                               201 File
                             </button>
-                            {user?.role === 'AO_II' && !isAoDistrictAllowed ? (
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                disabled
-                                title={`District Scope Locked: Only AO II from ${cycleDistrict || 'District 1'} can evaluate candidates in this cycle.`}
-                                style={{
-                                  flex: 2,
-                                  fontSize: '0.75rem',
-                                  background: 'var(--color-bg-tertiary)',
-                                  color: 'var(--color-text-secondary)',
-                                  border: '1px solid var(--color-border)',
-                                  cursor: 'not-allowed',
-                                  opacity: 0.6,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '6px',
-                                  borderRadius: '9999px',
-                                }}
-                              >
-                                <AppIcon name="lock" size={12} color="#94a3b8" /> District Restricted
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleOpenAoRating(app)}
-                                style={{
-                                  flex: 2,
-                                  fontSize: '0.75rem',
-                                  background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
-                                  color: '#ffffff',
-                                  border: 'none',
-                                  borderRadius: '9999px',
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '6px',
-                                }}
-                              >
-                                <AppIcon name={isComplete ? 'check' : 'checklist'} size={14} color="#ffffff" />
-                                {isComplete ? 'Review Requirements' : isDeficient ? 'Re-check Requirements' : 'Check Requirements'}
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleOpenAoRating(app)}
+                              style={{
+                                flex: 2,
+                                fontSize: '0.75rem',
+                                background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '9999px',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <AppIcon name={isComplete ? 'check' : 'checklist'} size={14} color="#ffffff" />
+                              {isComplete ? 'Review Requirements' : isDeficient ? 'Re-check Requirements' : 'Check Requirements'}
+                            </button>
                           </div>
                         </div>
                       );
@@ -3794,395 +3759,22 @@ export const PromotionManagement: React.FC = () => {
       </div>
 
       {/* MODAL 1: AO II REQUIREMENTS COMPLETENESS VERIFICATION (ANNEX C CHECKLIST) */}
-      {showAoModal && selectedAppForModal && (
-        <ModalOverlay onDismiss={() => setShowAoModal(false)} className="modal-overlay">
-          <div className="modal animate-scale-in" style={{ maxWidth: '840px', width: 'calc(100vw - 32px)', maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '16px', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
-            <div className="modal-header" style={{ background: 'var(--color-bg-tertiary)', borderBottom: '1px solid var(--color-border)', padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                  <span style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', color: 'var(--color-primary)', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(37, 99, 235, 0.3)' }}>
-                    Stage 1 • Administrative Officer II (AO II)
-                  </span>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
-                    DepEd Order No. 007, s. 2023 Guidelines
-                  </span>
-                </div>
-                <h3 className="modal-title" style={{ color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 800, margin: 0, fontSize: '1.15rem' }}>
-                  <AppIcon name="checklist" size={18} color="var(--color-primary)" />
-                  Requirements Completeness Verification (Annex C)
-                </h3>
-              </div>
-              <button className="modal-close" onClick={() => setShowAoModal(false)} style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', width: '32px', height: '32px', borderRadius: '8px', color: 'var(--color-text-primary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-            </div>
-
-            <form onSubmit={handleSubmitAoRating} style={{ padding: '20px 22px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Applicant Header Information Card */}
-              <div style={{
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '12px',
-                padding: '14px 16px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '12px',
-                fontSize: '0.8125rem',
-              }}>
-                <div>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Name of Applicant</span>
-                  <strong style={{ color: 'var(--color-text-primary)', fontSize: '0.9375rem' }}>{selectedAppForModal.name}</strong>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'block' }}>ID: {selectedAppForModal.employeeId}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Position Applied For</span>
-                  <strong style={{ color: 'var(--color-primary)' }}>{selectedCycle?.name || selectedAppForModal.designation || 'Teacher Position'}</strong>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'block' }}>Track: {modalTrack === 'NON_TEACHING' ? 'Non-Teaching' : 'Teaching'}</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Office / School Unit</span>
-                  <span style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{selectedAppForModal.station || selectedCycle?.rulesConfigurationJson?.officeUnit || 'Division of Koronadal City'}</span>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'block' }}>Region XII</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', display: 'block', fontWeight: 600 }}>Application Code</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(37, 99, 235, 0.3)', display: 'inline-block' }}>
-                    {selectedAppForModal.scoreDetailsJson?.applicantNumber || selectedAppForModal.scoreDetailsJson?.annexCChecklist?.applicationCode || `APP-${String(selectedAppForModal.id).padStart(4, '0')}`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Checklist Action Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Annex C Documentary Requirements Checklist ({reqVerificationItems.length} items)
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReqVerificationItems(prev => prev.map(it => ({
-                      ...it,
-                      status: it.submitted ? 'VERIFIED' : (it.isMandatory ? 'INCOMPLETE' : 'NOT_APPLICABLE'),
-                    })));
-                    setReqCompletenessStatus('COMPLETE');
-                  }}
-                  style={{
-                    fontSize: '0.6875rem',
-                    fontWeight: 700,
-                    color: 'var(--color-primary)',
-                    background: 'var(--color-bg-tertiary)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  ✓ Mark Submitted as Verified
-                </button>
-              </div>
-
-              {/* Checklist Items List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {reqVerificationItems.map((item, idx) => {
-                  const isVerified = item.status === 'VERIFIED';
-                  const isIncomplete = item.status === 'INCOMPLETE';
-                  const isNA = item.status === 'NOT_APPLICABLE';
-
-                  return (
-                    <div
-                      key={item.code}
-                      style={{
-                        background: 'var(--color-bg-card)',
-                        border: isIncomplete
-                          ? '1.5px solid #F87171'
-                          : isVerified
-                            ? '1.5px solid rgba(16, 185, 129, 0.4)'
-                            : '1px solid var(--color-border)',
-                        borderRadius: '10px',
-                        padding: '12px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                        <div style={{ flex: 1, minWidth: '240px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                            <span style={{
-                              width: '22px',
-                              height: '22px',
-                              borderRadius: '6px',
-                              background: 'var(--color-bg-tertiary)',
-                              color: 'var(--color-primary)',
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: '1px solid var(--color-border)',
-                            }}>
-                              {item.code}
-                            </span>
-                            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                              {item.title}
-                            </span>
-                            {item.isMandatory ? (
-                              <span style={{ fontSize: '0.625rem', fontWeight: 800, color: '#DC2626', background: theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEE2E2', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(220, 38, 38, 0.3)' }}>
-                                Mandatory
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--color-text-muted)', background: 'var(--color-bg-tertiary)', padding: '1px 6px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                                If Applicable
-                              </span>
-                            )}
-                          </div>
-                          <p style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', margin: '0 0 6px 0', lineHeight: 1.35 }}>
-                            {item.description}
-                          </p>
-
-                          {/* Attached Document Reference Indicator */}
-                          {item.submitted || item.documentName ? (
-                            <div style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              fontSize: '0.6875rem',
-                              background: theme === 'dark' ? 'rgba(16, 185, 129, 0.1)' : '#ECFDF5',
-                              border: '1px solid rgba(16, 185, 129, 0.3)',
-                              color: theme === 'dark' ? '#34D399' : '#059669',
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              fontWeight: 600,
-                            }}>
-                              <AppIcon name="document" size={12} color={theme === 'dark' ? '#34D399' : '#059669'} />
-                              <span>Attached: {item.documentName || `${item.title}.pdf`}</span>
-                              {item.personnelDocumentId && (
-                                <a
-                                  href={`${apiClient.defaults.baseURL || '/api/v1'}/personnel/documents/${item.personnelDocumentId}/file`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{
-                                    marginLeft: '4px',
-                                    color: 'var(--color-primary)',
-                                    textDecoration: 'underline',
-                                    fontWeight: 700,
-                                  }}
-                                >
-                                  View
-                                </a>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{
-                              fontSize: '0.6875rem',
-                              color: item.isMandatory ? '#DC2626' : 'var(--color-text-muted)',
-                              fontStyle: 'italic',
-                              display: 'inline-block',
-                            }}>
-                              {item.isMandatory ? '⚠️ No document attached by applicant' : 'No document attached'}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Status Selection Buttons */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReqVerificationItems(prev => {
-                                const next = [...prev];
-                                next[idx] = { ...next[idx], status: 'VERIFIED' };
-                                return next;
-                              });
-                            }}
-                            style={{
-                              fontSize: '0.6875rem',
-                              fontWeight: 700,
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              border: isVerified ? '1.5px solid #10B981' : '1px solid var(--color-border)',
-                              background: isVerified ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5') : 'var(--color-bg-tertiary)',
-                              color: isVerified ? (theme === 'dark' ? '#34D399' : '#059669') : 'var(--color-text-secondary)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✓ Verified
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReqVerificationItems(prev => {
-                                const next = [...prev];
-                                next[idx] = { ...next[idx], status: 'INCOMPLETE' };
-                                return next;
-                              });
-                              setReqCompletenessStatus('INCOMPLETE');
-                            }}
-                            style={{
-                              fontSize: '0.6875rem',
-                              fontWeight: 700,
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              border: isIncomplete ? '1.5px solid #EF4444' : '1px solid var(--color-border)',
-                              background: isIncomplete ? (theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2') : 'var(--color-bg-tertiary)',
-                              color: isIncomplete ? (theme === 'dark' ? '#F87171' : '#DC2626') : 'var(--color-text-secondary)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✗ Deficient
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReqVerificationItems(prev => {
-                                const next = [...prev];
-                                next[idx] = { ...next[idx], status: 'NOT_APPLICABLE' };
-                                return next;
-                              });
-                            }}
-                            style={{
-                              fontSize: '0.6875rem',
-                              fontWeight: 600,
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              border: isNA ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
-                              background: isNA ? (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF') : 'var(--color-bg-tertiary)',
-                              color: isNA ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            N/A
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Optional Item-specific deficiency remark */}
-                      {isIncomplete && (
-                        <input
-                          aria-label={`Deficiency remark for item ${item.code}`}
-                          type="text"
-                          className="form-input"
-                          style={{ fontSize: '0.75rem', padding: '4px 10px', borderColor: '#FCA5A5' }}
-                          placeholder={`Specify deficiency for item (${item.code})...`}
-                          value={item.remarks || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setReqVerificationItems(prev => {
-                              const next = [...prev];
-                              next[idx] = { ...next[idx], remarks: val };
-                              return next;
-                            });
-                          }}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Omnibus Sworn Statement Status */}
-              <div style={{
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '10px',
-                padding: '12px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AppIcon name="check" size={16} color="#059669" />
-                  <div>
-                    <strong style={{ fontSize: '0.75rem', color: 'var(--color-text-primary)' }}>
-                      Omnibus Sworn Statement & Data Privacy Consent
-                    </strong>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
-                      Certified and digitally signed under Republic Act No. 8792 (E-Commerce Act of 2000)
-                    </div>
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#059669', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.3)' }}>
-                  Acknowledged
-                </span>
-              </div>
-
-              {/* AO II Overall Finding & Remarks */}
-              <div style={{
-                background: reqCompletenessStatus === 'COMPLETE'
-                  ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5')
-                  : (theme === 'dark' ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2'),
-                border: reqCompletenessStatus === 'COMPLETE'
-                  ? '1.5px solid rgba(16, 185, 129, 0.3)'
-                  : '1.5px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '12px',
-                padding: '14px 16px',
-              }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: reqCompletenessStatus === 'COMPLETE' ? '#059669' : '#DC2626', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-                  AO II Overall Requirements Verification Finding
-                </span>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="reqFinding"
-                      value="COMPLETE"
-                      checked={reqCompletenessStatus === 'COMPLETE'}
-                      onChange={() => setReqCompletenessStatus('COMPLETE')}
-                    />
-                    <span style={{ color: '#059669' }}>Complete & Verified</span> (Endorsed for HRMPSB Deliberation)
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="reqFinding"
-                      value="INCOMPLETE"
-                      checked={reqCompletenessStatus === 'INCOMPLETE'}
-                      onChange={() => setReqCompletenessStatus('INCOMPLETE')}
-                    />
-                    <span style={{ color: '#DC2626' }}>Incomplete / Deficient</span> (Flagged for Deficiency)
-                  </label>
-                </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '4px' }}>
-                    AO II Verification Remarks / Notes for HRMPSB
-                  </label>
-                  <textarea
-                    aria-label="AO II Verification Remarks / Notes for HRMPSB"
-                    className="form-input"
-                    rows={2}
-                    value={reqVerificationRemarks}
-                    onChange={(e) => setReqVerificationRemarks(e.target.value)}
-                    placeholder={reqCompletenessStatus === 'COMPLETE' ? 'All documentary requirements verified complete and authentic...' : 'Specify missing or deficient requirements...'}
-                  />
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '14px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button
-                  type="submit" disabled={savingAoRating.pending}
-                  className="btn btn-primary"
-                  style={{
-                    background: reqCompletenessStatus === 'COMPLETE' ? '#059669' : '#DC2626',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '9999px',
-                    padding: '9px 22px',
-                    fontWeight: 800,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                  }}
-                >
-                  <AppIcon name="check" size={14} color="#ffffff" />
-                  {reqCompletenessStatus === 'COMPLETE' ? 'Confirm Requirements Complete' : 'Record Deficiencies'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </ModalOverlay>
-      )}
+      <AnnexCVerificationModal
+        isOpen={Boolean(showAoModal && selectedAppForModal)}
+        onClose={() => setShowAoModal(false)}
+        applicant={selectedAppForModal}
+        cycle={selectedCycle}
+        modalTrack={modalTrack}
+        theme={theme}
+        items={reqVerificationItems}
+        setItems={setReqVerificationItems}
+        completenessStatus={reqCompletenessStatus}
+        setCompletenessStatus={setReqCompletenessStatus}
+        remarks={reqVerificationRemarks}
+        setRemarks={setReqVerificationRemarks}
+        onSubmit={handleSubmitAoRating}
+        isPending={savingAoRating.pending}
+      />
 
       {/* MODAL 2: HRMO STAFF FINAL RATING FORM (OFFICIAL DEPED CAR DELIBERATION) */}
       {showHrmoModal && selectedAppForModal && isHR && createPortal((

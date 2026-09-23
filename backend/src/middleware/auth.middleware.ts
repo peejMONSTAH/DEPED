@@ -56,6 +56,9 @@ export const authenticate = async (
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
   } else if (
+    // A token in the URL exists only for EventSource and file links, both GETs;
+    // it must never authenticate a request that changes anything.
+    req.method === 'GET' &&
     typeof req.query.token === 'string' &&
     req.query.token.trim().length > 0
   ) {
@@ -132,6 +135,12 @@ export const authenticate = async (
     }
     if (payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
       sendUnauthorized(res, 'This session is no longer valid. Please sign in again.');
+      return;
+    }
+    // A document link is bound to the role it was issued under. Scope is still
+    // re-checked by the file endpoint; this makes a role change void the link outright.
+    if (docTokenPayload && docTokenPayload.role !== user.role.name) {
+      sendUnauthorized(res, 'This document link is no longer valid. Open the document again.');
       return;
     }
 

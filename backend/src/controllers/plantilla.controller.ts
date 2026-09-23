@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden , sendError} from '../utils/response.util';
-import { getStationScope, stationPlantillaFilter } from '../utils/scope.util';
+import { getStationScope, promotionApplicationScopeFilter, stationPlantillaFilter } from '../utils/scope.util';
 import { getAutoSalaryGrade, getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { logger } from '../utils/logger';
 
@@ -178,6 +178,12 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
       ],
     });
 
+    // As in the cycle list: an AO II's applicant count covers their own station only.
+    const scope = await getStationScope(req.user);
+    const countedApplications = scope.role === 'AO_II'
+      ? { where: promotionApplicationScopeFilter(scope, 'review') }
+      : true;
+
     const activeCycles = await prisma.promotionCycle.findMany({
       where: {
         status: { in: ['ACTIVE', 'PLANNING'] },
@@ -190,7 +196,7 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
         startDate: true,
         endDate: true,
         rulesConfigurationJson: true,
-        _count: { select: { promotionApplications: true } },
+        _count: { select: { promotionApplications: countedApplications } },
       },
     });
 

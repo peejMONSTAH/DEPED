@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import PizZip from 'pizzip';
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 
 export interface CarDocumentResult {
@@ -56,11 +57,19 @@ export class CarDocumentService {
    * Generates an official Comparative Assessment Result (CAR) Microsoft Word document (.docx)
    * matching DepEd standards and the official template structure with dynamic applicant rows.
    */
-  public static async generateCarDocument(cycleId: number): Promise<CarDocumentResult> {
+  /**
+   * `applicationScope` is the caller's scope filter: an export never contains
+   * a row the caller could not open in the applications list.
+   */
+  public static async generateCarDocument(
+    cycleId: number,
+    applicationScope: Prisma.PromotionApplicationWhereInput,
+  ): Promise<CarDocumentResult> {
     const cycle = await prisma.promotionCycle.findUnique({
       where: { id: cycleId },
       include: {
         promotionApplications: {
+          where: applicationScope,
           include: { personnel: true },
           orderBy: [{ finalRank: 'asc' }, { createdAt: 'asc' }],
         },

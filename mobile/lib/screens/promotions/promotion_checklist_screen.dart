@@ -347,6 +347,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       document: doc,
       documentTypeId: 'OTHER',
       customDocumentName: 'Annex C ${item.code}: ${item.title}',
+      replacesDocumentId: item.existingDocumentId,
     );
     if (!mounted) return;
     setState(() {

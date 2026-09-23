@@ -139,6 +139,7 @@ class PersonnelDocumentService {
     String? issueDate,
     String? expirationDate,
     String? remarks,
+    int? replacesDocumentId,
     void Function(double progress)? onProgress,
   }) async {
     MultipartFile multipartFile;
@@ -165,6 +166,7 @@ class PersonnelDocumentService {
       if (issueDate != null) 'issueDate': issueDate,
       if (expirationDate != null) 'expirationDate': expirationDate,
       if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
+      if (replacesDocumentId != null) 'replacesDocumentId': replacesDocumentId,
     });
 
     try {

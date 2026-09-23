@@ -159,5 +159,118 @@ void main() {
       final diffDays = dt!.difference(now).inDays;
       expect(diffDays >= 0 && diffDays <= 60, isTrue);
     });
+
+    test('Single-instance requirement identity resolution distinguishes types and Annex C codes', () {
+      String? resolveRequirementKey(String? typeId, String? customName) {
+        if (typeId == null) return null;
+        final normalized = typeId.toUpperCase().trim();
+        final trimmedCustom = (customName ?? '').trim();
+
+        final annexMatch = RegExp(r'^Annex\s+C\s*[\(\[-]?\s*([a-k])\b', caseSensitive: false)
+            .firstMatch(trimmedCustom);
+        if (annexMatch != null) {
+          final code = annexMatch.group(1)!.toLowerCase();
+          return 'ANNEX_C_$code';
+        }
+
+        const multi = {'TRAINING_CERT', 'COE'};
+        if (multi.contains(normalized)) {
+          return null;
+        }
+
+        if (normalized == 'OTHER') {
+          if (trimmedCustom.isEmpty) return null;
+          return 'OTHER:${trimmedCustom.toLowerCase()}';
+        }
+
+        return 'DOC_TYPE:$normalized';
+      }
+
+      // Single instance standard types
+      expect(resolveRequirementKey('LETTER_OF_INTENT', null), 'DOC_TYPE:LETTER_OF_INTENT');
+      expect(resolveRequirementKey('PDS', null), 'DOC_TYPE:PDS');
+      expect(resolveRequirementKey('TOR', null), 'DOC_TYPE:TOR');
+
+      // Annex C custom types under OTHER
+      expect(resolveRequirementKey('OTHER', 'Annex C (a) Letter of Intent'), 'ANNEX_C_a');
+      expect(resolveRequirementKey('OTHER', 'Annex C - b: Personal Data Sheet'), 'ANNEX_C_b');
+      expect(resolveRequirementKey('OTHER', 'Annex C a: Letter of Intent'), 'ANNEX_C_a');
+      expect(resolveRequirementKey('OTHER', 'Annex C k: Other Documents'), 'ANNEX_C_k');
+
+      // Distinct non-Annex C OTHER documents do NOT collide
+      expect(resolveRequirementKey('OTHER', 'Special Order No. 42'), 'OTHER:special order no. 42');
+      expect(resolveRequirementKey('OTHER', 'Commendation Letter 2025'), 'OTHER:commendation letter 2025');
+      expect(
+        resolveRequirementKey('OTHER', 'Special Order No. 42') !=
+            resolveRequirementKey('OTHER', 'Commendation Letter 2025'),
+        isTrue,
+      );
+
+      // Multi-instance types return null (allowed multiple active files)
+      expect(resolveRequirementKey('TRAINING_CERT', null), isNull);
+      expect(resolveRequirementKey('COE', null), isNull);
+    });
+
+    test('Active document duplicate detection correctly distinguishes active files from placeholders', () {
+      final placeholder = PersonnelDocument(
+        id: 10,
+        personnelId: 42,
+        documentTypeId: 'LETTER_OF_INTENT',
+        documentTypeName: 'Letter of Intent',
+        originalFileName: '',
+        storedFileName: '',
+        mimeType: '',
+        fileSize: 0,
+        fileUrl: '',
+        status: PersonnelDocumentStatus.NOT_SUBMITTED,
+        uploadedAt: DateTime.now().toIso8601String(),
+        updatedAt: DateTime.now().toIso8601String(),
+        hasFile: false,
+      );
+
+      final activePds = PersonnelDocument(
+        id: 11,
+        personnelId: 42,
+        documentTypeId: 'PDS',
+        documentTypeName: 'Personal Data Sheet',
+        originalFileName: 'pds_2026.pdf',
+        storedFileName: 'pds_11.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 1024 * 300,
+        fileUrl: '/file/11',
+        status: PersonnelDocumentStatus.SUBMITTED,
+        uploadedAt: DateTime.now().toIso8601String(),
+        updatedAt: DateTime.now().toIso8601String(),
+        hasFile: true,
+      );
+
+      final existingDocs = [placeholder, activePds];
+
+      bool hasActiveDoc(String typeId, String? customName) {
+        const singleInstanceTypes = {
+          'LETTER_OF_INTENT', 'PDS', 'WES', 'LICENSE', 'CSC_ELIGIBILITY',
+          'APPOINTMENT', 'PERFORMANCE_RATING', 'OMNIBUS_CERT', 'OATH_OF_OFFICE',
+          'POSITION_DESCRIPTION', 'SALN', 'GOV_ID', 'BIRTH_CERT', 'MARRIAGE_CERT',
+          'NBI_CLEARANCE', 'POLICE_CLEARANCE', 'MED_CERT', 'RESUME_CV', 'TOR',
+          'DIPLOMA', 'CAV'
+        };
+        if (!singleInstanceTypes.contains(typeId)) return false;
+
+        return existingDocs.any((d) =>
+            d.hasFile &&
+            d.status != PersonnelDocumentStatus.NOT_SUBMITTED &&
+            d.documentTypeId == typeId);
+      }
+
+      // Placeholder for LETTER_OF_INTENT should NOT be flagged as active document conflict
+      expect(hasActiveDoc('LETTER_OF_INTENT', null), isFalse);
+
+      // Active file for PDS SHOULD be flagged as active document conflict
+      expect(hasActiveDoc('PDS', null), isTrue);
+
+      // Unrelated type without any file should NOT be flagged
+      expect(hasActiveDoc('TOR', null), isFalse);
+    });
   });
 }
+
