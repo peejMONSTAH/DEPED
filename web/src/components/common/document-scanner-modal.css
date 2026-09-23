@@ -3,8 +3,8 @@
 .doc-scanner-dialog {
   display: flex;
   flex-direction: column;
-  background: #0f172a;
-  color: #f8fafc;
+  background: #1f2a23;
+  color: #f7faf6;
   border-radius: 16px;
   width: min(95vw, 840px);
   height: min(92vh, 800px);
@@ -73,7 +73,7 @@
 .doc-scanner-switch-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #f8fafc;
+  color: #f7faf6;
   width: 36px;
   height: 36px;
   border-radius: 8px;
@@ -99,7 +99,7 @@
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(8px);
   z-index: 5;
-  color: #f8fafc;
+  color: #f7faf6;
 }
 
 .doc-scanner-body {
@@ -146,7 +146,7 @@
   position: absolute;
   width: 24px;
   height: 24px;
-  border-color: #3b82f6;
+  border-color: #3f9265;
   border-style: solid;
 }
 
@@ -160,7 +160,7 @@
   top: 14px;
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(8px);
-  color: #e2e8f0;
+  color: #dce6de;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 6px 14px;
@@ -209,7 +209,7 @@
   border-radius: 8px;
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  color: #f7faf6;
   border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -234,7 +234,7 @@
   min-height: 64px;
   border-radius: 50%;
   background: #ffffff;
-  border: 4px solid #3b82f6;
+  border: 4px solid #3f9265;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -283,7 +283,7 @@
   justify-content: center;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
-  color: #f8fafc;
+  color: #f7faf6;
   border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
 }
@@ -309,7 +309,7 @@
   font-size: 0.9375rem;
   font-weight: 700;
   border-radius: 12px;
-  background: #2563eb;
+  background: #2f7d52;
   color: #ffffff;
   border: none;
   display: flex;
@@ -323,7 +323,7 @@
 }
 
 .doc-scanner-use-doc-btn:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: #276a45;
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5);
 }
 
@@ -384,7 +384,7 @@
 }
 
 .doc-scanner-thumb.active {
-  border-color: #3b82f6;
+  border-color: #3f9265;
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
 }
 
@@ -440,6 +440,6 @@
   justify-content: center;
   text-align: center;
   gap: 16px;
-  background: #0f172a;
+  background: #1f2a23;
   height: 100%;
 }

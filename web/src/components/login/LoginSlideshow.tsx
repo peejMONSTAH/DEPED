@@ -37,7 +37,7 @@ const SLIDES: SlideItem[] = [
     badge: 'Enterprise Telemetry • 99.99% Uptime',
     image: '/slides/analytics_command_center.jpg',
     urlPath: 'digital201.deped.gov.ph/admin/dashboard',
-    accentColor: '#D7F84A',
+    accentColor: '#E3C36A',
     glowRgba: 'rgba(215, 248, 74, 0.22)',
     floatingPill1: {
       icon: '⚡',

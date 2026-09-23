@@ -8,19 +8,19 @@ class AppTheme {
   // ═══════════════════════════════════════════════════════════════════
 
   // Brand Accent Colors
-  static const Color accentLime = Color(0xFFD7F84A);       // Electric Lime accent
-  static const Color accentLimeHover = Color(0xFFCBEB3F);
-  static const Color accentLavender = Color(0xFFB9AEF5);   // Soft Lavender
-  static const Color brandDark = Color(0xFF141416);        // Deep Charcoal
+  static const Color accentLime = Color(0xFFE3C36A);       // Pastel gold accent
+  static const Color accentLimeHover = Color(0xFFD4B052);
+  static const Color accentLavender = Color(0xFFA8DDBB);   // Pastel green
+  static const Color brandDark = Color(0xFF1F3A2C);        // Deep green
 
   // Backgrounds & Surfaces (Pure Light Mode)
-  static const Color lightBg = Color(0xFFF1F5F9);          // Light Slate background
-  static const Color lightBgWorkspace = Color(0xFFE2E6E9); // Secondary workspace background
+  static const Color lightBg = Color(0xFFEEF5EF);          // Light Slate background
+  static const Color lightBgWorkspace = Color(0xFFE8EFE9); // Secondary workspace background
   static const Color lightBgSecondary = Color(0xFFFFFFFF); // Pure white header / surface
   static const Color lightBgCard = Color(0xFFFFFFFF);      // Pure white cards
-  static const Color lightSurface = Color(0xFFF8FAFC);     // Subtle contrast fill
-  static const Color lightBorder = Color(0xFFE2E8F0);      // Crisp border
-  static const Color lightBorderSubtle = Color(0xFFF1F5F9);// Subtle divider
+  static const Color lightSurface = Color(0xFFF7FAF6);     // Subtle contrast fill
+  static const Color lightBorder = Color(0xFFDCE6DE);      // Crisp border
+  static const Color lightBorderSubtle = Color(0xFFEEF5EF);// Subtle divider
 
   // Aliases for backwards compatibility with existing screens
   static const Color darkBg = lightBg;
@@ -32,27 +32,27 @@ class AppTheme {
   static const Color darkBorderSubtle = lightBorderSubtle;
 
   // Typography Colors (High-Contrast Light Theme)
-  static const Color textPrimary = Color(0xFF141416);      // Deep Charcoal
-  static const Color textSecondary = Color(0xFF526171);    // Mid Charcoal
-  static const Color textMuted = Color(0xFF64748B);        // Subtle Slate
+  static const Color textPrimary = Color(0xFF1F3A2C);      // Deep green
+  static const Color textSecondary = Color(0xFF4F6356);    // Mid Charcoal
+  static const Color textMuted = Color(0xFF5B6B60);        // Subtle Slate
   static const Color textInverse = Color(0xFFFFFFFF);      // White on dark buttons/chips
 
   // Status Colors (Matching DepEd Corporate Web Tokens)
-  static const Color statusDraft = Color(0xFF64748B);
+  static const Color statusDraft = Color(0xFF5B6B60);
   static const Color statusPending = Color(0xFFD97706);    // Amber
-  static const Color statusValidated = Color(0xFF2563EB);  // DepEd Royal Blue
+  static const Color statusValidated = Color(0xFF2F7D52);  // Brand green
   static const Color statusApproved = Color(0xFF10B981);   // Emerald Green
   static const Color statusReturned = Color(0xFFDC2626);   // Red
 
   // Aliases for backwards compatibility with existing screens
-  static const Color primaryLight = Color(0xFF2563EB);     // DepEd Royal Blue
-  static const Color primaryBlue = Color(0xFF2563EB);
+  static const Color primaryLight = Color(0xFF2F7D52);     // Brand green
+  static const Color primaryBlue = Color(0xFF2F7D52);
   static const Color primaryDark = brandDark;
   static const Color emeraldGreen = statusApproved;
   static const Color accentGold = statusPending;
   static const Color accentPurple = accentLavender;
-  static const Color primaryNavy = Color(0xFF1E293B);
-  static const Color secondaryNavy = Color(0xFF334155);
+  static const Color primaryNavy = Color(0xFF1F3A2C);
+  static const Color secondaryNavy = Color(0xFF2B4A39);
 
   // Pure Light Theme
   static ThemeData get lightTheme {
@@ -65,7 +65,7 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: brandDark,
         onPrimary: Colors.white,
-        secondary: const Color(0xFF2563EB),
+        secondary: const Color(0xFF2F7D52),
         onSecondary: Colors.white,
         tertiary: statusPending,
         surface: lightBgCard,

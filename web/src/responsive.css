@@ -239,7 +239,7 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   font-size: 0.8125rem;
 }
 .promotion-summary-card--slots::before { background: #059669; }
-.promotion-summary-card--plantilla::before { background: #2563eb; }
+.promotion-summary-card--plantilla::before { background: #2f7d52; }
 .promotion-summary-card--track::before { background: #b45309; }
 .promotion-summary-card--candidates::before { background: #39654a; }
 

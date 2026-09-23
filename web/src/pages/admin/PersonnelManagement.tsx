@@ -546,7 +546,7 @@ export const PersonnelManagement: React.FC = () => {
                       width: '58px',
                       height: '58px',
                       borderRadius: '16px',
-                      background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+                      background: 'linear-gradient(135deg, #2f7d52 0%, #a07a1f 100%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -623,12 +623,12 @@ export const PersonnelManagement: React.FC = () => {
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 44, height: 44, borderRadius: '12px',
-                      background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', flexShrink: 0
+                      background: 'rgba(139, 92, 246, 0.15)', color: '#c79a2e', flexShrink: 0
                     }}>
                       <Building2 size={22} />
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8b5cf6' }}>
+                      <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#c79a2e' }}>
                         {isDivisionRole ? 'Division Governance & Operational Scope' : 'Assigned School Station & District'}
                       </div>
                       <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-text-primary)', marginTop: 2 }}>
@@ -1024,7 +1024,7 @@ export const PersonnelManagement: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981 0%, #2563eb 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981 0%, #2f7d52 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <AppIcon name="personnel" size={22} color="#fff" />
               </div>
               <div style={{ flex: 1 }}>

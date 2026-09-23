@@ -378,7 +378,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
           {/* Header */}
           <div className="doc-scanner-header">
             <h2 className="doc-scanner-title">
-              <Camera size={20} color="#3b82f6" />
+              <Camera size={20} color="#3f9265" />
               <span>Document Scanner: {documentTypeName}</span>
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -433,7 +433,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
 
               {cameraConnecting && !cameraError && (
                 <div className="doc-scanner-loading-overlay">
-                  <Loader2 size={36} className="spin" color="#3b82f6" />
+                  <Loader2 size={36} className="spin" color="#3f9265" />
                   <p style={{ margin: '8px 0 0', fontWeight: 600, fontSize: '0.9rem' }}>
                     Starting camera…
                   </p>
@@ -544,7 +544,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
                     title="Capture document page"
                     aria-label="Capture page"
                   >
-                    <Camera size={26} color="#3b82f6" />
+                    <Camera size={26} color="#3f9265" />
                   </button>
                 )}
               </div>

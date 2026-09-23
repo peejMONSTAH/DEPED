@@ -780,7 +780,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
 
                 {/* Popup Blocked Warning */}
                 {popupBlockedUrl && (
-                  <div style={{ background: '#eff6ff', borderBottom: '1px solid #bfdbfe', padding: '6px 16px', fontSize: '0.75rem', color: '#1e40af', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ background: '#eef7f1', borderBottom: '1px solid #cfe8d8', padding: '6px 16px', fontSize: '0.75rem', color: '#1f5c3b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span>Pop-up was blocked by browser.</span>
                     <a href={popupBlockedUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700, textDecoration: 'underline' }}>
                       Click to open
@@ -792,7 +792,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 <div className="annex-c-preview-viewport">
                   {docLoading ? (
                     <div className="annex-c-preview-status">
-                      <Loader2 size={32} className="spin" color="#2563eb" />
+                      <Loader2 size={32} className="spin" color="#2f7d52" />
                       <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text-secondary)', fontSize: '0.8125rem' }}>
                         Loading document preview…
                       </p>

@@ -124,7 +124,7 @@ export const PersonnelNotifications: React.FC = () => {
         category: 'Account',
         iconName: 'profile' as const,
         badge: 'Account Alert',
-        color: '#8b5cf6',
+        color: '#c79a2e',
         title,
         body,
       };
@@ -160,7 +160,7 @@ export const PersonnelNotifications: React.FC = () => {
         category: 'Career',
         iconName: 'repository' as const,
         badge: 'Career Event',
-        color: '#2563eb',
+        color: '#2f7d52',
         title,
         body,
       };

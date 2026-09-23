@@ -627,7 +627,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
 
     if (!doc.hasFile) {
       label = 'No file uploaded';
-      color = const Color(0xFF64748B);
+      color = const Color(0xFF5B6B60);
       icon = LucideIcons.fileQuestion;
     } else if (expired) {
       label = 'Expired';

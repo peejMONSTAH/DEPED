@@ -5,11 +5,11 @@ import apiClient from '../../api/client';
 import './service-record.css';
 
 const HISTORY_TYPE_COLORS: Record<string, string> = {
-  'Promotion': '#8b5cf6',
+  'Promotion': '#c79a2e',
   'Salary Adjustment': '#f59e0b',
   'Appointment': '#10b981',
   'Award': '#ec4899',
-  'Career Milestone': '#3b82f6',
+  'Career Milestone': '#3f9265',
 };
 
 interface ServiceDetailField {
@@ -129,7 +129,7 @@ export const CareerRecord: React.FC = () => {
       </div>
 
       {/* Personnel Identity Card */}
-      <div className="card mb-4" style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, #6d28d9 100%)', color: 'white' }}>
+      <div className="card mb-4" style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, #8a6a1c 100%)', color: 'white' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 4 }}>
           <div style={{
             width: 60, height: 60, borderRadius: '50%',

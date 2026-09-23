@@ -251,9 +251,9 @@ export const ComplianceMonitoring: React.FC = () => {
                   { label: 'Fully Compliant Personnel',  value: fullCount,    color: '#10B981', icon: 'compliant', pct: fullPct },
                   { label: 'Partially Compliant',         value: partialCount, color: '#F59E0B', icon: 'warning',   pct: partialPct },
                   { label: 'Non-Compliant Personnel',     value: nonCount,     color: '#EF4444', icon: 'error',     pct: nonPct },
-                  { label: 'Pending Transactions',        value: pendingTx,    color: '#3B82F6', icon: 'pending',   pct: '' },
+                  { label: 'Pending Transactions',        value: pendingTx,    color: '#3F9265', icon: 'pending',   pct: '' },
                   { label: 'Returned Transactions',       value: returnedTx,   color: '#F97316', icon: 'returned',  pct: '' },
-                  { label: 'Approved Transactions',       value: approvedTx,   color: '#8B5CF6', icon: 'approved',  pct: '' },
+                  { label: 'Approved Transactions',       value: approvedTx,   color: '#C79A2E', icon: 'approved',  pct: '' },
                 ].map(card => (
                   <div key={card.label} className="compliance-stat-card">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -588,7 +588,7 @@ export const ComplianceMonitoring: React.FC = () => {
                               top: 0,
                               width: `${p.yearsInService == null ? 0 : Math.min(Math.max((p.yearsInService / 40) * 100, 2), 100)}%`,
                               height: '100%',
-                              background: 'linear-gradient(90deg, #10B981 0%, #3B82F6 100%)',
+                              background: 'linear-gradient(90deg, #10B981 0%, #3F9265 100%)',
                               borderRadius: 4,
                               transition: 'width 0.4s ease'
                             }} />

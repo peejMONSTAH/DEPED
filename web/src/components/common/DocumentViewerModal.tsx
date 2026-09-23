@@ -293,7 +293,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
           <div className="doc-viewer-body">
             {loading ? (
               <div className="doc-viewer-status-container">
-                <Loader2 size={36} className="spin" color="#2563eb" />
+                <Loader2 size={36} className="spin" color="#2f7d52" />
                 <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
                   Loading document preview…
                 </p>

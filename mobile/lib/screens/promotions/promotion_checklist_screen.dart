@@ -999,7 +999,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withOpacity(0.12),
+                        color: const Color(0xFFA07A1F).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1007,7 +1007,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                         style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF7C3AED)),
+                            color: const Color(0xFFA07A1F)),
                       ),
                     ),
                     const SizedBox(width: 6),

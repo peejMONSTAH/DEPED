@@ -384,7 +384,7 @@
 .live-text {
   font-size: 9px;
   font-weight: 800;
-  color: #E2E8F0;
+  color: #DCE6DE;
   letter-spacing: 0.05em;
 }
 
@@ -577,7 +577,7 @@
   background: rgba(13, 16, 24, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   backdrop-filter: blur(10px) !important;
-  color: #E2E8F0 !important;
+  color: #DCE6DE !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -651,7 +651,7 @@
 }
 
 .neuro-toggle-btn:hover:not(.is-active) {
-  color: #CBD5E1 !important;
+  color: #C5D4C8 !important;
 }
 
 .neuro-toggle-btn.is-active {
@@ -735,7 +735,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748B !important;
+  color: #5B6B60 !important;
   transition: color 0.2s ease;
   pointer-events: none;
 }
@@ -767,7 +767,7 @@
   right: 12px !important;
   background: transparent !important;
   border: none !important;
-  color: #64748B !important;
+  color: #5B6B60 !important;
   padding: 6px !important;
   border-radius: 8px !important;
   cursor: pointer !important;
@@ -779,7 +779,7 @@
 }
 
 .neuro-input-eye-btn:hover {
-  color: #E2E8F0 !important;
+  color: #DCE6DE !important;
   background: rgba(255, 255, 255, 0.06) !important;
 }
 
@@ -838,7 +838,7 @@
 .neuro-divider-text {
   font-size: 12px !important;
   font-weight: 700 !important;
-  color: #64748B !important;
+  color: #5B6B60 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.06em !important;
 }
@@ -995,7 +995,7 @@
 .neuro-form-footer p {
   margin: 0 !important;
   font-size: 10.5px !important;
-  color: #64748B !important;
+  color: #5B6B60 !important;
   line-height: 1.4 !important;
 }
 

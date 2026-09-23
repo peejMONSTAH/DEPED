@@ -46,7 +46,7 @@ export const MyTransactions: React.FC = () => {
       case 'FORWARDED_TO_HRMO':
       case 'FORWARDED_TO_DIVISION':
       case 'UNDER_HR_REVIEW':
-        return { step: 3, label: 'Stage 3/4: Division HRMO Review & Final Approval Queue', color: '#8b5cf6' };
+        return { step: 3, label: 'Stage 3/4: Division HRMO Review & Final Approval Queue', color: '#c79a2e' };
       case 'APPROVED':
       case 'APPROVED_BY_HRMO':
       case 'COMPLETED':

@@ -548,11 +548,11 @@ export const DocumentValidation: React.FC = () => {
                         </div>
                         {tx.isPromotion && (
                           <div className="mt-1.5">
-                            <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <AppIcon name="promotions" size={11} color="#8b5cf6" /> Selected for Promotion
+                            <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c79a2e', border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <AppIcon name="promotions" size={11} color="#c79a2e" /> Selected for Promotion
                             </span>
                             {tx.promotionDetails?.targetPosition && (
-                              <div className="text-xs font-semibold mt-0.5" style={{ color: '#8b5cf6' }}>
+                              <div className="text-xs font-semibold mt-0.5" style={{ color: '#c79a2e' }}>
                                 Target: {tx.promotionDetails.targetPosition}
                               </div>
                             )}
@@ -611,11 +611,11 @@ export const DocumentValidation: React.FC = () => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ padding: 8, borderRadius: '50%', background: 'rgba(139, 92, 246, 0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <AppIcon name="promotions" size={20} color="#7c3aed" />
+                        <AppIcon name="promotions" size={20} color="#a07a1f" />
                       </div>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: 13, color: '#6d28d9', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <AppIcon name="promotions" size={14} color="#6d28d9" />
+                        <div style={{ fontWeight: 800, fontSize: 13, color: '#8a6a1c', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <AppIcon name="promotions" size={14} color="#8a6a1c" />
                           <span>Promotion Candidate Verification Active (Selected by HRMO)</span>
                         </div>
                         <div style={{ marginTop: 4, lineHeight: 1.5, color: 'var(--color-text-secondary)', fontSize: 12 }}>
@@ -1168,33 +1168,33 @@ export const DocumentValidation: React.FC = () => {
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 8 }}>
                               <div style={{
-                                width: 44, height: 44, borderRadius: '50%', border: '2px solid #0f172a',
+                                width: 44, height: 44, borderRadius: '50%', border: '2px solid #1f2a23',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontWeight: 900, fontSize: 10, color: '#0f172a', textAlign: 'center', lineHeight: 1.1
+                                fontWeight: 900, fontSize: 10, color: '#1f2a23', textAlign: 'center', lineHeight: 1.1
                               }}>
                                 DEPED<br />SEAL
                               </div>
-                              <div style={{ textAlign: 'center', color: '#0f172a' }}>
+                              <div style={{ textAlign: 'center', color: '#1f2a23' }}>
                                 <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em' }}>REPUBLIC OF THE PHILIPPINES</div>
                                 <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.02em', margin: '1px 0' }}>DEPARTMENT OF EDUCATION</div>
                                 <div style={{ fontSize: 10, fontWeight: 600, color: '#334155' }}>REGION XII • DIVISION OF KORONADAL CITY</div>
                                 <div style={{ fontSize: 9.5, color: '#475569' }}>KORONADAL CENTRAL DISTRICT • CODE: 101092</div>
                               </div>
                               <div style={{
-                                width: 44, height: 44, borderRadius: '50%', border: '2px solid #0f172a',
+                                width: 44, height: 44, borderRadius: '50%', border: '2px solid #1f2a23',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontWeight: 900, fontSize: 9, color: '#0f172a', textAlign: 'center', lineHeight: 1.1
+                                fontWeight: 900, fontSize: 9, color: '#1f2a23', textAlign: 'center', lineHeight: 1.1
                               }}>
                                 CSC<br />VERIFIED
                               </div>
                             </div>
 
                             {/* Official Double Dividing Rule */}
-                            <div style={{ borderTop: '2.5px solid #0f172a', borderBottom: '1px solid #0f172a', height: 4, margin: '8px 0 16px 0' }} />
+                            <div style={{ borderTop: '2.5px solid #1f2a23', borderBottom: '1px solid #1f2a23', height: 4, margin: '8px 0 16px 0' }} />
 
                             {/* Official Document Form Title */}
                             <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                              <div style={{ fontSize: 14.5, fontWeight: 900, color: '#0f172a', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                              <div style={{ fontSize: 14.5, fontWeight: 900, color: '#1f2a23', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
                                 {viewingDoc.name}
                               </div>
                               <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', marginTop: 3 }}>
@@ -1203,38 +1203,38 @@ export const DocumentValidation: React.FC = () => {
                             </div>
 
                             {/* Form Sections Grid Table */}
-                            <div style={{ border: '1.5px solid #0f172a', borderRadius: 2, overflow: 'hidden', marginBottom: 16 }}>
+                            <div style={{ border: '1.5px solid #1f2a23', borderRadius: 2, overflow: 'hidden', marginBottom: 16 }}>
                               {/* Row 1: Section Banner */}
-                              <div style={{ background: '#0f172a', color: '#ffffff', padding: '4px 10px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em' }}>
+                              <div style={{ background: '#1f2a23', color: '#ffffff', padding: '4px 10px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em' }}>
                                 I. APPOINTEE IDENTIFICATION & POSITION PROFILE
                               </div>
 
-                              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', borderBottom: '1px solid #cbd5e1', fontSize: 11 }}>
-                                <div style={{ padding: '6px 8px', background: '#f8fafc', fontWeight: 700, borderRight: '1px solid #cbd5e1' }}>FULL LEGAL NAME</div>
-                                <div style={{ padding: '6px 8px', fontWeight: 800, color: '#0f172a' }}>{selected.personnelName.toUpperCase()}</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', borderBottom: '1px solid #c5d4c8', fontSize: 11 }}>
+                                <div style={{ padding: '6px 8px', background: '#f7faf6', fontWeight: 700, borderRight: '1px solid #c5d4c8' }}>FULL LEGAL NAME</div>
+                                <div style={{ padding: '6px 8px', fontWeight: 800, color: '#1f2a23' }}>{selected.personnelName.toUpperCase()}</div>
                               </div>
 
-                              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px 1fr', borderBottom: '1px solid #cbd5e1', fontSize: 11 }}>
-                                <div style={{ padding: '6px 8px', background: '#f8fafc', fontWeight: 700, borderRight: '1px solid #cbd5e1' }}>DEPED EMPLOYEE ID</div>
-                                <div style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 700, borderRight: '1px solid #cbd5e1' }}>{selected.employeeId}</div>
-                                <div style={{ padding: '6px 8px', background: '#f8fafc', fontWeight: 700, borderRight: '1px solid #cbd5e1' }}>CATEGORY</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px 1fr', borderBottom: '1px solid #c5d4c8', fontSize: 11 }}>
+                                <div style={{ padding: '6px 8px', background: '#f7faf6', fontWeight: 700, borderRight: '1px solid #c5d4c8' }}>DEPED EMPLOYEE ID</div>
+                                <div style={{ padding: '6px 8px', fontFamily: 'monospace', fontWeight: 700, borderRight: '1px solid #c5d4c8' }}>{selected.employeeId}</div>
+                                <div style={{ padding: '6px 8px', background: '#f7faf6', fontWeight: 700, borderRight: '1px solid #c5d4c8' }}>CATEGORY</div>
                                 <div style={{ padding: '6px 8px', fontWeight: 700 }}>{selected.personnelCategory}</div>
                               </div>
 
-                              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', borderBottom: '1px solid #cbd5e1', fontSize: 11 }}>
-                                <div style={{ padding: '6px 8px', background: '#f8fafc', fontWeight: 700, borderRight: '1px solid #cbd5e1' }}>TRANSACTION TYPE</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', borderBottom: '1px solid #c5d4c8', fontSize: 11 }}>
+                                <div style={{ padding: '6px 8px', background: '#f7faf6', fontWeight: 700, borderRight: '1px solid #c5d4c8' }}>TRANSACTION TYPE</div>
                                 <div style={{ padding: '6px 8px', fontWeight: 700 }}>{selected.transactionType}</div>
                               </div>
 
                               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', fontSize: 11 }}>
-                                <div style={{ padding: '6px 8px', background: '#f8fafc', fontWeight: 700, borderRight: '1px solid #cbd5e1' }}>STATION ASSIGNMENT</div>
+                                <div style={{ padding: '6px 8px', background: '#f7faf6', fontWeight: 700, borderRight: '1px solid #c5d4c8' }}>STATION ASSIGNMENT</div>
                                 <div style={{ padding: '6px 8px' }}>Koronadal Central Elementary School — District II</div>
                               </div>
                             </div>
 
                             {/* Form Section II: DepEd Governance & Policy Framework */}
-                            <div style={{ border: '1.5px solid #0f172a', borderRadius: 2, overflow: 'hidden', marginBottom: 16 }}>
-                              <div style={{ background: '#0f172a', color: '#ffffff', padding: '4px 10px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em' }}>
+                            <div style={{ border: '1.5px solid #1f2a23', borderRadius: 2, overflow: 'hidden', marginBottom: 16 }}>
+                              <div style={{ background: '#1f2a23', color: '#ffffff', padding: '4px 10px', fontSize: 10.5, fontWeight: 800, letterSpacing: '0.05em' }}>
                                 II. REGULATORY COMPLIANCE & LEGAL ATTESTATION
                               </div>
 
@@ -1271,10 +1271,10 @@ export const DocumentValidation: React.FC = () => {
                           </div>
 
                           {/* Bottom Attestation & Signature Box */}
-                          <div style={{ borderTop: '1.5px solid #0f172a', paddingTop: 14 }}>
+                          <div style={{ borderTop: '1.5px solid #1f2a23', paddingTop: 14 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'flex-end' }}>
                               <div>
-                                <div style={{ fontSize: 9.5, color: '#64748b', marginBottom: 4 }}>DIGITAL ARCHIVE AUDIT STAMP:</div>
+                                <div style={{ fontSize: 9.5, color: '#5b6b60', marginBottom: 4 }}>DIGITAL ARCHIVE AUDIT STAMP:</div>
                                 <div style={{ fontFamily: 'monospace', fontSize: 9, color: '#334155', lineHeight: 1.4 }}>
                                   SHA-256: 4f8a9e21...8b7c3d10 (VERIFIED)<br />
                                   300 DPI OPTICAL SPECIMEN • TAMPER-PROOF<br />
@@ -1289,10 +1289,10 @@ export const DocumentValidation: React.FC = () => {
                                 }}>
                                   Atty. AO II Validated
                                 </div>
-                                <div style={{ borderTop: '1px solid #0f172a', paddingTop: 4, fontWeight: 800, fontSize: 10, color: '#0f172a' }}>
+                                <div style={{ borderTop: '1px solid #1f2a23', paddingTop: 4, fontWeight: 800, fontSize: 10, color: '#1f2a23' }}>
                                   ADMINISTRATIVE OFFICER II (AO II)
                                 </div>
-                                <div style={{ fontSize: 9, color: '#64748b' }}>
+                                <div style={{ fontSize: 9, color: '#5b6b60' }}>
                                   Designated School Evaluator • DepEd Koronadal
                                 </div>
                               </div>

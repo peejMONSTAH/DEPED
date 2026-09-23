@@ -330,9 +330,9 @@ export const ProfileCompletion: React.FC = () => {
   const getLockedStyle = (fieldKey: string): React.CSSProperties => {
     if (!isFieldLocked(fieldKey)) return {};
     return {
-      backgroundColor: 'var(--color-bg-secondary, #f8fafc)',
-      borderColor: 'var(--color-border, #e2e8f0)',
-      color: 'var(--color-text-primary, #0f172a)',
+      backgroundColor: 'var(--color-bg-secondary, #f7faf6)',
+      borderColor: 'var(--color-border, #dce6de)',
+      color: 'var(--color-text-primary, #1f2a23)',
       cursor: 'default',
       opacity: 0.95,
       fontSize: '16px',

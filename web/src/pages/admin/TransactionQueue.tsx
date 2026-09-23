@@ -336,7 +336,7 @@ export const TransactionQueue: React.FC = () => {
 
                       {/* Transaction Type */}
                       <td>
-                        <div style={{ fontWeight: 600, color: '#141416' }}>
+                        <div style={{ fontWeight: 600, color: '#1f3a2c' }}>
                           {tx.transactionType?.name || 'Standard Request'}
                         </div>
                         {isPromotion && (
@@ -345,7 +345,7 @@ export const TransactionQueue: React.FC = () => {
                               className="badge"
                               style={{
                                 background: 'rgba(139, 92, 246, 0.12)',
-                                color: '#7C3AED',
+                                color: '#A07A1F',
                                 border: '1px solid rgba(139, 92, 246, 0.25)',
                                 fontWeight: 700,
                                 fontSize: 10,
@@ -355,7 +355,7 @@ export const TransactionQueue: React.FC = () => {
                                 padding: '2px 8px',
                               }}
                             >
-                              <AppIcon name="promotions" size={11} color="#7C3AED" />
+                              <AppIcon name="promotions" size={11} color="#A07A1F" />
                               Promotion Cycle
                             </span>
                           </div>
@@ -521,7 +521,7 @@ export const TransactionQueue: React.FC = () => {
                     padding: '4px 10px',
                     borderRadius: '8px',
                     backgroundColor: 'rgba(37, 99, 235, 0.15)',
-                    color: '#3B82F6',
+                    color: '#3F9265',
                     border: '1px solid rgba(59, 130, 246, 0.3)',
                   }}
                 >
@@ -623,7 +623,7 @@ export const TransactionQueue: React.FC = () => {
                       width: '44px',
                       height: '44px',
                       borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                      background: 'linear-gradient(135deg, #2f7d52 0%, #3f9265 100%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -686,9 +686,9 @@ export const TransactionQueue: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <AppIcon name="promotions" size={20} color="#7C3AED" />
+                    <AppIcon name="promotions" size={20} color="#A07A1F" />
                     <div>
-                      <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#7C3AED' }}>
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#A07A1F' }}>
                         Official Promotion Cycle Appointment
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
@@ -702,7 +702,7 @@ export const TransactionQueue: React.FC = () => {
                       style={{
                         fontSize: '0.75rem',
                         fontWeight: 800,
-                        backgroundColor: '#7C3AED',
+                        backgroundColor: '#A07A1F',
                         color: '#FFFFFF',
                         padding: '3px 10px',
                         borderRadius: '6px',
@@ -959,7 +959,7 @@ export const TransactionQueue: React.FC = () => {
                 <Link
                   to={`/admin/documents?txId=${selectedTx.id}`}
                   className="btn btn-primary btn-sm"
-                  style={{ background: '#2563EB', color: '#FFF' }}
+                  style={{ background: '#2F7D52', color: '#FFF' }}
                 >
                   Validate Documents
                 </Link>

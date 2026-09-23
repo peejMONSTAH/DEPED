@@ -238,10 +238,10 @@ export const Checklist: React.FC = () => {
 
       {/* 2. Validated by AO II / Under HRMO Review Banner */}
       {txStatus === 'FOR_APPROVAL' && (
-        <div className="card mb-4" style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid #8b5cf6', borderRadius: 12, padding: 16 }}>
+        <div className="card mb-4" style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid #c79a2e', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <AppIcon name="approved" size={20} color="#8b5cf6" />
-            <strong style={{ color: '#8b5cf6', fontSize: 14 }}>Validated by AO II — Forwarded to HRMO for Final Approval</strong>
+            <AppIcon name="approved" size={20} color="#c79a2e" />
+            <strong style={{ color: '#c79a2e', fontSize: 14 }}>Validated by AO II — Forwarded to HRMO for Final Approval</strong>
           </div>
           <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             All documentary requirements have been successfully validated and verified by AO II. Your application is now in the Division HRMO approval queue awaiting official appointment signing.
@@ -532,8 +532,8 @@ export const Checklist: React.FC = () => {
               <AppIcon name="approved" size={16} color="var(--color-success)" /> ✅ Appointment Approved & Finalized
             </button>
           ) : txStatus === 'FOR_APPROVAL' ? (
-            <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#8b5cf6', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="approved" size={16} color="#8b5cf6" /> Validated by AO II — In HRMO Queue
+            <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#c79a2e', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <AppIcon name="approved" size={16} color="#c79a2e" /> Validated by AO II — In HRMO Queue
             </button>
           ) : txStatus === 'PENDING_VALIDATION' ? (
             <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 6 }}>

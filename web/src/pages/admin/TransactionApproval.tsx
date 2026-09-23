@@ -454,11 +454,11 @@ export const TransactionApproval: React.FC = () => {
                 <div style={{
                   width: 38, height: 38, borderRadius: '12px',
                   background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B5CF6'
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C79A2E'
                 }}>
-                  <AppIcon name="repository" size={20} color="#8B5CF6" />
+                  <AppIcon name="repository" size={20} color="#C79A2E" />
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#8B5CF6', background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#C79A2E', background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
                   REAL-TIME
                 </span>
               </div>
@@ -495,7 +495,7 @@ export const TransactionApproval: React.FC = () => {
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: '8px',
-              background: 'rgba(59, 130, 246, 0.15)', color: '#3B82F6',
+              background: 'rgba(59, 130, 246, 0.15)', color: '#3F9265',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0
             }}>
               1
@@ -545,7 +545,7 @@ export const TransactionApproval: React.FC = () => {
           }}>
             <div style={{
               width: 32, height: 32, borderRadius: '8px',
-              background: 'rgba(139, 92, 246, 0.15)', color: '#8B5CF6',
+              background: 'rgba(139, 92, 246, 0.15)', color: '#C79A2E',
               display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0
             }}>
               3
@@ -862,7 +862,7 @@ export const TransactionApproval: React.FC = () => {
                           <div style={{
                             width: 40, height: 40, borderRadius: '50%',
                             background: isApproved ? 'rgba(16, 185, 129, 0.15)' : isReturned ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                            color: isApproved ? '#10B981' : isReturned ? '#F97316' : '#3B82F6',
+                            color: isApproved ? '#10B981' : isReturned ? '#F97316' : '#3F9265',
                             fontWeight: 800, fontSize: 13,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                           }}>
@@ -894,11 +894,11 @@ export const TransactionApproval: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                           {tx.isPromotion && (
                             <span className="badge" style={{
-                              background: 'rgba(139, 92, 246, 0.15)', color: '#8B5CF6',
+                              background: 'rgba(139, 92, 246, 0.15)', color: '#C79A2E',
                               border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 10,
                               display: 'inline-flex', alignItems: 'center', gap: 4
                             }}>
-                              <AppIcon name="promotions" size={12} color="#8B5CF6" /> Promotion
+                              <AppIcon name="promotions" size={12} color="#C79A2E" /> Promotion
                             </span>
                           )}
                           {isEscalatedUnvalidated && (
@@ -1028,10 +1028,10 @@ export const TransactionApproval: React.FC = () => {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ padding: 6, borderRadius: '50%', background: 'rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <AppIcon name="promotions" size={18} color="#8B5CF6" />
+                      <AppIcon name="promotions" size={18} color="#C79A2E" />
                     </div>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: 12, color: '#8B5CF6', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontWeight: 800, fontSize: 12, color: '#C79A2E', display: 'flex', alignItems: 'center', gap: 6 }}>
                         Promotion Appointment Final Approval
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
@@ -1117,7 +1117,7 @@ export const TransactionApproval: React.FC = () => {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <AppIcon name="repository" size={14} color="#3B82F6" />
+                        <AppIcon name="repository" size={14} color="#3F9265" />
                         <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{doc.name}</span>
                       </div>
                       <button
@@ -1287,7 +1287,7 @@ export const TransactionApproval: React.FC = () => {
                 color: 'var(--color-text-secondary)', fontSize: 14, gap: 12, padding: 20, textAlign: 'center'
               }}>
                 <div style={{ padding: 14, borderRadius: '50%', background: 'rgba(59, 130, 246, 0.12)' }}>
-                  <AppIcon name="repository" size={48} color="#3B82F6" />
+                  <AppIcon name="repository" size={48} color="#3F9265" />
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)' }}>{viewingDoc.name}</div>
                 <div style={{ fontSize: 12 }}>Evaluator: {viewingDoc.validatedBy || 'Not recorded'}</div>

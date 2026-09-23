@@ -63,7 +63,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
       resolvedIcon = icon || 'search';
       resolvedTitle = title || (query ? `No results for "${query}"` : 'No matching records found');
       resolvedDesc = description || '';
-      iconColor = '#3B82F6';
+      iconColor = '#3F9265';
       iconBg = 'rgba(59, 130, 246, 0.12)';
       iconBorder = 'rgba(59, 130, 246, 0.28)';
       break;
@@ -72,7 +72,7 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
       resolvedIcon = icon || 'compliance';
       resolvedTitle = title || (category ? `No records in "${category}"` : 'No records match filter');
       resolvedDesc = description || '';
-      iconColor = '#8B5CF6';
+      iconColor = '#C79A2E';
       iconBg = 'rgba(139, 92, 246, 0.12)';
       iconBorder = 'rgba(139, 92, 246, 0.28)';
       break;

@@ -124,8 +124,8 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
     : 'U';
 
   const isDark = theme === 'dark';
-  const primaryActionBg = isDark ? '#D7F84A' : '#141416';
-  const primaryActionColor = isDark ? '#141416' : '#FFFFFF';
+  const primaryActionBg = isDark ? '#E3C36A' : '#1f3a2c';
+  const primaryActionColor = isDark ? '#1f3a2c' : '#FFFFFF';
 
   return (
     <ModalPortal>
@@ -181,8 +181,8 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 width: 44,
                 height: 44,
                 borderRadius: '50%',
-                backgroundColor: '#D7F84A',
-                color: '#141416',
+                backgroundColor: '#E3C36A',
+                color: '#1f3a2c',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -578,7 +578,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <span
                     style={{
                       backgroundColor: 'rgba(185, 174, 245, 0.25)',
-                      color: isDark ? '#B9AEF5' : '#6D28D9',
+                      color: isDark ? '#A8DDBB' : '#8A6A1C',
                       border: '1px solid rgba(185, 174, 245, 0.4)',
                       padding: '3px 10px',
                       borderRadius: 9999,
@@ -952,8 +952,8 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                       height: 24,
                       borderRadius: 12,
                       backgroundColor: pref.checked
-                        ? (isDark ? '#D7F84A' : '#141416')
-                        : (isDark ? 'rgba(255, 255, 255, 0.16)' : '#CBD5E1'),
+                        ? (isDark ? '#E3C36A' : '#1f3a2c')
+                        : (isDark ? 'rgba(255, 255, 255, 0.16)' : '#C5D4C8'),
                       position: 'relative',
                       transition: 'background-color 0.2s ease',
                       flexShrink: 0,
@@ -965,7 +965,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                         height: 18,
                         borderRadius: 9,
                         backgroundColor: pref.checked
-                          ? (isDark ? '#141416' : '#FFFFFF')
+                          ? (isDark ? '#1f3a2c' : '#FFFFFF')
                           : '#FFFFFF',
                         position: 'absolute',
                         top: 3,

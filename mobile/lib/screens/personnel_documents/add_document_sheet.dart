@@ -1532,7 +1532,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
               child: Container(
                 height: 200,
                 width: double.infinity,
-                color: const Color(0xFF1E293B),
+                color: const Color(0xFF1F3A2C),
                 child: Center(
                   child: _buildImagePageWidget(doc, _selectedPageIndex),
                 ),

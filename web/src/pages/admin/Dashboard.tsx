@@ -781,7 +781,7 @@ export const AdminDashboard: React.FC = () => {
                             fontSize: 9,
                             fontWeight: 700,
                             background: 'rgba(215, 248, 74, 0.2)',
-                            color: '#D7F84A',
+                            color: '#E3C36A',
                             letterSpacing: '0.04em',
                           }}
                         >
@@ -834,7 +834,7 @@ export const AdminDashboard: React.FC = () => {
               <Link to="/admin/credentials" className="action-bento-link">
                 <div className="soft-card bento-action-card">
                   <div className="bento-icon-badge badge-lime-bg">
-                    <AppIcon name="credentials" size={20} color="#141416" />
+                    <AppIcon name="credentials" size={20} color="#1f3a2c" />
                   </div>
                   <h4 className="bento-card-title">User Provisioning & Credentials</h4>
                   <p className="bento-card-desc">
@@ -847,7 +847,7 @@ export const AdminDashboard: React.FC = () => {
               <Link to="/admin/audit" className="action-bento-link">
                 <div className="soft-card bento-action-card">
                   <div className="bento-icon-badge badge-purple-bg">
-                    <AppIcon name="audit" size={20} color="#141416" />
+                    <AppIcon name="audit" size={20} color="#1f3a2c" />
                   </div>
                   <h4 className="bento-card-title">Security Audit & System Logs</h4>
                   <p className="bento-card-desc">
@@ -873,7 +873,7 @@ export const AdminDashboard: React.FC = () => {
               <Link to="/admin/reports" className="action-bento-link">
                 <div className="soft-card bento-action-card">
                   <div className="bento-icon-badge badge-lime-bg">
-                    <AppIcon name="reports" size={20} color="#141416" />
+                    <AppIcon name="reports" size={20} color="#1f3a2c" />
                   </div>
                   <h4 className="bento-card-title">System Reports & Compliance</h4>
                   <p className="bento-card-desc">
@@ -1084,7 +1084,7 @@ export const AdminDashboard: React.FC = () => {
                   <Link to="/admin/credentials" className="action-bento-link">
                     <div className="soft-card bento-action-card">
                       <div className="bento-icon-badge badge-lime-bg">
-                        <AppIcon name="credentials" size={20} color="#141416" />
+                        <AppIcon name="credentials" size={20} color="#1f3a2c" />
                       </div>
                       <h4 className="bento-card-title">User Accounts & Credentials</h4>
                       <p className="bento-card-desc">
@@ -1097,7 +1097,7 @@ export const AdminDashboard: React.FC = () => {
                   <Link to="/admin/audit" className="action-bento-link">
                     <div className="soft-card bento-action-card">
                       <div className="bento-icon-badge badge-purple-bg">
-                        <AppIcon name="audit" size={20} color="#141416" />
+                        <AppIcon name="audit" size={20} color="#1f3a2c" />
                       </div>
                       <h4 className="bento-card-title">Security & Audit Logs</h4>
                       <p className="bento-card-desc">
@@ -1125,7 +1125,7 @@ export const AdminDashboard: React.FC = () => {
                   <Link to="/admin/credentials" className="action-bento-link">
                     <div className="soft-card bento-action-card">
                       <div className="bento-icon-badge badge-lime-bg">
-                        <AppIcon name="credentials" size={20} color="#141416" />
+                        <AppIcon name="credentials" size={20} color="#1f3a2c" />
                       </div>
                       <h4 className="bento-card-title">Create Accounts & Credentials</h4>
                       <p className="bento-card-desc">
@@ -1138,7 +1138,7 @@ export const AdminDashboard: React.FC = () => {
                   <Link to={user?.role === 'AO_II' ? '/admin/documents' : '/admin/compliance'} className="action-bento-link">
                     <div className="soft-card bento-action-card">
                       <div className="bento-icon-badge badge-purple-bg">
-                        <AppIcon name={user?.role === 'AO_II' ? 'validation' : 'compliance'} size={20} color="#141416" />
+                        <AppIcon name={user?.role === 'AO_II' ? 'validation' : 'compliance'} size={20} color="#1f3a2c" />
                       </div>
                       <h4 className="bento-card-title">{user?.role === 'AO_II' ? 'Document Validation (AO II)' : 'Compliance & YOS'}</h4>
                       <p className="bento-card-desc">

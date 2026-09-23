@@ -219,7 +219,7 @@ export const QuickRoleSwitcher: React.FC = () => {
         title="Toggle 1-Click Quick Role Switcher"
       >
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <AppIcon name="quick-action" size={13} color="var(--color-accent-lime, #D7F84A)" /> 1-Click Role
+          <AppIcon name="quick-action" size={13} color="var(--color-accent-lime, #E3C36A)" /> 1-Click Role
         </span>
         <AppIcon name="chevron-down" size={12} />
       </button>

@@ -114,7 +114,7 @@ export const MagicLogin: React.FC = () => {
           width: '64px',
           height: '64px',
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%)',
+          background: 'linear-gradient(135deg, #1E3A8A 0%, #3F9265 100%)',
           border: '2px solid #F59E0B',
           boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)',
           marginBottom: '20px',
@@ -147,7 +147,7 @@ export const MagicLogin: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '18px' }}>
               <LoadingSpinner size="lg" />
             </div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#E2E8F0', marginBottom: '6px' }}>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#DCE6DE', marginBottom: '6px' }}>
               Verifying Security Token…
             </div>
             <p style={{ fontSize: '0.8125rem', color: '#94A3B8', margin: 0, lineHeight: 1.5 }}>
@@ -175,7 +175,7 @@ export const MagicLogin: React.FC = () => {
             <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#34D399', marginBottom: '6px' }}>
               Access Granted!
             </div>
-            <p style={{ fontSize: '0.875rem', color: '#E2E8F0', margin: '0 0 8px 0' }}>
+            <p style={{ fontSize: '0.875rem', color: '#DCE6DE', margin: '0 0 8px 0' }}>
               Welcome back, <strong>{authenticatedName}</strong>.
             </p>
             <p style={{ fontSize: '0.8125rem', color: '#94A3B8', margin: 0 }}>
@@ -203,7 +203,7 @@ export const MagicLogin: React.FC = () => {
             <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#F87171', marginBottom: '8px' }}>
               Link Expired or Invalid
             </div>
-            <p style={{ fontSize: '0.8125rem', color: '#CBD5E1', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.8125rem', color: '#C5D4C8', margin: '0 0 20px 0', lineHeight: 1.5 }}>
               {errorMessage}
             </p>
             <button
@@ -212,7 +212,7 @@ export const MagicLogin: React.FC = () => {
               style={{
                 width: '100%',
                 padding: '12px 20px',
-                backgroundColor: '#2563EB',
+                backgroundColor: '#2F7D52',
                 color: '#FFFFFF',
                 border: 'none',
                 borderRadius: '10px',
@@ -222,8 +222,8 @@ export const MagicLogin: React.FC = () => {
                 boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.4)',
                 transition: 'background-color 0.15s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D4ED8')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2563EB')}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#276A45')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2F7D52')}
             >
               Proceed to Standard DepEd Login →
             </button>
@@ -236,7 +236,7 @@ export const MagicLogin: React.FC = () => {
           paddingTop: '16px',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
           fontSize: '0.6875rem',
-          color: '#64748B',
+          color: '#5B6B60',
         }}>
           Official DepEd SDO Koronadal City HRIS • Encrypted Transmission
         </div>

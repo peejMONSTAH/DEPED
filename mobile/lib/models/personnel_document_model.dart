@@ -38,20 +38,20 @@ extension PersonnelDocumentStatusExt on PersonnelDocumentStatus {
   Color get color {
     switch (this) {
       case PersonnelDocumentStatus.NOT_SUBMITTED:
-        return const Color(0xFF64748B); // Slate
+        return const Color(0xFF5B6B60); // Slate
       case PersonnelDocumentStatus.PENDING:
         return const Color(0xFFD97706); // Amber
       case PersonnelDocumentStatus.SUBMITTED:
-        return const Color(0xFF2563EB); // Royal Blue
+        return const Color(0xFF2F7D52); // Royal Blue
       case PersonnelDocumentStatus.UNDER_REVIEW:
-        return const Color(0xFF7C3AED); // Purple
+        return const Color(0xFFA07A1F); // Purple
       case PersonnelDocumentStatus.APPROVED:
         return const Color(0xFF10B981); // Emerald Green
       case PersonnelDocumentStatus.REJECTED:
       case PersonnelDocumentStatus.REPLACEMENT_REQUIRED:
         return const Color(0xFFDC2626); // Red
       case PersonnelDocumentStatus.EXPIRED:
-        return const Color(0xFF64748B); // Slate
+        return const Color(0xFF5B6B60); // Slate
     }
   }
 }

@@ -21,7 +21,7 @@
 .form-page-scroll { overflow:auto; max-height:75vh; background:#dce2ea; border:1px solid #bdc9d6; padding:16px; border-radius:8px; }
 .form-paper { position:relative; background:#fff; flex-shrink:0; overflow:hidden; }
 .form-field-list { display:flex; flex-direction:column; gap:12px; max-height:62vh; overflow:auto; padding:2px 8px 2px 2px; }
-.form-field-list label { margin:0; padding:10px; border:1px solid #dce2ea; border-radius:7px; background:#f8fafc; transition:border-color .15s,background .15s; }
+.form-field-list label { margin:0; padding:10px; border:1px solid #dce2ea; border-radius:7px; background:#f7faf6; transition:border-color .15s,background .15s; }
 .form-field-list label.active { border-color:#2467a6; background:#eef6ff; box-shadow:0 0 0 2px rgba(36,103,166,.1); }
 .form-field-list label span { font-weight:650; color:#33465c; }
 .form-field-list input[type=checkbox] { width:20px; height:20px; }

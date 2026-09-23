@@ -1263,7 +1263,7 @@ export const PromotionManagement: React.FC = () => {
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
               {[
-                { key: 'ALL', label: 'All', color: '#2563EB', activeBg: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', activeBorder: '#3B82F6' },
+                { key: 'ALL', label: 'All', color: '#2F7D52', activeBg: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', activeBorder: '#3F9265' },
                 { key: 'ONGOING', label: 'Ongoing', color: '#059669', activeBg: theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5', activeBorder: '#10B981' },
                 { key: 'PLANNING', label: 'Upcoming', color: '#D97706', activeBg: theme === 'dark' ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7', activeBorder: '#F59E0B' },
                 { key: 'FINISHED', label: 'Finished', color: '#6366F1', activeBg: theme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : '#EEF2FF', activeBorder: '#6366F1' },
@@ -1362,8 +1362,8 @@ export const PromotionManagement: React.FC = () => {
                         fontWeight: 700,
                         padding: '8px 18px',
                         borderRadius: '10px',
-                        background: theme === 'dark' ? '#D7F84A' : '#141416',
-                        color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                        background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                        color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                         border: 'none',
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -1390,7 +1390,7 @@ export const PromotionManagement: React.FC = () => {
                   : isPlanning
                     ? (theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB')
                     : isFinished
-                      ? (theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF')
+                      ? (theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EEF7F1')
                       : (theme === 'dark' ? 'rgba(244, 63, 94, 0.15)' : '#FFF1F2');
 
                 const badgeColor = isOngoing
@@ -1398,7 +1398,7 @@ export const PromotionManagement: React.FC = () => {
                   : isPlanning
                     ? (theme === 'dark' ? '#FBBF24' : '#D97706')
                     : isFinished
-                      ? (theme === 'dark' ? '#60A5FA' : '#2563EB')
+                      ? (theme === 'dark' ? '#8FD3A8' : '#2F7D52')
                       : (theme === 'dark' ? '#FB7185' : '#E11D48');
 
                 const badgeBorder = isOngoing
@@ -1431,8 +1431,8 @@ export const PromotionManagement: React.FC = () => {
                     style={{
                       padding: '12px 14px',
                       borderRadius: '12px',
-                      background: isSelected ? (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF') : 'var(--color-bg-tertiary)',
-                      border: `1.5px solid ${isSelected ? '#2563EB' : 'var(--color-border)'}`,
+                      background: isSelected ? (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1') : 'var(--color-bg-tertiary)',
+                      border: `1.5px solid ${isSelected ? '#2F7D52' : 'var(--color-border)'}`,
                       boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
@@ -1460,7 +1460,7 @@ export const PromotionManagement: React.FC = () => {
                         {statusLabel}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? (theme === 'dark' ? '#60A5FA' : '#1D4ED8') : 'var(--color-text-primary)', lineHeight: 1.3, marginBottom: '6px' }}>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? (theme === 'dark' ? '#8FD3A8' : '#276A45') : 'var(--color-text-primary)', lineHeight: 1.3, marginBottom: '6px' }}>
                       {cycle.name}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
@@ -1505,7 +1505,7 @@ export const PromotionManagement: React.FC = () => {
                   : isCyclePlanning
                     ? (theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB')
                     : isCycleFinished
-                      ? (theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EFF6FF')
+                      ? (theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EEF7F1')
                       : (theme === 'dark' ? 'rgba(244, 63, 94, 0.15)' : '#FFF1F2');
 
                 const statusBadgeColor = isCycleOngoing
@@ -1513,7 +1513,7 @@ export const PromotionManagement: React.FC = () => {
                   : isCyclePlanning
                     ? (theme === 'dark' ? '#FBBF24' : '#D97706')
                     : isCycleFinished
-                      ? (theme === 'dark' ? '#60A5FA' : '#2563EB')
+                      ? (theme === 'dark' ? '#8FD3A8' : '#2F7D52')
                       : (theme === 'dark' ? '#FB7185' : '#E11D48');
 
                 const statusBadgeBorder = isCycleOngoing
@@ -2310,7 +2310,7 @@ export const PromotionManagement: React.FC = () => {
                                               fontSize: '0.6875rem',
                                               color: '#ffffff',
                                               border: 'none',
-                                              background: hasHrmoRating ? '#059669' : '#2563EB',
+                                              background: hasHrmoRating ? '#059669' : '#2F7D52',
                                               padding: '4px 10px',
                                               borderRadius: '6px',
                                               fontWeight: 700,
@@ -2683,7 +2683,7 @@ export const PromotionManagement: React.FC = () => {
                               width: '32px',
                               height: '32px',
                               borderRadius: '8px',
-                              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF',
+                              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1',
                               border: '1px solid rgba(59, 130, 246, 0.4)',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -2987,7 +2987,7 @@ export const PromotionManagement: React.FC = () => {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
                       <div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.4)', marginBottom: '8px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.4)', marginBottom: '8px' }}>
                           <AppIcon name="checklist" size={13} color="var(--color-primary)" />
                           Stage 1 • AO II Documentary Completeness Verification
                         </div>
@@ -3000,7 +3000,7 @@ export const PromotionManagement: React.FC = () => {
                         
                         {/* District Jurisdiction Status Pill */}
                         <div style={{ marginTop: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <AppIcon name="location" size={12} color="var(--color-primary)" /> Division Scope: {cycleDistrict || 'Division-Wide'} ({cycleSchool || 'All Schools'})
                           </span>
                         </div>
@@ -3381,7 +3381,7 @@ export const PromotionManagement: React.FC = () => {
                         <div style={{ fontSize: '0.6875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Board Score</div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#D97706' }}>{hrmoPendingApps.length}</div>
                       </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
+                      <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
                         <div style={{ fontSize: '0.6875rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Combined CAR Target</div>
                         <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-primary)' }}>100.00 pts Master Score</div>
                       </div>
@@ -3436,7 +3436,7 @@ export const PromotionManagement: React.FC = () => {
                                   width: '42px',
                                   height: '42px',
                                   borderRadius: '10px',
-                                  background: isFinalized ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                                  background: isFinalized ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'linear-gradient(135deg, #2f7d52 0%, #3f9265 100%)',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
@@ -3462,7 +3462,7 @@ export const PromotionManagement: React.FC = () => {
                                 padding: '3px 8px',
                                 borderRadius: '6px',
                                 fontWeight: 700,
-                                background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF'),
+                                background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1'),
                                 color: isFinalized ? (theme === 'dark' ? '#34D399' : '#059669') : 'var(--color-primary)',
                                 border: isFinalized ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(37, 99, 235, 0.4)',
                                 whiteSpace: 'nowrap',
@@ -3487,7 +3487,7 @@ export const PromotionManagement: React.FC = () => {
                                     {isReqComplete ? 'Verified Complete' : isReqDeficient ? 'Deficient' : 'Pending Check'}
                                   </div>
                                 </div>
-                                <div style={{ background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF'), padding: '8px 10px', borderRadius: '8px', border: isFinalized ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(37, 99, 235, 0.3)' }}>
+                                <div style={{ background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1'), padding: '8px 10px', borderRadius: '8px', border: isFinalized ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(37, 99, 235, 0.3)' }}>
                                   <div style={{ fontSize: '0.625rem', color: isFinalized ? '#059669' : 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 2 • HR Deliberation</div>
                                   <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: isFinalized ? '#059669' : 'var(--color-primary)', marginTop: '2px' }}>
                                     {isFinalized ? `${overallScore.toFixed(2)} / 100` : 'Pending Board'}
@@ -3495,7 +3495,7 @@ export const PromotionManagement: React.FC = () => {
                                 </div>
                               </div>
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EFF6FF', padding: '10px 14px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1', padding: '10px 14px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
                                 <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>Combined CAR Total:</span>
                                 <strong style={{ fontSize: '1.125rem', color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', fontWeight: 900 }}>
                                   {isFinalized ? `${overallScore.toFixed(2)} / 100.00 pts` : 'Awaiting Deliberation'}
@@ -3508,7 +3508,7 @@ export const PromotionManagement: React.FC = () => {
                               <span style={{ padding: '4px 10px', borderRadius: '6px', background: biStatus === 'YES' ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2'), color: biStatus === 'YES' ? '#059669' : '#DC2626', border: biStatus === 'YES' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(220, 38, 38, 0.3)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 BI: {biStatus === 'YES' ? <><AppIcon name="check" size={10} color="#059669" /> Passed</> : <><AppIcon name="close" size={10} color="#DC2626" /> Failed</>}
                               </span>
-                              <span style={{ padding: '4px 10px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', color: 'var(--color-primary)', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE', fontWeight: 700 }}>
+                              <span style={{ padding: '4px 10px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', color: 'var(--color-primary)', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8', fontWeight: 700 }}>
                                 Probation: {probation}
                               </span>
                             </div>
@@ -3659,9 +3659,9 @@ export const PromotionManagement: React.FC = () => {
                               gap: 6,
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF',
+                              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1',
                               color: 'var(--color-primary)',
-                              border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #BFDBFE',
+                              border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8',
                               padding: '3px 10px',
                               borderRadius: '8px',
                               marginBottom: '14px',
@@ -3687,7 +3687,7 @@ export const PromotionManagement: React.FC = () => {
                           </div>
 
                           {isSelectedPendingDocs && item.transactionId && (
-                            <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE' }}>
+                            <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
                               <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Appointment TRX #{item.transactionId} ({item.transactionStatus || 'DRAFT'})</span>
                               <a href={`/admin/validation?tx=${item.transactionId}`} style={{ color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>Validate Docs →</a>
                             </div>
@@ -3917,7 +3917,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF', color: 'var(--color-primary)', padding: '4px 10px', borderRadius: '6px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE', fontWeight: 600 }}>
+                  <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', color: 'var(--color-primary)', padding: '4px 10px', borderRadius: '6px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8', fontWeight: 600 }}>
                     {selectedAppForModal.applicantNumber || `APP-${String(selectedAppForModal.id).padStart(4, '0')}`}
                   </span>
                   <span style={{ fontSize: '0.75rem', background: modalTrack === 'NON_TEACHING' ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB') : (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5'), color: modalTrack === 'NON_TEACHING' ? '#D97706' : '#059669', padding: '4px 10px', borderRadius: '6px', border: modalTrack === 'NON_TEACHING' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid rgba(5, 150, 105, 0.3)', fontWeight: 700 }}>
@@ -4301,7 +4301,7 @@ export const PromotionManagement: React.FC = () => {
                     </div>
 
                     <div style={{ width: '100%', height: '8px', background: 'var(--color-border)', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
-                      <div style={{ width: `${Math.min(100, combined)}%`, height: '100%', background: isOutstanding ? 'linear-gradient(90deg, #10b981 0%, #d97706 100%)' : 'linear-gradient(90deg, #2563eb 0%, #10b981 100%)', borderRadius: '4px', transition: 'width 0.3s ease' }} />
+                      <div style={{ width: `${Math.min(100, combined)}%`, height: '100%', background: isOutstanding ? 'linear-gradient(90deg, #10b981 0%, #d97706 100%)' : 'linear-gradient(90deg, #2f7d52 0%, #10b981 100%)', borderRadius: '4px', transition: 'width 0.3s ease' }} />
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.6875rem', color: 'var(--color-text-secondary)' }}>
@@ -4420,14 +4420,14 @@ export const PromotionManagement: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setHrmoRemarks('Demonstrated proficient pedagogical mastery during demonstration teaching; recommended for plantilla appointment.')}
-                        style={{ fontSize: '0.625rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #BFDBFE', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
+                        style={{ fontSize: '0.625rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
                       >
                         + Superior Demo
                       </button>
                       <button
                         type="button"
                         onClick={() => setHrmoRemarks('Meets all DepEd CAR standards with complete authenticated credentials.')}
-                        style={{ fontSize: '0.625rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #BFDBFE', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
+                        style={{ fontSize: '0.625rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
                       >
                         + Meets Standards
                       </button>
@@ -4519,7 +4519,7 @@ export const PromotionManagement: React.FC = () => {
                 width: '42px',
                 height: '42px',
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #2563EB 0%, #10B981 100%)',
+                background: 'linear-gradient(135deg, #2F7D52 0%, #10B981 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -4566,8 +4566,8 @@ export const PromotionManagement: React.FC = () => {
                 
                 {/* Plantilla Station & District Banner (Decided & Read-Only) */}
                 <div style={{
-                  background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EFF6FF',
-                  border: theme === 'dark' ? '1.5px solid rgba(59, 130, 246, 0.35)' : '1.5px solid #BFDBFE',
+                  background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1',
+                  border: theme === 'dark' ? '1.5px solid rgba(59, 130, 246, 0.35)' : '1.5px solid #CFE8D8',
                   borderRadius: '14px',
                   padding: '14px 18px',
                   display: 'flex',
@@ -4585,12 +4585,12 @@ export const PromotionManagement: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#2563EB',
+                      color: '#2F7D52',
                     }}>
                       <AppIcon name="plantilla" size={20} />
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2563EB' }}>
+                      <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2F7D52' }}>
                         Assigned Plantilla Item & School Station (Decided)
                       </div>
                       <div style={{ fontWeight: 800, fontSize: '0.9375rem', color: 'var(--color-text-primary)', marginTop: '2px' }}>
@@ -4860,15 +4860,15 @@ export const PromotionManagement: React.FC = () => {
 
                 {/* Section 4: Account Creation & Onboarding Policy */}
                 <div style={{
-                  background: theme === 'dark' ? 'rgba(37, 99, 235, 0.08)' : '#EFF6FF',
-                  border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #BFDBFE',
+                  background: theme === 'dark' ? 'rgba(37, 99, 235, 0.08)' : '#EEF7F1',
+                  border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8',
                   borderRadius: '12px',
                   padding: '14px 16px',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '12px',
                 }}>
-                  <div style={{ color: '#2563EB', marginTop: '2px' }}>
+                  <div style={{ color: '#2F7D52', marginTop: '2px' }}>
                     <AppIcon name="checklist" size={18} />
                   </div>
                   <div style={{ fontSize: '0.8125rem', lineHeight: '1.45', color: 'var(--color-text-secondary)' }}>
@@ -4893,7 +4893,7 @@ export const PromotionManagement: React.FC = () => {
                   type="submit" disabled={savingApplication.pending}
                   className="btn btn-primary"
                   style={{
-                    background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+                    background: 'linear-gradient(135deg, #2F7D52 0%, #276A45 100%)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '10px',
@@ -4937,7 +4937,7 @@ export const PromotionManagement: React.FC = () => {
               flexShrink: 0,
             }}>
               <h3 className="modal-title" style={{ color: 'var(--color-text-primary)', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AppIcon name="new-transaction" size={18} color="#2563EB" />
+                <AppIcon name="new-transaction" size={18} color="#2F7D52" />
                 Create New Promotion Cycle
               </h3>
               <button className="modal-close" onClick={() => setShowConfigModal(false)} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', width: '32px', height: '32px', borderRadius: '8px', color: 'var(--color-text-primary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
@@ -4946,8 +4946,8 @@ export const PromotionManagement: React.FC = () => {
             <form onSubmit={handleCreateCycle} style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
               {/* TOP SECTION: Number of Applicants & Number of Chosen Applicants (Vacancies) */}
               <div style={{
-                background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EFF6FF',
-                border: theme === 'dark' ? '1.5px solid rgba(59, 130, 246, 0.4)' : '1.5px solid #BFDBFE',
+                background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1',
+                border: theme === 'dark' ? '1.5px solid rgba(59, 130, 246, 0.4)' : '1.5px solid #CFE8D8',
                 borderRadius: '12px',
                 padding: '16px',
                 marginBottom: '16px',
@@ -5027,7 +5027,7 @@ export const PromotionManagement: React.FC = () => {
                 </div>
 
                 {/* Dynamic Plantilla Input Slots (If N applicants chosen => N plantillas inputted) */}
-                <div style={{ paddingTop: '12px', borderTop: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid #DBEAFE' }}>
+                <div style={{ paddingTop: '12px', borderTop: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid #DDF0E3' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <AppIcon name="employment" size={14} color="var(--color-primary)" />
@@ -5074,8 +5074,8 @@ export const PromotionManagement: React.FC = () => {
                           style={{
                             background: theme === 'dark' ? 'rgba(15, 23, 42, 0.65)' : '#ffffff',
                             border: currentValue
-                              ? (theme === 'dark' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #BFDBFE')
-                              : (theme === 'dark' ? '1px dashed rgba(255, 255, 255, 0.15)' : '1px dashed #CBD5E1'),
+                              ? (theme === 'dark' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #CFE8D8')
+                              : (theme === 'dark' ? '1px dashed rgba(255, 255, 255, 0.15)' : '1px dashed #C5D4C8'),
                             borderRadius: '12px',
                             padding: '12px 14px',
                             transition: 'all 0.2s ease',
@@ -5093,7 +5093,7 @@ export const PromotionManagement: React.FC = () => {
                                 borderRadius: '50%',
                                 background: currentValue
                                   ? 'linear-gradient(135deg, #10B981, #059669)'
-                                  : (theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0'),
+                                  : (theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#DCE6DE'),
                                 color: currentValue ? '#ffffff' : 'var(--color-text-secondary)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -5151,8 +5151,8 @@ export const PromotionManagement: React.FC = () => {
                               gap: '8px',
                               padding: '10px 12px',
                               borderRadius: '10px',
-                              background: theme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : '#F8FAFC',
-                              border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #E2E8F0',
+                              background: theme === 'dark' ? 'rgba(0, 0, 0, 0.25)' : '#F7FAF6',
+                              border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #DCE6DE',
                             }}>
                               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -5179,7 +5179,7 @@ export const PromotionManagement: React.FC = () => {
                                         fontFamily: 'monospace',
                                         fontSize: '0.6875rem',
                                         fontWeight: 800,
-                                        background: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0',
+                                        background: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : '#DCE6DE',
                                         color: 'var(--color-text-primary)',
                                         padding: '2px 6px',
                                         borderRadius: '4px',
@@ -5270,7 +5270,7 @@ export const PromotionManagement: React.FC = () => {
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '8px',
-                              background: theme === 'dark' ? '#0F172A' : '#ffffff',
+                              background: theme === 'dark' ? '#1F2A23' : '#ffffff',
                               border: '1px solid var(--color-primary)',
                               borderRadius: '10px',
                               padding: '12px',
@@ -5319,7 +5319,7 @@ export const PromotionManagement: React.FC = () => {
                                       borderRadius: '8px',
                                       fontSize: '0.75rem',
                                       border: '1px solid var(--color-border)',
-                                      background: theme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : '#F8FAFC',
+                                      background: theme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : '#F7FAF6',
                                       color: 'var(--color-text-primary)',
                                       fontWeight: 600,
                                     }}
@@ -5340,7 +5340,7 @@ export const PromotionManagement: React.FC = () => {
                                         border: 'none',
                                         background: plantillaPickerTrack === trackOption
                                           ? 'var(--color-primary)'
-                                          : (theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0'),
+                                          : (theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#DCE6DE'),
                                         color: plantillaPickerTrack === trackOption ? '#ffffff' : 'var(--color-text-secondary)',
                                         cursor: 'pointer',
                                         transition: 'all 0.15s ease',
@@ -5376,7 +5376,7 @@ export const PromotionManagement: React.FC = () => {
                                       width: '48px',
                                       height: '48px',
                                       borderRadius: '50%',
-                                      background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F1F5F9',
+                                      background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#EEF5EF',
                                       border: '1px solid var(--color-border)',
                                       display: 'flex',
                                       alignItems: 'center',
@@ -5414,7 +5414,7 @@ export const PromotionManagement: React.FC = () => {
                                           borderRadius: '8px',
                                           border: isItemChosen
                                             ? '1.5px solid #10B981'
-                                            : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #E2E8F0'),
+                                            : (theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid #DCE6DE'),
                                           background: isItemChosen
                                             ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5')
                                             : (theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#FFFFFF'),
@@ -5425,7 +5425,7 @@ export const PromotionManagement: React.FC = () => {
                                           if (!isItemChosen) e.currentTarget.style.borderColor = 'var(--color-primary)';
                                         }}
                                         onMouseLeave={e => {
-                                          if (!isItemChosen) e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0';
+                                          if (!isItemChosen) e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : '#DCE6DE';
                                         }}
                                       >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -5495,18 +5495,18 @@ export const PromotionManagement: React.FC = () => {
                                 justifyContent: 'space-between',
                                 padding: '12px 14px',
                                 borderRadius: '8px',
-                                background: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC',
-                                border: theme === 'dark' ? '1px dashed rgba(59, 130, 246, 0.3)' : '1px dashed #93C5FD',
+                                background: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#F7FAF6',
+                                border: theme === 'dark' ? '1px dashed rgba(59, 130, 246, 0.3)' : '1px dashed #A8DDBB',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                               }}
                               onMouseEnter={e => {
                                 e.currentTarget.style.borderColor = 'var(--color-primary)';
-                                e.currentTarget.style.background = theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF';
+                                e.currentTarget.style.background = theme === 'dark' ? 'rgba(59, 130, 246, 0.1)' : '#EEF7F1';
                               }}
                               onMouseLeave={e => {
-                                e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : '#93C5FD';
-                                e.currentTarget.style.background = theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#F8FAFC';
+                                e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(59, 130, 246, 0.3)' : '#A8DDBB';
+                                e.currentTarget.style.background = theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : '#F7FAF6';
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -5798,17 +5798,17 @@ export const PromotionManagement: React.FC = () => {
                         fontWeight: 800,
                         textTransform: 'uppercase',
                         letterSpacing: '0.08em',
-                        backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#EFF6FF',
-                        color: isDark ? '#60A5FA' : '#2563EB',
+                        backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1',
+                        color: isDark ? '#8FD3A8' : '#2F7D52',
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #BFDBFE',
+                        border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #CFE8D8',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '4px',
                       }}
                     >
-                      <AppIcon name="checklist" size={12} color={isDark ? '#60A5FA' : '#2563EB'} />
+                      <AppIcon name="checklist" size={12} color={isDark ? '#8FD3A8' : '#2F7D52'} />
                       Comparative Assessment Result (CAR) Score Breakdown
                     </span>
                     <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
@@ -5888,7 +5888,7 @@ export const PromotionManagement: React.FC = () => {
                         borderRadius: '12px',
                         background: rank === 1
                           ? 'linear-gradient(135deg, #d97706 0%, #fbbf24 100%)'
-                          : 'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
+                          : 'linear-gradient(135deg, #2f7d52 0%, #3f9265 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -5919,15 +5919,15 @@ export const PromotionManagement: React.FC = () => {
                             fontSize: '0.6875rem',
                             backgroundColor: rank === 1
                               ? (isDark ? 'rgba(217, 119, 6, 0.25)' : '#FEF3C7')
-                              : (isDark ? 'rgba(37, 99, 235, 0.25)' : '#EFF6FF'),
+                              : (isDark ? 'rgba(37, 99, 235, 0.25)' : '#EEF7F1'),
                             color: rank === 1
                               ? (isDark ? '#FBBF24' : '#B45309')
-                              : (isDark ? '#60A5FA' : '#1E40AF'),
+                              : (isDark ? '#8FD3A8' : '#1F5C3B'),
                             padding: '2px 8px',
                             borderRadius: '4px',
                             border: rank === 1
                               ? (isDark ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid #FCD34D')
-                              : (isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #BFDBFE'),
+                              : (isDark ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid #CFE8D8'),
                             fontWeight: 800,
                           }}
                         >
@@ -5945,11 +5945,11 @@ export const PromotionManagement: React.FC = () => {
                       style={{
                         fontSize: '0.75rem',
                         fontFamily: 'var(--font-mono)',
-                        backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF',
-                        color: isDark ? '#60A5FA' : '#2563EB',
+                        backgroundColor: isDark ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1',
+                        color: isDark ? '#8FD3A8' : '#2F7D52',
                         padding: '4px 10px',
                         borderRadius: '6px',
-                        border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #BFDBFE',
+                        border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid #CFE8D8',
                         fontWeight: 700,
                       }}
                     >
@@ -6036,7 +6036,7 @@ export const PromotionManagement: React.FC = () => {
                     style={{
                       width: '100%',
                       height: '8px',
-                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#E2E8F0',
+                      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : '#DCE6DE',
                       borderRadius: '4px',
                       overflow: 'hidden',
                       marginBottom: '10px',
@@ -6048,7 +6048,7 @@ export const PromotionManagement: React.FC = () => {
                         height: '100%',
                         background: totalScore >= 90
                           ? 'linear-gradient(90deg, #059669 0%, #d97706 100%)'
-                          : 'linear-gradient(90deg, #2563eb 0%, #059669 100%)',
+                          : 'linear-gradient(90deg, #2f7d52 0%, #059669 100%)',
                         borderRadius: '4px',
                         transition: 'width 0.4s ease',
                       }}
@@ -6070,7 +6070,7 @@ export const PromotionManagement: React.FC = () => {
                       Qualitative Grade:{' '}
                       <strong
                         style={{
-                          color: totalScore >= 90 ? (isDark ? '#34D399' : '#059669') : (isDark ? '#60A5FA' : '#2563EB'),
+                          color: totalScore >= 90 ? (isDark ? '#34D399' : '#059669') : (isDark ? '#8FD3A8' : '#2F7D52'),
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 4,
@@ -6082,7 +6082,7 @@ export const PromotionManagement: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            <AppIcon name="check" size={13} color={isDark ? '#60A5FA' : '#2563EB'} /> Qualified for Deliberation
+                            <AppIcon name="check" size={13} color={isDark ? '#8FD3A8' : '#2F7D52'} /> Qualified for Deliberation
                           </>
                         )}
                       </strong>
@@ -6194,8 +6194,8 @@ export const PromotionManagement: React.FC = () => {
                 {/* Stage 2: HRMPSB / HR Score Deliberation (100.00 pts Max) */}
                 <div
                   style={{
-                    backgroundColor: isDark ? 'rgba(37, 99, 235, 0.08)' : '#EFF6FF',
-                    border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #BFDBFE',
+                    backgroundColor: isDark ? 'rgba(37, 99, 235, 0.08)' : '#EEF7F1',
+                    border: isDark ? '1px solid rgba(59, 130, 246, 0.25)' : '1px solid #CFE8D8',
                     borderRadius: '14px',
                     padding: '18px',
                   }}
@@ -6214,7 +6214,7 @@ export const PromotionManagement: React.FC = () => {
                       style={{
                         fontSize: '0.8125rem',
                         fontWeight: 800,
-                        color: isDark ? '#60A5FA' : '#1D4ED8',
+                        color: isDark ? '#8FD3A8' : '#276A45',
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
                       }}
@@ -6225,7 +6225,7 @@ export const PromotionManagement: React.FC = () => {
                       style={{
                         fontSize: '0.875rem',
                         fontWeight: 800,
-                        color: isDark ? '#60A5FA' : '#2563EB',
+                        color: isDark ? '#8FD3A8' : '#2F7D52',
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
@@ -6490,7 +6490,7 @@ export const PromotionManagement: React.FC = () => {
                       backgroundColor: 'var(--color-bg-card)',
                       borderRadius: '8px',
                       border: '1px solid var(--color-border)',
-                      borderLeft: '3.5px solid #2563EB',
+                      borderLeft: '3.5px solid #2F7D52',
                     }}
                   >
                     HRMPSB Deliberation Remarks: "{hrmoRemarksText}"
@@ -6592,7 +6592,7 @@ export const PromotionManagement: React.FC = () => {
                         style={{
                           fontSize: '0.875rem',
                           fontWeight: 800,
-                          color: isDark ? '#60A5FA' : '#2563EB',
+                          color: isDark ? '#8FD3A8' : '#2F7D52',
                           marginTop: '3px',
                         }}
                       >
@@ -6627,7 +6627,7 @@ export const PromotionManagement: React.FC = () => {
                     className="btn btn-primary"
                     style={{
                       fontSize: '0.8125rem',
-                      background: '#2563EB',
+                      background: '#2F7D52',
                       color: '#ffffff',
                       border: 'none',
                       borderRadius: '9999px',
@@ -6735,10 +6735,10 @@ export const PromotionManagement: React.FC = () => {
 
                 return (
                   <div style={{
-                    background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EFF6FF',
+                    background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1',
                     padding: '14px 16px',
                     borderRadius: '10px',
-                    border: theme === 'dark' ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid #BFDBFE',
+                    border: theme === 'dark' ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid #CFE8D8',
                   }}>
                     <label style={{
                       display: 'flex',

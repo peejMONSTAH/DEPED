@@ -545,8 +545,8 @@ export const PlantillaManagement: React.FC = () => {
                 alignItems: 'center',
                 gap: '8px',
                 fontWeight: 800,
-                background: theme === 'dark' ? '#D7F84A' : '#141416',
-                color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                 border: 'none',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               }}
@@ -596,14 +596,14 @@ export const PlantillaManagement: React.FC = () => {
           </div>
         </div>
 
-        <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(59, 130, 246, 0.3)', background: theme === 'dark' ? 'rgba(59, 130, 246, 0.05)' : '#EFF6FF' }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+        <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(59, 130, 246, 0.3)', background: theme === 'dark' ? 'rgba(59, 130, 246, 0.05)' : '#EEF7F1' }}>
+          <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
             Open for Merit Ranking
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3B82F6', lineHeight: 1 }}>
+          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3F9265', lineHeight: 1 }}>
             {stats.openForRanking}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#2563EB', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.75rem', color: '#2F7D52', marginTop: '6px' }}>
             Active Promotion Cycle Linked
           </div>
         </div>
@@ -810,8 +810,8 @@ export const PlantillaManagement: React.FC = () => {
                             fontWeight: 700,
                             padding: '8px 18px',
                             borderRadius: '10px',
-                            background: theme === 'dark' ? '#D7F84A' : '#141416',
-                            color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                            background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                            color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                             border: 'none',
                           }}
                         >
@@ -880,8 +880,8 @@ export const PlantillaManagement: React.FC = () => {
                               width: '36px',
                               height: '36px',
                               borderRadius: '50%',
-                              background: theme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#DBEAFE',
-                              color: '#2563EB',
+                              background: theme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#DDF0E3',
+                              color: '#2F7D52',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -942,8 +942,8 @@ export const PlantillaManagement: React.FC = () => {
                                     fontWeight: 700,
                                     padding: '4px 10px',
                                     borderRadius: '8px',
-                                    borderColor: '#3B82F6',
-                                    color: '#2563EB',
+                                    borderColor: '#3F9265',
+                                    color: '#2F7D52',
                                     background: theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.08)',
                                     display: 'inline-flex',
                                     alignItems: 'center',
@@ -964,8 +964,8 @@ export const PlantillaManagement: React.FC = () => {
                                     fontWeight: 800,
                                     padding: '4px 10px',
                                     borderRadius: '8px',
-                                    background: theme === 'dark' ? '#D7F84A' : '#141416',
-                                    color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                                    background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                                    color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                                     border: 'none',
                                     display: 'inline-flex',
                                     alignItems: 'center',
@@ -1245,7 +1245,7 @@ export const PlantillaManagement: React.FC = () => {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <UserCheck size={16} color={theme === 'dark' ? '#D7F84A' : '#141416'} />
+                        <UserCheck size={16} color={theme === 'dark' ? '#E3C36A' : '#1f3a2c'} />
                         <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
                           Choose Assigned Personnel (Occupant) *
                         </label>
@@ -1272,7 +1272,7 @@ export const PlantillaManagement: React.FC = () => {
                           padding: '10px 14px',
                           background: 'var(--color-bg-card)',
                           borderRadius: '10px',
-                          border: `1.5px solid ${theme === 'dark' ? '#D7F84A' : '#141416'}`,
+                          border: `1.5px solid ${theme === 'dark' ? '#E3C36A' : '#1f3a2c'}`,
                           boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
                         }}
                       >
@@ -1282,8 +1282,8 @@ export const PlantillaManagement: React.FC = () => {
                               width: '36px',
                               height: '36px',
                               borderRadius: '50%',
-                              background: theme === 'dark' ? '#D7F84A' : '#141416',
-                              color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                              background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                              color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -1454,8 +1454,8 @@ export const PlantillaManagement: React.FC = () => {
                                       style={{
                                         fontSize: '0.6875rem',
                                         padding: '2px 8px',
-                                        background: theme === 'dark' ? '#D7F84A' : '#141416',
-                                        color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                                        background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                                        color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                                         border: 'none',
                                       }}
                                     >
@@ -1479,8 +1479,8 @@ export const PlantillaManagement: React.FC = () => {
                   className="btn btn-primary"
                   style={{
                     fontWeight: 800,
-                    background: theme === 'dark' ? '#D7F84A' : '#141416',
-                    color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                    background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                    color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                     border: 'none',
                   }}
                 >
@@ -1599,7 +1599,7 @@ export const PlantillaManagement: React.FC = () => {
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           background: isSelected ? 'rgba(37, 99, 235, 0.1)' : 'transparent',
-                          border: isSelected ? '1.5px solid #2563EB' : '1px solid transparent',
+                          border: isSelected ? '1.5px solid #2F7D52' : '1px solid transparent',
                           marginBottom: '2px',
                         }}
                       >
@@ -1611,7 +1611,7 @@ export const PlantillaManagement: React.FC = () => {
                             {p.employeeId} • {p.designation} {hasPlantilla ? `(Currently on ${p.plantillaItem?.itemNumber})` : ''}
                           </div>
                         </div>
-                        {isSelected && <CheckCircle2 size={16} color="#2563EB" />}
+                        {isSelected && <CheckCircle2 size={16} color="#2F7D52" />}
                       </div>
                     );
                   })}
@@ -1625,8 +1625,8 @@ export const PlantillaManagement: React.FC = () => {
                   className="btn btn-primary"
                   style={{
                     fontWeight: 800,
-                    background: theme === 'dark' ? '#D7F84A' : '#141416',
-                    color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                    background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                    color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                     border: 'none',
                     opacity: (selectedPlantillaForAssign.isOpenForRanking && selectedPersonnelId !== '') ? 0.45 : 1,
                     cursor: (selectedPlantillaForAssign.isOpenForRanking && selectedPersonnelId !== '') ? 'not-allowed' : 'pointer',
@@ -1662,7 +1662,7 @@ export const PlantillaManagement: React.FC = () => {
 
             <form onSubmit={handleLaunchCycleSubmit} style={{ padding: '20px' }}>
               <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '14px 16px', borderRadius: '10px', marginBottom: '16px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Target Plantilla Position
                 </div>
                 <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--color-text-primary)', marginTop: '2px' }}>
@@ -1744,8 +1744,8 @@ export const PlantillaManagement: React.FC = () => {
                   className="btn btn-primary"
                   style={{
                     fontWeight: 800,
-                    background: theme === 'dark' ? '#D7F84A' : '#141416',
-                    color: theme === 'dark' ? '#141416' : '#FFFFFF',
+                    background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
+                    color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
                     border: 'none',
                     display: 'inline-flex',
                     alignItems: 'center',

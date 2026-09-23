@@ -812,7 +812,7 @@ export const CredentialDistribution: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981 0%, #2563eb 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981 0%, #2f7d52 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <AppIcon name="credentials" size={22} color="#fff" />
               </div>
               <div style={{ flex: 1 }}>
@@ -1262,7 +1262,7 @@ export const CredentialDistribution: React.FC = () => {
                   width: '56px',
                   height: '56px',
                   borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #10b981 100%)',
+                  background: 'linear-gradient(135deg, #2f7d52 0%, #10b981 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

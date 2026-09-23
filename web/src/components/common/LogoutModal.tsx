@@ -125,7 +125,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
             borderRadius: '24px',
             boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
             overflow: 'hidden',
-            color: '#141416',
+            color: '#1f3a2c',
             fontFamily: 'var(--font-sans)',
           }}
           onClick={e => e.stopPropagation()}
@@ -156,7 +156,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 <AppIcon name="logout" size={18} />
               </div>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#141416' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1f3a2c' }}>
                   Confirm Logout
                 </h3>
               </div>
@@ -171,10 +171,10 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 display: 'flex',
                 alignItems: 'center',
                 gap: '14px',
-                background: '#F8FAFC',
+                background: '#F7FAF6',
                 padding: '14px 16px',
                 borderRadius: '16px',
-                border: '1px solid #E2E8F0',
+                border: '1px solid #DCE6DE',
                 marginBottom: '18px',
               }}
             >
@@ -183,8 +183,8 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                   width: '42px',
                   height: '42px',
                   borderRadius: '50%',
-                  background: '#D7F84A',
-                  color: '#141416',
+                  background: '#E3C36A',
+                  color: '#1f3a2c',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -196,7 +196,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 {initials}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: '14px', color: '#141416' }}>
+                <div style={{ fontWeight: 800, fontSize: '14px', color: '#1f3a2c' }}>
                   {fullName}
                 </div>
                 <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>
@@ -227,7 +227,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 type="checkbox"
                 checked={clearCache}
                 onChange={e => setClearCache(e.target.checked)}
-                style={{ accentColor: '#141416', cursor: 'pointer' }}
+                style={{ accentColor: '#1f3a2c', cursor: 'pointer' }}
               />
               Clear temporary local session cache for security
             </label>
@@ -250,7 +250,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
               onClick={onClose}
               style={{
                 background: '#FFFFFF',
-                color: '#141416',
+                color: '#1f3a2c',
                 border: '1px solid #E5E7EB',
                 borderRadius: '9999px',
                 padding: '8px 18px',
@@ -296,7 +296,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
             boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
             padding: '36px 28px',
             textAlign: 'center',
-            color: '#141416',
+            color: '#1f3a2c',
             fontFamily: 'var(--font-sans)',
           }}
           onClick={e => e.stopPropagation()}
@@ -317,7 +317,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
             <AppIcon name="logout" size={28} />
           </div>
 
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#141416', margin: '0 0 4px 0' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1f3a2c', margin: '0 0 4px 0' }}>
             Logging Out...
           </h3>
           <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 20px 0' }}>
@@ -338,7 +338,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
               style={{
                 height: '100%',
                 width: `${progress}%`,
-                background: '#141416',
+                background: '#1f3a2c',
                 borderRadius: '9999px',
                 transition: 'width 0.4s ease',
               }}

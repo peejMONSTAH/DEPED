@@ -10,7 +10,7 @@
   background: var(--color-bg-card, #ffffff);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid var(--color-border, #e2e8f0);
+  border-top: 1px solid var(--color-border, #dce6de);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
   z-index: 90;
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -47,7 +47,7 @@ body.has-scanner-open .personnel-bottom-nav {
   gap: 3px;
   height: 100%;
   min-height: 48px; /* >= 48px touch target */
-  color: #64748b;
+  color: #5b6b60;
   text-decoration: none;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -61,7 +61,7 @@ body.has-scanner-open .personnel-bottom-nav {
 }
 
 .personnel-bottom-nav-item.active {
-  color: #2563eb;
+  color: #2f7d52;
 }
 
 .personnel-bottom-nav-icon-wrap {

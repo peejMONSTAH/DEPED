@@ -277,7 +277,7 @@ export const PersonnelHome: React.FC = () => {
       return {
         label: `${rankText}${scoreText}`,
         stage: 'Deliberation Finalized',
-        badgeColor: '#2563EB',
+        badgeColor: '#2F7D52',
         badgeBg: 'rgba(37, 99, 235, 0.12)',
         borderColor: 'rgba(37, 99, 235, 0.3)',
         icon: 'chart',
@@ -291,7 +291,7 @@ export const PersonnelHome: React.FC = () => {
       return {
         label: `Under Deliberation${scoreText}`,
         stage: 'HRMPSB Deliberation',
-        badgeColor: '#7C3AED',
+        badgeColor: '#A07A1F',
         badgeBg: 'rgba(124, 58, 237, 0.1)',
         borderColor: 'rgba(124, 58, 237, 0.3)',
         icon: 'pending',
@@ -783,7 +783,7 @@ export const PersonnelHome: React.FC = () => {
           </div>
           <div className="metric-footer-note">{alertsCount > 0 ? 'Document deficiencies found' : 'Zero compliance deficiencies'}</div>
           <div className="metric-bar-visualizer">
-            <div className="bar-fill" style={{ width: alertsCount > 0 ? '100%' : '0%', background: alertsCount > 0 ? '#ef4444' : '#D7F84A' }} />
+            <div className="bar-fill" style={{ width: alertsCount > 0 ? '100%' : '0%', background: alertsCount > 0 ? '#ef4444' : '#E3C36A' }} />
           </div>
         </div>
 
@@ -1039,7 +1039,7 @@ export const PersonnelHome: React.FC = () => {
                       fontWeight: 600,
                       color: 'var(--color-text-secondary)'
                     }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #141416)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>1</span>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>1</span>
                       Open Assigned Transaction
                     </div>
                     <div style={{
@@ -1054,7 +1054,7 @@ export const PersonnelHome: React.FC = () => {
                       fontWeight: 600,
                       color: 'var(--color-text-secondary)'
                     }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #141416)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>2</span>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>2</span>
                       Upload PDF Checklist
                     </div>
                     <div style={{
@@ -1069,7 +1069,7 @@ export const PersonnelHome: React.FC = () => {
                       fontWeight: 600,
                       color: 'var(--color-text-secondary)'
                     }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #141416)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>3</span>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>3</span>
                       AO II & HRMO Live Evaluation
                     </div>
                   </div>
@@ -1646,7 +1646,7 @@ export const PersonnelHome: React.FC = () => {
                               alignSelf: 'flex-start',
                             }}
                           >
-                            <AppIcon name="promotions" size={13} color="#2563eb" />
+                            <AppIcon name="promotions" size={13} color="#2f7d52" />
                             <span>
                               Linked Cycle: <strong>{cycle.name}</strong>{' '}
                               <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 11 }}>({cycle.status})</span>
@@ -1938,7 +1938,7 @@ export const PersonnelHome: React.FC = () => {
                         padding: '3px 8px',
                         borderRadius: 6,
                         background: isChecklistReadOnly ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                        color: isChecklistReadOnly ? '#10b981' : '#3b82f6',
+                        color: isChecklistReadOnly ? '#10b981' : '#3f9265',
                         textTransform: 'uppercase',
                       }}
                     >
@@ -2288,11 +2288,11 @@ export const PersonnelHome: React.FC = () => {
                                 fontWeight: 700,
                                 background: 'rgba(59, 130, 246, 0.08)',
                                 border: '1px solid rgba(59, 130, 246, 0.25)',
-                                color: '#2563eb',
+                                color: '#2f7d52',
                                 cursor: 'pointer',
                               }}
                             >
-                              <AppIcon name="folder" size={12} color="#2563eb" />
+                              <AppIcon name="folder" size={12} color="#2f7d52" />
                               Attach from 201
                             </button>
                           </div>

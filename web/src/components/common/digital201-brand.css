@@ -115,23 +115,23 @@
 
 /* ─── Tone Modes ─────────────────────────────────────────────────── */
 .digital201-brand--dark {
-  color: #F4F4F5;
+  color: #EEF7F1;
 }
 
 .digital201-brand--dark .digital201-brand-mark-dot {
-  background: #D7F84A;
+  background: #E3C36A;
 }
 
 .digital201-brand--light {
-  color: #141416;
+  color: #1f3a2c;
 }
 
 .digital201-brand--light .digital201-brand-mark-dot {
-  background: #141416;
+  background: #1f3a2c;
 }
 
 .digital201-brand--auto {
-  color: var(--color-text-primary, #141416);
+  color: var(--color-text-primary, #1f3a2c);
 }
 
 /* ─── Size Variations ────────────────────────────────────────────── */
