@@ -246,6 +246,42 @@ export const uploadDocument = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+/** Copy a personnel-owned My Documents file into an editable appointment checklist. */
+export const attachExistingPersonnelDocument = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const transactionId = Number(req.params.id);
+    const personnelDocumentId = Number(req.body?.personnelDocumentId);
+    const requirementId = Number(req.body?.requirementId);
+    if (![transactionId, personnelDocumentId, requirementId].every(id => Number.isSafeInteger(id) && id > 0)) {
+      sendBadRequest(res, 'A valid transaction, requirement, and personnel document are required.');
+      return;
+    }
+    const personnelId = req.user?.personnelId;
+    if (!personnelId) { sendForbidden(res, 'No linked personnel profile.'); return; }
+    const transaction = await prisma.transaction.findUnique({ where: { id: transactionId }, select: { personnelId: true, status: true } });
+    if (!transaction || transaction.personnelId !== personnelId) { sendNotFound(res, 'Transaction not found.'); return; }
+    if (!['DRAFT', 'DEFICIENCY'].includes(transaction.status)) {
+      sendBadRequest(res, 'Documents are locked while this transaction is under review or finalized.');
+      return;
+    }
+    const source = await prisma.personnelFile.findFirst({
+      where: { id: personnelDocumentId, personnelId, deletedAt: null, status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'] } },
+    });
+    if (!source?.storagePath || !source.originalFileName || !source.mimeType ||
+        (source.expirationDate && source.expirationDate < new Date())) {
+      sendNotFound(res, 'An eligible personnel document was not found.');
+      return;
+    }
+    const buffer = await readDocument(source.storagePath);
+    req.file = {
+      fieldname: 'file', originalname: source.originalFileName, encoding: '7bit',
+      mimetype: source.mimeType, buffer, size: buffer.length,
+    } as Express.Multer.File;
+    req.body = { requirementId: String(requirementId) };
+    await uploadDocument(req, res, next);
+  } catch (error) { next(error); }
+};
+
 /**
  * GET /documents/:documentId
  */

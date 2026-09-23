@@ -31,7 +31,7 @@ require.cache[require.resolve('../../src/services/document-storage.service')] = 
   async discardUncommittedDocument(key) { objects.delete(key); },
 } };
 require.cache[require.resolve('../../src/services/tesseract-ocr.service')] = { exports: { extractWithTesseract: async () => { throw new Error('OCR disabled in fixture'); } } };
-const { uploadDocument, getExtractionReview, confirmExtractionReview } = require('../../src/controllers/documents.controller');
+const { uploadDocument, attachExistingPersonnelDocument, getExtractionReview, confirmExtractionReview } = require('../../src/controllers/documents.controller');
 const response = () => ({ locals: {}, statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 const invoke = async (handler, req) => {
   const res = response();
@@ -170,6 +170,48 @@ test('concurrent document uploads preserve both versions but only one current re
   assert.ok(objects.has(current[0].storagePath));
   assert.ok(objects.has(revisions[0].snapshot.storagePath));
   assert.notEqual(current[0].storagePath, revisions[0].snapshot.storagePath);
+});
+
+test('appointment attachment copies only the owner\'s active My Documents file into the assigned requirement', async () => {
+  const attachTx = await db.transaction.create({ data: {
+    personnelId: people.owner.personnelId, transactionTypeId: txType.id, status: 'DRAFT',
+  } });
+  const sourceBytes = Buffer.from('%PDF-1.4\nsynthetic-personnel-document');
+  const sourceKey = 'synthetic-object:personnel-owner';
+  objects.set(sourceKey, sourceBytes);
+  const source = await db.personnelFile.create({ data: {
+    personnelId: people.owner.personnelId, documentTypeId: 'PDS', documentTypeName: 'Personal Data Sheet',
+    originalFileName: 'pds.pdf', mimeType: 'application/pdf', fileSize: sourceBytes.length,
+    storagePath: sourceKey, status: 'SUBMITTED',
+  } });
+  const body = { personnelDocumentId: source.id, requirementId: requirement.id };
+  const attached = await invoke(attachExistingPersonnelDocument, {
+    params: { id: String(attachTx.id) }, body: { ...body }, user: people.owner,
+  });
+  assert.equal(attached.statusCode, 201, JSON.stringify(attached.body));
+  const saved = await db.uploadedDocument.findFirst({ where: { transactionId: attachTx.id, requirementTemplateId: requirement.id } });
+  assert.ok(saved);
+  assert.notEqual(saved.storagePath, sourceKey, 'appointment evidence must be an independent copy');
+  assert.deepEqual(objects.get(saved.storagePath), sourceBytes);
+  const otherUser = await invoke(attachExistingPersonnelDocument, {
+    params: { id: String(attachTx.id) }, body: { ...body }, user: people.other,
+  });
+  assert.equal(otherUser.statusCode, 404);
+  const otherSource = await invoke(attachExistingPersonnelDocument, {
+    params: { id: String(otherTx.id) }, body: { ...body }, user: people.other,
+  });
+  assert.equal(otherSource.statusCode, 404);
+  await db.personnelFile.update({ where: { id: source.id }, data: { status: 'REJECTED' } });
+  const rejectedSource = await invoke(attachExistingPersonnelDocument, {
+    params: { id: String(attachTx.id) }, body: { ...body }, user: people.owner,
+  });
+  assert.equal(rejectedSource.statusCode, 404);
+  await db.personnelFile.update({ where: { id: source.id }, data: { status: 'SUBMITTED' } });
+  await db.transaction.update({ where: { id: attachTx.id }, data: { status: 'PENDING_VALIDATION' } });
+  const locked = await invoke(attachExistingPersonnelDocument, {
+    params: { id: String(attachTx.id) }, body: { ...body }, user: people.owner,
+  });
+  assert.equal(locked.statusCode, 400);
 });
 
 test('OCR confirmation must belong to the owner and the exact file version reviewed', async () => {

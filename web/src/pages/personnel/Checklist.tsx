@@ -9,6 +9,11 @@ import { templateForRequirement } from '../../components/forms/templateMatch';
 import { checklistFromTransaction, checklistReadiness, type RequirementItem } from './checklistData';
 import { ExtractionReview } from '../../components/forms/ExtractionReview';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
+import { DocumentScannerModal } from '../../components/common/DocumentScannerModal';
+import { ModalPortal } from '../../components/common/ModalPortal';
+import { ModalOverlay } from '../../components/common/ModalOverlay';
+
+type ExistingDocument = { id: number; documentTypeName: string; originalFileName: string | null; mimeType: string | null; fileSize: number | null; hasFile: boolean; status: string };
 
 const TX_TYPE_LABELS: Record<string, string> = {
   PROMOTION_APPOINTMENT: 'Promotion Appointment',
@@ -39,6 +44,11 @@ export const Checklist: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingReqId, setUploadingReqId] = useState<number | null>(null);
   const [activeReqItem, setActiveReqItem] = useState<RequirementItem | null>(null);
+  const [scannerReqItem, setScannerReqItem] = useState<RequirementItem | null>(null);
+  const [attachReqItem, setAttachReqItem] = useState<RequirementItem | null>(null);
+  const [existingDocuments, setExistingDocuments] = useState<ExistingDocument[]>([]);
+  const [attachLoading, setAttachLoading] = useState(false);
+  const attachInFlight = React.useRef(false);
   const [viewingDoc, setViewingDoc] = useState<{
     title: string;
     fileUrl: string;
@@ -120,9 +130,8 @@ export const Checklist: React.FC = () => {
     }
   }, [txId, rawTxId, fetchTransactionData]));
 
-  const handleDirectFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeReqItem || !txId || !['DRAFT', 'DEFICIENCY'].includes(txStatus)) return;
+  const submitDocumentFile = async (file: File, requirement: RequirementItem) => {
+    if (!txId || !['DRAFT', 'DEFICIENCY'].includes(txStatus) || uploadingReqId !== null) return;
 
     // Strict validation: Strictly PDF, PNG, JPEG (.pdf, .png, .jpg, .jpeg)
     const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -131,26 +140,24 @@ export const Checklist: React.FC = () => {
 
     if (!allowedMimes.includes(file.type) && !allowedExts.includes(ext)) {
       addToast('Invalid file format. Strict upload policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for transaction document uploads.', 'ERROR');
-      e.target.value = '';
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
       addToast('File exceeds the 10 MB maximum size limit.', 'ERROR');
-      e.target.value = '';
       return;
     }
 
     const activeTargetId = txId;
 
     try {
-      setUploadingReqId(activeReqItem.requirementId);
-      addToast(`Uploading and saving "${activeReqItem.name}" to database…`, 'INFO');
+      setUploadingReqId(requirement.requirementId);
+      addToast(`Uploading and saving "${requirement.name}" to database…`, 'INFO');
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('requirementId', String(activeReqItem.requirementId));
-      formData.append('requirementName', activeReqItem.name);
+      formData.append('requirementId', String(requirement.requirementId));
+      formData.append('requirementName', requirement.name);
 
       const res = await apiClient.post(`/transactions/${activeTargetId}/documents`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -159,7 +166,7 @@ export const Checklist: React.FC = () => {
       const uploadedDoc = res.data?.data;
       if (uploadedDoc) {
         setItems(prev => prev.map(item => {
-          if (item.requirementId === activeReqItem.requirementId) {
+          if (item.requirementId === requirement.requirementId) {
             return {
               ...item,
               status: uploadedDoc.status || 'UPLOADED',
@@ -171,17 +178,53 @@ export const Checklist: React.FC = () => {
         }));
       }
 
-      addToast(`✅ "${activeReqItem.name}" successfully uploaded and saved to database!`, 'SUCCESS');
+      addToast(`✅ "${requirement.name}" successfully uploaded and saved to database!`, 'SUCCESS');
       await fetchTransactionData(activeTargetId);
     } catch (err: any) {
       console.error('Direct upload failed:', err);
-      addToast(err.response?.data?.message || `Upload failed for "${activeReqItem.name}".`, 'ERROR');
+      addToast(err.response?.data?.message || `Upload failed for "${requirement.name}".`, 'ERROR');
       await fetchTransactionData(activeTargetId);
     } finally {
       setUploadingReqId(null);
-      setActiveReqItem(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleDirectFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && activeReqItem) void submitDocumentFile(file, activeReqItem);
+    e.target.value = '';
+    setActiveReqItem(null);
+  };
+
+  const openExistingPicker = async (requirement: RequirementItem) => {
+    setAttachReqItem(requirement);
+    setAttachLoading(true);
+    try {
+      const response = await apiClient.get('/personnel/documents');
+      setExistingDocuments((response.data?.data || []).filter((doc: ExistingDocument) =>
+        doc.hasFile && ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'].includes(doc.status) &&
+        ['application/pdf', 'image/png', 'image/jpeg'].includes(doc.mimeType || '') &&
+        Boolean(doc.originalFileName) && (doc.fileSize || 0) > 0 && (doc.fileSize || 0) <= 10 * 1024 * 1024));
+    } catch (err: any) {
+      setAttachReqItem(null);
+      addToast(err.response?.data?.message || 'Could not load My Documents.', 'ERROR');
+    } finally { setAttachLoading(false); }
+  };
+
+  const attachExisting = async (documentId: number) => {
+    if (!attachReqItem || !txId || attachLoading || attachInFlight.current) return;
+    attachInFlight.current = true;
+    setAttachLoading(true);
+    try {
+      await apiClient.post(`/transactions/${txId}/documents/attach-existing`, {
+        personnelDocumentId: documentId, requirementId: attachReqItem.requirementId,
+      });
+      addToast(`Attached a copy to "${attachReqItem.name}".`, 'SUCCESS');
+      setAttachReqItem(null);
+      await fetchTransactionData(txId);
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Could not attach this document.', 'ERROR');
+    } finally { attachInFlight.current = false; setAttachLoading(false); }
   };
 
   const isReturnedState = txStatus === 'DEFICIENCY';
@@ -471,6 +514,16 @@ export const Checklist: React.FC = () => {
                         <AppIcon name={isDeficientDoc ? 'warning' : 'upload'} size={13} />
                         {uploadingReqId === item.requirementId ? 'Uploading…' : isDeficientDoc ? 'Fix & Re-upload' : isUploaded ? 'Replace File' : 'Upload File'}
                       </button>
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        disabled={loading || uploadingReqId !== null || submitting}
+                        onClick={() => setScannerReqItem(item)}>
+                        <AppIcon name="camera" size={13} /> Scan
+                      </button>
+                      <button type="button" className="btn btn-secondary btn-sm"
+                        disabled={loading || uploadingReqId !== null || submitting}
+                        onClick={() => void openExistingPicker(item)}>
+                        <AppIcon name="documents" size={13} /> From My Documents
+                      </button>
                       <button
                         type="button"
                         className="btn btn-ghost btn-xs"
@@ -490,6 +543,35 @@ export const Checklist: React.FC = () => {
       </div>
 
       {reviewDocument && <ExtractionReview documentId={reviewDocument} onClose={() => setReviewDocument(null)} onConfirmed={() => { setReviewDocument(null); void fetchTransactionData(); }} />}
+
+      {scannerReqItem && <DocumentScannerModal
+        isOpen={Boolean(scannerReqItem)} documentTypeName={scannerReqItem.name}
+        onClose={() => setScannerReqItem(null)}
+        onScanComplete={file => {
+          const requirement = scannerReqItem;
+          setScannerReqItem(null);
+          void submitDocumentFile(file, requirement);
+        }}
+      />}
+
+      {attachReqItem && <ModalPortal><ModalOverlay onDismiss={attachLoading ? undefined : () => setAttachReqItem(null)}>
+        <section className="modal" role="dialog" aria-modal="true" aria-label={`Attach to ${attachReqItem.name}`}
+          style={{ width: 'min(94vw, 620px)', maxHeight: '85dvh', overflowY: 'auto', padding: 20 }}>
+          <h2 style={{ marginTop: 0 }}>Attach from My Documents</h2>
+          <p>Choose a document that matches “{attachReqItem.name}”. A separate copy will be saved with this appointment transaction.</p>
+          {attachLoading && <p>Loading…</p>}
+          {!attachLoading && existingDocuments.length === 0 && <p>No eligible PDF, PNG, or JPEG is available in My Documents.</p>}
+          <div style={{ display: 'grid', gap: 8 }}>
+            {existingDocuments.map(doc => <button key={doc.id} type="button" className="btn btn-secondary"
+              disabled={attachLoading} onClick={() => void attachExisting(doc.id)}
+              style={{ textAlign: 'left', whiteSpace: 'normal', justifyContent: 'flex-start', minHeight: 48 }}>
+              {doc.documentTypeName} — {doc.originalFileName}
+            </button>)}
+          </div>
+          <button type="button" className="btn btn-secondary" disabled={attachLoading}
+            onClick={() => setAttachReqItem(null)} style={{ marginTop: 16 }}>Cancel</button>
+        </section>
+      </ModalOverlay></ModalPortal>}
 
       <input
         aria-label="Choose a document file to upload"

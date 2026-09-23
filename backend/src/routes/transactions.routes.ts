@@ -5,7 +5,7 @@ import {
   submitTransaction, validateTransaction, approveTransaction,
   getTransactionRequirements, streamTransactions,
 } from '../controllers/transactions.controller';
-import { uploadDocument } from '../controllers/documents.controller';
+import { uploadDocument, attachExistingPersonnelDocument } from '../controllers/documents.controller';
 import multer from 'multer';
 import path from 'path';
 import { config } from '../config';
@@ -44,6 +44,7 @@ router.post('/', (_req, res) => {
 router.get('/:id', getTransactionById);
 router.post('/:id/submit', submitTransaction);
 router.put('/:id/submit', submitTransaction);
+router.post('/:id/documents/attach-existing', authorize('TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'), attachExistingPersonnelDocument);
 router.post('/:id/documents', upload.single('file'), uploadDocument);
 router.post('/:id/upload', upload.single('file'), uploadDocument);
 router.post('/:id/validate', authorize('AO_II', 'SYSTEM_ADMIN'), validateTransaction);
