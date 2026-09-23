@@ -1,10 +1,6 @@
-import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
-import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
 import './service-record.css';
 
@@ -37,10 +33,7 @@ interface TimelineEntry {
 }
 
 export const CareerRecord: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuthContext();
-  const { addToast } = useToast();
-  const [showPdfModal, setShowPdfModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [personnelData, setPersonnelData] = useState<any>(null);
@@ -129,34 +122,10 @@ export const CareerRecord: React.FC = () => {
   const fullName = personnelData?.fullName || (user?.firstName ? `${user.firstName} ${user.lastName}` : 'DepEd Personnel');
   const employeeId = personnelData?.employeeId || user?.email?.split('@')[0]?.toUpperCase() || 'EMP-2026-XXXX';
   const positionTitle = personnelData?.designation || personnelData?.plantillaItem?.positionTitle || 'Teaching Personnel';
-  const stationName = personnelData?.plantillaItem?.department || personnelData?.plantillaItem?.division || 'City Schools Division of Koronadal';
-  const salaryGradeText = serviceDetails.find(d => d.label === 'Latest Salary Grade')?.value || 'SG 11';
-  const firstApptText = serviceDetails.find(d => d.label === 'First Appointment Date')?.value || 'N/A';
-  const totalServiceText = serviceDetails.find(d => d.label === 'Years in Service')?.value || 'N/A';
-  // CSC employment status for the STATUS column. Blank when nothing is on file:
-  // an unrecorded status is completed by the issuing officer, never assumed.
-  const appointmentStatusText = personnelData?.appointmentStatus
-    ? String(personnelData.appointmentStatus).charAt(0) + String(personnelData.appointmentStatus).slice(1).toLowerCase()
-    : '';
-
-  const handlePrint = () => {
-    addToast('Generating printable DepEd Service Record PDF document...', 'SUCCESS');
-    window.print();
-  };
-
   return (
     <div className="animate-fade-in personnel-content-container">
       <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Service Record & Career Timeline</h1>
-        <div className="topbar-actions">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setShowPdfModal(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <AppIcon name="reports" size={14} /> Printable Service Record (PDF)
-          </button>
-        </div>
       </div>
 
       {/* Personnel Identity Card */}
@@ -271,99 +240,6 @@ export const CareerRecord: React.FC = () => {
         )}
       </div>
 
-      {/* Official DepEd Service Record Document Modal (CS Form 212 Compliant) */}
-      {showPdfModal && (
-        <ModalPortal>
-        <ModalOverlay onDismiss={() => setShowPdfModal(false)} className="modal-overlay" onClick={() => setShowPdfModal(false)}>
-          <div className="modal animate-scale-in svc-doc" onClick={e => e.stopPropagation()}>
-            {/* Letterhead */}
-            <div className="svc-head">
-              <div className="svc-head-republic">Republic of the Philippines · Department of Education</div>
-              <div className="svc-head-region">REGION XII — SOCCSKSARGEN</div>
-              <div className="svc-head-division">CITY SCHOOLS DIVISION OF KORONADAL</div>
-              <div className="svc-head-title">Official Service Record</div>
-              <div className="svc-head-legal">(Issued in accordance with Executive Order No. 54)</div>
-            </div>
-
-            <dl className="svc-identity">
-              <div><dt>Name</dt><dd>{fullName.toUpperCase()}</dd></div>
-              <div><dt>Employee No.</dt><dd className="is-mono">{employeeId}</dd></div>
-              <div><dt>Station</dt><dd>{stationName}</dd></div>
-              <div><dt>First Appointment</dt><dd>{firstApptText}</dd></div>
-              <div><dt>Current Position</dt><dd>{positionTitle} ({salaryGradeText})</dd></div>
-              <div><dt>Total Service</dt><dd>{totalServiceText}</dd></div>
-            </dl>
-
-            <div className="svc-table-wrap">
-              {careerTimeline.length === 0 ? (
-                <div className="svc-empty">No service record entries have been recorded for this employee yet.</div>
-              ) : (
-                <table className="svc-table">
-                  <colgroup>
-                    <col style={{ width: '13%' }} />
-                    <col style={{ width: '26%' }} />
-                    <col style={{ width: '11%' }} />
-                    <col style={{ width: '14%' }} />
-                    <col style={{ width: '16%' }} />
-                    <col style={{ width: '20%' }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>Record Date</th>
-                      <th>Designation &amp; Action</th>
-                      <th>Status</th>
-                      <th>Salary / Compensation</th>
-                      <th>Station / Division</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {careerTimeline.map((row, i) => (
-                      <tr key={i}>
-                        <td className="is-mono">{row.date}</td>
-                        <td className="is-strong">{row.event}</td>
-                        {/* Prints what is on file. Still blank when unrecorded —
-                            an unknown employment status must not be asserted on a
-                            certified form. */}
-                        {appointmentStatusText
-                          ? <td className="is-strong">{appointmentStatusText}</td>
-                          : <td className="is-empty">—</td>}
-                        <td className="is-strong">{row.salary}</td>
-                        <td>{stationName}</td>
-                        <td>{row.remarks || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            <div className="svc-certify">
-              <div className="svc-provenance">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <AppIcon name="approved" size={12} color="#10b981" />
-                  <strong>Digital 201 verified record</strong>
-                </div>
-                <div>Employee ID: {employeeId}</div>
-                <div>Generated: {new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</div>
-              </div>
-              <div className="svc-sign">
-                <div className="svc-sign-line" />
-                <div className="svc-sign-name">Administrative Officer V (HRMO)</div>
-                <div className="svc-sign-role">Certified correct · Official seal</div>
-              </div>
-            </div>
-
-            <div className="svc-actions">
-              <button className="btn btn-secondary" onClick={() => setShowPdfModal(false)}>Close</button>
-              <button className="btn btn-primary" onClick={handlePrint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <AppIcon name="download" size={14} /> Print / Save as PDF
-              </button>
-            </div>
-          </div>
-        </ModalOverlay>
-        </ModalPortal>
-      )}
     </div>
   );
 };
