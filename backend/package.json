@@ -17,7 +17,6 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@google-cloud/documentai": "^10.1.0",
     "@prisma/client": "^5.7.0",
     "@supabase/supabase-js": "^2.110.7",
     "argon2": "^0.45.1",

@@ -43,9 +43,8 @@ stub('../../src/services/workflow-outbox.service', {
   queueTransactionalEmail: async () => {}, queueDeficiencyEmail: async () => {},
   processWorkflowOutbox: async () => {}, startWorkflowOutboxWorker: () => {},
 });
-stub('../../src/services/document-ai.service', {
-  documentAiConfigured: () => false,
-  extractPdsWithDocumentAi: async () => { throw new Error('OCR is disabled in tests'); },
+stub('../../src/services/tesseract-ocr.service', {
+  extractWithTesseract: async () => { throw new Error('OCR is disabled in tests'); },
 });
 const objects = new Map();
 let objectSequence = 0;

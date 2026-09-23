@@ -7,8 +7,9 @@ const {
   applyExtractionTo201,
 } = require('../src/controllers/personnel-documents.controller');
 const { mapTrustedOcrFields, buildExtractionComparison } = require('../src/utils/document-extraction.util');
-const { mapDocumentAiFormFields } = require('../src/services/document-ai.service');
+const { mapOcrFormFields, parseOcrLabeledFields, parseTesseractTsv } = require('../src/services/tesseract-ocr.service');
 const { approvedEmploymentEntries } = require('../src/utils/document-extraction.util');
+const { isDocumentExtractionResult } = require('../src/utils/document-extraction.util');
 const { getMyProfile } = require('../src/controllers/personnel.controller');
 
 test('official WES repeated labels preserve distinct historical jobs', () => {
@@ -16,17 +17,43 @@ test('official WES repeated labels preserve distinct historical jobs', () => {
     ['Duration:', 'January 2020 to March 2022'], ['Position:', 'Teacher I'], ['Name of Office/Unit:', 'Morales Elementary School'],
     ['Duration:', 'April 2022 to Present'], ['Position:', 'Teacher II'], ['Name of Agency/Organization and Location:', 'DepEd Koronadal'],
   ].map(([label, value]) => ({ label, value, confidence: 0.96 }));
-  const fields = mapDocumentAiFormFields(raw, 'WES');
+  const fields = mapOcrFormFields(raw, 'WES');
   const proposal = mapTrustedOcrFields('WES', fields, 0.96);
   assert.equal(proposal.fields.designation, undefined);
   assert.equal(proposal.employmentEntries?.length, 2);
   assert.deepEqual(proposal.employmentEntries?.map(entry => entry.positionTitle), ['Teacher I', 'Teacher II']);
   assert.deepEqual(proposal.employmentEntries?.map(entry => entry.dateFrom), ['2020-01-01', '2022-04-01']);
   assert.equal(proposal.employmentEntries?.[1].dateTo, null);
+  assert.equal(proposal.provider, 'TESSERACT');
+});
+
+test('Tesseract TSV lines yield labelled WES fields and bounded confidence', () => {
+  const header = 'level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext';
+  const row = (line, word, text, confidence) => `5\t1\t1\t1\t${line}\t${word}\t0\t0\t10\t10\t${confidence}\t${text}`;
+  const tsv = [header, row(1, 1, 'Duration:', 96), row(1, 2, 'January', 92), row(1, 3, '2020', 94), row(1, 4, 'to', 98), row(1, 5, 'Present', 91), row(2, 1, 'Position:', 97), row(2, 2, 'Teacher', 95), row(2, 3, 'II', 93)].join('\n');
+  const parsed = parseTesseractTsv(tsv);
+  assert.deepEqual(parsed.lines, ['Duration: January 2020 to Present', 'Position: Teacher II']);
+  assert.ok(parsed.confidence > 0.9 && parsed.confidence < 1);
+  assert.deepEqual(parseOcrLabeledFields(parsed.lines, parsed.lineScores).map(field => field.value), ['January 2020 to Present', 'Teacher II']);
+  assert.ok(parseOcrLabeledFields(parsed.lines, parsed.lineScores).every(field => field.confidence > 0.9));
+});
+
+test('new Tesseract results and previously saved Google results remain reviewable', () => {
+  const result = mapTrustedOcrFields('PDS', { surname: 'Santos' }, 0.94);
+  assert.equal(result.provider, 'TESSERACT');
+  assert.equal(isDocumentExtractionResult(result), true);
+  assert.equal(isDocumentExtractionResult({ ...result, provider: 'GOOGLE_DOCUMENT_AI' }), true);
+  assert.equal(isDocumentExtractionResult({ ...result, provider: 'CLIENT_SUPPLIED' }), false);
+});
+
+test('Tesseract month-name dates are normalized before Digital 201 review', () => {
+  assert.equal(mapTrustedOcrFields('PDS', { birthDate: 'May 15, 1990' }, 0.94).fields.birthDate, '1990-05-15');
+  assert.equal(mapTrustedOcrFields('APPOINTMENT', { dateHired: 'April 2022' }, 0.94).fields.dateHired, '2022-04-01');
+  assert.equal(mapTrustedOcrFields('PDS', { birthDate: '05/15/1990' }, 0.94).fields.birthDate, undefined);
 });
 
 test('employment certificate maps only reviewed history, never current appointment', () => {
-  const fields = mapDocumentAiFormFields([
+  const fields = mapOcrFormFields([
     { label: 'Position', value: 'Administrative Assistant', confidence: 0.94 },
     { label: 'Employer', value: 'Previous Agency', confidence: 0.94 },
     { label: 'Period of Employment', value: 'May 2016 to June 2019', confidence: 0.94 },

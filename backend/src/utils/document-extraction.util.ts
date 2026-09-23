@@ -22,7 +22,8 @@ export interface DocumentExtractionResult {
   templateId: string;
   fields: Partial<Record<ExtractableField, string>>;
   confidence: number;
-  provider: 'GOOGLE_DOCUMENT_AI';
+  /** Legacy Google results remain readable during the provider transition. */
+  provider: 'TESSERACT' | 'GOOGLE_DOCUMENT_AI';
   employmentEntries?: EmploymentEntry[];
   approvedEntryIndexes?: number[];
 }
@@ -95,7 +96,7 @@ export const DOCUMENT_FIELD_MAP: Record<string, readonly ExtractableField[]> = {
 export const isDocumentExtractionResult = (value: unknown): value is DocumentExtractionResult => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const candidate = value as Partial<DocumentExtractionResult>;
-  return candidate.provider === 'GOOGLE_DOCUMENT_AI'
+  return (candidate.provider === 'TESSERACT' || candidate.provider === 'GOOGLE_DOCUMENT_AI')
     && typeof candidate.templateId === 'string'
     && typeof candidate.confidence === 'number'
     && Number.isFinite(candidate.confidence)
@@ -103,7 +104,7 @@ export const isDocumentExtractionResult = (value: unknown): value is DocumentExt
     && !!candidate.fields && typeof candidate.fields === 'object' && !Array.isArray(candidate.fields);
 };
 
-/** Convert only recognized labels returned by server-side Document AI. */
+/** Convert only recognized labels returned by server-side OCR. */
 export const mapTrustedOcrFields = (
   documentTypeId: string,
   source: Record<string, string>,
@@ -115,7 +116,8 @@ export const mapTrustedOcrFields = (
     fields.lastName = source.surname;
     fields.middleName = source.middleName;
     fields.suffix = source.nameExtension;
-    fields.birthDate = source.birthDate;
+    const birthDate = employmentDate(source.birthDate || '');
+    if (birthDate) fields.birthDate = birthDate;
     fields.contactNumber = source.mobile;
     const address = [source['residential.house'], source['residential.street'], source['residential.subdivision'],
       source['residential.barangay'], source['residential.city'], source['residential.province'], source.residentialZip]
@@ -127,11 +129,11 @@ export const mapTrustedOcrFields = (
     if (statuses.length === 1) fields.civilStatus = statuses[0].toUpperCase();
   } else if (documentTypeId === 'APPOINTMENT') {
     for (const field of DOCUMENT_FIELD_MAP.APPOINTMENT) {
-      if (typeof source[field] === 'string') fields[field] = source[field];
+      if (typeof source[field] === 'string') fields[field] = field === 'dateHired' ? employmentDate(source[field]) || undefined : source[field];
     }
   }
   const employmentEntries = mapEmploymentEntries(documentTypeId, source);
-  return { templateId: documentTypeId.toLowerCase(), fields, confidence, provider: 'GOOGLE_DOCUMENT_AI', ...(employmentEntries.length ? { employmentEntries } : {}) };
+  return { templateId: documentTypeId.toLowerCase(), fields, confidence, provider: 'TESSERACT', ...(employmentEntries.length ? { employmentEntries } : {}) };
 };
 
 export const buildExtractionComparison = (

@@ -30,7 +30,7 @@ require.cache[require.resolve('../../src/services/document-storage.service')] = 
   async readDocument(key) { return objects.get(key); },
   async discardUncommittedDocument(key) { objects.delete(key); },
 } };
-require.cache[require.resolve('../../src/services/document-ai.service')] = { exports: { documentAiConfigured: () => false } };
+require.cache[require.resolve('../../src/services/tesseract-ocr.service')] = { exports: { extractWithTesseract: async () => { throw new Error('OCR disabled in fixture'); } } };
 const { uploadDocument, getExtractionReview, confirmExtractionReview } = require('../../src/controllers/documents.controller');
 const response = () => ({ locals: {}, statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } });
 const invoke = async (handler, req) => {

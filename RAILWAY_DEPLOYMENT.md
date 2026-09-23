@@ -72,22 +72,17 @@ node -e "console.log(require('crypto').randomBytes(64).toString('base64url'))"
 ```
 
 Seal `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `SUPABASE_SERVICE_KEY`,
-`SMTP_PASS`, and Google credentials using Railway's variable menu.
+and `SMTP_PASS` using Railway's variable menu.
 
-### Optional Google Document AI OCR
+### Tesseract OCR
 
-Add these only when OCR should be enabled:
-
-```dotenv
-OCR_PROVIDER=GOOGLE_DOCUMENT_AI
-GOOGLE_CLOUD_PROJECT_ID=<Google project id>
-DOCUMENT_AI_LOCATION=<processor location, for example us>
-DOCUMENT_AI_PROCESSOR_ID=<processor id>
-GOOGLE_SERVICE_ACCOUNT_JSON=<complete service-account JSON>
-```
-
-Paste the complete JSON into `GOOGLE_SERVICE_ACCOUNT_JSON`. Do not set
-`GOOGLE_APPLICATION_CREDENTIALS` to a path from the development computer.
+The backend Docker image includes Tesseract English language data and Poppler.
+No OCR cloud account, API key, or Railway variable is required. Remove any
+obsolete `OCR_PROVIDER`, `GOOGLE_CLOUD_PROJECT_ID`, `DOCUMENT_AI_LOCATION`,
+`DOCUMENT_AI_PROCESSOR_ID`, `GOOGLE_SERVICE_ACCOUNT_JSON`, and
+`GOOGLE_APPLICATION_CREDENTIALS` variables after the new image is deployed.
+Existing saved Google OCR results remain reviewable; new extraction uses
+Tesseract. PDFs are rendered to page images before OCR.
 
 ## 3. Backend deployment settings
 

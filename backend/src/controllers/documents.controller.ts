@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client';
 
 import { notifyTransactionChange } from './transactions.controller';
 import { pdsComparison, readStructuredData } from '../utils/pds-profile.util';
-import { documentAiConfigured, extractPdsWithDocumentAi } from '../services/document-ai.service';
+import { extractWithTesseract } from '../services/tesseract-ocr.service';
 import { recordAuditLog } from '../utils/audit.util';
 import { logger } from '../utils/logger';
 import { storeDocument, readDocument, discardUncommittedDocument } from '../services/document-storage.service';
@@ -137,16 +137,16 @@ export const uploadDocument = async (req: Request, res: Response, next: NextFunc
     sendBadRequest(res, 'The extracted form does not match this document requirement.', 'FORM_REQUIREMENT_MISMATCH');
     return;
   }
-  if (!structuredData && isPdsRequirement && documentAiConfigured()) {
+  if (!structuredData && isPdsRequirement) {
     try {
-      const extracted = await extractPdsWithDocumentAi(file.buffer, file.mimetype);
+      const extracted = await extractWithTesseract(file.buffer, file.mimetype);
       structuredData = { templateId: extracted.templateId, fields: extracted.fields };
       ocrConfidence = extracted.confidence;
       await prisma.validationLog.create({
         data: { entityType: 'Transaction', entityId: transactionId, action: 'PDS_OCR_COMPLETED', detailsJson: { provider: extracted.provider, detectedFields: Object.keys(extracted.fields).length, rawFieldCount: extracted.rawFields.length, confidence: extracted.confidence }, userId: req.user!.userId },
       });
     } catch (error: any) {
-      logger.warn({ err: error?.message || error }, 'Document AI extraction failed; upload will continue to manual review');
+      logger.warn({ err: error?.message || error }, 'Tesseract extraction failed; upload will continue to manual review');
     }
   }
 

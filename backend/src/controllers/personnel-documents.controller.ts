@@ -4,7 +4,7 @@ import { storeDocument, readDocument, discardUncommittedDocument } from '../serv
 import { canAccessPersonnel } from '../utils/scope.util';
 import { Prisma, PersonnelDocumentStatus } from '@prisma/client';
 import prisma from '../config/prisma';
-import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden, sendConflict } from '../utils/response.util';
+import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden, sendConflict, sendError } from '../utils/response.util';
 import { recordAuditLog } from '../utils/audit.util';
 import { logger } from '../utils/logger';
 import { generateDocumentAccessToken } from '../utils/jwt.util';
@@ -20,7 +20,7 @@ import {
   mapTrustedOcrFields,
   DocumentExtractionResult,
 } from '../utils/document-extraction.util';
-import { documentAiConfigured, extractPdsWithDocumentAi } from '../services/document-ai.service';
+import { extractWithTesseract } from '../services/tesseract-ocr.service';
 
 const parseDocumentId = (raw: unknown): number | null => {
   const id = Number(raw);
@@ -794,14 +794,9 @@ export const extractPersonnelDocument = async (req: Request, res: Response): Pro
     sendBadRequest(res, 'This document type does not have a supported profile-field extraction mapping.');
     return;
   }
-  if (!documentAiConfigured()) {
-    sendBadRequest(res, 'Document extraction is not configured. Your uploaded file is safe and can be reviewed later.');
-    return;
-  }
-
   try {
     const bytes = await readDocument(record.storagePath);
-    const aiRes = await extractPdsWithDocumentAi(bytes, record.mimeType || 'application/pdf', record.documentTypeId);
+    const aiRes = await extractWithTesseract(bytes, record.mimeType || 'application/pdf', record.documentTypeId);
     const extracted = mapTrustedOcrFields(record.documentTypeId, aiRes.fields, aiRes.confidence);
     if (Object.keys(extracted.fields).filter(key => extracted.fields[key as keyof typeof extracted.fields]).length === 0 && !extracted.employmentEntries?.length) {
       throw new Error('No supported 201 data was found in this document.');
@@ -832,15 +827,17 @@ export const extractPersonnelDocument = async (req: Request, res: Response): Pro
       'Extraction completed successfully.'
     );
   } catch (err: any) {
+    const retryable = err?.code === 'ENOENT' || /OCR is busy|timed out/i.test(String(err?.message || ''));
     await prisma.personnelFile.update({
       where: { id: record.id },
       data: {
-        ocrStatus: 'FAILED',
-        ocrErrorMessage: 'Extraction failed',
+        ocrStatus: retryable ? 'PENDING' : 'FAILED',
+        ocrErrorMessage: retryable ? 'OCR is temporarily unavailable' : 'Extraction failed',
       },
     });
     logger.warn({ err, documentId: record.id }, 'Personnel document extraction failed');
-    sendBadRequest(res, 'The document could not be read. The uploaded file is still saved; try extraction again later.');
+    if (retryable) sendError(res, 'OCR is temporarily unavailable. Your uploaded file is saved; try again later.', 503, 'OCR_UNAVAILABLE');
+    else sendBadRequest(res, 'The document could not be read. The uploaded file is still saved; try extraction again later.');
   }
 };
 

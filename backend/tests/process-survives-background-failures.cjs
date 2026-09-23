@@ -4,7 +4,7 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 
 /**
- * A personnel upload that fails Google Document AI OCR was crashing the
+ * Historically, a personnel upload that failed Google Document AI OCR crashed the
  * entire backend process, not just that one request. The controller's own
  * try/catch around `extractPdsWithDocumentAi` caught the awaited rejection
  * and logged a warning correctly, but the underlying gRPC/auth client
@@ -16,8 +16,7 @@ const path = require('node:path');
  * platform restarted the process.
  *
  * This spawns a real child process, wires the same `unhandledRejection`
- * guard as src/index.ts, fires an unhandled rejection that mirrors the
- * Document AI failure, and asserts the process is still alive and able to
+ * guard as src/index.ts, fires a background unhandled rejection, and asserts the process is still alive and able to
  * do work afterward instead of being torn down by Node's default handling.
  */
 test('an unhandled background rejection no longer kills the process', async () => {
