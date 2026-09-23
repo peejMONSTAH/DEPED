@@ -23,9 +23,65 @@ export interface DocumentExtractionResult {
   fields: Partial<Record<ExtractableField, string>>;
   confidence: number;
   provider: 'GOOGLE_DOCUMENT_AI';
+  employmentEntries?: EmploymentEntry[];
+  approvedEntryIndexes?: number[];
 }
 
-export const EXTRACTABLE_DOCUMENT_TYPES = ['PDS', 'APPOINTMENT'] as const;
+export interface EmploymentEntry {
+  dateFrom: string;
+  dateTo: string | null;
+  positionTitle: string;
+  department: string;
+  status: string | null;
+}
+
+export const EXTRACTABLE_DOCUMENT_TYPES = ['PDS', 'WES', 'APPOINTMENT', 'COE'] as const;
+
+const employmentDate = (raw: string): string | null => {
+  const value = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value ? value : null;
+  }
+  // Ambiguous all-numeric dates are not guessed; a wrong service date is worse
+  // than a row that requires manual entry.
+  if (!/[A-Za-z]/.test(value)) return null;
+  const match = /^(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+(?:(\d{1,2}),?\s+)?(\d{4})$/i.exec(value);
+  if (!match) return null;
+  const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const month = months.indexOf(match[1].toLowerCase().slice(0, 3));
+  const day = Number(match[2] || 1);
+  const year = Number(match[3]);
+  const d = new Date(Date.UTC(year, month, day));
+  return d.getUTCFullYear() === year && d.getUTCMonth() === month && d.getUTCDate() === day ? d.toISOString().slice(0, 10) : null;
+};
+
+export const mapEmploymentEntries = (documentTypeId: string, source: Record<string, string>): EmploymentEntry[] => {
+  if (documentTypeId !== 'WES' && documentTypeId !== 'COE') return [];
+  const indexes = [...new Set(Object.keys(source).map(key => /^work\.(\d+)\./.exec(key)?.[1]).filter((value): value is string => !!value))]
+    .map(Number).sort((a, b) => a - b);
+  if (documentTypeId === 'COE' && indexes.length === 0) indexes.push(0);
+  return indexes.slice(0, 50).flatMap(index => {
+    const prefix = documentTypeId === 'COE' && !source[`work.${index}.from`] ? 'employment' : `work.${index}`;
+    const from = employmentDate(source[`${prefix}.from`] || '');
+    const toRaw = source[`${prefix}.to`] || '';
+    const to = /^(present|current|ongoing)$/i.test(toRaw.trim()) ? null : employmentDate(toRaw);
+    const positionTitle = (source[`${prefix}.position`] || '').trim().slice(0, 200);
+    const department = (source[`${prefix}.office`] || source[`${prefix}.agency`] || '').trim().slice(0, 200);
+    if (!from || (toRaw.trim() && to === null && !/^(present|current|ongoing)$/i.test(toRaw.trim())) || !positionTitle || !department || (to && to < from)) return [];
+    return [{ dateFrom: from, dateTo: to, positionTitle, department, status: (source[`${prefix}.status`] || '').trim().slice(0, 100) || null }];
+  });
+};
+
+export const approvedEmploymentEntries = (value: unknown): EmploymentEntry[] => {
+  if (!isDocumentExtractionResult(value) || !Array.isArray(value.employmentEntries) || !Array.isArray(value.approvedEntryIndexes)) return [];
+  return value.approvedEntryIndexes.flatMap(index => {
+    if (!Number.isInteger(index) || index < 0 || index >= value.employmentEntries!.length) return [];
+    const entry = value.employmentEntries![index];
+    if (!entry || !/^\d{4}-\d{2}-\d{2}$/.test(entry.dateFrom) || !entry.positionTitle || !entry.department) return [];
+    return [entry];
+  });
+};
 
 // WES and historical employment certificates describe past work, not the
 // current appointment. Never map their position/date to current profile fields.
@@ -74,7 +130,8 @@ export const mapTrustedOcrFields = (
       if (typeof source[field] === 'string') fields[field] = source[field];
     }
   }
-  return { templateId: documentTypeId.toLowerCase(), fields, confidence, provider: 'GOOGLE_DOCUMENT_AI' };
+  const employmentEntries = mapEmploymentEntries(documentTypeId, source);
+  return { templateId: documentTypeId.toLowerCase(), fields, confidence, provider: 'GOOGLE_DOCUMENT_AI', ...(employmentEntries.length ? { employmentEntries } : {}) };
 };
 
 export const buildExtractionComparison = (

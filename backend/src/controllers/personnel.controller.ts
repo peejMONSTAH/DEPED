@@ -14,6 +14,7 @@ import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { logger } from '../utils/logger';
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { invalidateAuthUserCache } from '../middleware/auth.middleware';
+import { approvedEmploymentEntries } from '../utils/document-extraction.util';
 
 const personnelSelect = {
   id: true, employeeId: true, firstName: true, lastName: true, middleName: true,
@@ -344,7 +345,37 @@ export const getMyProfile = async (req: Request, res: Response): Promise<void> =
     }
   }
 
-  sendSuccess(res, { ...personnel, profileDocumentData });
+  // Approved My Documents evidence takes precedence over older transaction OCR.
+  // These are historical roles, not the current appointment on Personnel.
+  const employmentFiles = await prisma.personnelFile.findMany({
+    where: { personnelId: personnel.id, deletedAt: null, ocrStatus: 'APPLIED', documentTypeId: { in: ['WES', 'COE'] } },
+    select: { id: true, documentTypeId: true, ocrExtractedDataJson: true, updatedAt: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+  const seenEmployment = new Set<string>();
+  const approvedHistory = employmentFiles.flatMap(file => approvedEmploymentEntries(file.ocrExtractedDataJson).flatMap((entry, index) => {
+    const key = [entry.dateFrom, entry.dateTo || '', entry.positionTitle, entry.department].map(value => value.trim().toLowerCase()).join('|');
+    if (seenEmployment.has(key)) return [];
+    seenEmployment.add(key);
+    return [{
+    id: `file-${file.id}-${index}`,
+    eventType: 'OTHER',
+    eventDate: `${entry.dateFrom}T00:00:00.000Z`,
+    detailsJson: { title: entry.positionTitle, department: entry.department, dateTo: entry.dateTo || 'Present', status: entry.status || '', sourcePersonnelFileId: file.id, sourceDocumentTypeId: file.documentTypeId },
+    }];
+  }));
+  if (approvedHistory.length) {
+    const fields: Record<string, string> = {};
+    approvedHistory.forEach((row, index) => {
+      fields[`work.${index}.from`] = row.eventDate.slice(0, 10);
+      fields[`work.${index}.to`] = row.detailsJson.dateTo;
+      fields[`work.${index}.position`] = row.detailsJson.title;
+      fields[`work.${index}.agency`] = row.detailsJson.department;
+    });
+    profileDocumentData.wes = { fields, status: 'APPLIED', source: 'MY_DOCUMENTS' };
+  }
+
+  sendSuccess(res, { ...personnel, careerHistoryEntries: [...approvedHistory, ...(personnel.careerHistoryEntries || [])], profileDocumentData });
 };
 
 /**

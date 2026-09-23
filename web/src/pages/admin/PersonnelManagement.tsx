@@ -16,6 +16,7 @@ import { usePending } from '../../hooks/usePending';
 import { generateInitialPassword } from '../../utils/password-issue';
 
 type PersonnelItem = {
+  isCredentialFallback?: boolean;
   id: number;
   employeeId: string;
   firstName: string;
@@ -40,6 +41,7 @@ export const PersonnelManagement: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
   const [personnel, setPersonnel] = useState<PersonnelItem[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PersonnelItem | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -211,21 +213,55 @@ export const PersonnelManagement: React.FC = () => {
 
   const fetchPersonnel = async () => {
     setLoading(true);
+    setLoadError('');
     try {
-      setPersonnel(await getAllPages('/personnel'));
-    } catch (err) {
+      if (isAo) {
+        // Both endpoints are independently scoped by the server to this AO's
+        // station. Reconcile credential-linked records here so a list endpoint
+        // failure or response-shape drift cannot silently show an empty roster.
+        const [personnelResult, accountResult] = await Promise.allSettled([
+          getAllPages<PersonnelItem>('/personnel'),
+          getAllPages<{ id: number; email: string; role: string; personnel?: Partial<PersonnelItem> & { id: number } }>('/users'),
+        ]);
+        const rows = personnelResult.status === 'fulfilled' ? personnelResult.value : [];
+        const accounts = accountResult.status === 'fulfilled' ? accountResult.value : [];
+        if (personnelResult.status === 'rejected' && accountResult.status === 'rejected') throw personnelResult.reason;
+        const byId = new Map(rows.map(row => [row.id, row]));
+        let recoveredFromCredentials = 0;
+        for (const account of accounts) {
+          if (!account.personnel || !['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(account.role)) continue;
+          if (!byId.has(account.personnel.id)) {
+            recoveredFromCredentials++;
+            byId.set(account.personnel.id, {
+              ...account.personnel,
+              id: account.personnel.id,
+              employeeId: account.personnel.employeeId || '',
+              firstName: account.personnel.firstName || '',
+              lastName: account.personnel.lastName || '',
+              designation: account.personnel.designation || '',
+              status: '',
+              dateHired: '',
+              profileComplete: false,
+              isCredentialFallback: true,
+              user: { email: account.email, role: { name: account.role } },
+            });
+          }
+        }
+        setPersonnel([...byId.values()]);
+        if (personnelResult.status === 'rejected') setLoadError('Showing station accounts from Credentials; the detailed personnel roster could not be loaded. Retry for full records.');
+        else if (recoveredFromCredentials > 0) setLoadError(`${recoveredFromCredentials} station account(s) appeared in Credentials but not the personnel list. They are shown here; ask an administrator to check the roster endpoint.`);
+      } else {
+        setPersonnel(await getAllPages<PersonnelItem>('/personnel'));
+      }
+    } catch (err: any) {
       console.error('Failed to load personnel:', err);
-      setPersonnel([]);
+      setLoadError(err?.response?.data?.message || 'Personnel records could not be loaded. Retry or contact your administrator.');
     } finally {
       setLoading(false);
     }
   };
 
   const filtered = personnel.filter(p => {
-    if (isAo) {
-      const roleName = p.user?.role?.name;
-      if (roleName !== 'TEACHING_PERSONNEL' && roleName !== 'NON_TEACHING_PERSONNEL') return false;
-    }
     return (
       `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
       (p.employeeId && p.employeeId.toLowerCase().includes(search.toLowerCase())) ||
@@ -367,6 +403,7 @@ export const PersonnelManagement: React.FC = () => {
       </div>
 
       <div className="page-content">
+        {loadError && <div className="alert alert-danger" role="alert">{loadError} <button type="button" className="btn btn-secondary btn-sm" onClick={() => void fetchPersonnel()}>Retry</button></div>}
         <div className="filter-row">
           <div className="search-bar" style={{ flex: 1, maxWidth: 400 }}>
             <span className="search-icon" style={{ display: 'flex', alignItems: 'center' }}>
@@ -399,7 +436,7 @@ export const PersonnelManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {filtered.length === 0 && !loadError ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
                     No personnel records found. Click "+ Add Personnel" above to create employee accounts for Teaching and Non-Teaching personnel.
@@ -433,13 +470,13 @@ export const PersonnelManagement: React.FC = () => {
                     </td>
                     <td data-label="Designation">{p.designation}</td>
                     <td data-label="Plantilla Item" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-                      {p.plantillaItem ? `${p.plantillaItem.itemNumber} (SG ${p.plantillaItem.salaryGrade})` : 'P-Unassigned'}
+                      {p.isCredentialFallback ? 'Details not loaded' : p.plantillaItem ? `${p.plantillaItem.itemNumber} (SG ${p.plantillaItem.salaryGrade})` : 'P-Unassigned'}
                     </td>
-                    <td data-label="Status"><StatusBadge status={p.status} /></td>
+                    <td data-label="Status">{p.isCredentialFallback ? 'Not loaded' : <StatusBadge status={p.status} />}</td>
                     <td data-label="Profile">
-                      <span className={`badge ${p.profileComplete ? 'badge-approved' : 'badge-deficiency'}`}>
+                      {p.isCredentialFallback ? 'Not loaded' : <span className={`badge ${p.profileComplete ? 'badge-approved' : 'badge-deficiency'}`}>
                         {p.profileComplete ? 'Complete' : 'Incomplete'}
-                      </span>
+                      </span>}
                     </td>
                     <td data-label="Action" className="personnel-records-action-cell">
                       <button className="btn btn-ghost btn-sm personnel-view-details-btn" onClick={() => handleSelectPersonnel(p)}>

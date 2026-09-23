@@ -49,10 +49,54 @@ const mappedKey = (label: string): string | null => {
   return null;
 };
 
+const splitDuration = (value: string): [string, string] => {
+  const parts = value.split(/\s+(?:to|until|through|-)\s+/i);
+  return [parts[0]?.trim() || '', parts[1]?.trim() || ''];
+};
+
+/** Keep repeated WES blocks distinct. The official WES has repeated Duration,
+ * Position, and Office/Agency labels, so a simple label map loses all but row 1. */
+export const mapDocumentAiFormFields = (
+  rawFields: Array<{ label: string; value: string; confidence: number }>,
+  documentTypeId: string,
+): Record<string, string> => {
+  const fields: Record<string, string> = {};
+  let workIndex = -1;
+  for (const item of rawFields) {
+    const label = normalized(item.label);
+    if (documentTypeId === 'WES') {
+      if (/^duration\b/.test(label)) {
+        workIndex++;
+        const [from, to] = splitDuration(item.value);
+        fields[`work.${workIndex}.from`] = from;
+        fields[`work.${workIndex}.to`] = to;
+      } else if (workIndex >= 0 && /^position\b/.test(label)) {
+        fields[`work.${workIndex}.position`] = item.value;
+      } else if (workIndex >= 0 && /^(name of office|name of agency|office|agency)/.test(label)) {
+        fields[`work.${workIndex}.${label.includes('agency') ? 'agency' : 'office'}`] = item.value;
+      }
+      continue;
+    }
+    if (documentTypeId === 'COE') {
+      if (/^(position|designation|job title)/.test(label)) fields['employment.position'] = item.value;
+      else if (/(employer|company|agency|office|organization)/.test(label)) fields['employment.agency'] = item.value;
+      else if (/(period of employment|employment period|inclusive dates|duration)/.test(label)) {
+        const [from, to] = splitDuration(item.value);
+        fields['employment.from'] = from;
+        fields['employment.to'] = to;
+      } else if (/(employment status|appointment status)/.test(label)) fields['employment.status'] = item.value;
+      continue;
+    }
+    const key = mappedKey(item.label);
+    if (key && !fields[key]) fields[key] = item.value;
+  }
+  return fields;
+};
+
 export const documentAiConfigured = () => config.google.ocrProvider === 'GOOGLE_DOCUMENT_AI'
   && Boolean(config.google.projectId && config.google.documentAiLocation && config.google.documentAiProcessorId);
 
-export const extractPdsWithDocumentAi = async (buffer: Buffer, mimeType: string): Promise<OcrResult> => {
+export const extractPdsWithDocumentAi = async (buffer: Buffer, mimeType: string, documentTypeId = 'PDS'): Promise<OcrResult> => {
   if (!documentAiConfigured()) throw new Error('Google Document AI is not configured.');
   const location = config.google.documentAiLocation;
   const inlineCredentials = config.google.serviceAccountJson
@@ -79,7 +123,6 @@ export const extractPdsWithDocumentAi = async (buffer: Buffer, mimeType: string)
   const document = response.document;
   const text = document?.text || '';
   const rawFields: OcrResult['rawFields'] = [];
-  const fields: Record<string, string> = {};
   for (const page of document?.pages || []) {
     for (const formField of page.formFields || []) {
       const label = anchorText(text, formField.fieldName?.textAnchor);
@@ -87,10 +130,9 @@ export const extractPdsWithDocumentAi = async (buffer: Buffer, mimeType: string)
       const confidence = Number(formField.fieldValue?.confidence || formField.fieldName?.confidence || 0);
       if (!label || !value) continue;
       rawFields.push({ label, value, confidence });
-      const key = mappedKey(label);
-      if (key && !fields[key]) fields[key] = value;
     }
   }
+  const fields = mapDocumentAiFormFields(rawFields, documentTypeId);
   const confidence = rawFields.length ? rawFields.reduce((sum, field) => sum + field.confidence, 0) / rawFields.length : 0;
   return { templateId: 'pds-2025', fields, rawFields: rawFields.slice(0, 500), provider: 'GOOGLE_DOCUMENT_AI', confidence };
 };

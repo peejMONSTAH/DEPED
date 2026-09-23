@@ -790,7 +790,7 @@ export const extractPersonnelDocument = async (req: Request, res: Response): Pro
     sendForbidden(res, 'Only the document owner can review extracted profile changes.');
     return;
   }
-  if (!['PDS', 'APPOINTMENT'].includes(record.documentTypeId)) {
+  if (!EXTRACTABLE_DOCUMENT_TYPES.includes(record.documentTypeId as typeof EXTRACTABLE_DOCUMENT_TYPES[number])) {
     sendBadRequest(res, 'This document type does not have a supported profile-field extraction mapping.');
     return;
   }
@@ -801,10 +801,10 @@ export const extractPersonnelDocument = async (req: Request, res: Response): Pro
 
   try {
     const bytes = await readDocument(record.storagePath);
-    const aiRes = await extractPdsWithDocumentAi(bytes, record.mimeType || 'application/pdf');
+    const aiRes = await extractPdsWithDocumentAi(bytes, record.mimeType || 'application/pdf', record.documentTypeId);
     const extracted = mapTrustedOcrFields(record.documentTypeId, aiRes.fields, aiRes.confidence);
-    if (Object.keys(extracted.fields).filter(key => extracted.fields[key as keyof typeof extracted.fields]).length === 0) {
-      throw new Error('No supported profile fields were found in this document.');
+    if (Object.keys(extracted.fields).filter(key => extracted.fields[key as keyof typeof extracted.fields]).length === 0 && !extracted.employmentEntries?.length) {
+      throw new Error('No supported 201 data was found in this document.');
     }
 
     const updated = await prisma.personnelFile.update({
@@ -827,6 +827,7 @@ export const extractPersonnelDocument = async (req: Request, res: Response): Pro
         ocrStatus: updated.ocrStatus,
         confidenceScore: updated.ocrConfidenceScore,
         fields: comparison,
+        employmentEntries: extracted.employmentEntries || [],
       },
       'Extraction completed successfully.'
     );
@@ -885,6 +886,7 @@ export const getExtractionReview = async (req: Request, res: Response): Promise<
     confidenceScore: record.ocrConfidenceScore ?? extractedJson.confidence,
     processedAt: record.ocrProcessedAt?.toISOString() ?? null,
     fields: comparison,
+    employmentEntries: extractedJson.employmentEntries || [],
   });
 };
 
@@ -896,7 +898,8 @@ export const applyExtractionTo201 = async (req: Request, res: Response): Promise
   }
 
   const approvedFields: unknown[] = Array.isArray(req.body.approvedFields) ? req.body.approvedFields : [];
-  if (approvedFields.length === 0) {
+  const approvedEntryIndexes: unknown[] = Array.isArray(req.body.approvedEntryIndexes) ? req.body.approvedEntryIndexes : [];
+  if (approvedFields.length === 0 && approvedEntryIndexes.length === 0) {
     sendBadRequest(res, 'No fields selected for update.');
     return;
   }
@@ -926,6 +929,50 @@ export const applyExtractionTo201 = async (req: Request, res: Response): Promise
   }
   if (record.ocrExtractedDataJson.confidence < 0.8) {
     sendBadRequest(res, 'Extraction confidence is too low to update the 201 record. Request manual review.');
+    return;
+  }
+  if (record.documentTypeId === 'WES' || record.documentTypeId === 'COE') {
+    const entries = record.ocrExtractedDataJson.employmentEntries || [];
+    if (approvedFields.length || !approvedEntryIndexes.length ||
+        approvedEntryIndexes.some(index => !Number.isInteger(index) || Number(index) < 0 || Number(index) >= entries.length) ||
+        new Set(approvedEntryIndexes).size !== approvedEntryIndexes.length) {
+      sendBadRequest(res, 'Choose valid employment rows from this document.');
+      return;
+    }
+    const selectedIndexes = approvedEntryIndexes as number[];
+    try {
+      await prisma.$transaction(async tx => {
+        await tx.$executeRaw`SELECT id FROM personnel_files WHERE id = ${record.id} FOR UPDATE`;
+        const currentFile = await tx.personnelFile.findUnique({ where: { id: record.id } });
+        if (!currentFile || currentFile.deletedAt || currentFile.ocrStatus !== 'NEEDS_REVIEW' ||
+            !isDocumentExtractionResult(currentFile.ocrExtractedDataJson) || currentFile.ocrExtractedDataJson.confidence < 0.8) {
+          throw new Error('The document changed before these rows could be applied. Refresh and review again.');
+        }
+        const currentEntries = currentFile.ocrExtractedDataJson.employmentEntries || [];
+        if (selectedIndexes.some(index => index >= currentEntries.length)) throw new Error('Employment rows changed. Refresh and review again.');
+        if (selectedIndexes.some(index => JSON.stringify(currentEntries[index]) !== JSON.stringify(entries[index]))) {
+          throw new Error('Employment rows changed. Refresh and review again.');
+        }
+        await tx.personnelFile.update({
+          where: { id: record.id },
+          data: {
+            ocrStatus: 'APPLIED',
+            ocrExtractedDataJson: { ...(currentFile.ocrExtractedDataJson as unknown as DocumentExtractionResult), approvedEntryIndexes: selectedIndexes } as unknown as Prisma.InputJsonValue,
+          },
+        });
+        await tx.validationLog.create({
+          data: {
+            entityType: 'Personnel', entityId: record.personnelId, userId: req.user!.userId,
+            action: 'DIGITAL_201_EMPLOYMENT_HISTORY_UPDATED_FROM_DOCUMENT',
+            detailsJson: { documentId: record.id, documentTypeId: record.documentTypeId, approvedEntryIndexes: selectedIndexes },
+          },
+        });
+      });
+      res.locals.auditLogged = true;
+      sendSuccess(res, { appliedEntryCount: selectedIndexes.length }, 'Selected employment history is now recorded in your Digital 201 file.');
+    } catch (err: any) {
+      sendBadRequest(res, err?.message || 'Could not apply employment history.');
+    }
     return;
   }
   const allowed = DOCUMENT_FIELD_MAP[record.documentTypeId] || [];
