@@ -5,11 +5,10 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
 import apiClient from '../api/client';
-import { LoginGlow } from '../components/login/LoginGlow';
 import { Digital201Logo } from '../components/common/Digital201Logo';
 import { AppIcon } from '../components/common/AppIcon';
 import '../components/login/login.css';
-import '../components/login/simple-login.css';
+import '../components/login/split-login.css';
 import type { AuthUser } from '../types';
 
 export const LoginPage: React.FC = () => {
@@ -117,45 +116,80 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="neuro-login-viewport simple-login">
-      <main className="simple-login-main">
-        <LoginGlow />
-        <section className="simple-login-card" aria-labelledby="login-heading">
-          <Digital201Logo variant="wordmark" size="md" tone="light" showTag />
-          <header className="simple-login-header">
-            <h1 id="login-heading">Welcome back</h1>
-          </header>
-
-          {error && <div className="simple-login-error" role="alert">{error}</div>}
-
-          <form className="simple-login-form" onSubmit={handleSubmit} id="login-form">
-            <div className="simple-login-field">
-              <label htmlFor="email">Email address</label>
-              <input id="email" type="email" placeholder="you@example.com"
-                value={email} onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username" disabled={isLoading} required />
+    <div className="neuro-login-viewport split-login">
+      <main className="split-login-frame">
+        <section className="split-login-panel" aria-labelledby="login-heading">
+          <div className="split-login-inner">
+            <div className="split-login-brand">
+              <img src="/depedlogo.png" alt="Department of Education" className="split-login-seal" />
+              <Digital201Logo variant="wordmark" size="md" tone="light" showTag />
             </div>
-            <div className="simple-login-field">
-              <label htmlFor="password">Password</label>
-              <div className="simple-login-password">
-                <input id="password" type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password" value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password" disabled={isLoading} required />
-                <button type="button" className="simple-login-reveal"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>
-                  <AppIcon name={showPassword ? 'view-off' : 'view'} size={18} strokeWidth={1.8} aria-hidden="true" />
-                </button>
+            <header className="split-login-header">
+              <h1 id="login-heading">Welcome back</h1>
+              <p>Sign in to your Digital 201 account.</p>
+            </header>
+
+            {error && <div className="split-login-error" role="alert">{error}</div>}
+
+            <form className="split-login-form" onSubmit={handleSubmit} id="login-form">
+              <div className="split-login-field">
+                <label className="split-login-label" htmlFor="email">Email address</label>
+                <span className="split-login-input">
+                  <input id="email" type="email" placeholder="you@deped.gov.ph"
+                    value={email} onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="username" disabled={isLoading} required />
+                  <span className="split-login-icon"><AppIcon name="email" size={18} strokeWidth={1.8} aria-hidden="true" /></span>
+                </span>
               </div>
-            </div>
-            <button id="login-submit-btn" className="simple-login-submit" type="submit" disabled={isLoading}>
-              {isLoading && <LoadingSpinner size="sm" />}
-              {isLoading ? 'Signing in…' : 'Sign in'}
-            </button>
-          </form>
-
+              <div className="split-login-field">
+                <label className="split-login-label" htmlFor="password">Password</label>
+                <span className="split-login-input">
+                  <input id="password" type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter your password" value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password" disabled={isLoading} required />
+                  <button type="button" className="split-login-reveal"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>
+                    <AppIcon name={showPassword ? 'view-off' : 'view'} size={18} strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                </span>
+              </div>
+              <button id="login-submit-btn" className="split-login-submit" type="submit" disabled={isLoading}>
+                {isLoading && <LoadingSpinner size="sm" />}
+                {isLoading ? 'Signing in…' : 'Sign in'}
+              </button>
+            </form>
+            <p className="split-login-help">Accounts are issued by your school&apos;s AO II or the Division HR office.</p>
+          </div>
         </section>
+
+        <aside className="split-login-art" aria-hidden="true">
+          <svg className="split-login-waves" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="slGreen" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stopColor="#e3f6e9" /><stop offset="1" stopColor="#8fd3a8" />
+              </linearGradient>
+              <linearGradient id="slGold" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0" stopColor="#f8e7ac" /><stop offset="1" stopColor="#d4a940" />
+              </linearGradient>
+              <filter id="slBlur"><feGaussianBlur stdDeviation="6" /></filter>
+            </defs>
+            <rect width="600" height="800" fill="#1d3a2c" />
+            <g filter="url(#slBlur)" fill="none" strokeLinecap="round">
+              <path className="split-wave split-wave-1" d="M-80 90 C 120 20, 200 260, 360 200 S 560 40, 700 140" stroke="url(#slGreen)" strokeWidth="70" opacity=".9" />
+              <path className="split-wave split-wave-2" d="M-80 300 C 80 220, 260 420, 400 330 S 620 240, 700 330" stroke="url(#slGold)" strokeWidth="46" opacity=".85" />
+              <path className="split-wave split-wave-3" d="M-80 470 C 140 400, 240 620, 420 530 S 600 420, 700 520" stroke="url(#slGreen)" strokeWidth="90" opacity=".75" />
+              <path className="split-wave split-wave-4" d="M-80 700 C 120 620, 300 820, 460 720 S 620 650, 700 720" stroke="url(#slGold)" strokeWidth="60" opacity=".8" />
+              <path className="split-wave split-wave-2" d="M160 -60 C 260 140, 60 300, 220 470 S 460 640, 340 880" stroke="url(#slGold)" strokeWidth="28" opacity=".6" />
+              <path className="split-wave split-wave-3" d="M420 -60 C 520 160, 330 320, 470 500 S 640 700, 560 880" stroke="url(#slGreen)" strokeWidth="36" opacity=".55" />
+            </g>
+          </svg>
+          <div className="split-login-caption">
+            <strong>Digital 201 · SDO Koronadal City</strong>
+            <span>Personnel records, promotions and document validation in one place.</span>
+          </div>
+        </aside>
       </main>
 
       {/* ─── 3. MODALS & POPUPS (PRESERVED) ─────────────────────────── */}

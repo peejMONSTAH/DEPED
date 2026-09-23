@@ -1,0 +1,252 @@
+/* Split sign-in: form panel on the left, pastel green and gold artwork on the right. */
+.split-login.neuro-login-viewport {
+  --sl-bg: #eef3ef;
+  --sl-frame: #dfe8e1;
+  --sl-panel: linear-gradient(160deg, #fbfdfb 0%, #f1f6f2 55%, #f7f3e6 100%);
+  --sl-text: #1f2a23;
+  --sl-muted: #5f6f64;
+  --sl-border: #d3ddd5;
+  --sl-input: #ffffff;
+  --sl-green: #2f7d52;
+  --sl-green-hover: #276a45;
+  --sl-green-soft: #cfeedb;
+  --sl-gold: #c79a2e;
+  --sl-focus: rgba(199, 154, 46, 0.35);
+  --sl-error-bg: #fdecec;
+  --sl-error-text: #a52a2a;
+
+  display: flex !important;
+  width: 100% !important;
+  min-height: 100dvh !important;
+  height: auto !important;
+  padding: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(143, 211, 168, 0.35), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(217, 176, 76, 0.28), transparent 55%),
+    var(--sl-bg);
+  color: var(--sl-text);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  box-sizing: border-box !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .split-login.neuro-login-viewport {
+    --sl-bg: #0f1612;
+    --sl-frame: #1a241e;
+    --sl-panel: linear-gradient(160deg, #18221c 0%, #141d17 60%, #1d1b12 100%);
+    --sl-text: #eef3ef;
+    --sl-muted: #a7b5ab;
+    --sl-border: #2f3d33;
+    --sl-input: #111a14;
+    --sl-green: #8fd3a8;
+    --sl-green-hover: #a8e0bb;
+    --sl-green-soft: #23402f;
+    --sl-gold: #e2bf63;
+    --sl-error-bg: #3a1717;
+    --sl-error-text: #f3b0b0;
+  }
+}
+
+:root[data-theme="dark"] .split-login.neuro-login-viewport {
+  --sl-bg: #0f1612;
+  --sl-frame: #1a241e;
+  --sl-panel: linear-gradient(160deg, #18221c 0%, #141d17 60%, #1d1b12 100%);
+  --sl-text: #eef3ef;
+  --sl-muted: #a7b5ab;
+  --sl-border: #2f3d33;
+  --sl-input: #111a14;
+  --sl-green: #8fd3a8;
+  --sl-green-hover: #a8e0bb;
+  --sl-green-soft: #23402f;
+  --sl-gold: #e2bf63;
+  --sl-error-bg: #3a1717;
+  --sl-error-text: #f3b0b0;
+}
+
+.split-login-frame {
+  margin: auto;
+  width: min(1120px, calc(100% - 48px));
+  min-height: min(680px, calc(100dvh - 48px));
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 0;
+  padding: 12px;
+  border-radius: 32px;
+  background: var(--sl-frame);
+  box-shadow: 0 30px 70px -30px rgba(31, 58, 44, 0.45);
+  box-sizing: border-box;
+}
+
+.split-login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  border-radius: 24px;
+  background: var(--sl-panel);
+}
+
+.split-login-inner { width: 100%; max-width: 360px; }
+
+.split-login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.split-login-seal { width: 40px; height: 40px; object-fit: contain; }
+.split-login.neuro-login-viewport .digital201-brand { color: var(--sl-text); }
+
+.split-login-header h1 { margin: 0; font-size: 1.625rem; font-weight: 800; letter-spacing: -0.02em; color: var(--sl-text); }
+.split-login-header p { margin: 6px 0 24px; font-size: 0.9375rem; color: var(--sl-muted); }
+
+.split-login-error {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--sl-error-bg);
+  color: var(--sl-error-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.split-login-form { display: flex; flex-direction: column; gap: 16px; }
+.split-login-field { display: flex; flex-direction: column; gap: 6px; }
+.split-login-label { font-size: 0.8125rem; font-weight: 700; color: var(--sl-text); }
+
+.split-login-input { position: relative; display: block; }
+.split-login-input input {
+  width: 100%;
+  height: 48px;
+  padding: 0 48px 0 18px;
+  border: 1px solid var(--sl-border);
+  border-radius: 9999px;
+  background: var(--sl-input);
+  color: var(--sl-text);
+  font: inherit;
+  font-size: 0.9375rem;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.split-login-input input::placeholder { color: var(--sl-muted); opacity: 0.8; }
+.split-login-input input:focus { outline: none; border-color: var(--sl-gold); box-shadow: 0 0 0 4px var(--sl-focus); }
+.split-login-input input:disabled { opacity: 0.7; }
+
+.split-login-icon,
+.split-login-reveal {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sl-muted);
+}
+.split-login-icon { pointer-events: none; }
+.split-login-reveal {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+}
+.split-login-reveal:hover { color: var(--sl-text); background: var(--sl-green-soft); }
+.split-login-reveal:focus-visible { outline: 2px solid var(--sl-gold); outline-offset: 2px; }
+
+.split-login-submit {
+  margin-top: 8px;
+  height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, var(--sl-green) 0%, var(--sl-green-hover) 100%);
+  color: #ffffff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -12px rgba(47, 125, 82, 0.8), inset 0 -2px 0 rgba(199, 154, 46, 0.55);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.split-login-submit:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+.split-login-submit:focus-visible { outline: 3px solid var(--sl-gold); outline-offset: 3px; }
+.split-login-submit:disabled { opacity: 0.75; cursor: progress; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .split-login-submit { color: #10241a; }
+}
+:root[data-theme="dark"] .split-login-submit { color: #10241a; }
+
+.split-login-help {
+  margin: 24px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--sl-border);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--sl-muted);
+  text-align: center;
+}
+
+/* Artwork */
+.split-login-art {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background: #1d3a2c;
+}
+.split-login-waves { position: absolute; inset: 0; width: 100%; height: 100%; }
+.split-wave { transform-origin: center; animation: split-wave-drift 14s ease-in-out infinite alternate; }
+.split-wave-2 { animation-duration: 18s; animation-delay: -4s; }
+.split-wave-3 { animation-duration: 16s; animation-delay: -8s; }
+.split-wave-4 { animation-duration: 22s; animation-delay: -2s; }
+@keyframes split-wave-drift {
+  from { transform: translate3d(-10px, 0, 0) scale(1); }
+  to { transform: translate3d(14px, -12px, 0) scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .split-wave { animation: none; }
+}
+
+.split-login-caption {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: #ffffff;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.split-login-caption strong { font-size: 0.8125rem; }
+
+/* Tablet: narrower art column. Phone: form only, art becomes a slim banner. */
+@media (max-width: 900px) {
+  .split-login-frame { grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); }
+  .split-login-caption { display: none; }
+}
+@media (max-width: 720px) {
+  .split-login-frame {
+    width: 100%;
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+    grid-template-rows: 140px 1fr;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .split-login-art { order: -1; border-radius: 0 0 24px 24px; }
+  .split-login-panel { border-radius: 0; padding: 32px 16px 40px; align-items: flex-start; background: transparent; }
+}
