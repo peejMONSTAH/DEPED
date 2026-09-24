@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import { AppIcon } from '../../components/common/AppIcon';
-import apiClient from '../../api/client';
+import apiClient, { API_BASE_URL } from '../../api/client';
+import { IDLE_PREVIEW, PreviewController, PreviewState, loadDocumentPreview, previewRequestOptions } from '../../components/common/document-preview';
 import './annex-c-verification-modal.css';
 
 export interface AnnexCItemState {
@@ -86,10 +87,13 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
     }
     return null;
   });
-  const [docLoading, setDocLoading] = useState(false);
-  const [docError, setDocError] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [resolvedType, setResolvedType] = useState<string>('');
+  const [preview, setPreview] = useState<PreviewState>(IDLE_PREVIEW);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const previewRef = useRef<PreviewController | null>(null);
+  const docLoading = preview.status === 'loading';
+  const docError = preview.error;
+  const blobUrl = preview.url;
+  const resolvedType = preview.type;
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [openingNewTab, setOpeningNewTab] = useState(false);
@@ -102,69 +106,42 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
   // Ref tracking trigger button for focus restoration
   const triggerButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Clean up Blob URLs to prevent memory leaks
-  const cleanBlobUrl = useCallback(() => {
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl);
-      setBlobUrl(null);
-    }
-  }, [blobUrl]);
+  // One controller per mount owns the request and the blob URL. Created inside
+  // the effect so Strict Mode's mount/unmount/mount gets a live controller.
+  useEffect(() => {
+    const controller = new PreviewController(setPreview);
+    previewRef.current = controller;
+    return () => {
+      controller.dispose();
+      if (previewRef.current === controller) previewRef.current = null;
+    };
+  }, []);
 
-  // Fetch document preview
-  const fetchActiveDocument = useCallback(async () => {
-    if (!activeDoc || !activeDoc.personnelDocumentId) {
-      cleanBlobUrl();
+  // Keyed on the document id, not the item object or a callback, so a new
+  // blob URL can never retrigger its own fetch.
+  const activeDocId = isOpen ? activeDoc?.personnelDocumentId : undefined;
+  const activeDocName = activeDoc?.documentName;
+  useEffect(() => {
+    const controller = previewRef.current;
+    if (!controller) return;
+    if (!activeDocId) {
+      controller.clear();
       return;
     }
-    const fileUrl = `/personnel/documents/${activeDoc.personnelDocumentId}/file`;
-    setDocLoading(true);
-    setDocError(null);
     setPopupBlockedUrl(null);
     setZoom(1);
     setRotation(0);
-
-    try {
-      const response = await apiClient.get(fileUrl, { responseType: 'blob' });
-      const blob: Blob = response.data;
-      const type = blob.type || (activeDoc.documentName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-      setResolvedType(type);
-
-      const objectUrl = URL.createObjectURL(blob);
-      setBlobUrl(objectUrl);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      if (status === 404) {
-        setDocError('This document is unavailable, or you do not have permission to view it.');
-      } else if (status === 403) {
-        setDocError('You do not have authorization to view this document.');
-      } else if (status === 401) {
-        setDocError('Session expired. Please sign in again.');
-      } else {
-        setDocError(err?.response?.data?.message || 'Failed to load document preview. Please check network connection.');
-      }
-    } finally {
-      setDocLoading(false);
-    }
-  }, [activeDoc, cleanBlobUrl]);
-
-  useEffect(() => {
-    if (activeDoc) {
-      void fetchActiveDocument();
-    } else {
-      cleanBlobUrl();
-    }
-    return () => {
-      cleanBlobUrl();
-    };
-  }, [activeDoc, fetchActiveDocument, cleanBlobUrl]);
+    const fileUrl = `/personnel/documents/${activeDocId}/file`;
+    const fallbackType = activeDocName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : undefined;
+    void controller.load(signal => loadDocumentPreview(apiClient, fileUrl, API_BASE_URL, fallbackType, previewRequestOptions(signal)));
+    // activeDocName only refines the type guess; it must not start a new fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDocId, retryNonce]);
 
   // When modal closes, reset active preview
   useEffect(() => {
-    if (!isOpen) {
-      setActiveDoc(null);
-      cleanBlobUrl();
-    }
-  }, [isOpen, cleanBlobUrl]);
+    if (!isOpen) setActiveDoc(null);
+  }, [isOpen]);
 
   if (!isOpen || !applicant) return null;
 
@@ -190,7 +167,6 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
   const handleCloseInspector = () => {
     const prevCode = activeDoc?.code;
     setActiveDoc(null);
-    cleanBlobUrl();
     if (prevCode && triggerButtonRefs.current[prevCode]) {
       triggerButtonRefs.current[prevCode]?.focus();
     }
@@ -747,6 +723,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                         type="button"
                         className="annex-c-tool-btn"
                         onClick={handleDownload}
+                        disabled={docLoading}
                         title="Download file"
                       >
                         <Download size={14} />
@@ -789,8 +766,13 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 )}
 
                 {/* Preview Specimen Body */}
-                <div className="annex-c-preview-viewport">
-                  {docLoading ? (
+                <div className="annex-c-preview-viewport" aria-busy={docLoading}>
+                  {docLoading && blobUrl && (
+                    <div className="annex-c-preview-refreshing" role="status">
+                      <Loader2 size={16} className="spin" color="#2f7d52" /> Loading document preview…
+                    </div>
+                  )}
+                  {docLoading && !blobUrl ? (
                     <div className="annex-c-preview-status">
                       <Loader2 size={32} className="spin" color="#2f7d52" />
                       <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text-secondary)', fontSize: '1rem' }}>
@@ -809,7 +791,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                       <button
                         type="button"
                         className="annex-c-btn-secondary"
-                        onClick={() => void fetchActiveDocument()}
+                        onClick={() => setRetryNonce(n => n + 1)}
                         style={{ marginTop: 8 }}
                       >
                         <RefreshCw size={13} /> Retry

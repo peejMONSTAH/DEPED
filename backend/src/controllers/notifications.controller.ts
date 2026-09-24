@@ -42,6 +42,39 @@ export const streamNotifications = (req: Request, res: Response): void => {
   });
 };
 
+/**
+ * Stable deep-link ids for promotion notifications. Only ids are added, never
+ * record contents: the Promotions page re-fetches both through its own
+ * station-scoped endpoints, so a link grants no access by itself. Rows written
+ * before application-level notifications keep working as cycle-only links.
+ */
+export const withPromotionTargets = async <T extends { relatedEntityId: number | null; relatedEntityType: string | null }>(
+  rows: T[],
+): Promise<Array<T & { promotionCycleId?: number; promotionApplicationId?: number }>> => {
+  const appIds = [...new Set(rows
+    .filter(n => n.relatedEntityType === 'PromotionApplication' && n.relatedEntityId)
+    .map(n => n.relatedEntityId as number))];
+  const cycleByApp = new Map<number, number>();
+  if (appIds.length > 0) {
+    const apps = await prisma.promotionApplication.findMany({
+      where: { id: { in: appIds } },
+      select: { id: true, promotionCycleId: true },
+    });
+    apps.forEach(a => cycleByApp.set(a.id, a.promotionCycleId));
+  }
+  return rows.map(n => {
+    if (n.relatedEntityType === 'PromotionCycle' && n.relatedEntityId) {
+      return { ...n, promotionCycleId: n.relatedEntityId };
+    }
+    if (n.relatedEntityType === 'PromotionApplication' && n.relatedEntityId) {
+      const promotionCycleId = cycleByApp.get(n.relatedEntityId);
+      // A deleted application still links, and the page reports it missing.
+      return { ...n, promotionApplicationId: n.relatedEntityId, ...(promotionCycleId ? { promotionCycleId } : {}) };
+    }
+    return n;
+  });
+};
+
 export const getNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
@@ -65,7 +98,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       prisma.notification.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       prisma.notification.count({ where }),
     ]);
-    sendSuccess(res, data, undefined, 200, buildPaginationMeta(page, limit, total));
+    sendSuccess(res, await withPromotionTargets(data), undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {
     logger.error({ err: error }, 'Failed to get notifications');
     res.status(500).json({ status: 'error', message: 'Failed to retrieve notifications.' });

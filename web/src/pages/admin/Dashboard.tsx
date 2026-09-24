@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../api/queryClient';
 import { AccountSetupModal } from '../../components/common/AccountSetupModal';
 import { clickable } from '../../a11y/clickable';
+import { notificationPromotionPath } from '../../promotions/deepLink';
 
 type TransactionItem = {
   id: string;
@@ -188,7 +189,9 @@ export const AdminDashboard: React.FC = () => {
     // Route dynamically based on message or related entity
     const msg = (n.message || '').toLowerCase();
     const entity = (n.relatedEntityType || '').toLowerCase();
-    if (entity === 'accountcreationrequest' || msg.includes('account') || msg.includes('credential')) {
+    if (entity === 'promotioncycle' || entity === 'promotionapplication') {
+      navigate(notificationPromotionPath(n));
+    } else if (entity === 'accountcreationrequest' || msg.includes('account') || msg.includes('credential')) {
       navigate('/admin/credentials');
     } else if (msg.includes('validation') || (user?.role === 'AO_II' && entity === 'transaction')) {
       navigate('/admin/documents');

@@ -6,6 +6,7 @@ import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { clickable } from '../../a11y/clickable';
+import { notificationPromotionPath } from '../../promotions/deepLink';
 
 type NotificationItem = {
   id: number;
@@ -60,6 +61,18 @@ export const AdminNotifications: React.FC = () => {
   const getActionConfig = (n: NotificationItem) => {
     const msg = (n.message || '').toLowerCase();
     const entity = (n.relatedEntityType || '').toLowerCase();
+
+    // Promotion records link to their exact cycle/application. Checked first so
+    // message keywords ("by HRMO", "approval") cannot misroute them.
+    if (entity === 'promotioncycle' || entity === 'promotionapplication') {
+      return {
+        path: notificationPromotionPath(n),
+        label: entity === 'promotionapplication' ? 'Open Applicant in Promotion Cycle' : 'View Promotion Cycle & Leaderboard',
+        btnClass: 'btn-primary',
+        badge: 'Promotion Cycle',
+        iconName: 'promotions' as const,
+      };
+    }
 
     // 1. Account Creation Request
     if (entity === 'accountcreationrequest' || msg.includes('account creation') || msg.includes('creation request') || msg.includes('new account')) {

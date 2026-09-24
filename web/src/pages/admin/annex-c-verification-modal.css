@@ -1056,3 +1056,30 @@
   border-color: rgba(16, 185, 129, 0.3);
   color: #34d399;
 }
+
+/* Shown over the previous preview while the next document loads, so the
+   viewport never blanks and remounts between selections. */
+.annex-c-preview-refreshing {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.annex-c-preview-viewport[aria-busy="true"] > .annex-c-preview-iframe,
+.annex-c-preview-viewport[aria-busy="true"] > .annex-c-image-canvas {
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}

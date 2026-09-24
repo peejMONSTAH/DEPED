@@ -20,6 +20,8 @@ import { FieldError } from '../../components/common/FieldError';
 import { normaliseAnnexCItem } from '../personnel/checklistData';
 import { AnnexCVerificationModal } from './AnnexCVerificationModal';
 import { CandidateDossierModal } from './CandidateDossierModal';
+import { useSearchParams } from 'react-router-dom';
+import { parsePromotionTarget, resolveTargetApplication, resolveTargetCycle, PromotionTarget } from '../../promotions/deepLink';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -167,6 +169,13 @@ export const PromotionManagement: React.FC = () => {
   // View Applicant 201 Info Modal State
   const [showApplicantInfoModal, setShowApplicantInfoModal] = useState(false);
   const [selectedApplicantInfo, setSelectedApplicantInfo] = useState<any | null>(null);
+
+  // Notification deep link (?cycleId=&applicationId=). Resolved only against
+  // the station-scoped lists this page already fetched; see promotions/deepLink.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [deepLink, setDeepLink] = useState<{ target: PromotionTarget; stage: 'cycle' | 'application' } | null>(null);
+  const [cyclesLoaded, setCyclesLoaded] = useState(false);
+  const [appsLoadedForCycleId, setAppsLoadedForCycleId] = useState<number | null>(null);
 
   // Promotion Selection Confirmation Modal State
   const [showConfirmPromotionModal, setShowConfirmPromotionModal] = useState(false);
@@ -544,6 +553,7 @@ export const PromotionManagement: React.FC = () => {
       console.error('Failed to load promotion cycles:', err);
     } finally {
       if (showLoading) setLoading(false);
+      setCyclesLoaded(true);
     }
   }, [cycleStatusFilter, cycleSearchQuery]);
 
@@ -634,6 +644,9 @@ export const PromotionManagement: React.FC = () => {
       setSubmittedApps(backendList);
     } catch (err) {
       console.warn('Could not fetch applications:', err);
+    } finally {
+      // Also on failure, so a pending deep link resolves (as unavailable) rather than waiting forever.
+      setAppsLoadedForCycleId(cycleId);
     }
   }, []);
 
@@ -666,6 +679,49 @@ export const PromotionManagement: React.FC = () => {
     }
     fetchPlantillaItems();
   });
+
+  // 1. Read the link once, then drop it from the URL so refresh/back does not replay it.
+  useEffect(() => {
+    if (!searchParams.has('cycleId') && !searchParams.has('applicationId')) return;
+    const target = parsePromotionTarget(searchParams);
+    if (target) {
+      setDeepLink({ target, stage: 'cycle' });
+    } else {
+      addToast('This notification link is invalid. Showing all promotion cycles.', 'WARNING');
+    }
+    const rest = new URLSearchParams(searchParams);
+    rest.delete('cycleId');
+    rest.delete('applicationId');
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams, addToast]);
+
+  // 2. Select the cycle, but only from the list the server scoped for this account.
+  useEffect(() => {
+    if (!deepLink || deepLink.stage !== 'cycle' || !cyclesLoaded) return;
+    const resolved = resolveTargetCycle(deepLink.target, cycles);
+    if (resolved.kind === 'unavailable') {
+      addToast(resolved.message, 'WARNING');
+      setDeepLink(null);
+      return;
+    }
+    setSelectedCycle(resolved.cycle);
+    setDeepLink(deepLink.target.applicationId ? { ...deepLink, stage: 'application' } : null);
+  }, [deepLink, cyclesLoaded, cycles, addToast]);
+
+  // 3. Once that cycle's (station-scoped) applications arrive, open the applicant.
+  useEffect(() => {
+    if (!deepLink || deepLink.stage !== 'application') return;
+    const { cycleId } = deepLink.target;
+    if (selectedCycle?.id !== cycleId || appsLoadedForCycleId !== cycleId) return;
+    const resolved = resolveTargetApplication(deepLink.target, submittedApps);
+    if (resolved?.kind === 'found') {
+      setSelectedApplicantInfo(resolved.application);
+      setShowApplicantInfoModal(true);
+    } else if (resolved) {
+      addToast(resolved.message, 'WARNING');
+    }
+    setDeepLink(null);
+  }, [deepLink, selectedCycle?.id, appsLoadedForCycleId, submittedApps, addToast]);
 
 
 

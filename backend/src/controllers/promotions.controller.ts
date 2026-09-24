@@ -760,8 +760,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
             ? `📋 AO II Requirements Verified: ${applicantName}'s documentary requirements were verified COMPLETE by AO II. Endorsed for HRMPSB score deliberation.`
             : `⚠️ AO II Requirements Deficient: ${applicantName}'s documentary requirements were marked INCOMPLETE by AO II.`,
           type: isComplete ? 'SUCCESS' : 'WARNING',
-          relatedEntityId: cycleId,
-          relatedEntityType: 'PromotionCycle',
+          relatedEntityId: appId,
+          relatedEntityType: 'PromotionApplication',
         })),
       });
       notifyUserNotifications(hrmoUsers.map(h => h.id));
@@ -1717,8 +1717,8 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
         userId,
         message: `📋 New Promotion Application Received: ${applicantName} (${empId}) registered for ${cycle.name}.`,
         type: 'INFO',
-        relatedEntityId: cycleId,
-        relatedEntityType: 'PromotionCycle',
+        relatedEntityId: application.id,
+        relatedEntityType: 'PromotionApplication',
       })),
     });
     notifyUserNotifications(reviewerIds);
@@ -1956,8 +1956,8 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
         userId,
         message: `📋 New Promotion Application Received: ${applicantName} (${empId}) applied for ${cycle.name}.`,
         type: 'INFO',
-        relatedEntityId: cycleId,
-        relatedEntityType: 'PromotionCycle',
+        relatedEntityId: application.id,
+        relatedEntityType: 'PromotionApplication',
       })),
     });
     notifyUserNotifications(reviewerIds);
