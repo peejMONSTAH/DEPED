@@ -336,63 +336,81 @@ export const Checklist: React.FC = () => {
 
       {checklistError && <div role="alert" className="card mb-4">{checklistError} <button type="button" className="btn btn-secondary" onClick={() => void fetchTransactionData()}>Retry</button></div>}
 
-      {/* Step 7: Automated Compliance Evaluation Score Card */}
-      <div className="card mb-5" style={{ borderLeft: `4px solid ${isComplete ? 'var(--color-success)' : 'var(--color-warning)'}` }}>
-        <div className="text-xs text-muted mb-2" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-          Automated Compliance Evaluation
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div>
-            <span style={{ fontWeight: 600, fontSize: 'var(--text-base)' }}>
-              Transaction: <span className="badge badge-validated">{actualType || TX_TYPE_LABELS[txType] || txType}</span>
+      {/* Step 7: Compliance summary. "Not uploaded yet" and "returned by AO II" are
+          different situations, so they are listed separately. */}
+      {(() => {
+        const returned = missingReqs.filter(r => r.status === 'DEFICIENT');
+        const notUploaded = missingReqs.filter(r => r.status !== 'DEFICIENT');
+        const tone = isComplete ? 'var(--color-success)' : returned.length ? 'var(--color-danger)' : 'var(--color-warning)';
+        const pill = isComplete ? { cls: 'badge-approved', text: 'Ready for validation' }
+          : returned.length ? { cls: 'badge-deficiency', text: `${returned.length} returned for correction` }
+          : { cls: 'badge-pending', text: completedReqs.length ? 'In progress' : 'Not started' };
+        const row = (r: RequirementItem, color: string, icon: 'approved' | 'warning' | 'pending', note?: string) => (
+          <li key={r.requirementId} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0', borderTop: '1px solid var(--color-border)' }}>
+            <span style={{ marginTop: 2 }}><AppIcon name={icon} size={14} color={color} /></span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{r.name}</span>
+              {note && <span className="text-xs text-muted" style={{ display: 'block' }}>{note}</span>}
             </span>
-            <div style={{ marginTop: 4 }}>
-              <span style={{ fontWeight: 700, fontSize: 'var(--text-xl)', color: isComplete ? 'var(--color-success)' : 'var(--color-warning)' }}>
-                Compliance Score: {score}%
-              </span>
+          </li>
+        );
+        return (
+          <section className="card mb-5" aria-label="Compliance summary" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+              <div>
+                <div className="text-xs text-muted" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
+                  Requirements · {actualType || TX_TYPE_LABELS[txType] || txType}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
+                  <span style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, color: tone }}>{score}%</span>
+                  <span className="text-sm text-muted">complete · {completedReqs.length} of {items.length} uploaded</span>
+                </div>
+              </div>
+              <span className={`badge ${pill.cls}`} style={{ fontSize: 13, padding: '6px 14px' }}>{pill.text}</span>
             </div>
-          </div>
-          <span className={`badge ${isComplete ? 'badge-approved' : 'badge-deficiency'}`} style={{ fontSize: 13, padding: '6px 14px' }}>
-            {isComplete ? 'Ready for Validation' : 'Action Required: Fix Deficiencies'}
-          </span>
-        </div>
 
-        <div style={{ width: '100%', height: 8, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
-          <div style={{ width: `${score}%`, height: '100%', background: isComplete ? 'var(--color-success)' : 'var(--color-warning)', transition: 'width 0.4s' }} />
-        </div>
+            <div style={{ height: 8, background: 'var(--color-border)', borderRadius: 999, overflow: 'hidden', margin: '14px 0 4px' }}>
+              <div style={{ width: `${score}%`, height: '100%', background: tone, transition: 'width 0.4s' }} />
+            </div>
 
-        {completedReqs.length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <div className="text-xs text-muted mb-1" style={{ fontWeight: 600 }}>Uploaded Requirements (validation status shown below):</div>
-            {completedReqs.map(r => (
-              <div key={r.requirementId} className="text-xs" style={{ color: 'var(--color-success)', padding: '1px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <AppIcon name="approved" size={12} color="var(--color-success)" /> {r.name} <span className="text-muted">— {r.status === 'VALIDATED' ? 'Validated by AO II' : r.needsExtractionReview ? 'Review extracted information' : 'Awaiting validation'}</span>
+            {returned.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div className="text-xs" style={{ fontWeight: 700, color: 'var(--color-danger)', marginBottom: 2 }}>Returned by AO II — upload a corrected copy</div>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {returned.map(r => row(r, 'var(--color-danger)', 'warning', r.rejectionNotes || undefined))}
+                </ul>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {missingReqs.length > 0 && (
-          <div style={{ marginBottom: 8 }}>
-            <div className="text-xs text-muted mb-1" style={{ fontWeight: 600 }}>Deficient / Missing Items (Re-upload Required):</div>
-            {missingReqs.map(r => (
-              <div key={r.requirementId} className="text-xs" style={{ color: 'var(--color-danger)', padding: '1px 0', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <AppIcon name="warning" size={12} color="#f85149" /> {r.name} {r.rejectionNotes ? `— ${r.rejectionNotes}` : ''}
+            {notUploaded.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div className="text-xs text-muted" style={{ fontWeight: 700, marginBottom: 2 }}>Still to upload</div>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {notUploaded.map(r => row(r, 'var(--color-warning)', 'pending'))}
+                </ul>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 8, marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <div className="text-xs text-muted">
-            {isComplete
-              ? 'All mandatory requirements fulfilled. Click below to submit your application to AO II for validation.'
-              : `Action Required: Re-upload the ${missingReqs.length} deficient requirement(s) flagged above to complete submission.`
-            }
-          </div>
-        </div>
-      </div>
+            {completedReqs.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div className="text-xs text-muted" style={{ fontWeight: 700, marginBottom: 2 }}>Uploaded</div>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {completedReqs.map(r => row(r, 'var(--color-success)', 'approved',
+                    r.status === 'VALIDATED' ? 'Validated by AO II' : r.needsExtractionReview ? 'Review the extracted information' : 'Awaiting AO II validation'))}
+                </ul>
+              </div>
+            )}
+
+            <p className="text-xs text-muted" style={{ margin: '14px 0 0' }}>
+              {isComplete
+                ? 'All required documents are in. Submit below to send your application to AO II for validation.'
+                : returned.length
+                  ? `Upload corrected copies of the ${returned.length} returned document${returned.length === 1 ? '' : 's'}${notUploaded.length ? ` and the ${notUploaded.length} still missing` : ''} to submit.`
+                  : `Upload the ${notUploaded.length} remaining document${notUploaded.length === 1 ? '' : 's'} to submit.`}
+            </p>
+          </section>
+        );
+      })()}
 
       {/* Mandatory Checklist Items in Table Card */}
       <div className="table-card-large mb-5">
@@ -553,20 +571,34 @@ export const Checklist: React.FC = () => {
 
       {attachReqItem && <ModalPortal><ModalOverlay onDismiss={attachLoading ? undefined : () => setAttachReqItem(null)}>
         <section className="modal" role="dialog" aria-modal="true" aria-label={`Attach to ${attachReqItem.name}`}
-          style={{ width: 'min(94vw, 620px)', maxHeight: '85dvh', overflowY: 'auto', padding: 20 }}>
-          <h2 style={{ marginTop: 0 }}>Attach from My Documents</h2>
-          <p>Choose a document that matches “{attachReqItem.name}”. A separate copy will be saved with this appointment transaction.</p>
-          {attachLoading && <p>Loading…</p>}
-          {!attachLoading && existingDocuments.length === 0 && <p>No eligible PDF, PNG, or JPEG is available in My Documents.</p>}
-          <div style={{ display: 'grid', gap: 8 }}>
-            {existingDocuments.map(doc => <button key={doc.id} type="button" className="btn btn-secondary"
-              disabled={attachLoading} onClick={() => void attachExisting(doc.id)}
-              style={{ textAlign: 'left', whiteSpace: 'normal', justifyContent: 'flex-start', minHeight: 48 }}>
-              {doc.documentTypeName} — {doc.originalFileName}
-            </button>)}
+          style={{ width: 'min(94vw, 560px)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
+          <header style={{ padding: '20px 20px 12px' }}>
+            <h2 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>Attach from My Documents</h2>
+            <p className="text-sm text-muted" style={{ margin: '6px 0 0' }}>
+              For <strong style={{ color: 'var(--color-text-primary)' }}>{attachReqItem.name}</strong>. A copy is saved with this transaction; your original stays in My Documents.
+            </p>
+          </header>
+          <div style={{ overflowY: 'auto', padding: '0 20px', flex: 1, minHeight: 0 }}>
+            {attachLoading && <p className="text-sm text-muted">Loading…</p>}
+            {!attachLoading && existingDocuments.length === 0 && <p className="text-sm text-muted">No PDF, PNG, or JPEG in My Documents yet. Upload or scan the document instead.</p>}
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+              {existingDocuments.map(doc => <li key={doc.id}>
+                <button type="button" disabled={attachLoading} onClick={() => void attachExisting(doc.id)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', textAlign: 'left',
+                    background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, cursor: 'pointer', font: 'inherit', color: 'inherit' }}>
+                  <AppIcon name="document" size={18} color="var(--color-primary)" />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontWeight: 700, fontSize: 'var(--text-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.documentTypeName}</span>
+                    <span className="text-xs text-muted" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.originalFileName ?? undefined}>{doc.originalFileName}</span>
+                  </span>
+                  <span className="text-xs" style={{ fontWeight: 700, color: 'var(--color-primary)', flexShrink: 0 }}>Attach</span>
+                </button>
+              </li>)}
+            </ul>
           </div>
-          <button type="button" className="btn btn-secondary" disabled={attachLoading}
-            onClick={() => setAttachReqItem(null)} style={{ marginTop: 16 }}>Cancel</button>
+          <footer style={{ padding: 16, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--color-border)', marginTop: 12 }}>
+            <button type="button" className="btn btn-secondary" disabled={attachLoading} onClick={() => setAttachReqItem(null)}>Cancel</button>
+          </footer>
         </section>
       </ModalOverlay></ModalPortal>}
 

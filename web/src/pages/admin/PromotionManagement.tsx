@@ -5821,7 +5821,23 @@ export const PromotionManagement: React.FC = () => {
                       </span>
                     </label>
 
-                    {cyclePlantillas.length > 0 ? (
+                    {cyclePlantillas.length === 1 ? (
+                      // A single-post cycle has nothing to choose: the posted item is the one.
+                      <div>
+                        {(() => {
+                          const pNum = cyclePlantillas[0];
+                          const pItem = plantillaItems.find(p => p.itemNumber === pNum);
+                          return (
+                            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 10px', fontSize: '1rem', fontWeight: 700 }}>
+                              {pNum}{pItem ? ` — ${pItem.positionTitle} (SG ${pItem.salaryGrade}) • ${pItem.department}` : ''}
+                            </div>
+                          );
+                        })()}
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+                          The plantilla item posted for this promotion. When the promotion appointment is officially approved, this item will be occupied by them.
+                        </div>
+                      </div>
+                    ) : cyclePlantillas.length > 0 ? (
                       <div>
                         <select aria-label="Designated plantilla item for this candidate"
                           className="form-input"
