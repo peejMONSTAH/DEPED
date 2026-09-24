@@ -766,10 +766,6 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
     return;
   }
 
-  if (req.user?.role === 'AO_II' && !isValidPersonnelDocumentFile(req.file)) {
-    sendBadRequest(res, 'Attach the personnel\'s valid PDS PDF, PNG or JPEG (maximum 10 MB).');
-    return;
-  }
   if (req.file && !isValidPersonnelDocumentFile(req.file)) {
     sendBadRequest(res, 'Choose a valid PDS PDF, PNG or JPEG up to 10 MB.');
     return;

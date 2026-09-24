@@ -20,12 +20,13 @@ test('account-request PDS validation checks extension, MIME type, and file signa
   assert.equal(isValidPersonnelDocumentFile(file('personnel.pdf', 'text/plain', Buffer.from('%PDF-1.7\n'))), false);
 });
 
-test('account-request PDS is required for AO submission and promoted into the Digital 201 file on approval', () => {
+test('account-request PDS is optional, validated when attached, and promoted into the Digital 201 file on approval', () => {
   const controller = fs.readFileSync(path.join(__dirname, '../src/controllers/users.controller.ts'), 'utf8');
   const routes = fs.readFileSync(path.join(__dirname, '../src/routes/users.routes.ts'), 'utf8');
   assert.match(routes, /requests\/extract-pds/);
   assert.match(routes, /personnelDocumentUpload\.single\('pdsFile'\), submitAccountRequest/);
-  assert.match(controller, /req\.user\?\.role === 'AO_II'.*!isValidPersonnelDocumentFile\(req\.file\)/s);
+  assert.doesNotMatch(controller, /req\.user\?\.role === 'AO_II' && !isValidPersonnelDocumentFile/);
+  assert.match(controller, /req\.file && !isValidPersonnelDocumentFile\(req\.file\)/);
   assert.match(controller, /documentTypeId: 'PDS'[\s\S]*status: PersonnelDocumentStatus\.SUBMITTED/);
   assert.match(controller, /pdsStoragePath: _storage/);
 });

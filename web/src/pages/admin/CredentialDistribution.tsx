@@ -358,11 +358,6 @@ export const CredentialDistribution: React.FC = () => {
       return;
     }
 
-    if (isAo && isSchoolPersonnel && !pdsFile) {
-      addToast('Please attach the personnel\'s PDS before submitting the account request.', 'WARNING');
-      return;
-    }
-
     try {
       const payload: any = {
         email: formData.email.trim(),
@@ -1110,7 +1105,7 @@ export const CredentialDistribution: React.FC = () => {
                     </div>
                     <div style={{ padding: 14, border: '1px solid var(--color-border)', borderRadius: 12, background: 'var(--color-bg-secondary)' }}>
                       <label className="form-label" htmlFor="account-request-pds" style={{ fontWeight: 700 }}>
-                        Upload signed Personal Data Sheet (PDS) <span style={{ color: 'var(--color-danger)' }}>*</span>
+                        Upload signed Personal Data Sheet (PDS) <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(optional)</span>
                       </label>
                       <input
                         id="account-request-pds"
@@ -1118,7 +1113,6 @@ export const CredentialDistribution: React.FC = () => {
                         accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
                         onChange={event => void handlePdsSelected(event.target.files?.[0] || null)}
                         disabled={extractingPds || creatingAccount.pending}
-                        required
                         style={{ display: 'block', width: '100%', marginTop: 6 }}
                       />
                       <div style={{ marginTop: 7, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
