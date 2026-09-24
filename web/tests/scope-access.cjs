@@ -64,3 +64,27 @@ test('no page decides station or district access from displayed text', () => {
   }
   assert.deepEqual(offenders, []);
 });
+
+test('personnel station display uses school field and never relies solely on address', () => {
+  const pmSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/PersonnelManagement.tsx'), 'utf8');
+  assert.match(pmSource, /p\.school\s*\|\|\s*p\.plantillaItem\?\.department/, 'PersonnelManagement table must prioritize p.school and p.plantillaItem.department');
+  assert.match(pmSource, /selected\.school\s*\|\|\s*selected\.plantillaItem\?\.department/, 'PersonnelManagement modal must prioritize selected.school and selected.plantillaItem.department');
+
+  const cdSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/CredentialDistribution.tsx'), 'utf8');
+  assert.match(cdSource, /u\.personnel\.school/, 'CredentialDistribution must display u.personnel.school');
+});
+
+test('PersonnelManagement has district and school filters and no division-wide text', () => {
+  const pmSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/PersonnelManagement.tsx'), 'utf8');
+  assert.match(pmSource, /aria-label="Filter by district"/, 'PersonnelManagement must have district filter select');
+  assert.match(pmSource, /aria-label="Filter by school"/, 'PersonnelManagement must have school filter select');
+  assert.equal(/division-wide/i.test(pmSource), false, 'PersonnelManagement must not contain division-wide');
+
+  const cdSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/CredentialDistribution.tsx'), 'utf8');
+  assert.equal(/division-wide/i.test(cdSource), false, 'CredentialDistribution must not contain division-wide');
+
+  const plSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/PlantillaManagement.tsx'), 'utf8');
+  assert.equal(/division-wide/i.test(plSource), false, 'PlantillaManagement must not contain division-wide');
+});
+
+

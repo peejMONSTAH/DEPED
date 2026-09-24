@@ -12,6 +12,7 @@ import { getAllPages } from '../../api/pagination';
 import { personnelDisplayName } from '../../utils/personnel-display';
 import { generateInitialPassword } from '../../utils/password-issue';
 import { usePending } from '../../hooks/usePending';
+import { assignableVacantPlantillas } from '../../utils/plantillaFilters';
 import { Eye, Pencil, KeyRound, Ban, RotateCcw, X } from 'lucide-react';
 import { RowActionMenu, RowAction } from '../../components/common/RowActionMenu';
 import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
@@ -32,6 +33,8 @@ type AccountRecord = {
     lastName: string;
     designation: string;
     address?: string;
+    school?: string;
+    district?: string;
   };
 };
 
@@ -103,18 +106,10 @@ export const CredentialDistribution: React.FC = () => {
     }
   }, [showAddModal]);
 
-  const relevantVacantPlantillas = React.useMemo(() => {
-    const isTeaching = formData.personnelType === 'TEACHING_PERSONNEL';
-    return vacantPlantillas.filter(p => {
-      // Plantilla must not be reserved or open for grab in an active promotion cycle!
-      if (p.isOpenForRanking || p.promotionCycle) return false;
-      const title = (p.positionTitle || '').toLowerCase();
-      const isTeacherTitle = title.includes('teacher') || title.includes('master') || title.includes('head teacher') || title.includes('principal');
-      if (isTeaching && !isTeacherTitle) return false;
-      if (!isTeaching && isTeacherTitle) return false;
-      return true;
-    });
-  }, [vacantPlantillas, formData.personnelType]);
+  const relevantVacantPlantillas = React.useMemo(
+    () => assignableVacantPlantillas(vacantPlantillas, formData.personnelType === 'TEACHING_PERSONNEL' ? 'TEACHING' : 'NON_TEACHING'),
+    [vacantPlantillas, formData.personnelType],
+  );
 
   const handleSelectPlantilla = (pIdStr: string) => {
     if (!pIdStr) {
@@ -808,7 +803,7 @@ export const CredentialDistribution: React.FC = () => {
                               {u.personnel?.designation || (u.role === 'SYSTEM_ADMIN' ? 'System Administrator' : 'HRMO Approver / Manager')}
                             </div>
                             <div className="text-xs font-semibold" style={{ color: 'var(--color-primary-light)', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <AppIcon name="settings" size={12} /> Division-Wide Scope (SDO Koronadal City • No District)
+                              <AppIcon name="settings" size={12} /> SDO Koronadal City • Division Office
                             </div>
                           </div>
                         ) : (
@@ -817,16 +812,16 @@ export const CredentialDistribution: React.FC = () => {
                               {u.personnel ? `${u.personnel.lastName}, ${u.personnel.firstName}` : u.email}
                             </div>
                             <div className="text-xs text-muted">{u.personnel?.designation || 'Personnel'}</div>
-                            {u.personnel?.address && (
+                            {(u.personnel?.school || u.personnel?.address) && (
                               <div className="text-xs font-semibold" style={{ color: 'var(--color-primary-light)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                  <AppIcon name="school" size={12} /> {u.personnel.address.split(',')[0]}
+                                  <AppIcon name="school" size={12} /> {u.personnel.school || u.personnel.address?.split(',')[0]}
                                 </span>
-                                {u.personnel.address.includes(',') && (
+                                {(u.personnel.district || u.personnel.address?.includes(',')) && (
                                   <>
                                     <span style={{ opacity: 0.6 }}>•</span>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                      <AppIcon name="location" size={12} /> {u.personnel.address.split(',').slice(1).join(',').trim()}
+                                      <AppIcon name="location" size={12} /> {u.personnel.district || u.personnel.address?.split(',').slice(1).join(',').trim()}
                                     </span>
                                   </>
                                 )}
@@ -1517,7 +1512,7 @@ export const CredentialDistribution: React.FC = () => {
                     {['SYSTEM_ADMIN', 'HRMO'].includes(selectedAccount.role) ? (
                       <>
                         <AppIcon name="settings" size={13} color="var(--color-primary-light)" />
-                        <span style={{ fontWeight: 600, color: 'var(--color-primary-light)' }}>Division Office (SDO Koronadal City) — Division-Wide Scope (No District)</span>
+                        <span style={{ fontWeight: 600, color: 'var(--color-primary-light)' }}>Division Office (SDO Koronadal City)</span>
                       </>
                     ) : (
                       selectedAccount.personnel?.address || 'City Schools Division of Koronadal'

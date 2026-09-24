@@ -37,24 +37,12 @@ export const MyTransactions: React.FC = () => {
   const getStepProgress = (status: string) => {
     switch (status) {
       case 'PENDING_VALIDATION':
-      case 'SUBMITTED_TO_AO2':
-      case 'SUBMITTED':
-      case 'UNDER_REVIEW':
-      case 'RECEIVED':
         return { step: 2, label: 'Stage 2/4: AO II Receiving & Document Pre-Checking', color: '#f59e0b' };
       case 'FOR_APPROVAL':
-      case 'FORWARDED_TO_HRMO':
-      case 'FORWARDED_TO_DIVISION':
-      case 'UNDER_HR_REVIEW':
         return { step: 3, label: 'Stage 3/4: Division HRMO Review & Final Approval Queue', color: '#c79a2e' };
       case 'APPROVED':
-      case 'APPROVED_BY_HRMO':
-      case 'COMPLETED':
         return { step: 4, label: 'Stage 4/4: Approved & Synchronized into Master 201 File', color: '#10b981' };
       case 'DEFICIENCY':
-      case 'RETURNED_BY_AO2':
-      case 'RETURNED_DEFICIENCY':
-      case 'RETURNED_BY_HRMO':
         return { step: 2, label: 'Action Required: Returned by AO II for Document Compliance', color: '#ef4444' };
       case 'REJECTED':
         return { step: 3, label: 'Application Rejected by HRMO', color: '#ef4444' };

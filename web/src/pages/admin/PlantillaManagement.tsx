@@ -71,7 +71,9 @@ interface CandidatePersonnel {
   lastName: string;
   designation: string;
   address?: string;
-  plantillaItem?: { id: number; itemNumber: string; positionTitle: string } | null;
+  school?: string;
+  district?: string;
+  plantillaItem?: { id: number; itemNumber: string; positionTitle: string; department?: string } | null;
 }
 
 export const PlantillaManagement: React.FC = () => {
@@ -517,7 +519,7 @@ export const PlantillaManagement: React.FC = () => {
     if (!assignSearchQuery.trim()) return personnelList;
     const q = assignSearchQuery.toLowerCase().trim();
     return personnelList.filter((p) =>
-      `${p.firstName} ${p.lastName} ${p.employeeId} ${p.designation} ${p.address || ''}`
+      `${p.firstName} ${p.lastName} ${p.employeeId} ${p.designation} ${p.school || ''} ${p.address || ''}`
         .toLowerCase()
         .includes(q)
     );
@@ -718,7 +720,7 @@ export const PlantillaManagement: React.FC = () => {
               }}
               style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.9375rem' }}
             >
-              <option value="ALL">Division-wide (all districts)</option>
+              <option value="ALL">All Districts</option>
               {DEPED_KORONADAL_DISTRICTS.map(d => (
                 <option key={d.name} value={d.name}>{d.name}</option>
               ))}
@@ -1219,7 +1221,7 @@ export const PlantillaManagement: React.FC = () => {
                     style={{ fontSize: '0.8125rem' }}
                   >
                     <option value="">Select district</option>
-                    <option value="SDO Koronadal City">Division Office (division-wide)</option>
+                    <option value="SDO Koronadal City">Division Office</option>
                     {DEPED_KORONADAL_DISTRICTS.map(d => (
                       <option key={d.id} value={`SDO Koronadal City - ${d.name}`}>{d.name}</option>
                     ))}
@@ -1450,12 +1452,27 @@ export const PlantillaManagement: React.FC = () => {
                                         {p.firstName} {p.lastName}
                                       </div>
                                       <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                                        {p.employeeId} • {p.designation}
+                                        {p.employeeId} • {p.designation} • <span style={{ color: 'var(--color-primary-light)', fontWeight: 600 }}>{p.school || p.plantillaItem?.department || p.address?.split(',')[0] || 'Unassigned Station'}</span>
                                       </div>
                                     </div>
                                   </div>
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    {selectedPlantillaForAssign?.department && p.school && selectedPlantillaForAssign.department.trim().toLowerCase() !== p.school.trim().toLowerCase() && (
+                                      <span
+                                        style={{
+                                          fontSize: '0.625rem',
+                                          padding: '2px 6px',
+                                          borderRadius: '4px',
+                                          background: 'rgba(59, 130, 246, 0.1)',
+                                          color: '#3B82F6',
+                                          fontWeight: 600,
+                                        }}
+                                        title={`Assigning will transfer personnel from ${p.school} to ${selectedPlantillaForAssign.department}`}
+                                      >
+                                        Station Transfer
+                                      </span>
+                                    )}
                                     {isAlreadyInAnother ? (
                                       <span
                                         style={{

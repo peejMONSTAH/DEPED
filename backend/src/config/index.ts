@@ -36,6 +36,9 @@ export const config = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     from: process.env.EMAIL_FROM || 'Digital 201 <noreply@deped.gov.ph>',
+    // Mailtrap's HTTPS sending API. Used instead of SMTP when set: hosts such as
+    // Railway block outbound SMTP ports, where SMTP connections just hang.
+    mailtrapApiToken: process.env.MAILTRAP_API_TOKEN || '',
   },
 
   rateLimiting: {
@@ -93,7 +96,7 @@ if (isProduction || process.env.DOCUMENT_STORAGE === 'supabase') {
 }
 
 if (isProduction) {
-  if (!config.email.host) failures.push('SMTP_HOST is required in production.');
+  if (!config.email.host && !config.email.mailtrapApiToken) failures.push('SMTP_HOST or MAILTRAP_API_TOKEN is required in production.');
   if (!process.env.CORS_ORIGIN || !process.env.CLIENT_URL) {
     failures.push('CORS_ORIGIN and CLIENT_URL must be explicitly configured in production.');
   }

@@ -16,6 +16,7 @@ import { PersonnelLayout } from './layouts/PersonnelLayout';
 // Pages
 import { LoginPage } from './pages/Login';
 const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => ({ default: m.MagicLogin })));
+const SetupAccount = React.lazy(() => import('./pages/auth/SetupAccount').then(m => ({ default: m.SetupAccount })));
 
 // Admin Pages
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })));
@@ -62,6 +63,7 @@ export const App: React.FC = () => {
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/magic-login" element={<MagicLogin />} />
+            <Route path="/auth/setup-account" element={<SetupAccount />} />
 
             {/* ─── Admin / Staff Web Portal ─────────────────────────────────── */}
             <Route
@@ -75,8 +77,9 @@ export const App: React.FC = () => {
               {/* Shared — all admin roles */}
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="notifications" element={<AdminNotifications />} />
-              <Route path="transactions" element={<TransactionQueue />} />
-              <Route path="transactions/:id" element={<TransactionQueue />} />
+              {/* The HR workflow queue: AO II validates, HRMO approves. */}
+              <Route path="transactions" element={<RequireAuth allowedRoles={['AO_II', 'HRMO']}><TransactionQueue /></RequireAuth>} />
+              <Route path="transactions/:id" element={<RequireAuth allowedRoles={['AO_II', 'HRMO']}><TransactionQueue /></RequireAuth>} />
 
               {/* AO II Step 4 & 5: Document Validation & School Qualification */}
               <Route

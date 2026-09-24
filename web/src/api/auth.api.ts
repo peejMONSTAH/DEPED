@@ -13,5 +13,8 @@ export const authApi = {
 
   magicLogin: (token: string) =>
     apiClient.post<ApiResponse<LoginResponse & { txId?: number }>>('/auth/magic-login', { token }),
+  /** Sets the first password from an emailed setup link and signs the user in. */
+  completeSetup: (token: string, newPassword: string) =>
+    apiClient.post<ApiResponse<LoginResponse>>('/auth/complete-setup', { token, newPassword }),
 };
 

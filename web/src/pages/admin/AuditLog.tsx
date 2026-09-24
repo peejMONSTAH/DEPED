@@ -14,15 +14,6 @@ interface AuditItem {
   status: string;
 }
 
-const MOCK_AUDIT_LOGS: AuditItem[] = [
-  { id: 1, timestamp: '2026-07-21 22:45:12', user: 'admin@deped.gov.ph', role: 'SYSTEM_ADMIN', category: 'Login Activities', action: 'LOGIN_SUCCESS', details: 'Successful login from IP 192.168.1.15', status: 'SUCCESS' },
-  { id: 2, timestamp: '2026-07-21 22:40:02', user: 'admin@deped.gov.ph', role: 'SYSTEM_ADMIN', category: 'Account Creation', action: 'USER_CREATED', details: 'Created user personnel@deped.gov.ph (Role: TEACHING_PERSONNEL)', status: 'SUCCESS' },
-  { id: 3, timestamp: '2026-07-21 21:30:15', user: 'hrmo@deped.gov.ph', role: 'HRMO', category: 'Approval Actions', action: 'TRANSACTION_APPROVED', details: 'Approved Transaction #103 (Promotion)', status: 'SUCCESS' },
-  { id: 4, timestamp: '2026-07-21 21:15:40', user: 'ao2_clara@deped.gov.ph', role: 'AO_II', category: 'Validation Actions', action: 'DOCUMENT_VALIDATED', details: 'Validated Service Record for Juan Dela Cruz', status: 'SUCCESS' },
-  { id: 5, timestamp: '2026-07-21 20:05:00', user: 'personnel@deped.gov.ph', role: 'TEACHING_PERSONNEL', category: 'Document Uploads', action: 'DOCUMENT_UPLOADED', details: 'Uploaded diploma_santos.pdf for Transaction #101', status: 'SUCCESS' },
-  { id: 6, timestamp: '2026-07-21 19:12:00', user: 'ao2_clara@deped.gov.ph', role: 'AO_II', category: 'Returned Submissions', action: 'SUBMISSION_RETURNED', details: 'Returned Transaction #102 due to deficient IPCR rating', status: 'SUCCESS' },
-  { id: 7, timestamp: '2026-07-21 18:00:00', user: 'admin@deped.gov.ph', role: 'SYSTEM_ADMIN', category: 'Account Modifications', action: 'ROLE_MODIFIED', details: 'Updated user permissions for ao2_clara@deped.gov.ph', status: 'SUCCESS' }
-];
 
 const CATEGORIES = [
   { id: 'All Activities', label: 'All Activities', compactLabel: 'All', dotClass: 'dot-all' },
@@ -40,7 +31,10 @@ const CATEGORIES = [
 
 export const AuditLog: React.FC = () => {
   const { addToast } = useToast();
-  const [logs, setLogs] = useState<AuditItem[]>(MOCK_AUDIT_LOGS);
+  // Only real records are ever shown: an audit trail that displays sample rows
+  // (as this page once did whenever the API failed) cannot be trusted at all.
+  const [logs, setLogs] = useState<AuditItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All Activities');
   const [loading, setLoading] = useState(true);
@@ -49,22 +43,23 @@ export const AuditLog: React.FC = () => {
     apiClient.get('/audit-logs?limit=250')
       .then(res => {
         const rawLogs = res.data?.data;
-        if (Array.isArray(rawLogs) && rawLogs.length > 0) {
-          const normalized = rawLogs.map((l: any, idx: number) => ({
-            id: l.id || `log-${idx}`,
-            timestamp: l.timestamp ? new Date(l.timestamp).toLocaleString('en-US') : new Date().toLocaleString('en-US'),
-            user: l.userEmail || l.user || 'system@deped.gov.ph',
-            role: l.userRole || l.role || 'SYSTEM_ADMIN',
-            category: l.category || (l.action?.includes('LOGIN') ? 'Login Activities' : l.action?.includes('USER') ? 'Account Creation' : 'Validation Actions'),
-            action: l.action || 'ACTIVITY_LOGGED',
-            details: typeof l.details === 'object' ? JSON.stringify(l.details) : (l.details || 'Audit action logged.'),
-            status: l.status || 'SUCCESS',
-          }));
-          setLogs(normalized);
-        }
+        // Missing fields are shown as missing, never filled with plausible values.
+        const normalized = (Array.isArray(rawLogs) ? rawLogs : []).map((l: any, idx: number) => ({
+          id: l.id ?? `log-${idx}`,
+          timestamp: l.timestamp ? new Date(l.timestamp).toLocaleString('en-US') : '—',
+          user: l.userEmail || '—',
+          role: l.userRole || '—',
+          category: l.category || 'Uncategorized',
+          action: l.action || '—',
+          details: l.details == null ? '' : typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details),
+          status: l.status || '—',
+        }));
+        setLogs(normalized);
+        setLoadError(null);
       })
       .catch(err => {
-        console.warn('Could not fetch database audit logs, using fallback:', err);
+        setLogs([]);
+        setLoadError(err?.response?.data?.message || 'The audit trail could not be loaded. No records are shown until it loads.');
       })
       .finally(() => {
         setLoading(false);
@@ -319,6 +314,15 @@ export const AuditLog: React.FC = () => {
                     <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--color-text-secondary)' }}>
                       Loading security audit trail records…
                     </div>
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={6} role="alert" style={{ textAlign: 'center', padding: '48px 24px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-danger, #dc2626)', marginBottom: 6 }}>
+                      Audit trail unavailable
+                    </div>
+                    <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>{loadError}</div>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (

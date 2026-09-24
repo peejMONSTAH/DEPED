@@ -13,6 +13,7 @@ import { accessDeniedMessage, isAccessDenied } from '../../api/access';
 import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
 import { usePending } from '../../hooks/usePending';
+import { assignableVacantPlantillas, schoolOptionsFor, schoolAfterDistrictChange, districtOfDivision } from '../../utils/plantillaFilters';
 import { generateInitialPassword } from '../../utils/password-issue';
 
 /** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */
@@ -31,12 +32,14 @@ type PersonnelItem = {
   civilStatus?: string;
   contactNumber?: string;
   address?: string;
+  school?: string;
+  district?: string;
   designation: string;
   status: string;
   dateHired: string;
   profileComplete: boolean;
   user?: { email: string; lastLogin?: string; role?: { name: string } };
-  plantillaItem?: { itemNumber: string; positionTitle: string; salaryGrade: number; department: string };
+  plantillaItem?: { itemNumber: string; positionTitle: string; salaryGrade: number; department: string; division?: string };
   transactions?: Array<{ uploadedDocuments?: Array<{ id: number; fileName: string; status: string; requirementTemplate?: { name: string } }> }>;
 };
 
@@ -46,6 +49,8 @@ export const PersonnelManagement: React.FC = () => {
   const [personnel, setPersonnel] = useState<PersonnelItem[]>([]);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('ALL');
+  const [schoolFilter, setSchoolFilter] = useState('ALL');
   const [selected, setSelected] = useState<PersonnelItem | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -177,18 +182,10 @@ export const PersonnelManagement: React.FC = () => {
     }
   }, [showAddModal]);
 
-  const relevantVacantPlantillas = React.useMemo(() => {
-    const isTeaching = newCategory === 'TEACHING';
-    return vacantPlantillas.filter(p => {
-      // Plantilla must not be reserved or open for grab in an active promotion cycle!
-      if (p.isOpenForRanking || p.promotionCycle) return false;
-      const title = (p.positionTitle || '').toLowerCase();
-      const isTeacherTitle = title.includes('teacher') || title.includes('master') || title.includes('head teacher') || title.includes('principal');
-      if (isTeaching && !isTeacherTitle) return false;
-      if (!isTeaching && isTeacherTitle) return false;
-      return true;
-    });
-  }, [vacantPlantillas, newCategory]);
+  const relevantVacantPlantillas = React.useMemo(
+    () => assignableVacantPlantillas(vacantPlantillas, newCategory === 'TEACHING' ? 'TEACHING' : 'NON_TEACHING'),
+    [vacantPlantillas, newCategory],
+  );
 
   const handleSelectPlantilla = (pIdStr: string) => {
     if (!pIdStr) {
@@ -242,6 +239,8 @@ export const PersonnelManagement: React.FC = () => {
               firstName: account.personnel.firstName || '',
               lastName: account.personnel.lastName || '',
               designation: account.personnel.designation || '',
+              school: (account.personnel as any).school || '',
+              district: (account.personnel as any).district || '',
               status: '',
               dateHired: '',
               profileComplete: false,
@@ -265,10 +264,57 @@ export const PersonnelManagement: React.FC = () => {
   };
 
   const filtered = personnel.filter(p => {
+    if (isAo) {
+      const aoStation = (
+        user?.personnel?.school ||
+        (user as any)?.designation?.replace(/^Administrative Officer II\s*[-–—]?\s*/i, '').replace(/\s*\([^)]*\)$/, '').trim() ||
+        ''
+      ).toLowerCase();
+      const pStation = (p.school || p.plantillaItem?.department || '').toLowerCase();
+      if (aoStation && pStation && aoStation !== pStation) {
+        return false;
+      }
+    }
+
+    if (districtFilter !== 'ALL') {
+      const rawDistrict = (p.district || p.plantillaItem?.division || '').trim();
+      let matchedDist: string | null = null;
+      if (rawDistrict) {
+        matchedDist = districtOfDivision(rawDistrict, DEPED_KORONADAL_DISTRICTS) ||
+          (DEPED_KORONADAL_DISTRICTS.some(d => d.name.toLowerCase() === rawDistrict.toLowerCase())
+            ? DEPED_KORONADAL_DISTRICTS.find(d => d.name.toLowerCase() === rawDistrict.toLowerCase())!.name
+            : null);
+      }
+      const rawSchool = (p.school || p.plantillaItem?.department || p.address?.split(',')[0] || '').trim();
+      if (!matchedDist && rawSchool) {
+        const found = DEPED_KORONADAL_DISTRICTS.find(d => d.schools.some(s => s.toLowerCase() === rawSchool.toLowerCase()));
+        if (found) matchedDist = found.name;
+      }
+      if (!matchedDist && p.address) {
+        const found = DEPED_KORONADAL_DISTRICTS.find(d => new RegExp(`\\b${d.name}\\b`, 'i').test(p.address || ''));
+        if (found) matchedDist = found.name;
+      }
+
+      if (matchedDist !== districtFilter) {
+        return false;
+      }
+    }
+
+    if (schoolFilter !== 'ALL') {
+      const rawSchool = (p.school || p.plantillaItem?.department || p.address?.split(',')[0] || '').trim().toLowerCase();
+      if (rawSchool !== schoolFilter.toLowerCase()) {
+        return false;
+      }
+    }
+
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
     return (
-      `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      (p.employeeId && p.employeeId.toLowerCase().includes(search.toLowerCase())) ||
-      (p.designation && p.designation.toLowerCase().includes(search.toLowerCase()))
+      `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
+      (p.employeeId && p.employeeId.toLowerCase().includes(q)) ||
+      (p.designation && p.designation.toLowerCase().includes(q)) ||
+      (p.school && p.school.toLowerCase().includes(q)) ||
+      (p.district && p.district.toLowerCase().includes(q))
     );
   });
 
@@ -388,18 +434,18 @@ export const PersonnelManagement: React.FC = () => {
           <h1 className="topbar-title" style={{ margin: 0 }}>Personnel Records Management</h1>
           {user?.role === 'AO_II' ? (
             <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
-              <AppIcon name="school" size={13} /> {(user as any).designation || user.lastName || 'Assigned School'}
+              <AppIcon name="school" size={13} /> {user?.personnel?.school ? `Administrative Officer II - ${user.personnel.school}${user.personnel.district ? ` (${user.personnel.district})` : ''}` : ((user as any).designation || user.lastName || 'Assigned School')}
             </span>
           ) : user?.role === 'HRMO' ? (
             <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
-              <AppIcon name="settings" size={13} /> SDO Koronadal City (Division-Wide)
+              <AppIcon name="settings" size={13} /> SDO Koronadal City
             </span>
           ) : null}
         </div>
         <div className="topbar-actions">
           {canManage && (
             <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
-              + Add Personnel
+              Add Personnel
             </button>
           )}
         </div>
@@ -407,8 +453,8 @@ export const PersonnelManagement: React.FC = () => {
 
       <div className="page-content">
         {loadError && <div className="alert alert-danger" role="alert">{loadError} <button type="button" className="btn btn-secondary btn-sm" onClick={() => void fetchPersonnel()}>Retry</button></div>}
-        <div className="filter-row">
-          <div className="search-bar" style={{ flex: 1, maxWidth: 400 }}>
+        <div className="filter-row" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="search-bar" style={{ flex: '1 1 280px', maxWidth: 400 }}>
             <span className="search-icon" style={{ display: 'flex', alignItems: 'center' }}>
               <AppIcon name="search" size={14} color="var(--color-text-muted)" />
             </span>
@@ -421,6 +467,52 @@ export const PersonnelManagement: React.FC = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+          </div>
+
+          <div role="group" aria-label="Location filters" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              aria-label="Filter by district"
+              className="form-control"
+              value={districtFilter}
+              onChange={(e) => {
+                const next = e.target.value;
+                setDistrictFilter(next);
+                setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS));
+              }}
+              style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
+            >
+              <option value="ALL">All Districts</option>
+              {DEPED_KORONADAL_DISTRICTS.map(d => (
+                <option key={d.name} value={d.name}>{d.name}</option>
+              ))}
+            </select>
+
+            <select
+              aria-label="Filter by school"
+              className="form-control"
+              value={schoolFilter}
+              onChange={(e) => setSchoolFilter(e.target.value)}
+              style={{ width: 'auto', minWidth: '200px', maxWidth: '100%', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
+            >
+              <option value="ALL">{districtFilter === 'ALL' ? 'All Schools' : `All Schools in ${districtFilter}`}</option>
+              {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => (
+                <option key={school} value={school}>{school}</option>
+              ))}
+            </select>
+
+            {(districtFilter !== 'ALL' || schoolFilter !== 'ALL') && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  setDistrictFilter('ALL');
+                  setSchoolFilter('ALL');
+                }}
+                style={{ fontSize: '0.8125rem' }}
+              >
+                Reset
+              </button>
+            )}
           </div>
         </div>
 
@@ -442,7 +534,7 @@ export const PersonnelManagement: React.FC = () => {
               {filtered.length === 0 && !loadError ? (
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
-                    No personnel records found. Click "+ Add Personnel" above to create employee accounts for Teaching and Non-Teaching personnel.
+                    No personnel records found. Click "Add Personnel" above to create employee accounts for Teaching and Non-Teaching personnel.
                   </td>
                 </tr>
               ) : (
@@ -457,16 +549,16 @@ export const PersonnelManagement: React.FC = () => {
                             <AppIcon name="settings" size={12} /> SDO Koronadal City
                           </span>
                           <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            Division-Wide Scope (No District)
+                            Schools Division Office
                           </span>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="school" size={12} /> {p.address?.split(',')[0] || 'Assigned School'}
+                            <AppIcon name="school" size={12} /> {p.school || p.plantillaItem?.department || p.address?.split(',')[0] || 'Assigned School'}
                           </span>
                           <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="location" size={12} /> {p.address?.includes('District') ? p.address.split(',').slice(1).join(',').trim() : (p.address?.includes(',') ? p.address.split(',').slice(1).join(',').trim() : 'District Station')}
+                            <AppIcon name="location" size={12} /> {p.district || p.plantillaItem?.division || (p.address?.includes('District') ? p.address.split(',').slice(1).join(',').trim() : (p.address?.includes(',') ? p.address.split(',').slice(1).join(',').trim() : 'District Station'))}
                           </span>
                         </div>
                       )}
@@ -502,12 +594,12 @@ export const PersonnelManagement: React.FC = () => {
         const addressParts = selected.address?.split(',') || [];
         const schoolName = isDivisionRole
           ? 'Schools Division Office (SDO Koronadal City)'
-          : (addressParts[0]?.trim() || 'Koronadal Central Elementary School 1');
+          : (selected.school || selected.plantillaItem?.department || addressParts[0]?.trim() || 'Assigned School');
         const districtName = isDivisionRole
-          ? 'Division-Wide Scope • SDO Koronadal City (No District Assigned)'
-          : (selected.address?.includes('District') 
+          ? 'SDO Koronadal City'
+          : (selected.district || selected.plantillaItem?.division || (selected.address?.includes('District') 
             ? addressParts.slice(1).join(',').trim() 
-            : 'District 1 • SDO Koronadal City');
+            : 'District Station'));
 
         return (
           <ModalPortal>

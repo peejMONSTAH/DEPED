@@ -43,7 +43,7 @@ export const Reports: React.FC = () => {
 
   const exportPlantilla = () => downloadCsv('plantilla-audit', ['Item number', 'Position', 'Salary grade', 'Station', 'Division', 'Status'], plantilla.map(i => [i.itemNumber, i.positionTitle, i.salaryGrade, i.department, i.division, i.isOccupied ? 'Occupied' : 'Vacant']));
   const exportTransactions = () => downloadCsv('document-compliance', ['Reference', 'Employee ID', 'Personnel', 'Transaction type', 'Status', 'Compliance percent'], transactions.map(t => [t.referenceNo || `TRX-${t.id}`, t.personnel?.employeeId, `${t.personnel?.firstName || ''} ${t.personnel?.lastName || ''}`.trim(), t.transactionType?.name, t.status, t.complianceScore ?? 0]));
-  const exportDeficiencies = () => downloadCsv('compliance-deficiencies', ['Reference', 'Employee ID', 'Status', 'Compliance percent'], transactions.filter(t => ['DEFICIENCY', 'RETURNED', 'REJECTED'].includes(t.status)).map(t => [t.referenceNo || `TRX-${t.id}`, t.personnel?.employeeId, t.status, t.complianceScore ?? 0]));
+  const exportDeficiencies = () => downloadCsv('compliance-deficiencies', ['Reference', 'Employee ID', 'Status', 'Compliance percent'], transactions.filter(t => ['DEFICIENCY', 'REJECTED'].includes(t.status)).map(t => [t.referenceNo || `TRX-${t.id}`, t.personnel?.employeeId, t.status, t.complianceScore ?? 0]));
 
   const reports = [
     ['Plantilla Item Audit Report', 'Current filled items and vacancies', exportPlantilla],

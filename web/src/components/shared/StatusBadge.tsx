@@ -1,24 +1,33 @@
 import React from 'react';
 import type { TransactionStatus, DocumentStatus } from '../../types';
+import { humanizeEnum, isTransactionStatus, transactionStatusLabel } from '../../constants/transactionStatus';
 
 type StatusType = TransactionStatus | DocumentStatus | string;
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  DRAFT:                    { label: 'Draft',               className: 'badge-draft' },
-  PENDING_VALIDATION:       { label: 'Under AO II Review',  className: 'badge-pending' },
-  SUBMITTED_TO_AO2:         { label: 'Under AO II Review',  className: 'badge-pending' },
-  SUBMITTED:                { label: 'Under AO II Review',  className: 'badge-pending' },
-  DEFICIENCY:               { label: 'Returned by AO II',   className: 'badge-deficiency' },
-  RETURNED_BY_AO2:          { label: 'Returned by AO II',   className: 'badge-deficiency' },
-  FOR_APPROVAL:             { label: 'Under HRMO Review',   className: 'badge-validated' },
-  FORWARDED_TO_HRMO:        { label: 'Under HRMO Review',   className: 'badge-validated' },
-  RETURNED_BY_HRMO:         { label: 'Returned by HRMO',    className: 'badge-deficiency' },
-  APPROVED:                 { label: 'Approved by HRMO',    className: 'badge-approved' },
-  APPROVED_BY_HRMO:         { label: 'Approved by HRMO',    className: 'badge-approved' },
-  REJECTED:                 { label: 'Rejected',            className: 'badge-rejected' },
-  ESCALATED:                { label: 'Escalated to HRMO',   className: 'badge-escalated' },
-  UNDER_REVIEW:             { label: 'Under Review',        className: 'badge-validated' },
-  RANKED:                   { label: 'Ranked',              className: 'badge-validated' },
+// Labels for transaction statuses come from constants/transactionStatus; only
+// the badge color lives here. Promotion-application statuses are listed below.
+const TRANSACTION_BADGE: Record<string, string> = {
+  DRAFT: 'badge-draft',
+  PENDING_VALIDATION: 'badge-pending',
+  DEFICIENCY: 'badge-deficiency',
+  FOR_APPROVAL: 'badge-validated',
+  APPROVED: 'badge-approved',
+  REJECTED: 'badge-rejected',
+  ESCALATED: 'badge-escalated',
+  ABANDONED: 'badge-draft',
+  COMPLETED: 'badge-approved',
+  ARCHIVED: 'badge-draft',
+};
+
+const OTHER_STATUSES: Record<string, { label: string; className: string }> = {
+  SUBMITTED: { label: 'Submitted', className: 'badge-pending' },
+  UNDER_REVIEW: { label: 'Under Review', className: 'badge-validated' },
+  RANKED: { label: 'Ranked', className: 'badge-validated' },
+};
+
+const configFor = (status: string) => {
+  if (isTransactionStatus(status)) return { label: transactionStatusLabel(status), className: TRANSACTION_BADGE[status] || 'badge-draft' };
+  return OTHER_STATUSES[status] || { label: humanizeEnum(status), className: 'badge-draft' };
 };
 
 interface StatusBadgeProps {
@@ -27,7 +36,7 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => {
-  const config = statusConfig[status] || { label: status, className: 'badge-draft' };
+  const config = configFor(String(status));
   return (
     <span className={`badge ${config.className} ${className}`}>
       {config.label}

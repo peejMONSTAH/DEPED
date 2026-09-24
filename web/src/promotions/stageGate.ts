@@ -27,3 +27,25 @@ export const deliberationBlockReason = (scoreDetailsJson: unknown): string | nul
   }
   return null;
 };
+
+/**
+ * The two promotion outcomes every tab must agree on. The leaderboard endpoint
+ * computes both (isPromoted / isSelectedForPromotion, with display statuses
+ * OFFICIALLY_PROMOTED / SELECTED_PENDING_DOCS); raw applications carry the
+ * same facts in scoreDetailsJson.
+ *
+ *   selected  HR chose the candidate; appointment documents are pending.
+ *   appointed HRMO approved the appointment; the plantilla is now occupied.
+ *
+ * Status APPROVED on an application means *selected*, never appointed.
+ */
+type Outcome = { isPromoted?: boolean; isSelectedForPromotion?: boolean; status?: string; scoreDetailsJson?: unknown };
+
+export const isAppointed = (item: Outcome): boolean =>
+  Boolean(item.isPromoted || item.status === 'OFFICIALLY_PROMOTED' || asDetails(item.scoreDetailsJson).appointmentApproved);
+
+export const isSelectedPendingAppointment = (item: Outcome): boolean =>
+  !isAppointed(item) && Boolean(
+    item.isSelectedForPromotion || item.status === 'SELECTED_PENDING_DOCS' || item.status === 'APPROVED'
+    || asDetails(item.scoreDetailsJson).manuallyPromoted,
+  );

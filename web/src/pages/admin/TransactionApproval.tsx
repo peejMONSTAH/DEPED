@@ -192,7 +192,8 @@ export const TransactionApproval: React.FC = () => {
   const approvedList    = useMemo(() => approvals.filter(a => a.status === 'APPROVED' || a.status === 'COMPLETED'), [approvals]);
   // Returned means 'fix it and resubmit'; rejected means the request is over.
   // Merging them hid that difference from the officer reading the queue.
-  const returnedList    = useMemo(() => approvals.filter(a => a.status === 'RETURNED' || a.status === 'RETURNED_AO2'), [approvals]);
+  // Returned work has status DEFICIENCY; the old 'RETURNED' filter matched nothing, so this tab was always empty.
+  const returnedList    = useMemo(() => approvals.filter(a => a.status === 'DEFICIENCY'), [approvals]);
   const rejectedList    = useMemo(() => approvals.filter(a => a.status === 'REJECTED'), [approvals]);
 
   // Tab and Search filtering
@@ -474,89 +475,6 @@ export const TransactionApproval: React.FC = () => {
           </div>
         )}
 
-        {/* 3-Step Visual Workflow Pipeline */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'var(--layout-columns-3, repeat(3, 1fr))',
-          gap: '12px',
-          marginBottom: '24px',
-        }}>
-          <div style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '12px 16px',
-            boxShadow: 'var(--glass-shadow)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: '8px',
-              background: 'rgba(59, 130, 246, 0.15)', color: '#3F9265',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0
-            }}>
-              1
-            </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>Review Validated Dossier</div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>AO II Validations, Authenticity & MOV Records</div>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '12px 16px',
-            boxShadow: 'var(--glass-shadow)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.15)', color: '#10B981',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0
-            }}>
-              2
-            </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>Authority Final Sign-Off</div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Official Approval or Return for Deficiency Correction</div>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'var(--glass-bg)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '12px 16px',
-            boxShadow: 'var(--glass-shadow)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: '8px',
-              background: 'rgba(139, 92, 246, 0.15)', color: '#C79A2E',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0
-            }}>
-              3
-            </div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>Career Lifecycle Auto-Sync</div>
-              <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Appointment, Promotion, Salary Grade & Service Records</div>
-            </div>
-          </div>
-        </div>
-
         {/* Segmented Pill Tabs */}
         <div style={{
           display: 'inline-flex',
@@ -818,7 +736,7 @@ export const TransactionApproval: React.FC = () => {
                   const isSelected = selected?.id === tx.id;
                   const isPending = tx.status === 'FOR_APPROVAL';
                   const isApproved = tx.status === 'APPROVED' || tx.status === 'COMPLETED';
-                  const isReturned = tx.status === 'RETURNED' || tx.status === 'RETURNED_AO2';
+                  const isReturned = tx.status === 'DEFICIENCY';
                   // Mirrors MAX_CORRECTION_RESUBMISSIONS in transaction-workflow.util.ts.
                   // At the limit a submission skips AO II validation and lands here
                   // directly, so it must not read as 'AO validated'.

@@ -25,7 +25,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   let user: any = null;
   const userInclude = {
     role: true,
-    personnel: { select: { id: true, firstName: true, lastName: true, designation: true, address: true } },
+    personnel: { select: { id: true, firstName: true, lastName: true, designation: true, address: true, school: true, district: true } },
   };
 
   try {
@@ -321,6 +321,10 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
 
   try {
     const payload = verifyMagicToken(token);
+    if (payload.purpose === 'ACCOUNT_SETUP') {
+      sendUnauthorized(res, 'This is an account setup link. Open it to choose your password.');
+      return;
+    }
     const jti = payload.jti || `${payload.userId}_${payload.txId || 'auth'}`;
 
     // Prevent token reuse (Single-Use Magic Link Enforcement)
@@ -337,7 +341,7 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
       where: { id: payload.userId },
       include: {
         role: true,
-        personnel: { select: { id: true, firstName: true, lastName: true, designation: true, address: true } },
+        personnel: { select: { id: true, firstName: true, lastName: true, designation: true, address: true, school: true, district: true } },
       },
     });
 
@@ -409,4 +413,96 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
   } catch (err: any) {
     sendUnauthorized(res, 'Invalid or expired magic login link. Please log in with your DepEd credentials.');
   }
+};
+
+/**
+ * POST /auth/complete-setup  { token, newPassword }
+ *
+ * Finishes the setup link emailed when an account's access is distributed:
+ * the holder chooses their own password and is signed in. The link is spent
+ * here, on submit, not when the page is opened, so a mail scanner that
+ * prefetches links cannot use it up. It is single-use, expires after 48 hours,
+ * and is void once the password changes by any route.
+ */
+export const completeAccountSetup = async (req: Request, res: Response): Promise<void> => {
+  const { token, newPassword } = req.body || {};
+  if (typeof token !== 'string' || !token || typeof newPassword !== 'string' || !newPassword) {
+    sendBadRequest(res, 'The setup link and a new password are required.');
+    return;
+  }
+
+  let payload;
+  try {
+    payload = verifyMagicToken(token);
+  } catch {
+    sendUnauthorized(res, 'This setup link is invalid or has expired. Ask your AO II or System Administrator to send a new one.');
+    return;
+  }
+  if (payload.purpose !== 'ACCOUNT_SETUP' || !payload.jti) {
+    sendUnauthorized(res, 'This link cannot be used to set up an account.');
+    return;
+  }
+
+  const { validatePasswordComplexity } = await import('../utils/hash.util');
+  const passCheck = validatePasswordComplexity(newPassword);
+  if (!passCheck.valid) {
+    sendBadRequest(res, passCheck.message!);
+    return;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    include: { role: true, personnel: { select: { id: true, firstName: true, lastName: true, designation: true, address: true, school: true, district: true } } },
+  });
+  if (!user || user.accountStatus !== 'ACTIVE') {
+    sendUnauthorized(res, 'This account is not active. Contact your AO II or System Administrator.');
+    return;
+  }
+  if (payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
+    sendUnauthorized(res, 'This setup link is no longer valid because the password was already changed. Sign in with your password.');
+    return;
+  }
+  if (await verifyPassword(user.passwordHash, newPassword)) {
+    sendBadRequest(res, 'Choose a new password, not the temporary one you were issued.');
+    return;
+  }
+
+  const newHash = await hashPassword(newPassword);
+  const pwdv = passwordTokenVersion(newHash);
+  const accessToken = generateAccessToken({ userId: user.id, role: user.role.name, email: user.email, pwdv });
+  const refreshTokenValue = generateRefreshToken({ userId: user.id, role: user.role.name, email: user.email, pwdv });
+  const linkExpiresAt = payload.exp ? new Date(payload.exp * 1000) : new Date(Date.now() + 48 * 60 * 60 * 1000);
+
+  try {
+    await prisma.$transaction([
+      // The unique jti makes a second submit of the same link fail here, atomically.
+      prisma.usedMagicToken.create({ data: { jti: payload.jti, userId: user.id, expiresAt: linkExpiresAt } }),
+      prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash, mustChangePassword: false, failedLoginAttempts: 0, lockedUntil: null } }),
+      // Sessions opened with the temporary password end now.
+      prisma.refreshToken.updateMany({ where: { userId: user.id, revoked: false }, data: { revoked: true } }),
+      prisma.refreshToken.create({ data: { userId: user.id, token: refreshTokenValue, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
+      prisma.validationLog.create({ data: { entityType: 'User', entityId: user.id, action: 'ACCOUNT_SETUP_COMPLETED', userId: user.id, ipAddress: req.ip, status: 'SUCCESS', detailsJson: { jti: payload.jti } } }),
+    ]);
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      sendUnauthorized(res, 'This setup link has already been used. Sign in with the password you chose.');
+      return;
+    }
+    throw err;
+  }
+  res.locals.auditLogged = true;
+  invalidateAuthUserCache(user.id);
+
+  sendSuccess(res, {
+    accessToken,
+    refreshToken: refreshTokenValue,
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role.name,
+      accountStatus: user.accountStatus,
+      mustChangePassword: false,
+      personnel: user.personnel,
+    },
+  }, 'Your password is set and you are signed in.');
 };

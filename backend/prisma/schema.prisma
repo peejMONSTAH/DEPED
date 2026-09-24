@@ -441,6 +441,10 @@ enum UserRole {
   RECORDS_PERSONNEL
 }
 
+/// Workflow: DRAFT -> PENDING_VALIDATION (AO II) -> FOR_APPROVAL (HRMO) -> APPROVED,
+/// with DEFICIENCY for returns, REJECTED and ABANDONED (withdrawn selection).
+/// ESCALATED, COMPLETED and ARCHIVED are reserved: no code sets them today, so
+/// any filter or count on them is always empty. Removing them needs a migration.
 enum TransactionStatus {
   DRAFT
   PENDING_VALIDATION

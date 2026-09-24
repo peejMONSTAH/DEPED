@@ -525,10 +525,10 @@ export const Checklist: React.FC = () => {
                         type="button"
                         className="btn btn-ghost btn-xs"
                         onClick={() => navigate(`/personnel/upload-document?reqId=${item.requirementId}&txId=${txId}&name=${encodeURIComponent(item.name)}`)}
-                        style={{ padding: '4px 6px', color: 'var(--color-text-secondary)', fontSize: 12 }}
-                        title="Open full upload page"
+                        style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}
+                        title="Upload on the full page, which can also read the data in a filled-in form"
                       >
-                        ↗
+                        Upload &amp; read form
                       </button>
                     </div>
                   )}

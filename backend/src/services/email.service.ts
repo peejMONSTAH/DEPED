@@ -33,6 +33,8 @@ export interface TransactionalEmailOptions {
     username: string;
     initialPassword: string;
   };
+  /** The action link works as a credential (e.g. account setup); never kept after delivery. */
+  sensitive?: boolean;
 }
 
 const escapeHtml = (value: string): string => value
@@ -141,6 +143,10 @@ const getTransporter = (): Transporter | null => {
           user: config.email.user,
           pass: config.email.pass,
         },
+        // Fail fast where the SMTP port is blocked instead of hanging for minutes.
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+        socketTimeout: 30_000,
       });
       logger.info(`[EmailService] Configured SMTP transporter (${config.email.host}:${config.email.port})`);
     } catch (err) {
@@ -152,28 +158,82 @@ const getTransporter = (): Transporter | null => {
   return transporter;
 };
 
-export const sendTransactionalEmail = async (options: TransactionalEmailOptions): Promise<boolean> => {
-  const mailer = getTransporter();
-  if (!mailer) {
-    logger.warn(`[EmailService] SMTP is not configured; "${options.subject}" was not delivered to ${options.recipientEmail}.`);
-    return false;
-  }
+/**
+ * Why a message was not delivered, recorded on the outbox row (lastError) so a
+ * failing queue explains itself. Every email had been failing with only
+ * "Email provider did not accept the message", which hid the actual cause.
+ */
+export class EmailDeliveryError extends Error {}
 
-  const html = renderTransactionalEmail(options);
+const NOT_CONFIGURED = 'Email is not configured on this server (set MAILTRAP_API_TOKEN, or SMTP_HOST, SMTP_USER and SMTP_PASS).';
 
+type OutgoingMail = { to: string; subject: string; text: string; html: string };
+
+/** "Name <addr>" or "addr" -> Mailtrap's { email, name }. */
+const parseAddress = (value: string): { email: string; name?: string } => {
+  const match = value.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  return match ? { email: match[2].trim(), ...(match[1].trim() ? { name: match[1].trim() } : {}) } : { email: value.trim() };
+};
+
+const sendViaMailtrapApi = async (mail: OutgoingMail): Promise<void> => {
+  let response: Response;
   try {
-    await mailer.sendMail({
-      from: config.email.from,
+    response = await fetch('https://send.api.mailtrap.io/api/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.email.mailtrapApiToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: parseAddress(config.email.from),
+        to: [{ email: mail.to }],
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+        category: 'Digital 201',
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (error: any) {
+    throw new EmailDeliveryError(`Mailtrap API request failed: ${error?.message || error}`.slice(0, 500));
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    throw new EmailDeliveryError(`Mailtrap API rejected the message: ${response.status} ${body}`.slice(0, 500));
+  }
+};
+
+/** Sends through the Mailtrap API when configured, otherwise SMTP. Throws EmailDeliveryError with the cause. */
+const deliver = async (mail: OutgoingMail): Promise<void> => {
+  if (config.email.mailtrapApiToken) {
+    await sendViaMailtrapApi(mail);
+    return;
+  }
+  const mailer = getTransporter();
+  if (!mailer) throw new EmailDeliveryError(NOT_CONFIGURED);
+  try {
+    await mailer.sendMail({ from: config.email.from, ...mail });
+  } catch (error) {
+    throw new EmailDeliveryError(describeSmtpFailure(error));
+  }
+};
+
+/** The SMTP server's own reason, e.g. "EAUTH 535 Invalid login" or "550 sender rejected". */
+export const describeSmtpFailure = (error: any): string => {
+  const parts = [error?.code, error?.responseCode, error?.response || error?.message].filter(Boolean);
+  return `SMTP delivery failed: ${parts.join(' ') || 'unknown error'}`.slice(0, 500);
+};
+
+export const sendTransactionalEmail = async (options: TransactionalEmailOptions): Promise<boolean> => {
+  try {
+    await deliver({
       to: options.recipientEmail,
       subject: options.subject,
       text: plainTextFor(options),
-      html,
+      html: renderTransactionalEmail(options),
     });
     logger.info(`[EmailService] Transactional email sent to ${options.recipientEmail}: ${options.subject}`);
     return true;
   } catch (error) {
     logger.error({ err: error }, `[EmailService] Transactional email delivery failed: ${options.subject}`);
-    return false;
+    throw error;
   }
 };
 
@@ -367,12 +427,10 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
     '[EmailService] Deficiency notification prepared',
   );
 
-  // 2. SMTP Delivery if configured
-  const mailer = getTransporter();
-  if (mailer) {
+  // 2. Delivery (Mailtrap API or SMTP)
+  {
     try {
-      await mailer.sendMail({
-        from: config.email.from,
+      await deliver({
         to: recipientEmail,
         subject,
         text: [
@@ -387,14 +445,11 @@ export const sendDeficiencyAlertEmail = async (options: DeficiencyEmailOptions):
         ].filter(Boolean).join('\n'),
         html: htmlContent,
       });
-      logger.info(`[EmailService] Deficiency email successfully dispatched via SMTP to ${recipientEmail}`);
+      logger.info(`[EmailService] Deficiency email dispatched to ${recipientEmail}`);
       return true;
-    } catch (smtpErr) {
-      logger.error({ err: smtpErr }, '[EmailService] Failed to send email via SMTP, logged to console fallback');
-      return false;
+    } catch (error) {
+      logger.error({ err: error }, '[EmailService] Failed to send deficiency email');
+      throw error;
     }
   }
-
-  logger.warn('[EmailService] SMTP is not configured; email was not delivered.');
-  return false;
 };

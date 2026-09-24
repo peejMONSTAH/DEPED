@@ -82,7 +82,8 @@ export async function processWorkflowOutbox(): Promise<void> {
           ? await sendDeficiencyAlertEmail(item.payload as unknown as DeficiencyEmailOptions)
           : await sendTransactionalEmail(item.payload as unknown as TransactionalEmailOptions);
         if (!delivered) throw new Error('Email provider did not accept the message.');
-        const containsCredentials = Boolean((item.payload as any)?.credentials);
+        // Passwords and credential-grade links (setup links) are wiped once delivered.
+        const containsCredentials = Boolean((item.payload as any)?.credentials || (item.payload as any)?.sensitive);
         await model().update({
           where: { id: item.id },
           data: {
@@ -98,7 +99,7 @@ export async function processWorkflowOutbox(): Promise<void> {
         // credential payload that is not scrubbed here stays in the database —
         // and in every backup — indefinitely. Redact on the terminal failure.
         const exhausted = attempts >= MAX_ATTEMPTS;
-        const holdsCredentials = Boolean((item.payload as any)?.credentials);
+        const holdsCredentials = Boolean((item.payload as any)?.credentials || (item.payload as any)?.sensitive);
         await model().update({
           where: { id: item.id },
           data: {

@@ -65,7 +65,10 @@ apiClient.interceptors.response.use(
       requestUrl.includes('/auth/login') ||
       requestUrl.includes('/auth/register') ||
       requestUrl.includes('/auth/reset-password') ||
-      requestUrl.includes('/auth/refresh-token');
+      requestUrl.includes('/auth/refresh-token') ||
+      // Link-based sign-ins: a 401 means the link is expired or used, not that a session needs refreshing.
+      requestUrl.includes('/auth/magic-login') ||
+      requestUrl.includes('/auth/complete-setup');
 
     // If 401 occurred on an authentication endpoint (e.g. invalid credentials),
     // do NOT attempt token refresh and do NOT reload the page. Let the caller handle the error.

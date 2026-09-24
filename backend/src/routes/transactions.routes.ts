@@ -47,8 +47,10 @@ router.put('/:id/submit', submitTransaction);
 router.post('/:id/documents/attach-existing', authorize('TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'), attachExistingPersonnelDocument);
 router.post('/:id/documents', upload.single('file'), uploadDocument);
 router.post('/:id/upload', upload.single('file'), uploadDocument);
-router.post('/:id/validate', authorize('AO_II', 'SYSTEM_ADMIN'), validateTransaction);
-router.post('/:id/approve', authorize('HRMO', 'SYSTEM_ADMIN'), approveTransaction);
+// HR decisions stay with HR: AO II validates, HRMO approves. The System
+// Administrator runs the system and is excluded here, as in promotion selection.
+router.post('/:id/validate', authorize('AO_II'), validateTransaction);
+router.post('/:id/approve', authorize('HRMO'), approveTransaction);
 router.get('/:id/requirements', getTransactionRequirements);
 
 export default router;

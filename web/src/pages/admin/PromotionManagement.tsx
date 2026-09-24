@@ -13,7 +13,7 @@ import { accessDeniedMessage } from '../../api/access';
 import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { Search, Filter, CheckCircle2, Clock, XCircle, AlertCircle, PlayCircle, Layers, RefreshCw, Archive, ChevronDown, ChevronUp, Building2, Check, X, Sparkles, Plus, Edit3, Trash2 } from 'lucide-react';
 import { clickable, clickableRow } from '../../a11y/clickable';
-import { deliberationBlockReason, isRequirementsVerified } from '../../promotions/stageGate';
+import { deliberationBlockReason, isAppointed, isRequirementsVerified, isSelectedPendingAppointment } from '../../promotions/stageGate';
 import { usePending } from '../../hooks/usePending';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import { FieldError } from '../../components/common/FieldError';
@@ -23,6 +23,7 @@ import { CandidateDossierModal } from './CandidateDossierModal';
 import { useSearchParams } from 'react-router-dom';
 import { parsePromotionTarget, resolveTargetApplication, resolveTargetCycle, PromotionTarget } from '../../promotions/deepLink';
 import { carErrorMessage, fetchCarDocument } from '../../promotions/carDownload';
+import { ANNEX_C_FALLBACK, AnnexCRequirement, loadAnnexCRequirements } from '../../promotions/annexCRequirements';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -274,8 +275,7 @@ export const PromotionManagement: React.FC = () => {
     a.scoreDetailsJson?.requirementsCheck?.status === 'COMPLETE' ||
     a.status === 'INITIAL_RATED' ||
     a.status === 'RANKED' ||
-    a.status === 'APPROVED' ||
-    a.status === 'PROMOTED';
+    a.status === 'APPROVED';
 
   const isApplicantReqDeficient = (a: any) =>
     a.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT' ||
@@ -290,8 +290,8 @@ export const PromotionManagement: React.FC = () => {
     aoFilter === 'DEFICIENT' ? aoDeficientApps :
     filteredSubmittedApps;
 
-  const hrmoFinalizedApps = hrmoStationApps.filter(a => a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating));
-  const hrmoPendingApps = hrmoStationApps.filter(a => !(a.status === 'RANKED' || a.status === 'APPROVED' || a.status === 'PROMOTED' || Boolean(a.scoreDetailsJson?.finalRating)));
+  const hrmoFinalizedApps = hrmoStationApps.filter(a => a.status === 'RANKED' || a.status === 'APPROVED' || Boolean(a.scoreDetailsJson?.finalRating));
+  const hrmoPendingApps = hrmoStationApps.filter(a => !(a.status === 'RANKED' || a.status === 'APPROVED' || Boolean(a.scoreDetailsJson?.finalRating)));
   const displayedHrmoApps = hrmoFilter === 'PENDING' ? hrmoPendingApps : hrmoFilter === 'FINALIZED' ? hrmoFinalizedApps : hrmoStationApps;
 
   const handleOpenConfirmSelection = (app: any) => {
@@ -339,19 +339,13 @@ export const PromotionManagement: React.FC = () => {
   const [carViewMode, setCarViewMode] = useState<'TEACHING' | 'NON_TEACHING' | 'ALL'>('ALL');
 
   // Official DepEd Annex C Standard Documentary Requirements
-  const DEFAULT_ANNEX_C_ITEMS = [
-    { code: 'a', title: 'Letter of Intent', description: 'Addressed to Head of Office with information on vacancy', isMandatory: true },
-    { code: 'b', title: 'Duly Accomplished PDS & WES', description: 'Personal Data Sheet (CS Form 212 Revised 2017) and Work Experience Sheet', isMandatory: true },
-    { code: 'c', title: 'PRC License / Identification Card', description: 'Photocopy of Valid and Updated PRC License/ID, if applicable', isMandatory: false },
-    { code: 'd', title: 'Certificate of Eligibility / Rating', description: 'Photocopy of Certificate of Eligibility / Rating, if applicable', isMandatory: false },
-    { code: 'e', title: 'Scholastic / Academic Records', description: 'Transcript of Records (TOR) & Diploma (including Masteral/Doctorate completion)', isMandatory: true },
-    { code: 'f', title: 'Certificates of Training', description: 'Certificates of Training within 5 years or since last promotion', isMandatory: false },
-    { code: 'g', title: 'Certificate of Employment / Service Record', description: 'Certificate of Employment, Contract of Service, or duly signed Service Record', isMandatory: true },
-    { code: 'h', title: 'Latest Appointment', description: 'Photocopy of Latest Appointment, if applicable', isMandatory: false },
-    { code: 'i', title: 'Performance Ratings (IPCR / OPCR)', description: 'Performance Rating in the last rating period covering 1 year in current/previous position', isMandatory: true },
-    { code: 'j', title: 'Checklist & Omnibus Sworn Statement / Consent', description: 'Checklist of Requirements, Omnibus Sworn Statement on Authenticity & Data Privacy Consent', isMandatory: true },
-    { code: 'k', title: 'Other MOVs / Relevant Documents', description: 'Other Means of Verification relevant to the position applied for', isMandatory: false },
-  ];
+  // Annex C wording comes from the server (shared with the applicant's form).
+  const [annexCRequirements, setAnnexCRequirements] = useState<readonly AnnexCRequirement[]>(ANNEX_C_FALLBACK);
+  useEffect(() => {
+    let active = true;
+    void loadAnnexCRequirements(apiClient).then(list => { if (active) setAnnexCRequirements(list); });
+    return () => { active = false; };
+  }, []);
 
   // AO II Requirements Completeness Verification Form State (Annex C Checklist)
   const [reqCompletenessStatus, setReqCompletenessStatus] = useState<'COMPLETE' | 'INCOMPLETE'>('COMPLETE');
@@ -763,7 +757,7 @@ export const PromotionManagement: React.FC = () => {
     const annexC = app.scoreDetailsJson?.annexCChecklist || {};
     const existingItems = Array.isArray(annexC.items) ? annexC.items : [];
 
-    const mappedItems = DEFAULT_ANNEX_C_ITEMS.map(def => {
+    const mappedItems = annexCRequirements.map(def => {
       const raw = existingItems.find((it: any) => it.code === def.code);
       // Applications submitted from the Flutter app spell these fields
       // differently; normaliseAnnexCItem reads either.
@@ -2045,7 +2039,7 @@ export const PromotionManagement: React.FC = () => {
                             </tr>
                           ) : (
                             filteredLeaderboard.map((item, index) => {
-                              const isPromoted = Boolean(item.isPromoted || item.status === 'OFFICIALLY_PROMOTED' || item.scoreDetailsJson?.appointmentApproved);
+                              const isPromoted = isAppointed(item);
                               const reqCheck = item.scoreDetailsJson?.requirementsCheck;
                               const isComplete = reqCheck?.status === 'COMPLETE' || item.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
                               const isDeficient = reqCheck?.status === 'INCOMPLETE' || item.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
@@ -2842,7 +2836,8 @@ export const PromotionManagement: React.FC = () => {
                             </tr>
                           ) : (
                             filteredLeaderboard.map((item, index) => {
-                              const isPromoted = Boolean(item.isPromoted || item.status === 'PROMOTED' || item.status === 'APPROVED');
+                              // "APPOINTED" only after HRMO approves the appointment, as on every other tab.
+                              const isPromoted = isAppointed(item);
                               const totalScore = Number(item.overallTotalScore || item.totalScore || 0);
                               const rank = item.rank || (index + 1);
                               const isWithinQuota = rank <= cycleVacantPositions;
@@ -3031,7 +3026,7 @@ export const PromotionManagement: React.FC = () => {
                         {/* District Jurisdiction Status Pill */}
                         <div style={{ marginTop: '8px' }}>
                           <span style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <AppIcon name="location" size={12} color="var(--color-primary)" /> Division Scope: {cycleDistrict || 'Division-Wide'} ({cycleSchool || 'All Schools'})
+                            <AppIcon name="location" size={12} color="var(--color-primary)" /> Division Scope: {cycleDistrict || 'All Districts'} ({cycleSchool || 'All Schools'})
                           </span>
                         </div>
                       </div>
@@ -3429,7 +3424,7 @@ export const PromotionManagement: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '18px' }}>
                     {displayedHrmoApps.map((app) => {
                       const finalRating = app.scoreDetailsJson?.finalRating || {};
-                      const isFinalized = Boolean(app.status === 'RANKED' || app.status === 'APPROVED' || app.status === 'PROMOTED' || finalRating.finalTotalScore !== undefined || finalRating.overallTotalScore !== undefined);
+                      const isFinalized = Boolean(app.status === 'RANKED' || app.status === 'APPROVED' || finalRating.finalTotalScore !== undefined || finalRating.overallTotalScore !== undefined);
                       
                       const reqCheck = app.scoreDetailsJson?.requirementsCheck;
                       const isReqComplete = reqCheck?.status === 'COMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
@@ -3629,8 +3624,8 @@ export const PromotionManagement: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
                     {filteredLeaderboard.map((item) => {
-                      const isOfficiallyApproved = Boolean(item.isPromoted || item.status === 'OFFICIALLY_PROMOTED');
-                      const isSelectedPendingDocs = Boolean(item.isSelectedForPromotion || item.status === 'SELECTED_PENDING_DOCS' || item.status === 'PROMOTED' || item.status === 'APPROVED');
+                      const isOfficiallyApproved = isAppointed(item);
+                      const isSelectedPendingDocs = isSelectedPendingAppointment(item);
                       
                       return (
                         <div key={item.id} className="card glass-surface card-hover" style={{

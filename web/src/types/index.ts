@@ -20,6 +20,8 @@ export interface AuthUser {
     lastName: string;
     designation?: string;
     address?: string;
+    school?: string;
+    district?: string;
   } | null;
 }
 

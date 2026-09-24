@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AppIcon } from './AppIcon';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { ModalPortal } from './ModalPortal';
+import { navSectionsFor } from '../../navigation/navItems';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -34,39 +35,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
     }
   }, [isOpen]);
 
-  const userRole = user?.role || 'SYSTEM_ADMIN';
-  const isAdmin = userRole === 'SYSTEM_ADMIN' || userRole === 'AO_II' || userRole === 'HRMO';
+  const userRole = user?.role;
 
-  const commands: CommandItem[] = [
-    // Navigation items
-    ...(isAdmin ? [
-      { id: 'nav-dashboard', title: 'Admin Dashboard', category: 'Navigation' as const, icon: 'dashboard', path: '/admin/dashboard' },
-      { id: 'nav-notifications', title: 'Notifications Center', category: 'Navigation' as const, icon: 'notifications', path: '/admin/notifications' },
-      ...(userRole !== 'SYSTEM_ADMIN' ? [
-        { id: 'nav-personnel', title: 'Personnel Directory', category: 'Navigation' as const, icon: 'personnel', path: '/admin/personnel' },
-      ] : []),
-      { id: 'nav-transactions', title: 'Transaction Queue', category: 'Navigation' as const, icon: 'transactions', path: '/admin/transactions' },
-      { id: 'nav-approvals', title: 'HRMO Approvals', category: 'Navigation' as const, icon: 'approvals', path: '/admin/approvals' },
-      { id: 'nav-documents', title: 'AO II Document Validation', category: 'Navigation' as const, icon: 'validation', path: '/admin/documents' },
-      { id: 'nav-credentials', title: 'Credential Distribution', category: 'Navigation' as const, icon: 'credentials', path: '/admin/credentials' },
-      ...(userRole === 'HRMO' || userRole === 'AO_II' ? [
-        { id: 'nav-promotions', title: 'Promotions Management', category: 'Navigation' as const, icon: 'promotions', path: '/admin/promotions' },
-      ] : []),
-      ...(userRole === 'HRMO' ? [
-        { id: 'nav-plantilla', title: 'Plantilla Registry', category: 'Navigation' as const, icon: 'employment', path: '/admin/plantilla' },
-      ] : []),
-      ...(userRole === 'SYSTEM_ADMIN' ? [
-        { id: 'nav-reports', title: 'System Reports & Compliance', category: 'Navigation' as const, icon: 'reports', path: '/admin/reports' },
-        { id: 'nav-audit', title: 'Audit Trail Logs', category: 'Navigation' as const, icon: 'audit', path: '/admin/audit' },
-        { id: 'nav-settings', title: 'Settings & Roles', category: 'Navigation' as const, icon: 'settings', path: '/admin/settings' },
-      ] : []),
-    ] : [
-      { id: 'nav-home', title: 'Personnel Home', category: 'Navigation' as const, icon: 'home', path: '/personnel/home' },
-      { id: 'nav-my-transactions', title: 'My Submissions', category: 'Navigation' as const, icon: 'transactions', path: '/personnel/transactions' },
-      { id: 'nav-my-profile', title: 'My 201 File Record', category: 'Navigation' as const, icon: 'profile', path: '/personnel/profile' },
-      { id: 'nav-my-notifs', title: 'My Notifications', category: 'Navigation' as const, icon: 'notifications', path: '/personnel/notifications' },
-    ]),
-  ];
+  // Built from the shared navigation list, so the palette never offers a page
+  // the Sidebar hides from this role (and that the route guard would refuse).
+  const commands: CommandItem[] = navSectionsFor(userRole).flatMap(section => section.items.map(item => ({
+    id: `nav-${item.path}`,
+    title: item.label,
+    category: 'Navigation' as const,
+    icon: item.icon,
+    path: item.path,
+  })));
 
   const filtered = commands.filter(cmd =>
     cmd.title.toLowerCase().includes(query.toLowerCase()) ||

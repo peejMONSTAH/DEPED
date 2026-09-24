@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../../utils/errors.dart';
@@ -70,9 +69,9 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
     _acquisitionService = DocumentAcquisitionService();
     _personnelDocumentService = PersonnelDocumentService(_apiService);
 
-    // Generate random application code matching DepEd convention: APP-2026-XXXX
-    final rnd = Random().nextInt(9000) + 1000;
-    _applicationCode = 'APP-2026-$rnd';
+    // The server assigns the applicant number on submission (from the new
+    // application's id). A locally invented code collided with real ones.
+    _applicationCode = 'Assigned when you submit';
 
     final targetPos = widget.cycle['name']?.toString() ?? 'Target Position';
     final fullName = widget.profile?.fullName ??

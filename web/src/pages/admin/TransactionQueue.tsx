@@ -22,12 +22,12 @@ interface FilterTab {
 
 const FILTER_TABS: FilterTab[] = [
   { id: 'All', label: 'All', dotClass: 'dot-all' },
-  { id: 'DRAFT', label: 'Draft', dotClass: 'dot-draft' },
-  { id: 'PENDING_VALIDATION', label: 'Under AO II Review', dotClass: 'dot-ao2' },
-  { id: 'FOR_APPROVAL', label: 'Under HRMO Review', dotClass: 'dot-hrmo' },
-  { id: 'DEFICIENCY', label: 'Returned by AO II', dotClass: 'dot-returned' },
-  { id: 'APPROVED', label: 'Approved by HRMO', dotClass: 'dot-approved' },
-  { id: 'REJECTED', label: 'Rejected', dotClass: 'dot-rejected' },
+  { id: 'DRAFT', label: transactionStatusLabel('DRAFT'), dotClass: 'dot-draft' },
+  { id: 'PENDING_VALIDATION', label: transactionStatusLabel('PENDING_VALIDATION'), dotClass: 'dot-ao2' },
+  { id: 'FOR_APPROVAL', label: transactionStatusLabel('FOR_APPROVAL'), dotClass: 'dot-hrmo' },
+  { id: 'DEFICIENCY', label: transactionStatusLabel('DEFICIENCY'), dotClass: 'dot-returned' },
+  { id: 'APPROVED', label: transactionStatusLabel('APPROVED'), dotClass: 'dot-approved' },
+  { id: 'REJECTED', label: transactionStatusLabel('REJECTED'), dotClass: 'dot-rejected' },
 ];
 
 export const TransactionQueue: React.FC = () => {
@@ -46,8 +46,8 @@ export const TransactionQueue: React.FC = () => {
 
   const { user } = useAuthContext();
   const { addToast } = useToast();
-  const canValidate = user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN';
-  const canApprove = user?.role === 'HRMO' || user?.role === 'SYSTEM_ADMIN';
+  const canValidate = user?.role === 'AO_II';
+  const canApprove = user?.role === 'HRMO';
 
   // The record the officer is looking at now. A response for any other id
   // arrived late and must not replace what is on screen.
@@ -136,11 +136,11 @@ export const TransactionQueue: React.FC = () => {
   const stats = useMemo(() => {
     const total = totalItems;
     const pendingAO2 = transactions.filter(t =>
-      ['PENDING_VALIDATION', 'SUBMITTED_TO_AO2', 'SUBMITTED'].includes(t.status)
+      ['PENDING_VALIDATION'].includes(t.status)
     ).length;
     const pendingHRMO = transactions.filter(t => t.status === 'FOR_APPROVAL').length;
     const approved = transactions.filter(t =>
-      ['APPROVED', 'APPROVED_BY_HRMO', 'COMPLETED'].includes(t.status)
+      t.status === 'APPROVED'
     ).length;
     return { total, pendingAO2, pendingHRMO, approved };
   }, [transactions, totalItems]);
@@ -404,7 +404,7 @@ export const TransactionQueue: React.FC = () => {
                             View
                           </button>
 
-                          {['PENDING_VALIDATION', 'SUBMITTED_TO_AO2', 'SUBMITTED'].includes(
+                          {['PENDING_VALIDATION'].includes(
                             tx.status
                           ) &&
                             canValidate && (
@@ -957,7 +957,7 @@ export const TransactionQueue: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              {['PENDING_VALIDATION', 'SUBMITTED_TO_AO2', 'SUBMITTED'].includes(selectedTx.status) && canValidate && (
+              {['PENDING_VALIDATION'].includes(selectedTx.status) && canValidate && (
                 <Link
                   to={`/admin/documents?txId=${selectedTx.id}`}
                   className="btn btn-primary btn-sm"

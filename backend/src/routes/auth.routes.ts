@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, refreshToken, logout, changePassword, magicLogin } from '../controllers/auth.controller';
+import { login, refreshToken, logout, changePassword, magicLogin, completeAccountSetup } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -13,6 +13,11 @@ router.post('/login', login);
  * POST /auth/magic-login — 1-click passwordless authentication from email
  */
 router.post('/magic-login', magicLogin);
+
+/**
+ * POST /auth/complete-setup — Set the first password from the emailed setup link
+ */
+router.post('/complete-setup', completeAccountSetup);
 
 /**
  * POST /auth/refresh-token — Get new access token via refresh token

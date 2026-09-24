@@ -722,6 +722,10 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
       });
     }
 
+    const currentAddress = targetPersonnel.address || '';
+    const isSchoolAddress = !currentAddress || currentAddress.includes('Elementary School') || currentAddress.includes('High School') || (targetPersonnel.school && currentAddress.includes(targetPersonnel.school));
+    const nextAddress = isSchoolAddress && plantilla.department ? `${plantilla.department}, ${plantilla.division || 'District 1'}` : currentAddress;
+
     // Assign to new personnel and sync position designation
     await prisma.personnel.update({
       where: { id: targetPersonnel.id },
@@ -730,6 +734,7 @@ export const assignPersonnelToPlantilla = async (req: Request, res: Response): P
         designation: plantilla.positionTitle,
         school: plantilla.department,
         district: plantilla.division,
+        ...(isSchoolAddress && nextAddress ? { address: nextAddress } : {}),
       },
     });
 

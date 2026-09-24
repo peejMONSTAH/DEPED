@@ -23,6 +23,7 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { generateInitialPassword } from '../utils/password-issue.util';
 import { invalidateAuthUserCache } from '../middleware/auth.middleware';
+import { generateMagicToken, passwordTokenVersion } from '../utils/jwt.util';
 import { initializePersonnelDocuments } from './personnel-documents.controller';
 import { isValidPersonnelDocumentFile } from '../middleware/personnel-document-upload.middleware';
 import { extractWithTesseract } from '../services/tesseract-ocr.service';
@@ -632,17 +633,19 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   }
   if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
 
-  // Update account status to ACTIVE
-  await prisma.user.update({
+  // Active, and the issued password is temporary: signing in with it leads
+  // straight to a forced change (the API refuses everything else until then).
+  const activated = await prisma.user.update({
     where: { id: userId },
-    data: { accountStatus: 'ACTIVE' },
+    data: { accountStatus: 'ACTIVE', mustChangePassword: true },
+    select: { passwordHash: true },
   });
 
   // Create notification
   await prisma.notification.create({
     data: {
       userId,
-      message: 'Your account credentials have been distributed. Please log in and change your password.',
+      message: 'Your account is active. Use the setup link sent to your email to choose your password.',
       type: 'INFO',
     },
   });
@@ -661,15 +664,27 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   // 30s. Without this the account keeps being refused as PENDING after it is live.
   invalidateAuthUserCache(userId);
   notifyUserNotifications(userId);
+  // A single-use setup link (48 h): it opens the website, which asks for a
+  // new password in place of the temporary one and then signs the user in.
+  // It cannot sign anyone in without that step (see completeAccountSetup).
+  const setupToken = generateMagicToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role.name,
+    purpose: 'ACCOUNT_SETUP',
+    pwdv: passwordTokenVersion(activated.passwordHash),
+  });
   await queueTransactionalEmail(`user:${user.id}:credentials-distributed`, {
     recipientEmail: user.email,
     recipientName: user.personnel ? `${user.personnel.firstName} ${user.personnel.lastName}` : user.email,
-    subject: 'Your Digital 201 account is ready',
-    heading: 'Account access has been distributed',
-    message: 'Your Digital 201 account is now active. Sign in using the credentials issued through your authorized AO or System Administrator, then change your temporary password.',
+    subject: 'Set up your Digital 201 account',
+    heading: 'Your account is ready',
+    message: 'Your Digital 201 account is now active. Use the button below to choose your own password; you will be signed in right after. The link works once and expires in 48 hours. If it expires, you can still sign in with the temporary password from your AO II or System Administrator, and you will be asked to change it.',
     reference: `User account ${user.id}`,
-    actionLabel: 'Open Digital 201',
-    actionUrl: `${config.clientUrl}/login`,
+    actionLabel: 'Set up my password',
+    actionUrl: `${config.clientUrl}/auth/setup-account?token=${encodeURIComponent(setupToken)}`,
+    // The link is a working credential until used: removed from the outbox row once sent.
+    sensitive: true,
   });
   void processWorkflowOutbox();
   sendSuccess(res, null, `Credentials distribution initiated for user ${userId}.`);
@@ -947,7 +962,8 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
  * GET /users/requests — View all account creation requests
  */
 export const getAccountRequests = async (req: Request, res: Response): Promise<void> => {
-  const isSysAdmin = req.user?.role === 'SYSTEM_ADMIN' || req.user?.role === 'HRMO';
+  // Only the reviewing System Administrator lists every request; others see their own.
+  const isSysAdmin = req.user?.role === 'SYSTEM_ADMIN';
   const where: any = isSysAdmin ? {} : { requestedByUserId: req.user!.userId };
   if (typeof req.query.status === 'string' && ['PENDING', 'APPROVED', 'REJECTED'].includes(req.query.status)) where.status = req.query.status;
   const { limit } = getPaginationParams(req.query as Record<string, unknown>);

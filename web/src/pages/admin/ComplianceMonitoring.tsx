@@ -135,7 +135,7 @@ export const ComplianceMonitoring: React.FC = () => {
       if (transRes.status === 'fulfilled') {
         const txList: any[] = transRes.value.data?.data || (Array.isArray(transRes.value.data) ? transRes.value.data : []);
         const pending = txList.filter(t => t.status === 'PENDING' || t.status === 'SUBMITTED' || t.status === 'VALIDATED_AO2').length;
-        const returned = txList.filter(t => t.status === 'RETURNED' || t.status === 'RETURNED_AO2').length;
+        const returned = txList.filter(t => t.status === 'DEFICIENCY').length;
         const approved = txList.filter(t => t.status === 'APPROVED' || t.status === 'COMPLETED').length;
         setPendingTx(pending);
         setReturnedTx(returned);

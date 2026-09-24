@@ -10,14 +10,16 @@ export const TRANSACTION_STATUSES = [
 
 export type TransactionStatus = typeof TRANSACTION_STATUSES[number];
 
+// The one label table for transaction statuses: StatusBadge, filters and
+// empty states all read it, so a status is never called two different names.
 const TEXT: Record<TransactionStatus, { label: string; phrase: string }> = {
   DRAFT: { label: 'Draft', phrase: 'in draft' },
-  PENDING_VALIDATION: { label: 'Pending validation', phrase: 'pending validation' },
-  FOR_APPROVAL: { label: 'For HRMO approval', phrase: 'awaiting HRMO approval' },
-  APPROVED: { label: 'Approved', phrase: 'approved' },
+  PENDING_VALIDATION: { label: 'Under AO II Review', phrase: 'pending validation' },
+  FOR_APPROVAL: { label: 'Under HRMO Review', phrase: 'awaiting HRMO approval' },
+  APPROVED: { label: 'Approved by HRMO', phrase: 'approved' },
   REJECTED: { label: 'Rejected', phrase: 'rejected' },
-  DEFICIENCY: { label: 'Returned for correction', phrase: 'returned for correction' },
-  ESCALATED: { label: 'Escalated', phrase: 'escalated' },
+  DEFICIENCY: { label: 'Returned by AO II', phrase: 'returned for correction' },
+  ESCALATED: { label: 'Escalated to HRMO', phrase: 'escalated' },
   ABANDONED: { label: 'Withdrawn', phrase: 'withdrawn' },
   COMPLETED: { label: 'Completed', phrase: 'completed' },
   ARCHIVED: { label: 'Archived', phrase: 'archived' },
@@ -29,10 +31,10 @@ export const humanizeEnum = (value: string): string => {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
 };
 
-const known = (status: string): status is TransactionStatus => (TRANSACTION_STATUSES as readonly string[]).includes(status);
+export const isTransactionStatus = (status: string): status is TransactionStatus => (TRANSACTION_STATUSES as readonly string[]).includes(status);
 
 export const transactionStatusLabel = (status: string): string =>
-  known(status) ? TEXT[status].label : humanizeEnum(status);
+  isTransactionStatus(status) ? TEXT[status].label : humanizeEnum(status);
 
 export const transactionEmptyTitle = (status: string): string =>
-  `No transactions are ${known(status) ? TEXT[status].phrase : humanizeEnum(status).toLowerCase()}.`;
+  `No transactions are ${isTransactionStatus(status) ? TEXT[status].phrase : humanizeEnum(status).toLowerCase()}.`;

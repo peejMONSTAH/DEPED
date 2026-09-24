@@ -24,6 +24,7 @@ import { config } from '../config';
 import { hashPassword, validatePasswordComplexity } from '../utils/hash.util';
 import { checkPromotionEligibility, resolveCanonicalPosition } from '../utils/deped.util';
 import { logger } from '../utils/logger';
+import { applicantNumberFor } from '../utils/applicant-number.util';
 import { CarDocumentService, CarDataIncompleteError, CarCycleNotFoundError } from '../services/car-document.service';
 import { computeCycleRanking } from '../services/promotion-ranking.service';
 import { deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
@@ -1069,7 +1070,7 @@ export const getCycleLeaderboard = async (req: Request, res: Response): Promise<
       overallTotal = 0;
     }
 
-    const autoApplicantNo = details.applicantNumber || (a.personnel?.employeeId ? (a.personnel.employeeId.startsWith('APP-') ? a.personnel.employeeId : `APP-2026-${String(a.id).padStart(4, '0')}`) : `APP-2026-${String(a.id).padStart(4, '0')}`);
+    const autoApplicantNo = details.applicantNumber || (a.personnel?.employeeId ? (a.personnel.employeeId.startsWith('APP-') ? a.personnel.employeeId : applicantNumberFor(a.id, a.createdAt)) : applicantNumberFor(a.id, a.createdAt));
 
     return {
       id: a.id,
@@ -1666,11 +1667,11 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
     }
   }
 
-  const appCount = await prisma.promotionApplication.count({ where: { promotionCycleId: cycleId } });
-  const autoApplicantNo = targetCode || `APP-2026-${String(appCount + 1).padStart(4, '0')}`;
+  // Kept on re-submission; a new application is numbered from its id below.
+  const existingNumber = (existing?.scoreDetailsJson as Record<string, any> | null)?.applicantNumber as string | undefined;
+  let autoApplicantNo = existingNumber || '';
 
-  const scoreDetailsJson = {
-    applicantNumber: autoApplicantNo,
+  const scoreDetailsJson: Record<string, any> = {
     remarks: remarks || 'Complete PDS Application Registered - Pending Initial Rating',
     submittedByUserId: req.user?.userId,
     submittedAt: new Date().toISOString(),
@@ -1689,14 +1690,17 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
       },
     });
   } else {
-    application = await prisma.promotionApplication.create({
-      data: {
-        personnelId: targetPersonnelId,
-        promotionCycleId: cycleId,
-        status: 'SUBMITTED',
-        scoreDetailsJson,
-      },
+    application = await prisma.$transaction(async tx => {
+      const created = await tx.promotionApplication.create({
+        data: { personnelId: targetPersonnelId, promotionCycleId: cycleId, status: 'SUBMITTED', scoreDetailsJson },
+      });
+      const number = applicantNumberFor(created.id, created.createdAt);
+      return tx.promotionApplication.update({
+        where: { id: created.id },
+        data: { applicantNumber: number, scoreDetailsJson: { ...scoreDetailsJson, applicantNumber: number } },
+      });
     });
+    autoApplicantNo = application.applicantNumber || autoApplicantNo;
   }
 
   // Auto-rank applicants immediately upon application form submission
@@ -1907,21 +1911,22 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
       if (appCount >= maxCapacity) {
         throw new Error('CAPACITY_REACHED');
       }
-      const autoApplicantNo = req.body?.applicationCode || `APP-2026-${String(appCount + 1).padStart(4, '0')}`;
-      return tx.promotionApplication.create({
+      // The number is the server's, from the new row's id; a browser-sent code is ignored.
+      const details = { appliedVia, annexCChecklist: checklistData, submittedAt: new Date().toISOString() };
+      const created = await tx.promotionApplication.create({
         data: {
           personnelId: req.user!.personnelId!,
           promotionCycleId: cycleId,
-          applicantNumber: autoApplicantNo,
           status: 'SUBMITTED',
           applicationDate: new Date(),
-          scoreDetailsJson: {
-            applicantNumber: autoApplicantNo,
-            appliedVia,
-            annexCChecklist: checklistData,
-            submittedAt: new Date().toISOString(),
-          },
+          scoreDetailsJson: details,
         },
+      });
+      const number = applicantNumberFor(created.id, created.applicationDate ?? created.createdAt);
+      if (checklistData && typeof checklistData === 'object') (details.annexCChecklist as any) = { ...checklistData, applicationCode: number };
+      return tx.promotionApplication.update({
+        where: { id: created.id },
+        data: { applicantNumber: number, scoreDetailsJson: { ...details, applicantNumber: number } },
       });
     });
   } catch (err: any) {

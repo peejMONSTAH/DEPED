@@ -38,3 +38,21 @@ export const matchesLocation = (
   if (filters.school !== 'ALL' && norm(item.department) !== norm(filters.school)) return false;
   return true;
 };
+
+const TEACHING_TITLE = /teacher|master|principal/i;
+
+/** Teaching-track positions by title: Teacher I–VII, Master Teacher, Head Teacher, Principal. */
+export const isTeachingPosition = (positionTitle: string | null | undefined): boolean =>
+  TEACHING_TITLE.test(positionTitle || '');
+
+/**
+ * Vacant items that may be assigned when creating an account. One rule for
+ * every creation form (HRMO's direct Add Personnel and the AO II / System
+ * Administrator request form), so the two can no longer drift apart.
+ * Items reserved by an active promotion cycle are never assignable.
+ */
+export const assignableVacantPlantillas = <T extends { positionTitle: string; isOpenForRanking?: boolean; promotionCycle?: unknown }>(
+  items: T[],
+  track: 'TEACHING' | 'NON_TEACHING',
+): T[] => items.filter(item =>
+  !item.isOpenForRanking && !item.promotionCycle && isTeachingPosition(item.positionTitle) === (track === 'TEACHING'));

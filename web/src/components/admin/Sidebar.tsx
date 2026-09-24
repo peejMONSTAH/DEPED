@@ -12,61 +12,9 @@ import { CommandPalette } from '../common/CommandPalette';
 import { OfflineSyncBanner } from '../common/OfflineSyncBanner';
 import { personnelDisplayName } from '../../utils/personnel-display';
 import { clickable } from '../../a11y/clickable';
+import { NAV_SECTIONS as navSections, NavItem } from '../../navigation/navItems';
 
-interface NavItem {
-  label: string;
-  icon: string;
-  path: string;
-  roles?: UserRole[];
-  badge?: number;
-}
 
-const navSections: { label: string; items: NavItem[] }[] = [
-  {
-    label: 'Overview',
-    items: [
-      { label: 'Dashboard',         icon: 'dashboard',     path: '/admin/dashboard',    roles: ['SYSTEM_ADMIN', 'AO_II', 'HRMO'] },
-      { label: 'Notifications',     icon: 'notifications', path: '/admin/notifications', roles: ['SYSTEM_ADMIN', 'AO_II', 'HRMO'] },
-    ],
-  },
-  {
-    label: 'Transactions & Validation',
-    items: [
-      { label: 'Transaction Queue',  icon: 'transactions', path: '/admin/transactions', roles: ['AO_II', 'HRMO'] },
-      { label: 'Doc. Validation',    icon: 'validation',   path: '/admin/documents',    roles: ['AO_II'] },
-      { label: 'HRMO Approvals',     icon: 'approvals',    path: '/admin/approvals',    roles: ['HRMO'] },
-    ],
-  },
-  {
-    label: 'HR & Digital 201',
-    items: [
-      { label: 'Personnel',          icon: 'personnel',    path: '/admin/personnel',    roles: ['AO_II', 'HRMO'] },
-      { label: 'Plantilla Registry', icon: 'employment',   path: '/admin/plantilla',    roles: ['HRMO'] },
-      { label: 'Credentials',        icon: 'credentials',  path: '/admin/credentials',  roles: ['SYSTEM_ADMIN', 'AO_II'] },
-      { label: 'Compliance & YOS',   icon: 'compliance',   path: '/admin/compliance',   roles: ['HRMO'] },
-      { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['AO_II', 'HRMO'] },
-    ],
-  },
-  {
-    label: 'System Administration',
-    items: [
-      { label: 'Reports',            icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
-      { label: 'Audit Trail',        icon: 'audit',        path: '/admin/audit',        roles: ['SYSTEM_ADMIN'] },
-      { label: 'Settings & Roles',   icon: 'settings',     path: '/admin/settings',     roles: ['SYSTEM_ADMIN'] },
-    ],
-  },
-  {
-    label: 'Personnel Portal',
-    items: [
-      { label: 'Portal Home',       icon: 'home',            path: '/personnel/home',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'My Documents',      icon: 'document',        path: '/personnel/documents',       roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'My Transactions',   icon: 'transactions',    path: '/personnel/transactions',    roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'Notifications',     icon: 'notifications',   path: '/personnel/notifications',   roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'My 201 File',       icon: 'profile',         path: '/personnel/profile-completion', roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'Service Record',    icon: 'repository',      path: '/personnel/profile',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-    ],
-  },
-];
 
 interface SidebarProps {
   isOpen: boolean;

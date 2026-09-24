@@ -57,6 +57,7 @@ type PromotionCycleItem = {
   rulesConfigurationJson?: Record<string, any>;
 };
 
+import { ANNEX_C_FALLBACK, loadAnnexCRequirements } from '../../promotions/annexCRequirements';
 export interface ChecklistFormItem {
   code: string;
   title: string;
@@ -72,96 +73,8 @@ export interface ChecklistFormItem {
   remarks?: string;
 }
 
-export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = [
-  {
-    code: 'a',
-    title: 'Letter of Intent',
-    description: 'Letter of intent addressed to the Head of Office or highest human resource officer indicating position & item number',
-    isMandatory: true,
-    suggestedDocumentTypeIds: ['LETTER_OF_INTENT'],
-    submitted: false,
-  },
-  {
-    code: 'b',
-    title: 'Personal Data Sheet (PDS) & Work Experience Sheet',
-    description: 'Duly accomplished Personal Data Sheet (PDS) (CS Form No. 212, Revised 2017) and Work Experience Sheet, if applicable',
-    isMandatory: true,
-    suggestedDocumentTypeIds: ['PDS', 'WES'],
-    submitted: false,
-  },
-  {
-    code: 'c',
-    title: 'Photocopy of Valid PRC License / Identification Card',
-    description: 'Photocopy of valid and updated PRC License/ID, if applicable',
-    isMandatory: false,
-    suggestedDocumentTypeIds: ['LICENSE'],
-    submitted: false,
-  },
-  {
-    code: 'd',
-    title: 'Certificate of Eligibility / Report of Rating',
-    description: 'Photocopy of Certificate of Eligibility / Rating (CSC / PRC / PBET / LET), if applicable',
-    isMandatory: false,
-    suggestedDocumentTypeIds: ['CSC_ELIGIBILITY'],
-    submitted: false,
-  },
-  {
-    code: 'e',
-    title: 'Scholastic / Academic Records (TOR & Diploma)',
-    description: 'Photocopy of scholastic/academic record such as Transcript of Records (TOR) and Diploma, including graduate/post-graduate completion',
-    isMandatory: true,
-    suggestedDocumentTypeIds: ['TOR', 'DIPLOMA', 'CAV'],
-    submitted: false,
-  },
-  {
-    code: 'f',
-    title: 'Certificates of Training',
-    description: 'Photocopy of Certificate/s of Training relevant to the position applied for',
-    isMandatory: false,
-    suggestedDocumentTypeIds: ['TRAINING_CERTIFICATE'],
-    submitted: false,
-  },
-  {
-    code: 'g',
-    title: 'Certificate of Employment / Service Record',
-    description: 'Photocopy of Certificate of Employment, Contract of Service, or duly signed Service Record, whichever is/are applicable',
-    isMandatory: true,
-    suggestedDocumentTypeIds: ['SERVICE_RECORD', 'CERTIFICATE_OF_EMPLOYMENT'],
-    submitted: false,
-  },
-  {
-    code: 'h',
-    title: 'Photocopy of Latest Appointment',
-    description: 'Photocopy of latest appointment (KSS Form / CS Form 33), if applicable',
-    isMandatory: false,
-    suggestedDocumentTypeIds: ['APPOINTMENT'],
-    submitted: false,
-  },
-  {
-    code: 'i',
-    title: 'Performance Ratings (IPCR)',
-    description: 'Photocopy of the Performance Ratings in the last rating period/s covering one (1) year performance prior to the deadline of submission',
-    isMandatory: true,
-    suggestedDocumentTypeIds: ['PERFORMANCE_RATING'],
-    submitted: false,
-  },
-  {
-    code: 'j',
-    title: 'Checklist of Requirements & Omnibus Sworn Statement / CAV',
-    description: 'Duly signed Checklist of Requirements and Omnibus Sworn Statement on the Certification on Authenticity and Veracity (CAV) and Data Privacy Consent',
-    isMandatory: true,
-    suggestedDocumentTypeIds: ['OMNIBUS_SWORN_STATEMENT', 'OTHER'],
-    submitted: false,
-  },
-  {
-    code: 'k',
-    title: 'Other Documents / Means of Verification (MOVs)',
-    description: 'Other Means of Verification (MOVs) showing Outstanding Accomplishments, Application of Education, and Application of L&D, or portfolio',
-    isMandatory: false,
-    suggestedDocumentTypeIds: ['OTHER'],
-    submitted: false,
-  },
-];
+// The list itself lives in promotions/annexCRequirements.ts, shared with AO II verification.
+export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = ANNEX_C_FALLBACK.map(item => ({ ...item, submitted: false }));
 
 export const PersonnelHome: React.FC = () => {
   const { user } = useAuthContext();
@@ -411,25 +324,10 @@ export const PersonnelHome: React.FC = () => {
   const annexCTemplateRef = useRef<ChecklistFormItem[] | null>(null);
   const loadAnnexCTemplate = useCallback(async (): Promise<ChecklistFormItem[]> => {
     if (annexCTemplateRef.current) return annexCTemplateRef.current;
-    try {
-      const res = await apiClient.get('/promotions/annex-c-requirements');
-      const list = res.data?.data;
-      if (Array.isArray(list) && list.length > 0) {
-        const mapped: ChecklistFormItem[] = list.map((item: any) => ({
-          code: String(item.code),
-          title: String(item.title),
-          description: String(item.description),
-          isMandatory: Boolean(item.isMandatory),
-          suggestedDocumentTypeIds: Array.isArray(item.suggestedDocumentTypeIds) ? item.suggestedDocumentTypeIds : [],
-          submitted: false,
-        }));
-        annexCTemplateRef.current = mapped;
-        return mapped;
-      }
-    } catch (err) {
-      console.error('Failed to load Annex C requirements, using bundled copy:', err);
-    }
-    return DEFAULT_ANNEX_C_FORM_ITEMS;
+    const list = await loadAnnexCRequirements(apiClient);
+    const mapped = list.map(item => ({ ...item, suggestedDocumentTypeIds: item.suggestedDocumentTypeIds || [], submitted: false }));
+    annexCTemplateRef.current = mapped;
+    return mapped;
   }, []);
 
   const handleOpenChecklistModal = async (cycle: PromotionCycleItem) => {
@@ -449,7 +347,7 @@ export const PersonnelHome: React.FC = () => {
       ? `${user.personnel.firstName || ''} ${user.personnel.lastName || ''}`.trim()
       : (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '');
     setChecklistApplicantName(fullName || 'Applicant');
-    const station = (user?.personnel as any)?.stationName || user?.personnel?.address || (cycle.rulesConfigurationJson as any)?.school || 'SDO Koronadal City';
+    const station = (user?.personnel as any)?.school || (user?.personnel as any)?.stationName || user?.personnel?.address || (cycle.rulesConfigurationJson as any)?.school || 'SDO Koronadal City';
     setChecklistOffice(station);
     setChecklistContactNo((user?.personnel as any)?.mobileNo || (user?.personnel as any)?.contactNumber || '');
     setChecklistRegion('Region XII - SOCCSKSARGEN');
@@ -459,8 +357,8 @@ export const PersonnelHome: React.FC = () => {
 
     // Generate or retrieve application code
     const existingCode = cycle.myApplication?.applicantNumber || cycle.myApplication?.annexCChecklist?.applicationCode;
-    const generatedCode = existingCode || `APP-2026-${String(Math.floor(1000 + Math.random() * 9000))}`;
-    setChecklistApplicationCode(generatedCode);
+    // The server assigns the number on submission; the form only displays it.
+    setChecklistApplicationCode(existingCode || '');
 
     // If application already has submitted checklist, load it!
     const annexCTemplate = await loadAnnexCTemplate();
@@ -686,7 +584,7 @@ export const PersonnelHome: React.FC = () => {
   );
 
   const alertsCount = transactions.filter(
-    t => t.status === 'DEFICIENCY' || t.status.includes('RETURNED')
+    t => t.status === 'DEFICIENCY'
   ).length;
 
   const userFullName = user?.firstName
@@ -1627,7 +1525,7 @@ export const PersonnelHome: React.FC = () => {
                           <span style={{ color: 'var(--color-text-muted)', margin: '0 2px' }}>·</span>
                           <span>Station: <strong style={{ color: 'var(--color-text-primary)' }}>{item.stationOrSchool || 'SDO Proper'}</strong></span>
                           <span style={{ color: 'var(--color-text-muted)', margin: '0 2px' }}>·</span>
-                          <span>{item.district || 'Division-Wide'}</span>
+                          <span>{item.district || 'SDO Koronadal City'}</span>
                         </div>
                         {hasCycle && (
                           <div
@@ -2040,9 +1938,8 @@ export const PersonnelHome: React.FC = () => {
                         aria-label="Application Code"
                         type="text"
                         className="form-control"
-                        disabled={isChecklistReadOnly}
-                        value={checklistApplicationCode}
-                        onChange={e => setChecklistApplicationCode(e.target.value)}
+                        readOnly
+                        value={checklistApplicationCode || 'Assigned when you submit'}
                         style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6, fontWeight: 700 }}
                       />
                     </div>

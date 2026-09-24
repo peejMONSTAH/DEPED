@@ -64,6 +64,13 @@ export interface MagicLoginPayload {
   email: string;
   role: string;
   txId?: number;
+  /**
+   * SIGN_IN (default): signs the holder in (deficiency emails).
+   * ACCOUNT_SETUP: only lets the holder set their first password; it never
+   * opens a session by itself, so a forwarded setup email cannot be used to
+   * enter the account without choosing a password.
+   */
+  purpose?: 'SIGN_IN' | 'ACCOUNT_SETUP';
   type: 'MAGIC_LINK';
   jti?: string;
   exp?: number;

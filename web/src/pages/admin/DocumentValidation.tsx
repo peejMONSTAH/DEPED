@@ -432,8 +432,9 @@ export const DocumentValidation: React.FC = () => {
     }
   };
 
-  const pending = transactions.filter(tx => tx.status === 'PENDING_VALIDATION' || tx.status === 'DRAFT' || tx.status === 'SUBMITTED' || tx.status === 'SUBMITTED_TO_AO2');
-  const returnedList = transactions.filter(tx => tx.status === 'DEFICIENCY' || tx.status === 'RETURNED_BY_AO2' || tx.status === 'RETURNED');
+  // Only submitted work: the server refuses to validate a DRAFT, so listing drafts here offered a Validate that always failed.
+  const pending = transactions.filter(tx => tx.status === 'PENDING_VALIDATION');
+  const returnedList = transactions.filter(tx => tx.status === 'DEFICIENCY');
   const processed = transactions.filter(tx => tx.status === 'FOR_APPROVAL' || tx.status === 'APPROVED' || tx.status === 'REJECTED');
 
   const currentList = activeTab === 'PENDING' ? pending : activeTab === 'DEFICIENCY' ? returnedList : processed;

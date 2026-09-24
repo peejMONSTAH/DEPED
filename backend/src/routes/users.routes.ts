@@ -14,8 +14,9 @@ router.use(authenticate);
 router.get('/requests', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getAccountRequests);
 router.post('/requests/extract-pds', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), personnelDocumentUpload.single('pdsFile'), extractAccountRequestPds);
 router.post('/requests', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), personnelDocumentUpload.single('pdsFile'), submitAccountRequest);
-router.post('/requests/:id/approve', authorize('SYSTEM_ADMIN', 'HRMO'), approveAccountRequest);
-router.post('/requests/:id/reject', authorize('SYSTEM_ADMIN', 'HRMO'), rejectAccountRequest);
+// Requests are reviewed by the System Administrator, who receives their notifications.
+router.post('/requests/:id/approve', authorize('SYSTEM_ADMIN'), approveAccountRequest);
+router.post('/requests/:id/reject', authorize('SYSTEM_ADMIN'), rejectAccountRequest);
 
 router.get('/', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getUsers);
 router.post('/', authorize('SYSTEM_ADMIN', 'HRMO'), createUser);

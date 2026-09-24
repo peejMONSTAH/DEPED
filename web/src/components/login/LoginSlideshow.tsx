@@ -31,7 +31,7 @@ const SLIDES: SlideItem[] = [
     id: 'dashboard',
     shortLabel: 'Command Center',
     tag: 'REAL-TIME WORKFORCE INTELLIGENCE',
-    title: 'Division-Wide Executive Command Center',
+    title: 'Executive Command Center',
     subtitle:
       'Gain complete operational transparency with live workforce attendance telemetry, real-time 201 transaction queues, and sub-second analytics on a single pane of glass.',
     badge: 'Enterprise Telemetry • 99.99% Uptime',
@@ -45,7 +45,7 @@ const SLIDES: SlideItem[] = [
     },
     floatingPill2: {
       icon: '📊',
-      label: '100% Division-Wide Visibility',
+      label: '100% Division Visibility',
     },
     metrics: [
       { value: '100%', label: 'Live Data Accuracy' },

@@ -727,7 +727,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
     await denyOutOfScope(req, res, { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_VALIDATE' }, 'Transaction not found.');
     return;
   }
-  if (!['PENDING_VALIDATION', 'DEFICIENCY', 'RETURNED'].includes(transaction.status)) {
+  if (!['PENDING_VALIDATION', 'DEFICIENCY'].includes(transaction.status)) {
     sendBadRequest(res, `Transaction #${id} cannot be validated while its status is "${transaction.status}".`, 'INVALID_VALIDATION_STATE');
     return;
   }
