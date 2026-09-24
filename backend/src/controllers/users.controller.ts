@@ -633,11 +633,13 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   }
   if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
 
-  // Active, and the issued password is temporary: signing in with it leads
-  // straight to a forced change (the API refuses everything else until then).
+  // Active, with a fresh temporary password that is emailed below (only a hash
+  // of the one typed at creation is stored, so it cannot be sent). Signing in
+  // with it leads straight to a forced change.
+  const temporaryPassword = generateInitialPassword();
   const activated = await prisma.user.update({
     where: { id: userId },
-    data: { accountStatus: 'ACTIVE', mustChangePassword: true },
+    data: { accountStatus: 'ACTIVE', mustChangePassword: true, passwordHash: await hashPassword(temporaryPassword) },
     select: { passwordHash: true },
   });
 
@@ -645,7 +647,7 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   await prisma.notification.create({
     data: {
       userId,
-      message: 'Your account is active. Use the setup link sent to your email to choose your password.',
+      message: 'Your account is active. Check your email for the setup link and temporary password.',
       type: 'INFO',
     },
   });
@@ -679,11 +681,12 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
     recipientName: user.personnel ? `${user.personnel.firstName} ${user.personnel.lastName}` : user.email,
     subject: 'Set up your Digital 201 account',
     heading: 'Your account is ready',
-    message: 'Your Digital 201 account is now active. Use the button below to choose your own password; you will be signed in right after. The link works once and expires in 48 hours. If it expires, you can still sign in with the temporary password from your AO II or System Administrator, and you will be asked to change it.',
+    message: `Your Digital 201 account is now active. Use the button below to choose your own password; you will be signed in right after. The link works once and expires in 48 hours. If the button does not work, go to ${config.clientUrl}/login and sign in with the email and temporary password below — you will be asked to set a new password right away.`,
     reference: `User account ${user.id}`,
+    credentials: { username: user.email, initialPassword: temporaryPassword },
     actionLabel: 'Set up my password',
     actionUrl: `${config.clientUrl}/auth/setup-account?token=${encodeURIComponent(setupToken)}`,
-    // The link is a working credential until used: removed from the outbox row once sent.
+    // The password and link are working credentials: removed from the outbox row once sent.
     sensitive: true,
   });
   void processWorkflowOutbox();

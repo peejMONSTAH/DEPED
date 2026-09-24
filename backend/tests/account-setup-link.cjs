@@ -100,9 +100,11 @@ test('a link minted before the password changed is void', async () => {
   assert.match(res.body.message, /already changed/);
 });
 
-test('distribution emails a setup link, forces a password change, and the link is wiped once sent', () => {
+test('distribution emails a setup link and a fresh temporary password, forces a change, and both are wiped once sent', () => {
   const users = fs.readFileSync(path.join(__dirname, '../src/controllers/users.controller.ts'), 'utf8');
-  assert.match(users, /data: \{ accountStatus: 'ACTIVE', mustChangePassword: true \}/);
+  assert.match(users, /const temporaryPassword = generateInitialPassword\(\);/);
+  assert.match(users, /data: \{ accountStatus: 'ACTIVE', mustChangePassword: true, passwordHash: await hashPassword\(temporaryPassword\) \}/);
+  assert.match(users, /credentials: \{ username: user\.email, initialPassword: temporaryPassword \}/);
   assert.match(users, /purpose: 'ACCOUNT_SETUP'/);
   assert.match(users, /actionUrl: `\$\{config\.clientUrl\}\/auth\/setup-account\?token=\$\{encodeURIComponent\(setupToken\)\}`/);
   assert.match(users, /sensitive: true,/);

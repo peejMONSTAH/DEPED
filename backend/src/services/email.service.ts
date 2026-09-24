@@ -69,7 +69,7 @@ const plainTextFor = (options: TransactionalEmailOptions): string => [
   options.message,
   options.reference ? `Reference: ${options.reference}` : '',
   options.credentials ? `Username: ${options.credentials.username}` : '',
-  options.credentials ? `Initial password: ${options.credentials.initialPassword}` : '',
+  options.credentials ? `Temporary password: ${options.credentials.initialPassword}` : '',
   options.credentials ? 'Change this password immediately after your first sign-in.' : '',
   options.actionUrl ? `${options.actionLabel || 'Open Digital 201'}: ${options.actionUrl}` : '',
   '',
@@ -114,7 +114,7 @@ const renderTransactionalEmail = (options: TransactionalEmailOptions): string =>
           ${credentials ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:22px;background:#F5F8FA;border:1px solid #D6E0E7;border-radius:10px;">
             <tr><td colspan="2" style="padding:14px 16px 8px;color:#17324D;font-size:12px;line-height:16px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;">Initial login credentials</td></tr>
             <tr><td style="padding:8px 16px;width:34%;color:#6A7C8B;font-size:12px;line-height:18px;">Username</td><td style="padding:8px 16px;color:#14283D;font-family:Consolas,'Courier New',monospace;font-size:13px;line-height:18px;font-weight:700;word-break:break-all;">${escapeHtml(credentials.username)}</td></tr>
-            <tr><td style="padding:8px 16px 14px;color:#6A7C8B;font-size:12px;line-height:18px;">Initial password</td><td style="padding:8px 16px 14px;color:#14283D;font-family:Consolas,'Courier New',monospace;font-size:13px;line-height:18px;font-weight:700;word-break:break-all;">${escapeHtml(credentials.initialPassword)}</td></tr>
+            <tr><td style="padding:8px 16px 14px;color:#6A7C8B;font-size:12px;line-height:18px;">Temporary password</td><td style="padding:8px 16px 14px;color:#14283D;font-family:Consolas,'Courier New',monospace;font-size:13px;line-height:18px;font-weight:700;word-break:break-all;">${escapeHtml(credentials.initialPassword)}</td></tr>
             <tr><td colspan="2" style="padding:12px 16px;background:#FFF6E5;border-top:1px solid #E9D9B8;color:#80500D;font-size:11px;line-height:17px;">For your security, change this password immediately after your first sign-in. Do not forward this email.</td></tr>
           </table>` : ''}
           ${actionUrl ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;"><tr><td bgcolor="#17324D" style="border-radius:9px;"><a href="${actionUrl}" target="_blank" style="display:inline-block;padding:13px 22px;color:#FFFFFF;text-decoration:none;font-size:14px;line-height:18px;font-weight:700;white-space:nowrap;">${actionLabel}</a></td></tr></table><p style="margin:15px 0 0;color:#82909D;font-size:11px;line-height:17px;word-break:break-all;">If the button does not open, copy this address into your browser:<br><a href="${actionUrl}" style="color:#286D9E;text-decoration:underline;">${actionUrl}</a></p>` : ''}

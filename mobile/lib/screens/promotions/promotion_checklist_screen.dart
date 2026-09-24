@@ -219,21 +219,30 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 subtitle: 'PDF, JPG, or PNG up to 10 MB',
               ),
 
-              // Option 3: Select from Verified 201 Documents (if available)
-              if (_existing201Documents.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _buildAcquisitionOption(
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    _showSelect201RecordModal(item);
-                  },
-                  icon: LucideIcons.checkCheck,
-                  iconColor: AppTheme.emeraldGreen,
-                  title: 'Use a verified 201 document',
-                  subtitle:
-                      '${_existing201Documents.length} document${_existing201Documents.length == 1 ? '' : 's'} available',
-                ),
-              ],
+              // Option 3: Reuse a file already in My Documents. Always offered,
+              // so applicants know it exists even before the list has loaded.
+              const SizedBox(height: 10),
+              _buildAcquisitionOption(
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  if (_existing201Documents.isEmpty) {
+                    await _loadExisting201Documents();
+                  }
+                  if (!mounted) return;
+                  if (_existing201Documents.isEmpty) {
+                    _showErrorSnackBar(
+                        'You have no uploaded files in My Documents yet. Scan or upload one instead.');
+                    return;
+                  }
+                  _showSelect201RecordModal(item);
+                },
+                icon: LucideIcons.folderOpen,
+                iconColor: AppTheme.emeraldGreen,
+                title: 'Choose from My Documents',
+                subtitle: _existing201Documents.isEmpty
+                    ? 'Attach a file you already uploaded'
+                    : '${_existing201Documents.length} file${_existing201Documents.length == 1 ? '' : 's'} available',
+              ),
               const SizedBox(height: 16),
             ],
           ),
@@ -852,7 +861,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                             color: AppTheme.textPrimary),
                       ),
                       Text(
-                        'Items (a)–(k) · Scan or upload each credential',
+                        'Items (a)–(k) · Scan, upload, or choose from My Documents',
                         style: GoogleFonts.inter(
                             fontSize: 12,
                             height: 1.35,
@@ -1372,10 +1381,10 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
-                icon: const Icon(LucideIcons.camera,
+                icon: const Icon(LucideIcons.filePlus,
                     size: 15, color: AppTheme.brandDark),
                 label: Text(
-                  'Scan or upload document',
+                  'Add document',
                   maxLines: 2,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
