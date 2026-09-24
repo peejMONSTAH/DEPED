@@ -1,5 +1,5 @@
 import { ModalOverlay } from '../../components/common/ModalOverlay';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -22,6 +22,7 @@ import { AnnexCVerificationModal } from './AnnexCVerificationModal';
 import { CandidateDossierModal } from './CandidateDossierModal';
 import { useSearchParams } from 'react-router-dom';
 import { parsePromotionTarget, resolveTargetApplication, resolveTargetCycle, PromotionTarget } from '../../promotions/deepLink';
+import { carErrorMessage, fetchCarDocument } from '../../promotions/carDownload';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -983,6 +984,7 @@ export const PromotionManagement: React.FC = () => {
   };
 
   const [isDownloadingCar, setIsDownloadingCar] = useState(false);
+  const carRequestInFlight = useRef(false);
 
   const handleDownloadCarDocument = async (cycleId?: number) => {
     const id = cycleId || selectedCycle?.id;
@@ -991,26 +993,12 @@ export const PromotionManagement: React.FC = () => {
       return;
     }
 
+    // A ref, not state: a second click in the same render must not start a second download.
+    if (carRequestInFlight.current) return;
+    carRequestInFlight.current = true;
     try {
       setIsDownloadingCar(true);
-      addToast('Generating official DepEd Comparative Assessment Result (CAR) .docx document...', 'INFO');
-
-      const response = await apiClient.get(`/promotions/cycles/${id}/car-document`, {
-        responseType: 'blob',
-      });
-
-      const contentDisposition = response.headers['content-disposition'];
-      let filename = `CAR-${selectedCycle?.rulesConfigurationJson?.track === 'NON_TEACHING' ? 'NonTeaching' : 'Teaching'}-${selectedCycle?.rulesConfigurationJson?.targetPosition || 'Position'}-${id}.docx`;
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1];
-        }
-      }
-
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      });
+      const { blob, filename } = await fetchCarDocument(apiClient, id, `CAR-cycle-${id}.docx`);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -1018,14 +1006,14 @@ export const PromotionManagement: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Revoke after the click has been dispatched; the download keeps its own reference.
+      setTimeout(() => window.URL.revokeObjectURL(url), 0);
 
-      addToast(`CAR Document (${filename}) successfully generated and downloaded!`, 'SUCCESS');
+      addToast(`CAR downloaded: ${filename}`, 'SUCCESS');
     } catch (err: any) {
-      console.error('Failed to download CAR document:', err);
-      const errMsg = err.response?.data?.message || err.message || 'Failed to generate CAR document.';
-      addToast(`Error generating CAR document: ${errMsg}`, 'ERROR');
+      addToast(err?.response ? await carErrorMessage(err) : (err?.message || 'The CAR could not be generated.'), 'ERROR');
     } finally {
+      carRequestInFlight.current = false;
       setIsDownloadingCar(false);
     }
   };
@@ -5743,9 +5731,14 @@ export const PromotionManagement: React.FC = () => {
       {/* MODAL 6: PROMOTION SELECTION CONFIRMATION */}
       {showConfirmPromotionModal && selectedCandidateForConfirm && isHR && (
         <ModalOverlay onDismiss={() => setShowConfirmPromotionModal(false)} className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1060 }}>
-          <div className="modal animate-scale-in" style={{
-            maxWidth: '520px',
+          {/* Header and actions stay put; only the body scrolls, and the dialog
+              never grows past the viewport, so the actions are always reachable. */}
+          <div className="modal animate-scale-in promo-select-dialog" role="dialog" aria-modal="true" aria-labelledby="promo-select-title" style={{
+            maxWidth: '560px',
             width: '95%',
+            maxHeight: 'calc(100dvh - 32px)',
+            display: 'flex',
+            flexDirection: 'column',
             borderRadius: '16px',
             background: 'var(--color-bg-card)',
             border: '1px solid var(--color-border)',
@@ -5754,6 +5747,7 @@ export const PromotionManagement: React.FC = () => {
             overflow: 'hidden'
           }}>
             <div style={{
+              flexShrink: 0,
               background: 'var(--color-bg-tertiary)',
               borderBottom: '1px solid var(--color-border)',
               padding: '18px 24px',
@@ -5765,13 +5759,13 @@ export const PromotionManagement: React.FC = () => {
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5', border: theme === 'dark' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #A7F3D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <AppIcon name="promotions" size={18} color={theme === 'dark' ? '#34D399' : '#059669'} />
                 </div>
-                <h3 style={{ color: 'var(--color-text-primary)', margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>
+                <h3 id="promo-select-title" style={{ color: 'var(--color-text-primary)', margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>
                   Confirm Candidate Selection for Promotion
                 </h3>
               </div>
             </div>
 
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="promo-select-body" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <div style={{ background: theme === 'dark' ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4', padding: '16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #BBF7D0' }}>
                 <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
                   {selectedCandidateForConfirm.name}
@@ -5905,9 +5899,11 @@ export const PromotionManagement: React.FC = () => {
             </div>
 
             <div style={{
+              flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',
+              flexWrap: 'wrap',
               gap: '10px',
               padding: '16px 24px',
               borderTop: '1px solid var(--color-border)',

@@ -20,6 +20,9 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=build /app/dist ./dist
 COPY assets ./assets
+# The CAR generator fills these Word templates at request time; without them
+# every CAR download failed in production with "template not found".
+COPY templates ./templates
 RUN mkdir -p /app/uploads/documents /app/uploads/form-drafts && chown -R node:node /app
 USER node
 EXPOSE 5000

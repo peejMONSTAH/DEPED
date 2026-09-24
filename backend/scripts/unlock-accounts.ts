@@ -1,6 +1,9 @@
 import prisma from '../src/config/prisma';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { assertSafeDatabaseWrite } = require('./local-db-guard.cjs');
 
 async function unlockAllLockedAccounts() {
+  assertSafeDatabaseWrite('unlock all locked accounts');
   const result = await prisma.user.updateMany({
     where: { accountStatus: 'LOCKED' },
     data: {

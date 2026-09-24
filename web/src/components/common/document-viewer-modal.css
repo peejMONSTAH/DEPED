@@ -221,3 +221,16 @@
   font-weight: 700;
   text-decoration: underline;
 }
+
+/* PDF zoom: the frame grows inside this scroll area instead of being transformed. */
+.doc-viewer-pdf-scroll {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.doc-viewer-pdf-scroll > .doc-viewer-iframe {
+  display: block;
+  min-width: 100%;
+  min-height: 100%;
+}

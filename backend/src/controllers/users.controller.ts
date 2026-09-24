@@ -15,6 +15,7 @@ import {
   STATION_SUBJECT_ROLES,
 } from '../utils/scope.util';
 import { validateAccountInput, validatePersonnelInput, isPersonnelRole } from '../utils/personnel-validation.util';
+import { canAssignRole, canChangeRole, canManageAccount, MANAGE_REFUSAL, ROLE_REFUSAL } from '../utils/role-assignment.util';
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
@@ -155,6 +156,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
   if (!Object.values(UserRole).includes(role as UserRole)) {
     sendBadRequest(res, `Invalid role. Must be one of: ${Object.values(UserRole).join(', ')}`);
+    return;
+  }
+  if (!canAssignRole(req.user?.role, role)) {
+    sendForbidden(res, ROLE_REFUSAL);
     return;
   }
 
@@ -414,11 +419,27 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   if (inputError) { sendBadRequest(res, inputError); return; }
   if (role && !['SYSTEM_ADMIN', 'HRMO', 'AO_II', 'TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(role)) { sendBadRequest(res, 'Select a supported role.'); return; }
 
-  const existing = await prisma.user.findUnique({ where: { id: userId } });
+  const existing = await prisma.user.findUnique({ where: { id: userId }, include: { role: { select: { name: true } } } });
   if (!existing) { sendNotFound(res, 'User not found.'); return; }
+  if (!canManageAccount(req.user?.role, existing.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
+  if (role && role !== existing.role.name && !canChangeRole(req.user?.role, existing.role.name, role)) {
+    sendForbidden(res, ROLE_REFUSAL);
+    return;
+  }
+  if (userId === req.user!.userId && ((accountStatus && accountStatus !== existing.accountStatus) || role)) {
+    sendBadRequest(res, 'You cannot change the status or role of your own account.');
+    return;
+  }
 
   const updateData: Record<string, unknown> = {};
-  if (email) updateData.email = email.trim().toLowerCase();
+  if (email) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail !== existing.email) {
+      const taken = await prisma.user.findUnique({ where: { email: cleanEmail }, select: { id: true } });
+      if (taken) { sendBadRequest(res, 'Another account already uses this email address.', 'DUPLICATE_EMAIL'); return; }
+    }
+    updateData.email = cleanEmail;
+  }
   if (accountStatus && Object.values(AccountStatus).includes(accountStatus)) {
     updateData.accountStatus = accountStatus;
   }
@@ -430,13 +451,15 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   // A role is an authorization scope. Sessions issued under the old one end,
   // so every client must re-authenticate and drop what it cached.
   const roleChanged = typeof updateData.roleId === 'number' && updateData.roleId !== existing.roleId;
+  // Deactivating ends the account's sessions as well, not just future sign-ins.
+  const deactivated = updateData.accountStatus === 'INACTIVE' && existing.accountStatus !== 'INACTIVE';
   const updated = await prisma.$transaction(async tx => {
     const row = await tx.user.update({
       where: { id: userId },
       data: updateData,
       include: { role: { select: { name: true } } },
     });
-    if (roleChanged) {
+    if (roleChanged || deactivated) {
       await tx.refreshToken.updateMany({ where: { userId, revoked: false }, data: { revoked: true } });
     }
     return row;
@@ -476,6 +499,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   const existing = await prisma.user.findUnique({
     where: { id: userId },
     include: {
+      role: { select: { name: true } },
       personnel: {
         include: {
           transactions: { select: { id: true } },
@@ -490,6 +514,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     sendNotFound(res, 'User not found.');
     return;
   }
+  if (!canManageAccount(req.user?.role, existing.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
 
   // If the user has active transactions or promotion records, deactivate to preserve audit history
   const hasHistory =
@@ -599,6 +624,7 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
 
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true, personnel: true } });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
+  if (!canManageAccount(req.user?.role, user.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
 
   if (!(await userInScope(await getStationScope(req.user), userId))) {
     await denyOutOfScope(req, res, { entityType: 'User', entityId: userId, action: 'CREDENTIALS_DISTRIBUTE' }, 'User not found.');
@@ -663,9 +689,11 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { personnel: { select: { firstName: true, lastName: true, employeeId: true } } },
+    include: { role: { select: { name: true } }, personnel: { select: { firstName: true, lastName: true, employeeId: true } } },
   });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
+  // The caller receives the new password, so this is as strong as a sign-in.
+  if (!canManageAccount(req.user?.role, user.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
 
   // Math.random() is not a cryptographic source and the old shape was guessable
   // from one example. Generate unless the administrator supplied a specific value.
@@ -886,7 +914,7 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
       await prisma.notification.createMany({
         data: sysAdmins.map(admin => ({
           userId: admin.id,
-          message: `📋 New Account Creation Request submitted by ${req.user!.email} for ${firstName} ${lastName} (${role}).`,
+          message: `New Account Creation Request submitted by ${req.user!.email} for ${firstName} ${lastName} (${role}).`,
           type: 'INFO' as const,
           relatedEntityId: accountRequest.id,
           relatedEntityType: 'AccountCreationRequest',
@@ -1114,7 +1142,7 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
     await tx.notification.create({
       data: {
         userId: accountRequest.requestedByUserId,
-        message: `🎉 Account Creation Request Approved! Credentials created for ${accountRequest.firstName} ${accountRequest.lastName} (Employee ID: ${employeeId}). Email: ${accountRequest.email}. Ready for distribution.`,
+        message: `Account Creation Request Approved! Credentials created for ${accountRequest.firstName} ${accountRequest.lastName} (Employee ID: ${employeeId}). Email: ${accountRequest.email}. Ready for distribution.`,
         type: 'SUCCESS',
         relatedEntityId: newUser.id,
         relatedEntityType: 'User',
@@ -1173,7 +1201,7 @@ export const rejectAccountRequest = async (req: Request, res: Response): Promise
   await prisma.notification.create({
     data: {
       userId: accountRequest.requestedByUserId,
-      message: `❌ Account Creation Request Rejected for ${accountRequest.firstName} ${accountRequest.lastName}. Reason: ${reason || 'Not specified'}.`,
+      message: `Account Creation Request Rejected for ${accountRequest.firstName} ${accountRequest.lastName}. Reason: ${reason || 'Not specified'}.`,
       type: 'WARNING',
       relatedEntityId: requestId,
       relatedEntityType: 'AccountCreationRequest',

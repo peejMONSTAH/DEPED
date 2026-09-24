@@ -1,5 +1,7 @@
 import { PrismaClient, UserRole, PersonnelStatus, AccountStatus, Gender, CivilStatus } from '@prisma/client';
 import argon2 from 'argon2';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { assertSafeDatabaseWrite } = require('../scripts/local-db-guard.cjs');
 
 const prisma = new PrismaClient({
   datasources: { db: { url: process.env.DIRECT_URL || process.env.DATABASE_URL } },
@@ -13,6 +15,14 @@ const ARGON2_OPTIONS: argon2.HashOptions = {
 };
 
 async function main() {
+  // Seeding writes demo records; never against the hosted database by accident.
+  assertSafeDatabaseWrite('prisma seed');
+  // No password lives in this public repository any more: the old literal
+  // was published and still worked on the live System Administrator account.
+  const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!seedAdminPassword || seedAdminPassword.length < 12) {
+    throw new Error('Set SEED_ADMIN_PASSWORD (12+ characters) to seed the demo System Administrator.');
+  }
   console.log('🌱 Starting database seeding...');
 
   // 1. Roles
@@ -41,7 +51,7 @@ async function main() {
   const nonTeachingRole = await prisma.role.findUniqueOrThrow({ where: { name: UserRole.NON_TEACHING_PERSONNEL } });
 
   // 2. Mock Admin User
-  const adminHash = await argon2.hash('Admin@SecurePass123', ARGON2_OPTIONS);
+  const adminHash = await argon2.hash(seedAdminPassword, ARGON2_OPTIONS);
   await prisma.user.upsert({
     where: { email: 'admin@deped.koronadal.gov.ph' },
     update: {},

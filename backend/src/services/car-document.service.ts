@@ -3,6 +3,17 @@ import path from 'path';
 import PizZip from 'pizzip';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
+import { isDeliberated, isRequirementsVerified } from '../utils/promotion-stage.util';
+
+/** A CAR cannot be issued from this data; the message says what is missing. */
+export class CarDataIncompleteError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CarDataIncompleteError';
+  }
+}
+
+export class CarCycleNotFoundError extends Error {}
 
 export interface CarDocumentResult {
   buffer: Buffer;
@@ -28,13 +39,25 @@ function formatDate(dateInput?: string | Date | null): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function sanitizeFilename(input: string): string {
-  return input
-    .replace(/[/\\?%*:|"<>]/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
+/**
+ * ASCII letters, digits and hyphens only. Content-Disposition is a Latin-1
+ * header: Node refuses to send one containing e.g. an en dash, which turned a
+ * cycle named "Teacher III – Division" into a 500 before any bytes were sent.
+ */
+export function sanitizeFilename(input: string): string {
+  const ascii = String(input || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+  return ascii || 'Cycle';
 }
+
+const score = (value: unknown, max: number): number => {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(max, Math.max(0, n)) : 0;
+};
 
 /**
  * Replace the text of a single cell while preserving all formatting tags (<w:tcPr>, <w:pPr>, <w:rPr>).
@@ -77,7 +100,7 @@ export class CarDocumentService {
     });
 
     if (!cycle) {
-      throw new Error('Promotion cycle not found.');
+      throw new CarCycleNotFoundError('Promotion cycle not found.');
     }
 
     const rules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
@@ -101,7 +124,7 @@ export class CarDocumentService {
 
     // 1. Populate Header Fields in document.xml
     const position = rules.targetPosition || cycle.name || (isTeaching ? 'Teacher III' : 'Administrative Officer II');
-    const plantillaNumber = rules.plantillaItemNumber || 'T-III-2026-001';
+    const plantillaNumber = rules.plantillaItemNumber || (Array.isArray(rules.plantillaItemNumbers) ? rules.plantillaItemNumbers.join(', ') : '');
     const officeUnit = rules.officeUnit || 'Schools Division Office of Koronadal City';
     const finalDeliberationDate = formatDate(rules.dateOfFinalDeliberation || cycle.endDate || new Date());
 
@@ -114,8 +137,18 @@ export class CarDocumentService {
     // Replace Date of Final Deliberation placeholders
     docXml = docXml.replace(/Date of Final Deliberation:\s*_{5,}/g, `Date of Final Deliberation: ${escapeXml(finalDeliberationDate)}`);
 
-    // 2. Prepare Applicant Data
-    const applications = cycle.promotionApplications || [];
+    // 2. Prepare Applicant Data. The CAR compares the candidates AO II verified
+    // complete; every one of them must carry the HRMPSB's finalized rating.
+    const applications = (cycle.promotionApplications || []).filter(app =>
+      app.status !== 'REJECTED' && isRequirementsVerified(app.scoreDetailsJson));
+    if (applications.length === 0) {
+      throw new CarDataIncompleteError('No candidate in this cycle has verified requirements yet, so there is nothing to compare.');
+    }
+    const unrated = applications.filter(app => !isDeliberated(app.scoreDetailsJson));
+    if (unrated.length > 0) {
+      const names = unrated.map(app => `${app.personnel?.firstName || ''} ${app.personnel?.lastName || ''}`.trim() || `Application #${app.id}`);
+      throw new CarDataIncompleteError(`The CAR needs a finalized HRMPSB rating for every verified candidate. Still unrated: ${names.join(', ')}.`);
+    }
     const mappedApplicants = applications.map((app, index) => {
       const details = (app.scoreDetailsJson as Record<string, any>) || {};
       const initialRating = details.initialRating || {};
@@ -124,10 +157,11 @@ export class CarDocumentService {
       const fullName = `${app.personnel?.firstName || ''} ${app.personnel?.lastName || ''}`.trim() || `Applicant #${index + 1}`;
       const appCode = details.applicantNumber || (app.personnel?.employeeId ? `APP-${app.personnel.employeeId}` : `APP-${String(app.id).padStart(4, '0')}`);
 
-      const edu = Math.min(10, Math.max(0, Number(finalRating.educationScore ?? initialRating.educationScore ?? 10)));
-      const train = Math.min(10, Math.max(0, Number(finalRating.trainingScore ?? initialRating.trainingScore ?? 10)));
-      const exp = Math.min(10, Math.max(0, Number(finalRating.experienceScore ?? initialRating.experienceScore ?? 10)));
-      const perf = Math.min(isTeaching ? 30 : 20, Math.max(0, Number(finalRating.performanceScore ?? initialRating.performanceScore ?? (isTeaching ? 30 : 20))));
+      // Recorded ratings only: a missing component is 0, never an assumed maximum.
+      const edu = score(finalRating.educationScore ?? initialRating.educationScore, 10);
+      const train = score(finalRating.trainingScore ?? initialRating.trainingScore, 10);
+      const exp = score(finalRating.experienceScore ?? initialRating.experienceScore, 10);
+      const perf = score(finalRating.performanceScore ?? initialRating.performanceScore, isTeaching ? 30 : 20);
 
       let totalScore = 0;
       let accomp = 0;
@@ -138,27 +172,27 @@ export class CarDocumentService {
       let potential = 0;
 
       if (isTeaching) {
-        coi = Math.min(25, Math.max(0, Number(finalRating.ppstCoiScore ?? 25)));
-        ncoi = Math.min(15, Math.max(0, Number(finalRating.ppstNcoiScore ?? 15)));
+        coi = score(finalRating.ppstCoiScore, 25);
+        ncoi = score(finalRating.ppstNcoiScore, 15);
         totalScore = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
       } else {
-        accomp = Math.min(5, Math.max(0, Number(finalRating.outstandingAccomplishmentsScore ?? initialRating.outstandingAccomplishmentsScore ?? 5)));
-        appEdu = Math.min(15, Math.max(0, Number(finalRating.applicationOfEducationScore ?? initialRating.applicationOfEducationScore ?? 15)));
-        appLd = Math.min(10, Math.max(0, Number(finalRating.applicationOfLdScore ?? initialRating.applicationOfLdScore ?? 10)));
-        const written = Number(finalRating.potentialWrittenScore ?? 5);
-        const bei = Number(finalRating.potentialBeiScore ?? 5);
-        const skills = Number(finalRating.potentialSkillsScore ?? 10);
-        potential = Math.min(20, Math.max(0, Number(finalRating.potentialScore ?? (written + bei + skills))));
+        accomp = score(finalRating.outstandingAccomplishmentsScore ?? initialRating.outstandingAccomplishmentsScore, 5);
+        appEdu = score(finalRating.applicationOfEducationScore ?? initialRating.applicationOfEducationScore, 15);
+        appLd = score(finalRating.applicationOfLdScore ?? initialRating.applicationOfLdScore, 10);
+        const potentialParts = score(finalRating.potentialWrittenScore, 5) + score(finalRating.potentialBeiScore, 5) + score(finalRating.potentialSkillsScore, 10);
+        potential = score(finalRating.potentialScore ?? potentialParts, 20);
         totalScore = parseFloat((edu + train + exp + perf + accomp + appEdu + appLd + potential).toFixed(2));
       }
 
-      const remarks = finalRating.hrmoRemarks || initialRating.aoRemarks || details.remarks || 'Meets DepEd Quality Standards';
-      const biStatus = details.forBackgroundInvestigation || finalRating.forBackgroundInvestigation || 'YES';
-      const appointment = details.forAppointment || finalRating.forAppointment || 'Recommended for Appointment';
-      const probation = details.forProbation || finalRating.forProbation || '6 months';
+      // Unrecorded decisions stay blank rather than printing an assumed outcome.
+      const remarks = finalRating.hrmoRemarks || initialRating.aoRemarks || details.remarks || '';
+      const biStatus = details.forBackgroundInvestigation || finalRating.forBackgroundInvestigation || '';
+      const appointment = details.forAppointment || finalRating.forAppointment || '';
+      const probation = details.forProbation || finalRating.forProbation || '';
 
       return {
         rank: app.finalRank || (index + 1),
+        hasRank: Boolean(app.finalRank),
         name: fullName,
         appCode,
         edu: edu.toFixed(2),
@@ -179,6 +213,10 @@ export class CarDocumentService {
         probation,
       };
     });
+
+    // Recorded ranks first; otherwise highest total first.
+    mappedApplicants.sort((a, b) =>
+      (a.hasRank && b.hasRank ? a.rank - b.rank : 0) || Number(b.total) - Number(a.total));
 
     // 3. Dynamic Table Rows Replacement
     // Locate the table in XML
@@ -278,8 +316,7 @@ export class CarDocumentService {
     zip.file('word/document.xml', docXml);
     const generatedBuffer = zip.generate({ type: 'nodebuffer' });
 
-    const safePosition = sanitizeFilename(position);
-    const filename = `CAR-${isTeaching ? 'Teaching' : 'NonTeaching'}-${safePosition}-${cycle.id}.docx`;
+    const filename = `CAR-${isTeaching ? 'Teaching' : 'NonTeaching'}-${sanitizeFilename(position)}-cycle-${cycle.id}.docx`;
 
     return {
       buffer: generatedBuffer,

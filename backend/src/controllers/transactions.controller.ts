@@ -842,13 +842,13 @@ export const validateTransaction = async (req: Request, res: Response) => {
       } else if (hasDeficiencies) {
         notifType = 'WARNING';
         if (deficientDocNames.length > 0) {
-          notifMsg = `⚠️ Deficiency Alert on TRX-${id}: The document "${deficientDocNames.join(', ')}" was returned due to: "${remarks || 'Validation error'}". Only this document needs to be re-uploaded.`;
+          notifMsg = `Deficiency Alert on TRX-${id}: The document "${deficientDocNames.join(', ')}" was returned due to: "${remarks || 'Validation error'}". Only this document needs to be re-uploaded.`;
         } else {
-          notifMsg = `⚠️ Deficiency Alert on TRX-${id}: Documents were returned by AO II. Reason: "${remarks || 'Please re-upload deficient files.'}". Only deficient items require re-upload.`;
+          notifMsg = `Deficiency Alert on TRX-${id}: Documents were returned by AO II. Reason: "${remarks || 'Please re-upload deficient files.'}". Only deficient items require re-upload.`;
         }
       } else {
         notifType = 'INFO';
-        notifMsg = `✅ Verification Complete: All submitted documents for TRX-${id} (${txWithPersonnel.transactionType.name}) have been verified by AO II and forwarded to HRMO for final approval.`;
+        notifMsg = `Verification Complete: All submitted documents for TRX-${id} (${txWithPersonnel.transactionType.name}) have been verified by AO II and forwarded to HRMO for final approval.`;
       }
 
       await tx.notification.create({
@@ -914,7 +914,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
         await tx.notification.createMany({
           data: hrmoUsers.map(h => ({
             userId: h.id,
-            message: `📋 HRMO Action Required: Transaction #${id} (${txTypeName}) for ${applicantName} has been validated by AO II and is ready for your final review & approval.`,
+            message: `HRMO Action Required: Transaction #${id} (${txTypeName}) for ${applicantName} has been validated by AO II and is ready for your final review & approval.`,
             type: 'INFO',
             relatedEntityId: id,
             relatedEntityType: 'Transaction',
@@ -1146,7 +1146,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       const isPromo = transaction.transactionType.name.toUpperCase().includes('PROMOTION');
       const notifMessage = isApproved
         ? (isPromo
-            ? `🎉 Promotion Appointment Approved! Your submitted documents have been fully verified by AO II and approved by HRMO. Your official personnel position has been updated!`
+            ? `Promotion Appointment Approved! Your submitted documents have been fully verified by AO II and approved by HRMO. Your official personnel position has been updated!`
             : `Congratulations! Transaction #${id} (${transaction.transactionType.name}) has been approved by HRMO.`)
         : `Transaction #${id} has been rejected by HRMO. Reason: ${notes}`;
 

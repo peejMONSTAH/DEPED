@@ -1,15 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Eye,
   FileText,
   Check,
   AlertCircle,
-  ZoomIn,
-  ZoomOut,
   RotateCw,
   Download,
-  ExternalLink,
   Loader2,
   RefreshCw,
   AlertTriangle,
@@ -21,8 +18,11 @@ import {
 } from 'lucide-react';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import { AppIcon } from '../../components/common/AppIcon';
-import apiClient, { API_BASE_URL } from '../../api/client';
-import { IDLE_PREVIEW, PreviewController, PreviewState, loadDocumentPreview, previewRequestOptions } from '../../components/common/document-preview';
+
+import { useDocumentPreview, downloadDocument } from '../../components/common/useDocumentPreview';
+import { PreviewZoomControls } from '../../components/common/PreviewZoomControls';
+import { useToast } from '../../contexts/ToastContext';
+import { groupByAnnex, requirementState, REQUIREMENT_STATE_LABEL } from '../../promotions/annexGroups';
 import './annex-c-verification-modal.css';
 
 export interface AnnexCItemState {
@@ -87,17 +87,10 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
     }
     return null;
   });
-  const [preview, setPreview] = useState<PreviewState>(IDLE_PREVIEW);
-  const [retryNonce, setRetryNonce] = useState(0);
-  const previewRef = useRef<PreviewController | null>(null);
-  const docLoading = preview.status === 'loading';
-  const docError = preview.error;
-  const blobUrl = preview.url;
-  const resolvedType = preview.type;
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
-  const [openingNewTab, setOpeningNewTab] = useState(false);
-  const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const { addToast } = useToast();
 
   // Density & View preferences
   const [expandedDescriptions, setExpandedDescriptions] = useState<Record<string, boolean>>({});
@@ -106,37 +99,24 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
   // Ref tracking trigger button for focus restoration
   const triggerButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // One controller per mount owns the request and the blob URL. Created inside
-  // the effect so Strict Mode's mount/unmount/mount gets a live controller.
-  useEffect(() => {
-    const controller = new PreviewController(setPreview);
-    previewRef.current = controller;
-    return () => {
-      controller.dispose();
-      if (previewRef.current === controller) previewRef.current = null;
-    };
-  }, []);
-
-  // Keyed on the document id, not the item object or a callback, so a new
-  // blob URL can never retrigger its own fetch.
+  // Keyed on the document id, not the item object, so neither re-renders nor
+  // zooming nor the published blob URL can start another fetch.
   const activeDocId = isOpen ? activeDoc?.personnelDocumentId : undefined;
-  const activeDocName = activeDoc?.documentName;
+  const activeFileUrl = activeDocId ? `/personnel/documents/${activeDocId}/file` : null;
+  const { preview, retry } = useDocumentPreview(
+    activeFileUrl,
+    activeDoc?.documentName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : undefined,
+  );
+  const docLoading = preview.status === 'loading';
+  const docError = preview.error;
+  const blobUrl = preview.url;
+  const resolvedType = preview.type;
+
+  // A newly selected document always opens unzoomed.
   useEffect(() => {
-    const controller = previewRef.current;
-    if (!controller) return;
-    if (!activeDocId) {
-      controller.clear();
-      return;
-    }
-    setPopupBlockedUrl(null);
     setZoom(1);
     setRotation(0);
-    const fileUrl = `/personnel/documents/${activeDocId}/file`;
-    const fallbackType = activeDocName?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : undefined;
-    void controller.load(signal => loadDocumentPreview(apiClient, fileUrl, API_BASE_URL, fallbackType, previewRequestOptions(signal)));
-    // activeDocName only refines the type guess; it must not start a new fetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDocId, retryNonce]);
+  }, [activeDocId]);
 
   // When modal closes, reset active preview
   useEffect(() => {
@@ -151,8 +131,8 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
   const naCount = items.filter(it => it.status === 'NOT_APPLICABLE').length;
   const totalCount = items.length;
 
-  const isPdf = resolvedType === 'application/pdf' || Boolean(activeDoc?.documentName?.toLowerCase().endsWith('.pdf'));
-  const isImage = resolvedType.startsWith('image/') || (!isPdf && ['jpg', 'jpeg', 'png', 'webp'].some(ext => activeDoc?.documentName?.toLowerCase().endsWith(ext)));
+  const isPdf = resolvedType === 'application/pdf' || (!resolvedType && Boolean(activeDoc?.documentName?.toLowerCase().endsWith('.pdf')));
+  const isImage = resolvedType.startsWith('image/');
 
   // Bulk action: Mark submitted as verified (preserves exact logic)
   const handleMarkSubmittedAsVerified = () => {
@@ -172,48 +152,16 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
     }
   };
 
-  // Zoom and rotate handlers
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
-  const handleResetZoom = () => {
-    setZoom(1);
-    setRotation(0);
-  };
-  const handleRotate = () => setRotation(prev => (prev + 90) % 360);
-
-  // Download active document
-  const handleDownload = () => {
-    if (!blobUrl || !activeDoc) return;
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = activeDoc.documentName || `annex-c-${activeDoc.code}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  // Open in new tab with authorized view token
-  const handleOpenInNewTab = async () => {
-    if (!activeDoc?.personnelDocumentId || openingNewTab) return;
-    setPopupBlockedUrl(null);
-    setOpeningNewTab(true);
-
+  // Download active document (works from the error state too)
+  const handleDownload = async () => {
+    if (!activeDoc || !activeFileUrl || downloading) return;
+    setDownloading(true);
     try {
-      const tokenRes = await apiClient.get(`/personnel/documents/${activeDoc.personnelDocumentId}/view-token`);
-      const targetUrl = tokenRes.data?.data?.fileUrl || tokenRes.data?.fileUrl || blobUrl;
-      if (!targetUrl) throw new Error('No authorized URL received');
-
-      const opened = window.open(targetUrl, '_blank', 'noopener,noreferrer');
-      if (!opened || opened.closed || typeof opened.closed === 'undefined') {
-        setPopupBlockedUrl(targetUrl);
-      }
+      await downloadDocument(activeFileUrl, blobUrl, activeDoc.documentName || `annex-c-${activeDoc.code}.pdf`);
     } catch {
-      if (blobUrl) {
-        const fallback = window.open(blobUrl, '_blank');
-        if (!fallback) setPopupBlockedUrl(blobUrl);
-      }
+      addToast('The document could not be downloaded. Please try again.', 'ERROR');
     } finally {
-      setOpeningNewTab(false);
+      setDownloading(false);
     }
   };
 
@@ -323,9 +271,22 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
             <div className="annex-c-checklist-scroll">
               {/* Checklist Toolbar */}
               <div className="annex-c-toolbar">
-                <span className="annex-c-toolbar-title">
-                  Documentary Requirements Checklist ({totalCount} items)
-                </span>
+                <div className="annex-c-toolbar-heading">
+                  <span className="annex-c-toolbar-title">Documentary Requirements Checklist</span>
+                  <span className="annex-c-toolbar-sub">
+                    {verifiedCount} of {totalCount} verified{deficientCount > 0 ? ` · ${deficientCount} deficient` : ''}
+                  </span>
+                  <div
+                    className="annex-c-toolbar-progress"
+                    role="progressbar"
+                    aria-label="Requirements verified"
+                    aria-valuemin={0}
+                    aria-valuemax={totalCount}
+                    aria-valuenow={verifiedCount}
+                  >
+                    <span style={{ width: `${totalCount ? (verifiedCount / totalCount) * 100 : 0}%` }} />
+                  </div>
+                </div>
                 <div className="annex-c-toolbar-actions">
                   <button
                     type="button"
@@ -349,8 +310,15 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 </div>
               </div>
 
-              {/* 11 Requirement Items */}
-              {items.map((item, idx) => {
+              {/* Requirements grouped by Annex; labels come from the official code. */}
+              {groupByAnnex(items).map(group => (
+              <section key={group.annex} className="annex-c-group" aria-labelledby={`annex-group-${group.annex}`}>
+                <h3 id={`annex-group-${group.annex}`} className="annex-c-group-heading">
+                  {group.heading}
+                  <span className="annex-c-group-count">{group.entries.length} {group.entries.length === 1 ? 'document' : 'documents'}</span>
+                </h3>
+              {group.entries.map(({ item, index: idx, label }) => {
+                const state = requirementState(item);
                 const isVerified = item.status === 'VERIFIED';
                 const isIncomplete = item.status === 'INCOMPLETE';
                 const isNA = item.status === 'NOT_APPLICABLE';
@@ -365,13 +333,20 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                     <div className="annex-c-item-header">
                       <div className="annex-c-item-title-col">
                         <div className="annex-c-item-heading-row">
-                          <span className="annex-c-item-code">{item.code}</span>
+                          <span className="annex-c-item-code" aria-hidden="true">{label}</span>
                           <span className="annex-c-item-title">{item.title}</span>
                           {item.isMandatory ? (
                             <span className="annex-c-badge-mandatory">Mandatory</span>
                           ) : (
                             <span className="annex-c-badge-optional">If Applicable</span>
                           )}
+                          <span className={`annex-c-state-chip state-${state}`}>
+                            {state === 'verified' ? <CheckCircle2 size={14} aria-hidden="true" />
+                              : state === 'deficient' ? <X size={14} aria-hidden="true" />
+                              : state === 'missing' ? <AlertCircle size={14} aria-hidden="true" />
+                              : state === 'pending' ? <Eye size={14} aria-hidden="true" /> : null}
+                            {REQUIREMENT_STATE_LABEL[state]}
+                          </span>
                           {isViewingThis && (
                             <span className="annex-c-active-indicator">
                               <Eye size={11} /> Viewing in Inspector
@@ -525,6 +500,8 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                   </div>
                 );
               })}
+              </section>
+              ))}
 
               {/* Omnibus Sworn Statement Status */}
               <div className="annex-c-omnibus-card">
@@ -668,79 +645,38 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
 
                   {/* Toolbar */}
                   <div className="annex-c-preview-toolbar">
+                    <PreviewZoomControls
+                      zoom={zoom}
+                      onZoomChange={setZoom}
+                      disabled={!blobUrl || docLoading || !(isPdf || isImage)}
+                      buttonClassName="annex-c-tool-btn"
+                    />
+
                     {isImage && (
-                      <>
-                        <div className="annex-c-tool-group">
-                          <button
-                            type="button"
-                            className="annex-c-tool-btn"
-                            onClick={handleZoomOut}
-                            title="Zoom out"
-                            aria-label="Zoom out"
-                            disabled={docLoading || Boolean(docError) || zoom <= 0.5}
-                          >
-                            <ZoomOut size={14} />
-                          </button>
-                          <span className="annex-c-zoom-text">{Math.round(zoom * 100)}%</span>
-                          <button
-                            type="button"
-                            className="annex-c-tool-btn"
-                            onClick={handleZoomIn}
-                            title="Zoom in"
-                            aria-label="Zoom in"
-                            disabled={docLoading || Boolean(docError) || zoom >= 3}
-                          >
-                            <ZoomIn size={14} />
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="annex-c-tool-btn"
-                          onClick={handleRotate}
-                          title="Rotate 90 degrees"
-                          aria-label="Rotate clockwise"
-                          disabled={docLoading || Boolean(docError)}
-                        >
-                          <RotateCw size={14} />
-                        </button>
-
-                        {(zoom !== 1 || rotation !== 0) && (
-                          <button
-                            type="button"
-                            className="annex-c-tool-btn"
-                            onClick={handleResetZoom}
-                            title="Reset view"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </>
+                      <button
+                        type="button"
+                        className="annex-c-tool-btn"
+                        onClick={() => setRotation(prev => (prev + 90) % 360)}
+                        title="Rotate 90 degrees"
+                        aria-label="Rotate clockwise"
+                        disabled={docLoading || !blobUrl}
+                      >
+                        <RotateCw size={14} />
+                      </button>
                     )}
 
                     {blobUrl && (
                       <button
                         type="button"
                         className="annex-c-tool-btn"
-                        onClick={handleDownload}
-                        disabled={docLoading}
+                        onClick={() => void handleDownload()}
+                        disabled={docLoading || downloading}
                         title="Download file"
                       >
                         <Download size={14} />
                         <span className="hidden sm:inline">Download</span>
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      className="annex-c-tool-btn"
-                      onClick={handleOpenInNewTab}
-                      title="Open in new window"
-                      disabled={openingNewTab}
-                    >
-                      {openingNewTab ? <Loader2 size={14} className="spin" /> : <ExternalLink size={14} />}
-                      <span className="hidden sm:inline">New tab</span>
-                    </button>
 
                     <button
                       type="button"
@@ -754,16 +690,6 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                     </button>
                   </div>
                 </div>
-
-                {/* Popup Blocked Warning */}
-                {popupBlockedUrl && (
-                  <div style={{ background: '#eef7f1', borderBottom: '1px solid #cfe8d8', padding: '6px 16px', fontSize: '0.9375rem', color: '#1f5c3b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span>Pop-up was blocked by browser.</span>
-                    <a href={popupBlockedUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700, textDecoration: 'underline' }}>
-                      Click to open
-                    </a>
-                  </div>
-                )}
 
                 {/* Preview Specimen Body */}
                 <div className="annex-c-preview-viewport" aria-busy={docLoading}>
@@ -788,21 +714,26 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                       <p style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-muted)' }}>
                         {docError}
                       </p>
-                      <button
-                        type="button"
-                        className="annex-c-btn-secondary"
-                        onClick={() => setRetryNonce(n => n + 1)}
-                        style={{ marginTop: 8 }}
-                      >
-                        <RefreshCw size={13} /> Retry
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <button type="button" className="annex-c-btn-secondary" onClick={retry}>
+                          <RefreshCw size={13} /> Retry
+                        </button>
+                        <button type="button" className="annex-c-btn-secondary" onClick={() => void handleDownload()} disabled={downloading}>
+                          <Download size={13} /> Download
+                        </button>
+                      </div>
                     </div>
                   ) : isPdf && blobUrl ? (
-                    <iframe
-                      src={`${blobUrl}#toolbar=0`}
-                      className="annex-c-preview-iframe"
-                      title={activeDoc.documentName || activeDoc.title}
-                    />
+                    // Zoom resizes the frame inside a scroll area; the src
+                    // never changes, so zooming cannot reload the document.
+                    <div className="annex-c-pdf-scroll">
+                      <iframe
+                        src={`${blobUrl}#toolbar=0`}
+                        className="annex-c-preview-iframe"
+                        title={activeDoc.documentName || activeDoc.title}
+                        style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+                      />
+                    </div>
                   ) : isImage && blobUrl ? (
                     <div className="annex-c-image-canvas">
                       <img
@@ -821,18 +752,17 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                         Preview unavailable for this format
                       </p>
                       <p style={{ margin: 0, fontSize: '1rem', color: 'var(--color-text-muted)' }}>
-                        This file format cannot be rendered inline. You can download the file to inspect it.
+                        Only PDF, PNG and JPEG files can be shown here. You can download the file to inspect it.
                       </p>
-                      {blobUrl && (
-                        <button
-                          type="button"
-                          className="annex-c-btn-secondary"
-                          onClick={handleDownload}
-                          style={{ marginTop: 8 }}
-                        >
-                          <Download size={13} /> Download file
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className="annex-c-btn-secondary"
+                        onClick={() => void handleDownload()}
+                        disabled={downloading}
+                        style={{ marginTop: 8 }}
+                      >
+                        <Download size={13} /> Download file
+                      </button>
                     </div>
                   )}
                 </div>

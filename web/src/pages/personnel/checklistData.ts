@@ -69,7 +69,11 @@ export type SubmittedAnnexCItem = {
  */
 export function normaliseAnnexCItem(raw: any): SubmittedAnnexCItem | null {
   if (!raw || typeof raw !== 'object') return null;
-  const documentId = raw.personnelDocumentId ?? raw.existingDocumentId;
+  // JSON round trips (notably from the Flutter app) can store the id as a
+  // numeric string; dropping it removed the only way to preview the file.
+  const rawId = raw.personnelDocumentId ?? raw.existingDocumentId;
+  const parsedId = typeof rawId === 'string' && /^\d+$/.test(rawId.trim()) ? Number(rawId) : rawId;
+  const documentId = typeof parsedId === 'number' && Number.isSafeInteger(parsedId) && parsedId > 0 ? parsedId : undefined;
   return {
     code: String(raw.code ?? ''),
     title: raw.title,
@@ -79,7 +83,7 @@ export function normaliseAnnexCItem(raw: any): SubmittedAnnexCItem | null {
     // neither flag survived the round trip.
     submitted: Boolean(raw.submitted ?? raw.isSubmitted ?? documentId ?? raw.fileName),
     documentName: raw.documentName ?? raw.fileName,
-    personnelDocumentId: typeof documentId === 'number' ? documentId : undefined,
+    personnelDocumentId: documentId,
     uploadedFileUrl: raw.uploadedFileUrl,
     fileSize: raw.fileSize,
     mimeType: raw.mimeType,

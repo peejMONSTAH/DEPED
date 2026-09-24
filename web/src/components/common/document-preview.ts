@@ -18,13 +18,32 @@ export const loadDocumentPreview = async (
 ): Promise<{ blob: Blob; type: string }> => {
   const response = await client.get<Blob>(previewRequestPath(fileUrl, baseUrl), { responseType: 'blob', ...request });
   const blob = response.data;
-  return {
-    blob,
-    type: blob.type || mimeType || (fileUrl.toLowerCase().includes('.pdf') ? 'application/pdf' : 'image/jpeg'),
-  };
+  if (PREVIEWABLE_TYPES.includes(blob.type)) return { blob, type: blob.type };
+  // Missing or generic Content-Type (e.g. application/octet-stream): trust the
+  // file signature over a guess from the URL, which ends in /file anyway.
+  const sniffed = await sniffDocumentType(blob);
+  return { blob, type: sniffed || blob.type || mimeType || 'application/octet-stream' };
+};
+
+export const PREVIEWABLE_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+
+/** Identifies PDF, PNG and JPEG from their magic bytes; undefined for anything else. */
+export const sniffDocumentType = async (blob: Blob): Promise<string | undefined> => {
+  const head = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+  if (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) return 'application/pdf';
+  if (head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47) return 'image/png';
+  if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'image/jpeg';
+  return undefined;
 };
 
 const PREVIEW_TIMEOUT_MS = 30_000;
+
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.25;
+export const zoomIn = (zoom: number) => Math.min(ZOOM_MAX, Math.round((zoom + ZOOM_STEP) * 100) / 100);
+export const zoomOut = (zoom: number) => Math.max(ZOOM_MIN, Math.round((zoom - ZOOM_STEP) * 100) / 100);
+export const zoomPercent = (zoom: number) => `${Math.round(zoom * 100)}%`;
 
 /** Request options for one preview fetch: cancellable, and never left pending forever. */
 export const previewRequestOptions = (signal: AbortSignal) => ({ signal, timeout: PREVIEW_TIMEOUT_MS });

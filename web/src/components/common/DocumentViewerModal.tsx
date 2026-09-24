@@ -1,11 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
-  ZoomIn,
-  ZoomOut,
   RotateCw,
   Download,
-  ExternalLink,
   AlertTriangle,
   Loader2,
   FileText,
@@ -13,8 +10,9 @@ import {
 } from 'lucide-react';
 import { ModalPortal } from './ModalPortal';
 import { ModalOverlay } from './ModalOverlay';
-import apiClient, { API_BASE_URL } from '../../api/client';
-import { loadDocumentPreview } from './document-preview';
+import { useToast } from '../../contexts/ToastContext';
+import { useDocumentPreview, downloadDocument } from './useDocumentPreview';
+import { PreviewZoomControls } from './PreviewZoomControls';
 import './document-viewer-modal.css';
 
 export interface DocumentViewerModalProps {
@@ -24,10 +22,8 @@ export interface DocumentViewerModalProps {
   fileName?: string;
   fileSize?: number;
   mimeType?: string;
-  /** Primary endpoint to fetch file bytes from via apiClient, e.g. `/personnel/documents/${id}/file` */
+  /** Authenticated endpoint for the file bytes, e.g. `/personnel/documents/${id}/file` */
   fileUrl: string;
-  /** Optional view token endpoint to generate a signed single-use URL for opening in a new tab */
-  viewTokenUrl?: string;
   /** Download file name */
   downloadFileName?: string;
 }
@@ -47,125 +43,47 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   fileSize,
   mimeType,
   fileUrl,
-  viewTokenUrl,
   downloadFileName,
 }) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [resolvedType, setResolvedType] = useState<string>('');
+  const { addToast } = useToast();
+  const { preview, retry } = useDocumentPreview(isOpen && fileUrl ? fileUrl : null, mimeType);
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
-  const [openingNewTab, setOpeningNewTab] = useState(false);
-  const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
-  const cleanBlobUrl = useCallback(() => {
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl);
-      setBlobUrl(null);
-    }
-  }, [blobUrl]);
-
-  const fetchDocument = useCallback(async () => {
-    if (!fileUrl) return;
-    setLoading(true);
-    setError(null);
-    setPopupBlockedUrl(null);
-
-    try {
-      const { blob, type } = await loadDocumentPreview(apiClient, fileUrl, API_BASE_URL, mimeType);
-      setResolvedType(type);
-
-      const objectUrl = URL.createObjectURL(blob);
-      setBlobUrl(objectUrl);
-    } catch (err: any) {
-      const status = err?.response?.status;
-      if (status === 404) {
-        // The server answers a document outside the viewer's station exactly
-        // like a missing one, so this message covers both on purpose.
-        setError('This document is unavailable, or you do not have access to it.');
-      } else if (status === 403) {
-        setError('You do not have authorization to view this document.');
-      } else if (status === 401) {
-        setError('Your session has expired. Please sign in again to view this document.');
-      } else {
-        setError(err?.response?.data?.message || 'Failed to load the document preview. Please check your connection.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [fileUrl, mimeType]);
-
+  // A new document always opens unzoomed.
   useEffect(() => {
-    if (isOpen) {
-      setZoom(1);
-      setRotation(0);
-      void fetchDocument();
-    } else {
-      cleanBlobUrl();
-    }
-    return () => {
-      cleanBlobUrl();
-    };
-  }, [isOpen, fetchDocument]);
+    setZoom(1);
+    setRotation(0);
+  }, [fileUrl, isOpen]);
 
   if (!isOpen) return null;
 
-  const isPdf = resolvedType === 'application/pdf' || fileUrl.toLowerCase().includes('.pdf') || (fileName && fileName.toLowerCase().endsWith('.pdf'));
-  const isImage = resolvedType.startsWith('image/') || (!isPdf && ['jpg', 'jpeg', 'png'].some(ext => fileName?.toLowerCase().endsWith(ext)));
+  const loading = preview.status === 'loading' || preview.status === 'idle';
+  const error = preview.error;
+  const blobUrl = preview.url;
+  const resolvedType = preview.type;
+  const isPdf = resolvedType === 'application/pdf' || (!resolvedType && Boolean(fileName?.toLowerCase().endsWith('.pdf')));
+  const isImage = resolvedType.startsWith('image/');
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
-  const handleResetZoom = () => {
-    setZoom(1);
-    setRotation(0);
-  };
-  const handleRotate = () => setRotation(prev => (prev + 90) % 360);
-
-  const handleDownload = () => {
-    if (!blobUrl) return;
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = downloadFileName || fileName || (isPdf ? 'document.pdf' : 'document.jpg');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const handleOpenInNewTab = async () => {
-    if (openingNewTab) return;
-    setPopupBlockedUrl(null);
-    setOpeningNewTab(true);
-
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
     try {
-      // Determine the token endpoint: explicitly passed viewTokenUrl or derived from fileUrl
-      const tokenEndpoint = viewTokenUrl || (fileUrl.endsWith('/file') ? fileUrl.replace(/\/file$/, '/view-token') : null);
-
-      let targetUrl: string;
-      if (tokenEndpoint) {
-        const res = await apiClient.get(tokenEndpoint);
-        targetUrl = res.data?.data?.fileUrl || res.data?.fileUrl;
-        if (!targetUrl) throw new Error('Token endpoint did not return authorized URL');
-      } else if (blobUrl) {
-        targetUrl = blobUrl;
-      } else {
-        targetUrl = fileUrl;
-      }
-
-      const opened = window.open(targetUrl, '_blank', 'noopener,noreferrer');
-      if (!opened || opened.closed || typeof opened.closed === 'undefined') {
-        setPopupBlockedUrl(targetUrl);
-      }
-    } catch (err) {
-      // Fallback: try opening blobUrl or fileUrl
-      if (blobUrl) {
-        const fallback = window.open(blobUrl, '_blank');
-        if (!fallback) setPopupBlockedUrl(blobUrl);
-      }
+      await downloadDocument(fileUrl, blobUrl, downloadFileName || fileName || (isPdf ? 'document.pdf' : 'document'));
+    } catch {
+      addToast('The document could not be downloaded. Please try again.', 'ERROR');
     } finally {
-      setOpeningNewTab(false);
+      setDownloading(false);
     }
   };
+
+  const downloadButton = (label: string) => (
+    <button type="button" className="doc-viewer-btn" onClick={() => void handleDownload()} disabled={downloading} title="Download document">
+      {downloading ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+      <span>{label}</span>
+    </button>
+  );
 
   return (
     <ModalPortal>
@@ -194,78 +112,27 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
             {/* Toolbar */}
             <div className="doc-viewer-toolbar">
+              <PreviewZoomControls
+                zoom={zoom}
+                onZoomChange={setZoom}
+                disabled={!blobUrl || !(isPdf || isImage)}
+                buttonClassName="doc-viewer-btn doc-viewer-btn-icon"
+              />
+
               {isImage && (
-                <>
-                  <div className="doc-viewer-tool-group">
-                    <button
-                      type="button"
-                      className="doc-viewer-btn doc-viewer-btn-icon"
-                      onClick={handleZoomOut}
-                      title="Zoom out"
-                      aria-label="Zoom out"
-                      disabled={loading || Boolean(error) || zoom <= 0.5}
-                    >
-                      <ZoomOut size={16} />
-                    </button>
-                    <span className="doc-viewer-zoom-level">{Math.round(zoom * 100)}%</span>
-                    <button
-                      type="button"
-                      className="doc-viewer-btn doc-viewer-btn-icon"
-                      onClick={handleZoomIn}
-                      title="Zoom in"
-                      aria-label="Zoom in"
-                      disabled={loading || Boolean(error) || zoom >= 3}
-                    >
-                      <ZoomIn size={16} />
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="doc-viewer-btn doc-viewer-btn-icon"
-                    onClick={handleRotate}
-                    title="Rotate 90 degrees"
-                    aria-label="Rotate clockwise"
-                    disabled={loading || Boolean(error)}
-                  >
-                    <RotateCw size={16} />
-                  </button>
-
-                  {(zoom !== 1 || rotation !== 0) && (
-                    <button
-                      type="button"
-                      className="doc-viewer-btn"
-                      onClick={handleResetZoom}
-                      title="Reset view"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </>
-              )}
-
-              {blobUrl && (
                 <button
                   type="button"
-                  className="doc-viewer-btn"
-                  onClick={handleDownload}
-                  title="Download document"
+                  className="doc-viewer-btn doc-viewer-btn-icon"
+                  onClick={() => setRotation(prev => (prev + 90) % 360)}
+                  title="Rotate 90 degrees"
+                  aria-label="Rotate clockwise"
+                  disabled={!blobUrl}
                 >
-                  <Download size={15} />
-                  <span>Download</span>
+                  <RotateCw size={16} />
                 </button>
               )}
 
-              <button
-                type="button"
-                className="doc-viewer-btn"
-                onClick={handleOpenInNewTab}
-                title="Open document in a new window"
-                disabled={openingNewTab}
-              >
-                {openingNewTab ? <Loader2 size={15} className="spin" /> : <ExternalLink size={15} />}
-                <span>New tab</span>
-              </button>
+              {blobUrl && downloadButton('Download')}
 
               <button
                 type="button"
@@ -279,49 +146,42 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             </div>
           </div>
 
-          {/* Popup Blocked Warning */}
-          {popupBlockedUrl && (
-            <div className="doc-viewer-popup-notice" role="alert">
-              <span>Your browser blocked the document pop-up window.</span>
-              <a href={popupBlockedUrl} target="_blank" rel="noopener noreferrer">
-                Click here to open the document
-              </a>
-            </div>
-          )}
-
           {/* Viewer Body */}
-          <div className="doc-viewer-body">
+          <div className="doc-viewer-body" aria-busy={loading}>
             {loading ? (
-              <div className="doc-viewer-status-container">
+              <div className="doc-viewer-status-container" role="status">
                 <Loader2 size={36} className="spin" color="#2f7d52" />
                 <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text-secondary)' }}>
                   Loading document preview…
                 </p>
               </div>
             ) : error ? (
-              <div className="doc-viewer-status-container">
+              <div className="doc-viewer-status-container" role="alert">
                 <AlertTriangle size={36} color="#dc2626" />
                 <p style={{ margin: 0, fontWeight: 700, color: '#dc2626' }}>
                   Unable to view document
                 </p>
-                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+                <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
                   {error}
                 </p>
-                <button
-                  type="button"
-                  className="doc-viewer-btn"
-                  onClick={() => void fetchDocument()}
-                  style={{ marginTop: 8 }}
-                >
-                  <RefreshCw size={15} /> Retry
-                </button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button type="button" className="doc-viewer-btn" onClick={retry}>
+                    <RefreshCw size={15} /> Retry
+                  </button>
+                  {downloadButton('Download')}
+                </div>
               </div>
             ) : isPdf && blobUrl ? (
-              <iframe
-                src={`${blobUrl}#toolbar=0`}
-                className="doc-viewer-iframe"
-                title={title}
-              />
+              // Zoom resizes the frame inside a scroll area; the src never
+              // changes, so zooming cannot reload the document.
+              <div className="doc-viewer-pdf-scroll">
+                <iframe
+                  src={`${blobUrl}#toolbar=0`}
+                  className="doc-viewer-iframe"
+                  title={title}
+                  style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+                />
+              </div>
             ) : isImage && blobUrl ? (
               <div className="doc-viewer-image-canvas">
                 <img
@@ -339,19 +199,10 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                 <p style={{ margin: 0, fontWeight: 700 }}>
                   Preview unavailable for this format
                 </p>
-                <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                  This file format cannot be displayed directly in the browser. You can download the file to inspect it.
+                <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>
+                  Only PDF, PNG and JPEG files can be shown here. You can download the file to inspect it.
                 </p>
-                {blobUrl && (
-                  <button
-                    type="button"
-                    className="doc-viewer-btn"
-                    onClick={handleDownload}
-                    style={{ marginTop: 8 }}
-                  >
-                    <Download size={15} /> Download file
-                  </button>
-                )}
+                {downloadButton('Download file')}
               </div>
             )}
           </div>
@@ -360,4 +211,3 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     </ModalPortal>
   );
 };
-export default DocumentViewerModal;

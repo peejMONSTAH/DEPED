@@ -42,11 +42,21 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
       };
     }
 
+    // Exact matches, and both may apply: a substring test let "District 1" also
+    // match "District 10"–"District 19", and a school filter used to drop the
+    // district filter entirely.
+    const locationFilters: Record<string, any>[] = [];
     if (school && school !== 'ALL' && school !== 'All Schools in District') {
-      where.department = { contains: String(school), mode: 'insensitive' };
-    } else if (district && district !== 'ALL' && district !== 'All Districts / Division-Wide') {
-      where.division = { contains: String(district), mode: 'insensitive' };
+      locationFilters.push({ department: { equals: String(school).trim(), mode: 'insensitive' } });
     }
+    if (district && district !== 'ALL' && district !== 'All Districts / Division-Wide') {
+      const name = String(district).trim();
+      locationFilters.push({ OR: [
+        { division: { equals: name, mode: 'insensitive' } },
+        { division: { endsWith: ` - ${name}`, mode: 'insensitive' } },
+      ] });
+    }
+    if (locationFilters.length) where.AND = locationFilters;
 
     // AO II scope: an officer never sees plantilla items outside their own station
     const scope = await getStationScope(req.user);

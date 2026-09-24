@@ -1369,7 +1369,6 @@ export const MyDocuments: React.FC = () => {
           fileSize={previewDoc.fileSize || undefined}
           mimeType={previewDoc.mimeType || undefined}
           fileUrl={previewDoc.fileUrl || `/personnel/documents/${previewDoc.id}/file`}
-          viewTokenUrl={`/personnel/documents/${previewDoc.id}/view-token`}
         />
       )}
 

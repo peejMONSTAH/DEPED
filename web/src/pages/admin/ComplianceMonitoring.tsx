@@ -6,11 +6,11 @@ import { SkeletonStats, SkeletonTable } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
 import { getAutoSalaryGrade } from '../../constants/depedData';
 
-// HRMO Step 4: Compliance Monitoring — per 201-System-Workflow.md
+// HRMO Compliance Monitoring — per 201-System-Workflow.md
 // Dashboard Analytics: Fully Compliant, Partially Compliant, Non-Compliant Personnel
 // Pending Transactions, Returned Transactions, Approved Transactions
 
-// HRMO Step 5: Years of Service Monitoring — per 201-System-Workflow.md
+// HRMO Years of Service Monitoring — per 201-System-Workflow.md
 // System computes using: Appointment Date, PDS, Work Experience Sheet, Service Records
 // Displays: Years in Service, Current Position, First Appointment Date, Latest Promotion Date, Career Timeline
 
@@ -196,6 +196,7 @@ export const ComplianceMonitoring: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('compliance')}
+            aria-pressed={activeTab === 'compliance'}
             style={{
               padding: '8px 20px',
               borderRadius: '9999px',
@@ -213,11 +214,12 @@ export const ComplianceMonitoring: React.FC = () => {
             }}
           >
             <AppIcon name="compliance" size={15} color={activeTab === 'compliance' ? 'currentColor' : undefined} />
-            <span>Step 4: Compliance Monitoring</span>
+            <span>Compliance Monitoring</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('years')}
+            aria-pressed={activeTab === 'years'}
             style={{
               padding: '8px 20px',
               borderRadius: '9999px',
@@ -235,11 +237,11 @@ export const ComplianceMonitoring: React.FC = () => {
             }}
           >
             <AppIcon name="pending" size={15} color={activeTab === 'years' ? 'currentColor' : undefined} />
-            <span>Step 5: Years of Service</span>
+            <span>Years of Service</span>
           </button>
         </div>
 
-        {/* ── Step 4: Compliance Monitoring Dashboard ── */}
+        {/* ── Compliance Monitoring Dashboard ── */}
         {activeTab === 'compliance' && (
           <>
             {/* Structured Glassmorphic Metric Cards */}
@@ -462,10 +464,10 @@ export const ComplianceMonitoring: React.FC = () => {
           </>
         )}
 
-        {/* ── Step 5: Years of Service Monitoring ── */}
+        {/* ── Years of Service Monitoring ── */}
         {activeTab === 'years' && (
           <>
-            {/* Step 5 Regulatory Info Card */}
+            {/* Regulatory Info Card */}
             <div className="card mb-4" style={{
               background: 'var(--glass-bg)',
               backdropFilter: 'var(--glass-blur)',
@@ -482,7 +484,7 @@ export const ComplianceMonitoring: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--color-text-primary)', marginBottom: 4 }}>
-                    Step 5 Service Computation Engine Active
+                    Service Computation Engine Active
                   </div>
                   <div className="text-xs text-muted" style={{ lineHeight: 1.6 }}>
                     The system computes authoritative tenure using <strong>Appointment Date</strong>, <strong>Personal Data Sheet (PDS)</strong>, <strong>Work Experience Sheet (WES)</strong>, and certified <strong>Service Records</strong>.<br />

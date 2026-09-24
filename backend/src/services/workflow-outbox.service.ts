@@ -45,9 +45,23 @@ export async function queueDeficiencyEmail(
 
 const MAX_ATTEMPTS = 8;
 
+/**
+ * Whether this process may deliver queued email. Default: production only.
+ * A developer's backend pointed at a shared database would otherwise send the
+ * live queue with local settings (localhost links) and burn its retries.
+ * WORKFLOW_OUTBOX_ENABLED=true or =false overrides the default either way.
+ */
+export const isOutboxDeliveryEnabled = (env: NodeJS.ProcessEnv = process.env): boolean => {
+  if (env.WORKFLOW_OUTBOX_ENABLED === 'true') return true;
+  if (env.WORKFLOW_OUTBOX_ENABLED === 'false') return false;
+  return env.NODE_ENV === 'production';
+};
+
 let processing = false;
 
 export async function processWorkflowOutbox(): Promise<void> {
+  // Queued rows are kept; they are delivered by a process that is allowed to.
+  if (!isOutboxDeliveryEnabled()) return;
   if (processing) return;
   processing = true;
   try {

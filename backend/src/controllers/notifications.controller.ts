@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import prisma from '../config/prisma';
 import { sendSuccess, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { logger } from '../utils/logger';
+import { plainNotificationText } from '../utils/notification-text.util';
 
 export const notificationEvents = new EventEmitter();
 
@@ -98,7 +99,8 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       prisma.notification.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
       prisma.notification.count({ where }),
     ]);
-    sendSuccess(res, await withPromotionTargets(data), undefined, 200, buildPaginationMeta(page, limit, total));
+    const clean = data.map(n => ({ ...n, message: plainNotificationText(n.message) }));
+    sendSuccess(res, await withPromotionTargets(clean), undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {
     logger.error({ err: error }, 'Failed to get notifications');
     res.status(500).json({ status: 'error', message: 'Failed to retrieve notifications.' });

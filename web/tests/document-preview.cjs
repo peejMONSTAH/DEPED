@@ -43,9 +43,14 @@ test('missing, unauthorized and server failures remain visible to the viewer', a
   }
 });
 
-test('new-tab token request keeps its existing relative endpoint', () => {
-  const viewer = fs.readFileSync(path.join(__dirname, '../src/components/common/DocumentViewerModal.tsx'), 'utf8');
-  const documents = fs.readFileSync(path.join(__dirname, '../src/pages/personnel/MyDocuments.tsx'), 'utf8');
-  assert.match(viewer, /apiClient\.get\(tokenEndpoint\)/);
-  assert.match(documents, /viewTokenUrl=\{`\/personnel\/documents\/\$\{previewDoc\.id\}\/view-token`\}/);
+test('previews offer zoom instead of a New tab action, and no longer mint view tokens', () => {
+  for (const file of ['../src/components/common/DocumentViewerModal.tsx', '../src/pages/admin/AnnexCVerificationModal.tsx']) {
+    const src = fs.readFileSync(path.join(__dirname, file), 'utf8');
+    assert.doesNotMatch(src, /New tab|view-token|window\.open/, file);
+    assert.match(src, /<PreviewZoomControls/, file);
+    assert.match(src, /useDocumentPreview\(/, file);
+  }
+  const zoom = fs.readFileSync(path.join(__dirname, '../src/components/common/PreviewZoomControls.tsx'), 'utf8');
+  for (const label of ['Zoom out', 'Zoom in', 'Fit to view']) assert.match(zoom, new RegExp(`aria-label="${label}"`));
+  assert.match(zoom, /<output[^>]*aria-live="polite"/);
 });

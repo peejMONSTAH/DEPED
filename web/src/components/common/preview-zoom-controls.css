@@ -1,0 +1,19 @@
+.preview-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border, #c5d4c8);
+  border-radius: 8px;
+  background: var(--color-bg-primary, #ffffff);
+}
+
+.preview-zoom-level {
+  min-width: 52px;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary, #475569);
+}

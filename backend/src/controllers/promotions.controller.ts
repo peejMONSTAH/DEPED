@@ -24,6 +24,7 @@ import { config } from '../config';
 import { hashPassword, validatePasswordComplexity } from '../utils/hash.util';
 import { checkPromotionEligibility, resolveCanonicalPosition } from '../utils/deped.util';
 import { logger } from '../utils/logger';
+import { CarDocumentService, CarDataIncompleteError, CarCycleNotFoundError } from '../services/car-document.service';
 import { computeCycleRanking } from '../services/promotion-ranking.service';
 import { deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
 import { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } from '../utils/annex-c.util';
@@ -289,8 +290,8 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
         const notificationsData = targetNotifyUsers.map(u => {
           const isAo = u.role?.name === 'AO_II';
           const message = isAo
-            ? `📋 New Promotion Cycle Active: "${cycle.name}" has been created. Prepare for applicant qualification and initial rating.`
-            : `📢 New Promotion Cycle Opened: "${cycle.name}" is now active for applications. Check your requirements and apply!`;
+            ? `New Promotion Cycle Active: "${cycle.name}" has been created. Prepare for applicant qualification and initial rating.`
+            : `New Promotion Cycle Opened: "${cycle.name}" is now active for applications. Check your requirements and apply!`;
 
           return {
             userId: u.id,
@@ -441,7 +442,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
           await prisma.notification.createMany({
             data: applicantUserIds.map(uid => ({
               userId: uid,
-              message: `⚠️ Promotion Cycle Cancelled: The promotion cycle "${updated.name}" has been cancelled by HRMO. Applications under this cycle have been discontinued.`,
+              message: `Promotion Cycle Cancelled: The promotion cycle "${updated.name}" has been cancelled by HRMO. Applications under this cycle have been discontinued.`,
               type: 'WARNING' as const,
               relatedEntityId: updated.id,
               relatedEntityType: 'PromotionCycle',
@@ -460,7 +461,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
           await prisma.notification.createMany({
             data: aoIds.map(uid => ({
               userId: uid,
-              message: `⚠️ Promotion Cycle Cancelled: "${updated.name}" has been cancelled by HRMO.`,
+              message: `Promotion Cycle Cancelled: "${updated.name}" has been cancelled by HRMO.`,
               type: 'WARNING' as const,
               relatedEntityId: updated.id,
               relatedEntityType: 'PromotionCycle',
@@ -479,7 +480,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
           await prisma.notification.createMany({
             data: applicantUserIds.map(uid => ({
               userId: uid,
-              message: `📢 Promotion Cycle Concluded: "${updated.name}" is now ${targetStatus === 'CLOSED' ? 'closed' : 'finalized'}. Deliberation and Comparative Assessment Results (CAR) are officially available.`,
+              message: `Promotion Cycle Concluded: "${updated.name}" is now ${targetStatus === 'CLOSED' ? 'closed' : 'finalized'}. Deliberation and Comparative Assessment Results (CAR) are officially available.`,
               type: 'INFO' as const,
               relatedEntityId: updated.id,
               relatedEntityType: 'PromotionCycle',
@@ -497,8 +498,8 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
             data: targetUsers.map(u => ({
               userId: u.id,
               message: u.role?.name === 'AO_II'
-                ? `📋 Promotion Cycle Active: "${updated.name}" is now open for applicant evaluations.`
-                : `📢 Promotion Cycle Opened: "${updated.name}" is now active and accepting applications. Check your requirements and apply!`,
+                ? `Promotion Cycle Active: "${updated.name}" is now open for applicant evaluations.`
+                : `Promotion Cycle Opened: "${updated.name}" is now active and accepting applications. Check your requirements and apply!`,
               type: 'INFO' as const,
               relatedEntityId: updated.id,
               relatedEntityType: 'PromotionCycle',
@@ -757,8 +758,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
         data: hrmoUsers.map(h => ({
           userId: h.id,
           message: isComplete
-            ? `📋 AO II Requirements Verified: ${applicantName}'s documentary requirements were verified COMPLETE by AO II. Endorsed for HRMPSB score deliberation.`
-            : `⚠️ AO II Requirements Deficient: ${applicantName}'s documentary requirements were marked INCOMPLETE by AO II.`,
+            ? `AO II Requirements Verified: ${applicantName}'s documentary requirements were verified COMPLETE by AO II. Endorsed for HRMPSB score deliberation.`
+            : `AO II Requirements Deficient: ${applicantName}'s documentary requirements were marked INCOMPLETE by AO II.`,
           type: isComplete ? 'SUCCESS' : 'WARNING',
           relatedEntityId: appId,
           relatedEntityType: 'PromotionApplication',
@@ -778,8 +779,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
         data: {
           userId: applicantUserId,
           message: isComplete
-            ? `📋 Requirements Verified Complete: Your documentary requirements for "${cycle.name}" were verified COMPLETE by AO II and endorsed for HRMPSB deliberation.`
-            : `⚠️ Requirements Incomplete / Deficient: Your documentary requirements for "${cycle.name}" were marked INCOMPLETE by AO II. Remarks: ${remarks || 'Please check deficiencies and resubmit required documents.'}`,
+            ? `Requirements Verified Complete: Your documentary requirements for "${cycle.name}" were verified COMPLETE by AO II and endorsed for HRMPSB deliberation.`
+            : `Requirements Incomplete / Deficient: Your documentary requirements for "${cycle.name}" were marked INCOMPLETE by AO II. Remarks: ${remarks || 'Please check deficiencies and resubmit required documents.'}`,
           type: isComplete ? 'SUCCESS' : 'WARNING',
           relatedEntityId: cycleId,
           relatedEntityType: 'PromotionCycle',
@@ -956,7 +957,7 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       await prisma.notification.create({
         data: {
           userId: applicantUserId,
-          message: `⭐ HRMPSB Rating Finalized: Your comparative assessment score for "${app.promotionCycle.name}" has been deliberated and finalized (${overallTotalScore}/100 pts).`,
+          message: `HRMPSB Rating Finalized: Your comparative assessment score for "${app.promotionCycle.name}" has been deliberated and finalized (${overallTotalScore}/100 pts).`,
           type: 'INFO',
           relatedEntityId: cycleId,
           relatedEntityType: 'PromotionCycle',
@@ -1379,8 +1380,8 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     // 3. Send notification to candidate personnel
     if (app.personnel.user) {
       const notifMsg = isTeacherOne
-        ? `🎉 Congratulations! You have been selected for Newly Hired Appointment as ${targetPos} under ${app.promotionCycle.name}${assignedPlantilla ? ` (Plantilla: ${assignedPlantilla})` : ''}. Your appointment transaction #${activeTx.id} is now active. Please submit your required onboarding compliance documents on your portal for HR validation.`
-        : `🎉 Congratulations! You have been selected for Promotion to ${targetPos} under ${app.promotionCycle.name}. Your Promotion Appointment transaction #${activeTx.id} is now active. Please submit your required appointment documents for HR validation and approval to confirm your promotion.`;
+        ? `Congratulations! You have been selected for Newly Hired Appointment as ${targetPos} under ${app.promotionCycle.name}${assignedPlantilla ? ` (Plantilla: ${assignedPlantilla})` : ''}. Your appointment transaction #${activeTx.id} is now active. Please submit your required onboarding compliance documents on your portal for HR validation.`
+        : `Congratulations! You have been selected for Promotion to ${targetPos} under ${app.promotionCycle.name}. Your Promotion Appointment transaction #${activeTx.id} is now active. Please submit your required appointment documents for HR validation and approval to confirm your promotion.`;
 
       await db.notification.create({
         data: {
@@ -1418,7 +1419,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       await db.notification.create({
         data: {
           userId: app.personnel.user.id,
-          message: `ℹ️ Candidate Selection Withdrawn: Your candidate selection for promotion to ${targetPos} under "${app.promotionCycle.name}" has been removed/withdrawn by HRMO.`,
+          message: `Candidate Selection Withdrawn: Your candidate selection for promotion to ${targetPos} under "${app.promotionCycle.name}" has been removed/withdrawn by HRMO.`,
           type: 'WARNING',
           relatedEntityId: cycleId,
           relatedEntityType: 'PromotionCycle',
@@ -1715,7 +1716,7 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
     await prisma.notification.createMany({
       data: reviewerIds.map(userId => ({
         userId,
-        message: `📋 New Promotion Application Received: ${applicantName} (${empId}) registered for ${cycle.name}.`,
+        message: `New Promotion Application Received: ${applicantName} (${empId}) registered for ${cycle.name}.`,
         type: 'INFO',
         relatedEntityId: application.id,
         relatedEntityType: 'PromotionApplication',
@@ -1954,7 +1955,7 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     await prisma.notification.createMany({
       data: reviewerIds.map(userId => ({
         userId,
-        message: `📋 New Promotion Application Received: ${applicantName} (${empId}) applied for ${cycle.name}.`,
+        message: `New Promotion Application Received: ${applicantName} (${empId}) applied for ${cycle.name}.`,
         type: 'INFO',
         relatedEntityId: application.id,
         relatedEntityType: 'PromotionApplication',
@@ -2329,14 +2330,23 @@ export const generateCarDocument = async (req: Request, res: Response): Promise<
     }
 
     // An AO II exports their own station's applicants; HRMO the whole cycle.
-    const { CarDocumentService } = await import('../services/car-document.service');
     const result = await CarDocumentService.generateCarDocument(cycleId, reviewableApplications(await getStationScope(req.user)));
 
     res.setHeader('Content-Type', result.mimeType);
+    // The filename is ASCII-only by construction, so it is valid in the header as-is.
     res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
     res.setHeader('Content-Length', result.buffer.length);
+    res.setHeader('Cache-Control', 'no-store');
     res.send(result.buffer);
   } catch (err: any) {
+    if (err instanceof CarDataIncompleteError) {
+      sendBadRequest(res, err.message, 'CAR_DATA_INCOMPLETE');
+      return;
+    }
+    if (err instanceof CarCycleNotFoundError) {
+      sendNotFound(res, 'Promotion cycle not found.');
+      return;
+    }
     logger.error({ err: err }, 'Failed to generate CAR document');
     sendError(res, 'Failed to generate CAR document.', 500);
   }

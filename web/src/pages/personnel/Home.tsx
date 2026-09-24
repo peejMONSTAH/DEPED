@@ -202,7 +202,6 @@ export const PersonnelHome: React.FC = () => {
     fileName?: string;
     fileSize?: number;
     fileUrl: string;
-    viewTokenUrl?: string;
   } | null>(null);
   const isChecklistReadOnly = Boolean(selectedCycleForChecklist?.hasApplied && selectedCycleForChecklist?.hasChecklist);
 
@@ -2199,7 +2198,7 @@ export const PersonnelHome: React.FC = () => {
                                 {item.documentName || 'Attached Document'}
                                 {formatFileSize(item.fileSize) && ` (${formatFileSize(item.fileSize)})`}
                               </span>
-                              {item.uploadedFileUrl && (
+                              {(item.personnelDocumentId || item.uploadedFileUrl) && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2207,8 +2206,9 @@ export const PersonnelHome: React.FC = () => {
                                       title: item.title || item.documentName || 'Attached Document',
                                       fileName: item.documentName,
                                       fileSize: item.fileSize,
-                                      fileUrl: item.uploadedFileUrl!,
-                                      viewTokenUrl: item.personnelDocumentId ? `/personnel/documents/${item.personnelDocumentId}/view-token` : undefined,
+                                      // The stored URL may be a stale token link; the id always resolves
+                                      // through the authenticated personnel-document endpoint.
+                                      fileUrl: item.personnelDocumentId ? `/personnel/documents/${item.personnelDocumentId}/file` : item.uploadedFileUrl!,
                                     });
                                   }}
                                   style={{
@@ -2659,7 +2659,6 @@ export const PersonnelHome: React.FC = () => {
                                 fileName: doc.originalFileName || undefined,
                                 fileSize: doc.fileSize || undefined,
                                 fileUrl: doc.fileUrl || `/personnel/documents/${doc.id}/file`,
-                                viewTokenUrl: `/personnel/documents/${doc.id}/view-token`,
                               })}
                               style={{ fontSize: '0.75rem', padding: '6px 10px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                               title="Preview document before attaching"
@@ -2694,7 +2693,6 @@ export const PersonnelHome: React.FC = () => {
           fileName={viewingDoc.fileName}
           fileSize={viewingDoc.fileSize}
           fileUrl={viewingDoc.fileUrl}
-          viewTokenUrl={viewingDoc.viewTokenUrl}
         />
       )}
     </div>

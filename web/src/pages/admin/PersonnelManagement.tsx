@@ -14,7 +14,9 @@ import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
 import { usePending } from '../../hooks/usePending';
 import { generateInitialPassword } from '../../utils/password-issue';
-/** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+
+/** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */
+const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 type PersonnelItem = {
   isCredentialFallback?: boolean;

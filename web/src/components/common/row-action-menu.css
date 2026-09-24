@@ -1,0 +1,52 @@
+/* The global button rule forces pill padding; these controls opt back into their own sizing. */
+button.row-action-trigger {
+  min-height: 44px !important;
+  padding: 0 14px !important;
+  gap: 6px !important;
+  font-size: 0.875rem !important;
+  border-radius: 10px !important;
+  white-space: nowrap;
+}
+
+.row-action-menu {
+  position: fixed;
+  z-index: 3000;
+  width: 220px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid var(--color-border, #dce6de);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+
+button.row-action-item {
+  width: 100% !important;
+  min-height: 44px !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  padding: 0 12px !important;
+  border: none !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--color-text-primary) !important;
+  font-size: 0.9375rem !important;
+  font-weight: 600 !important;
+  text-align: left;
+}
+
+button.row-action-item:hover,
+button.row-action-item:focus-visible {
+  background: var(--color-bg-hover, #eef5ef) !important;
+  outline: none;
+}
+
+button.row-action-item.is-danger {
+  color: #b91c1c !important;
+}
+
+[data-theme="dark"] button.row-action-item.is-danger {
+  color: #fca5a5 !important;
+}

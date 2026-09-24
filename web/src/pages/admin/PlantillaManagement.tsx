@@ -13,6 +13,7 @@ import {
   DEPED_KORONADAL_DISTRICTS,
   getAutoSalaryGrade,
 } from '../../constants/depedData';
+import { matchesLocation, schoolAfterDistrictChange, schoolOptionsFor } from '../../utils/plantillaFilters';
 import {
   Building2,
   Users,
@@ -230,8 +231,7 @@ export const PlantillaManagement: React.FC = () => {
       if (trackFilter === 'TEACHING' && !isTeacher) return false;
       if (trackFilter === 'NON_TEACHING' && isTeacher) return false;
 
-      if (schoolFilter !== 'ALL' && !item.department.toLowerCase().includes(schoolFilter.toLowerCase())) return false;
-      if (districtFilter !== 'ALL' && !item.division.toLowerCase().includes(districtFilter.toLowerCase())) return false;
+      if (!matchesLocation(item, { district: districtFilter, school: schoolFilter }, DEPED_KORONADAL_DISTRICTS)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -250,6 +250,23 @@ export const PlantillaManagement: React.FC = () => {
       return true;
     });
   }, [plantillas, statusFilter, trackFilter, schoolFilter, districtFilter, searchQuery]);
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setTrackFilter('ALL');
+    setDistrictFilter('ALL');
+    setSchoolFilter('ALL');
+  };
+
+  const STATUS_FILTER_LABEL = { VACANT: 'Vacant only', OCCUPIED: 'Occupied only', OPEN_RANKING: 'Open for ranking' } as const;
+  const activeFilterChips = [
+    searchQuery.trim() && { key: 'search', label: `Search: "${searchQuery.trim()}"`, clear: () => setSearchQuery('') },
+    statusFilter !== 'ALL' && { key: 'status', label: STATUS_FILTER_LABEL[statusFilter], clear: () => setStatusFilter('ALL') },
+    trackFilter !== 'ALL' && { key: 'track', label: trackFilter === 'TEACHING' ? 'Teaching track' : 'Non-teaching track', clear: () => setTrackFilter('ALL') },
+    districtFilter !== 'ALL' && { key: 'district', label: districtFilter, clear: () => { setDistrictFilter('ALL'); } },
+    schoolFilter !== 'ALL' && { key: 'school', label: schoolFilter, clear: () => setSchoolFilter('ALL') },
+  ].filter(Boolean) as Array<{ key: string; label: string; clear: () => void }>;
 
   // Open Add Modal
   const handleOpenAdd = () => {
@@ -551,8 +568,8 @@ export const PlantillaManagement: React.FC = () => {
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               }}
             >
-              <Plus size={16} />
-              + Add Plantilla Item
+              <Plus size={16} aria-hidden="true" />
+              Add Plantilla Item
             </button>
           )}
         </div>
@@ -688,35 +705,60 @@ export const PlantillaManagement: React.FC = () => {
             <option value="NON_TEACHING">Non-Teaching Track</option>
           </select>
 
-          {/* District Filter */}
-          <select
-            aria-label="Filter by district"
-            className="form-control"
-            value={districtFilter}
-            onChange={(e) => setDistrictFilter(e.target.value)}
-            style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
-          >
-            <option value="ALL">All Districts</option>
-            <option value="District 1">District 1</option>
-            <option value="District 6">District 6</option>
-          </select>
-
-          {(searchQuery || statusFilter !== 'ALL' || trackFilter !== 'ALL' || districtFilter !== 'ALL') && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                setSearchQuery('');
-                setStatusFilter('ALL');
-                setTrackFilter('ALL');
-                setDistrictFilter('ALL');
+          {/* Location: district narrows the school list */}
+          <div role="group" aria-label="Location filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <select
+              aria-label="Filter by district"
+              className="form-control"
+              value={districtFilter}
+              onChange={(e) => {
+                const next = e.target.value;
+                setDistrictFilter(next);
+                setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS));
               }}
-              style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}
+              style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.9375rem' }}
             >
+              <option value="ALL">Division-wide (all districts)</option>
+              {DEPED_KORONADAL_DISTRICTS.map(d => (
+                <option key={d.name} value={d.name}>{d.name}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Filter by school"
+              className="form-control"
+              value={schoolFilter}
+              onChange={(e) => setSchoolFilter(e.target.value)}
+              style={{ width: 'auto', minWidth: '200px', maxWidth: '100%', height: '42px', borderRadius: '10px', fontSize: '0.9375rem' }}
+            >
+              <option value="ALL">{districtFilter === 'ALL' ? 'All schools' : `All schools in ${districtFilter}`}</option>
+              {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => (
+                <option key={school} value={school}>{school}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {activeFilterChips.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }} aria-label="Active filters">
+            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Active filters:</span>
+            {activeFilterChips.map(chip => (
+              <span key={chip.key} className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.875rem', padding: '4px 10px' }}>
+                {chip.label}
+                <button
+                  type="button"
+                  onClick={chip.clear}
+                  aria-label={`Remove filter: ${chip.label}`}
+                  style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', padding: 2 }}
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              </span>
+            ))}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters} style={{ fontSize: '0.875rem' }}>
               Reset Filters
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Main Plantilla Items Table with Detailed Occupant View */}
@@ -785,16 +827,11 @@ export const PlantillaManagement: React.FC = () => {
                         : 'No items match your active filters. Try adjusting your search query, status, or district filters.'}
                     </p>
                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {(searchQuery || statusFilter !== 'ALL' || trackFilter !== 'ALL' || districtFilter !== 'ALL') && (
+                      {activeFilterChips.length > 0 && (
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          onClick={() => {
-                            setSearchQuery('');
-                            setStatusFilter('ALL');
-                            setTrackFilter('ALL');
-                            setDistrictFilter('ALL');
-                          }}
+                          onClick={resetFilters}
                           style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
                         >
                           Reset Filters
@@ -815,7 +852,7 @@ export const PlantillaManagement: React.FC = () => {
                             border: 'none',
                           }}
                         >
-                          + Add Plantilla Item (HRMO)
+                          Add Plantilla Item
                         </button>
                       )}
                     </div>

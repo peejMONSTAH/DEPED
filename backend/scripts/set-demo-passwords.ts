@@ -1,5 +1,7 @@
 import argon2 from 'argon2';
 import prisma from '../src/config/prisma';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { assertSafeDatabaseWrite } = require('./local-db-guard.cjs');
 
 const QUICK_LOGIN_EMAILS = [
   // QuickRoleSwitcher
@@ -17,6 +19,8 @@ const QUICK_LOGIN_EMAILS = [
 ];
 
 async function main() {
+  // Demo passwords are for a local database only; there is no override.
+  assertSafeDatabaseWrite('set demo passwords', { allowRemote: false });
   const hash = await argon2.hash('admin123', {
     type: argon2.argon2id,
     memoryCost: 65536,

@@ -139,9 +139,43 @@ test('closing during loading does not update unmounted state and revokes every U
   assert.equal(states.length, publishedAtClose);
 });
 
-test('publishing a blob URL cannot restart the fetch (the old reload loop)', async () => {
-  const modal = fs.readFileSync(require.resolve('../src/pages/admin/AnnexCVerificationModal.tsx'), 'utf8');
-  assert.match(modal, /\}, \[activeDocId, retryNonce\]\);/);
-  assert.doesNotMatch(modal, /cleanBlobUrl|\[blobUrl\]/);
-  assert.match(modal, /previewRequestOptions\(signal\)/);
+
+
+test('the fetch is keyed on the file URL and retries only, so blob URLs and zoom cannot restart it', () => {
+  const hook = fs.readFileSync(require.resolve('../src/components/common/useDocumentPreview.ts'), 'utf8');
+  assert.match(hook, /\}, \[fileUrl, retryNonce\]\);/);
+  assert.match(hook, /previewRequestOptions\(signal\)/);
+  for (const file of ['../src/components/common/DocumentViewerModal.tsx', '../src/pages/admin/AnnexCVerificationModal.tsx']) {
+    const src = fs.readFileSync(require.resolve(file), 'utf8');
+    assert.doesNotMatch(src, /cleanBlobUrl|createObjectURL|revokeObjectURL/, `${file} must not manage blob URLs itself`);
+    // Zoom only restyles the frame; its src is the blob URL alone.
+    assert.match(src, /src=\{`\$\{blobUrl\}#toolbar=0`\}/);
+  }
+});
+
+test('zoom steps are clamped and reported as a percentage', () => {
+  const { zoomIn, zoomOut, zoomPercent, ZOOM_MIN, ZOOM_MAX } = require('../src/components/common/document-preview.ts');
+  assert.equal(zoomIn(1), 1.25);
+  assert.equal(zoomOut(1), 0.75);
+  assert.equal(zoomIn(ZOOM_MAX), ZOOM_MAX);
+  assert.equal(zoomOut(ZOOM_MIN), ZOOM_MIN);
+  assert.equal(zoomPercent(1.25), '125%');
+});
+
+test('files served without a usable Content-Type are identified by signature', async () => {
+  const { loadDocumentPreview } = require('../src/components/common/document-preview.ts');
+  const cases = [
+    [new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31]), 'application/pdf'],
+    [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'image/png'],
+    [new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00]), 'image/jpeg'],
+  ];
+  for (const [bytes, expected] of cases) {
+    for (const served of ['', 'application/octet-stream']) {
+      const blob = new Blob([bytes], { type: served });
+      const result = await loadDocumentPreview({ get: async () => ({ data: blob }) }, '/personnel/documents/9/file', '/api/v1');
+      assert.equal(result.type, expected, `${expected} served as "${served}"`);
+    }
+  }
+  const unknown = await loadDocumentPreview({ get: async () => ({ data: new Blob(['hello'], { type: '' }) }) }, '/x/file', '/api/v1');
+  assert.equal(unknown.type, 'application/octet-stream', 'an unknown file is not mislabelled as an image');
 });

@@ -5,7 +5,7 @@ import app from './app';
 import { config } from './config';
 import prisma from './config/prisma';
 import { logger } from './utils/logger';
-import { startWorkflowOutboxWorker } from './services/workflow-outbox.service';
+import { isOutboxDeliveryEnabled, startWorkflowOutboxWorker } from './services/workflow-outbox.service';
 
 const PORT = config.port;
 
@@ -42,8 +42,10 @@ const startServer = async () => {
 ╚══════════════════════════════════════════════════════╝
     `);
   });
-  // A restore drill must never deliver queued emails copied from production.
-  const outboxTimer = process.env.WORKFLOW_OUTBOX_ENABLED === 'false' ? null : startWorkflowOutboxWorker();
+  // A restore drill or a developer machine must never deliver the live queue;
+  // see isOutboxDeliveryEnabled for the default and the override.
+  const outboxTimer = isOutboxDeliveryEnabled() ? startWorkflowOutboxWorker() : null;
+  if (!outboxTimer) logger.warn('[Outbox] Email delivery is disabled in this process (NODE_ENV is not production). Set WORKFLOW_OUTBOX_ENABLED=true to enable.');
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {

@@ -4,6 +4,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { SkeletonTable, SkeletonBox } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
+import { transactionEmptyTitle, transactionStatusLabel } from '../../constants/transactionStatus';
 import { AppIcon } from '../../components/common/AppIcon';
 import { transactionsApi } from '../../api/transactions.api';
 import { isAccessDenied, accessDeniedMessage } from '../../api/access';
@@ -252,7 +253,8 @@ export const TransactionQueue: React.FC = () => {
           ) : statusFilter !== 'All' ? (
             <SmartEmptyState
               type="no-filter-match"
-              category={statusFilter}
+              title={transactionEmptyTitle(statusFilter)}
+              description={`Filter: ${FILTER_TABS.find(tab => tab.id === statusFilter)?.label ?? transactionStatusLabel(statusFilter)}. Other statuses may still have transactions.`}
               primaryAction={{
                 label: 'Show All Transactions',
                 onClick: () => {

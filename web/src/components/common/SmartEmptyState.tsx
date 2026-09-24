@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppIcon, IconName } from './AppIcon';
+import { humanizeEnum } from '../../constants/transactionStatus';
 
 export type SmartEmptyStateType =
   | 'queue-cleared'
@@ -70,7 +71,8 @@ export const SmartEmptyState: React.FC<SmartEmptyStateProps> = ({
 
     case 'no-filter-match':
       resolvedIcon = icon || 'compliance';
-      resolvedTitle = title || (category ? `No records in "${category}"` : 'No records match filter');
+      // Categories are often backend enums; never show "SOME_VALUE" verbatim.
+      resolvedTitle = title || (category ? `No records match "${humanizeEnum(category)}"` : 'No records match filter');
       resolvedDesc = description || '';
       iconColor = '#C79A2E';
       iconBg = 'rgba(139, 92, 246, 0.12)';

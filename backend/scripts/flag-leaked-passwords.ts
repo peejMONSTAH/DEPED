@@ -15,12 +15,17 @@
  */
 import prisma from '../src/config/prisma';
 import { verifyPassword } from '../src/utils/hash.util';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { assertSafeDatabaseWrite } = require('./local-db-guard.cjs');
 
 // Every shared literal this codebase ever issued. Add to this list, never remove:
 // a password that leaked once stays leaked.
 const KNOWN_ISSUED_LITERALS = [
   'Personnel@Pass123',
   'Reset@Pass2026!',
+  // Published in prisma/seed.ts and scripts/set-demo-passwords.ts (public repository).
+  'Admin@SecurePass123',
+  'admin123',
 ];
 
 const apply = process.argv.includes('--apply');
@@ -58,6 +63,8 @@ async function main() {
     return;
   }
 
+  // Reporting is read-only; flagging writes, so it needs a deliberate target.
+  assertSafeDatabaseWrite('flag leaked passwords');
   const result = await prisma.user.updateMany({
     where: { id: { in: exposed } },
     data: { mustChangePassword: true },

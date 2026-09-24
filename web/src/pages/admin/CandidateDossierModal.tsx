@@ -133,8 +133,16 @@ export const CandidateDossierModal: React.FC<CandidateDossierModalProps> = ({
             </p>
           </div>
           <span className="dossier-chip dossier-mono">{applicantNo}</span>
-          <button type="button" className="dossier-close" onClick={onClose} aria-label="Close dossier">
-            <AppIcon name="close" size={18} />
+          {/* panel-close-button is the one class the global button rule exempts;
+              under that rule's forced padding a 36px button left no room for the icon. */}
+          <button
+            type="button"
+            className="panel-close-button"
+            onClick={event => { event.stopPropagation(); onClose(); }}
+            aria-label="Close details"
+            title="Close details (Esc)"
+          >
+            <AppIcon name="close" size={20} aria-hidden="true" />
           </button>
         </header>
 

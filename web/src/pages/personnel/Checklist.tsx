@@ -52,7 +52,6 @@ export const Checklist: React.FC = () => {
   const [viewingDoc, setViewingDoc] = useState<{
     title: string;
     fileUrl: string;
-    viewTokenUrl?: string;
   } | null>(null);
 
   // Resolve only assigned transactions; an explicit ID is never silently substituted.
@@ -466,7 +465,6 @@ export const Checklist: React.FC = () => {
                           onClick={() => setViewingDoc({
                             title: item.name,
                             fileUrl: `/documents/${item.documentId}/file`,
-                            viewTokenUrl: `/documents/${item.documentId}/view-token`,
                           })}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
@@ -486,7 +484,6 @@ export const Checklist: React.FC = () => {
                           onClick={() => setViewingDoc({
                             title: item.name,
                             fileUrl: `/documents/${item.documentId}/file`,
-                            viewTokenUrl: `/documents/${item.documentId}/view-token`,
                           })}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         >
@@ -642,7 +639,6 @@ export const Checklist: React.FC = () => {
           onClose={() => setViewingDoc(null)}
           title={viewingDoc.title}
           fileUrl={viewingDoc.fileUrl}
-          viewTokenUrl={viewingDoc.viewTokenUrl}
         />
       )}
     </div>

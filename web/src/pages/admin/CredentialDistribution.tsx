@@ -12,7 +12,12 @@ import { getAllPages } from '../../api/pagination';
 import { personnelDisplayName } from '../../utils/personnel-display';
 import { generateInitialPassword } from '../../utils/password-issue';
 import { usePending } from '../../hooks/usePending';
-/** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+import { Eye, Pencil, KeyRound, Ban, RotateCcw, X } from 'lucide-react';
+import { RowActionMenu, RowAction } from '../../components/common/RowActionMenu';
+import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
+
+/** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */
+const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 type AccountRecord = {
   id: number;
@@ -38,6 +43,9 @@ export const CredentialDistribution: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<AccountRecord | null>(null);
   const [resetModalUser, setResetModalUser] = useState<AccountRecord | null>(null);
+  const [editAccount, setEditAccount] = useState<AccountRecord | null>(null);
+  const [editEmail, setEditEmail] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
   const [newResetPass, setNewResetPass] = useState(generateInitialPassword());
   const [loading, setLoading] = useState(true);
 
@@ -482,6 +490,53 @@ export const CredentialDistribution: React.FC = () => {
     }
   };
 
+  // Mutations patch the one affected row; the list is not refetched.
+  const patchAccount = (id: number, patch: Partial<AccountRecord>) =>
+    setUsersList(list => list.map(account => (account.id === id ? { ...account, ...patch } : account)));
+
+  const accountName = (u: AccountRecord) => (u.personnel ? `${u.personnel.firstName} ${u.personnel.lastName}` : u.email);
+
+  const handleSetAccountStatus = async (u: AccountRecord, next: 'ACTIVE' | 'INACTIVE') => {
+    const deactivating = next === 'INACTIVE';
+    const { confirmed } = await confirm({
+      title: deactivating ? 'Deactivate account' : 'Reactivate account',
+      message: deactivating
+        ? `Deactivate the account of ${accountName(u)}? They are signed out and cannot sign in until the account is reactivated. Their records are kept.`
+        : `Reactivate the account of ${accountName(u)}? They can sign in again with their existing credentials.`,
+      confirmLabel: deactivating ? 'Deactivate' : 'Reactivate',
+      tone: deactivating ? 'danger' : 'primary',
+    });
+    if (!confirmed) return;
+    try {
+      const res = await apiClient.put(`/users/${u.id}`, { accountStatus: next });
+      patchAccount(u.id, { accountStatus: res.data?.data?.accountStatus || next });
+      addToast(deactivating ? `${accountName(u)}'s account was deactivated.` : `${accountName(u)}'s account was reactivated.`, 'SUCCESS');
+    } catch (err: any) {
+      addToast(err?.response?.data?.message || 'The account status could not be changed.', 'ERROR');
+    }
+  };
+
+  const handleSaveAccount = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editAccount || savingAccount) return;
+    const email = editEmail.trim().toLowerCase();
+    if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) {
+      addToast('Enter a valid email address.', 'WARNING');
+      return;
+    }
+    setSavingAccount(true);
+    try {
+      const res = await apiClient.put(`/users/${editAccount.id}`, { email });
+      patchAccount(editAccount.id, { email: res.data?.data?.email || email });
+      addToast('Account updated.', 'SUCCESS');
+      setEditAccount(null);
+    } catch (err: any) {
+      addToast(err?.response?.data?.message || 'The account could not be updated.', 'ERROR');
+    } finally {
+      setSavingAccount(false);
+    }
+  };
+
   const handleDistribute = async (userId: number, email: string) => {
     const { confirmed } = await confirm({
       title: 'Distribute credentials',
@@ -797,32 +852,31 @@ export const CredentialDistribution: React.FC = () => {
                         )}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        {u.accountStatus === 'ACTIVE' ? (
-                          <span className="badge badge-approved">Active & Distributed</span>
-                        ) : (
-                          <span className="badge badge-pending">Pending Distribution</span>
-                        )}
+                        <span className={`badge ${ACCOUNT_STATUS_BADGE[u.accountStatus] || 'badge-pending'}`}>
+                          {ACCOUNT_STATUS_LABEL[u.accountStatus] || 'Unknown'}
+                        </span>
                       </td>
-                      <td style={{ whiteSpace: 'nowrap', minWidth: 280 }}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', alignItems: 'center' }}>
-                          {u.accountStatus === 'PENDING' && (
-                            <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => handleDistribute(u.id, u.email)}>
-                              Distribute Credentials
-                            </button>
-                          )}
-                          {isSysAdmin && (
-                            <button 
-                              className="btn btn-secondary btn-sm"
-                              style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              onClick={() => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); }}
-                            >
-                              <AppIcon name="credentials" size={14} /> Reset Password
-                            </button>
-                          )}
-                          <button className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setSelectedAccount(u)}>
-                            View Info
-                          </button>
-                        </div>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {(() => {
+                          const allowed = accountActionsFor({ role: user?.role, userId: user?.id }, u);
+                          const name = u.personnel ? `${u.personnel.firstName} ${u.personnel.lastName}` : u.email;
+                          const menu: RowAction[] = [];
+                          if (allowed.includes('view')) menu.push({ id: 'view', label: 'View details', icon: <Eye size={16} aria-hidden="true" />, onSelect: () => setSelectedAccount(u) });
+                          if (allowed.includes('edit')) menu.push({ id: 'edit', label: 'Edit account', icon: <Pencil size={16} aria-hidden="true" />, onSelect: () => { setEditAccount(u); setEditEmail(u.email); } });
+                          if (allowed.includes('resetPassword')) menu.push({ id: 'reset', label: 'Reset password', icon: <KeyRound size={16} aria-hidden="true" />, onSelect: () => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); } });
+                          if (allowed.includes('reactivate')) menu.push({ id: 'reactivate', label: 'Reactivate account', icon: <RotateCcw size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'ACTIVE') });
+                          if (allowed.includes('deactivate')) menu.push({ id: 'deactivate', label: 'Deactivate account', tone: 'danger', icon: <Ban size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'INACTIVE') });
+                          return (
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
+                              {allowed.includes('distribute') && (
+                                <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => handleDistribute(u.id, u.email)}>
+                                  Distribute Credentials
+                                </button>
+                              )}
+                              <RowActionMenu label={`Actions for ${name}`} actions={menu} />
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
@@ -924,8 +978,13 @@ export const CredentialDistribution: React.FC = () => {
                         {isSysAdmin && (
                           <optgroup label="Administrative System Roles">
                             <option value="AO_II">Administrative Officer II (AO II / SO II)</option>
-                            <option value="HRMO">HRMO Approver / Manager</option>
-                            <option value="SYSTEM_ADMIN">System Administrator</option>
+                            {/* Division-level roles are granted by a System Administrator only (server-enforced). */}
+                            {user?.role === 'SYSTEM_ADMIN' && (
+                              <>
+                                <option value="HRMO">HRMO Approver / Manager</option>
+                                <option value="SYSTEM_ADMIN">System Administrator</option>
+                              </>
+                            )}
                           </optgroup>
                         )}
                       </select>
@@ -1310,6 +1369,51 @@ export const CredentialDistribution: React.FC = () => {
           </div>
         </ModalOverlay>,
         document.body
+      )}
+
+      {/* Edit Account Modal */}
+      {editAccount && createPortal(
+        <ModalOverlay onDismiss={() => setEditAccount(null)} className="modal-overlay">
+          <form
+            className="animate-scale-in"
+            onSubmit={handleSaveAccount}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-account-title"
+            style={{ width: 'min(480px, 94vw)', borderRadius: 16, background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', boxShadow: '0 24px 64px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '18px 20px', borderBottom: '1px solid var(--color-border)' }}>
+              <div style={{ minWidth: 0 }}>
+                <h2 id="edit-account-title" style={{ margin: 0, fontSize: '1.125rem' }}>Edit account</h2>
+                <p style={{ margin: '4px 0 0', color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>{accountName(editAccount)}</p>
+              </div>
+              <button type="button" className="panel-close-button" onClick={() => setEditAccount(null)} aria-label="Close edit account">
+                <X aria-hidden="true" />
+              </button>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label className="form-label" htmlFor="edit-account-email">Official email address</label>
+              <input
+                id="edit-account-email"
+                type="email"
+                className="form-input"
+                value={editEmail}
+                onChange={e => setEditEmail(e.target.value)}
+                required
+                autoFocus
+              />
+              <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                Personnel details are edited from Personnel Management.
+              </p>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 20px', borderTop: '1px solid var(--color-border)' }}>
+              <button type="submit" className="btn btn-primary" disabled={savingAccount || editEmail.trim().toLowerCase() === editAccount.email}>
+                {savingAccount ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </form>
+        </ModalOverlay>,
+        document.body,
       )}
 
       {/* View Personnel Info Modal */}
