@@ -162,7 +162,7 @@ export const PersonnelManagement: React.FC = () => {
   useEffect(() => {
     if (showAddModal) {
       setLoadingPlantillas(true);
-      apiClient.get('/plantilla/available?excludePromotions=true')
+      apiClient.get('/plantilla/available?forAssignment=true')
         .then(res => {
           setVacantPlantillas(res.data?.data || []);
         })
