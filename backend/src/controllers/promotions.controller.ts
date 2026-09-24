@@ -268,10 +268,17 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
       return created;
     });
 
-    // Notify all personnels (TEACHING_PERSONNEL, NON_TEACHING_PERSONNEL) and AO (AO_II)
-    // Strictly exclude SYSTEM_ADMIN and HRMO as required
+    // Notify personnel and AO II (never SYSTEM_ADMIN or HRMO) who the cycle is
+    // for: its school when it names one, else its district, else the division.
+    // Before, every station was told about another school's vacancy.
     try {
-      const targetNotifyUsers = await prisma.user.findMany({
+      const cycleRules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
+      const inAudience = (person?: { school: string | null; district: string | null } | null): boolean => {
+        if (cycleRules.school) return sameStation(person?.school, cycleRules.school);
+        if (cycleRules.district) return sameStation(person?.district, cycleRules.district);
+        return true;
+      };
+      const candidates = await prisma.user.findMany({
         where: {
           accountStatus: 'ACTIVE',
           role: {
@@ -284,8 +291,10 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
         select: {
           id: true,
           role: { select: { name: true } },
+          personnel: { select: { school: true, district: true } },
         },
       });
+      const targetNotifyUsers = candidates.filter(u => inAudience(u.personnel));
 
       if (targetNotifyUsers.length > 0) {
         const notificationsData = targetNotifyUsers.map(u => {

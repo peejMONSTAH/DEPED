@@ -540,6 +540,14 @@ test('24. personnel reach only their own records', async () => {
 test('25. the CAR export applies the same station scope', async () => {
   const PizZip = require('pizzip');
   const documentText = res => new PizZip(res.buffer).file('word/document.xml').asText();
+  // The CAR compares only AO-verified, HRMPSB-rated candidates; rate both fixtures.
+  for (const app of [f.moralesApp, f.matulasApp]) {
+    const current = await db.promotionApplication.findUnique({ where: { id: app.id } });
+    await db.promotionApplication.update({ where: { id: app.id }, data: { scoreDetailsJson: {
+      ...current.scoreDetailsJson, requirementsCheck: { status: 'COMPLETE' },
+      finalRating: { track: 'TEACHING', total: 80 },
+    } } });
+  }
 
   const moralesExport = await get(people.moralesAo, `/promotions/cycles/${f.cycle.id}/car-document`);
   assert.equal(moralesExport.status, 200);

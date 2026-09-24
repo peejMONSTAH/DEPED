@@ -102,7 +102,8 @@ test('teacher promotion completes from HR cycle to official appointment', async 
   expectStatus(applied, 201, 'teacher applies with My Documents');
   const appId = applied.body.data.id;
   assert.equal((await db.promotionApplication.findUnique({ where: { id: appId } })).status, 'SUBMITTED');
-  const scopedNotifications = await db.notification.findMany({ where: { relatedEntityId: cycleId, relatedEntityType: 'PromotionCycle' } });
+  // Application notices link to the application itself (deep link), not the cycle.
+  const scopedNotifications = await db.notification.findMany({ where: { relatedEntityId: appId, relatedEntityType: 'PromotionApplication' } });
   assert.ok(scopedNotifications.some(row => row.userId === users.moralesAo.userId && row.message.includes('Application')));
   assert.ok(!scopedNotifications.some(row => row.userId === users.matulasAo.userId && row.message.includes('Application')));
 
