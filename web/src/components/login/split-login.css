@@ -238,15 +238,29 @@
   .split-login-caption { display: none; }
 }
 @media (max-width: 720px) {
+  /* The artwork squeezed into a phone-width strip only reads as a blur, so it
+     gives way to a thin brand accent and the form gets the whole screen. */
   .split-login-frame {
     width: 100%;
     min-height: 100dvh;
     grid-template-columns: 1fr;
-    grid-template-rows: 140px 1fr;
+    grid-template-rows: 1fr;
     padding: 0;
     border-radius: 0;
     box-shadow: none;
+    border-top: 6px solid var(--sl-green);
+    background: var(--sl-bg);
   }
-  .split-login-art { order: -1; border-radius: 0 0 24px 24px; }
-  .split-login-panel { border-radius: 0; padding: 32px 16px 40px; align-items: flex-start; background: transparent; }
+  .split-login-art { display: none; }
+  .split-login-panel {
+    border-radius: 0;
+    background: transparent;
+    align-items: center;
+    padding: max(32px, env(safe-area-inset-top)) 20px max(32px, env(safe-area-inset-bottom));
+  }
+  .split-login-inner { width: 100%; max-width: 420px; margin: 0 auto; }
+  .split-login-brand { margin-bottom: 28px; }
+  .split-login-header h1 { font-size: 2rem; line-height: 1.15; }
+  .split-login-help { margin-top: 28px; }
 }
+

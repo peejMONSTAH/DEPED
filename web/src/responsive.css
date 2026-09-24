@@ -582,3 +582,13 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
 @media (prefers-reduced-motion: reduce) {
   .page-transition-container, .shell-sidebar { animation: none !important; transition: none !important; }
 }
+
+/* iOS Safari zooms into any focused field under 16px and does not zoom back
+   out. Touch screens get 16px fields everywhere; pinch-zoom stays available. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
