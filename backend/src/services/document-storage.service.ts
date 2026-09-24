@@ -28,13 +28,25 @@ export async function storeDocument(buffer: Buffer, mime: string, folder: string
   return file;
 }
 
+/** The record exists but its file does not (e.g. kept on a server disk that was since wiped). */
+export const MISSING_FILE_MESSAGE = 'The file for this document is missing. The personnel needs to upload it again.';
+const missingFile = () => Object.assign(new Error(MISSING_FILE_MESSAGE), { statusCode: 404 });
+
 export async function readDocument(key: string): Promise<Buffer> {
   if (key.startsWith('supabase:')) {
     const { data, error } = await cloud().download(key.slice(9));
-    if (error || !data) throw error || new Error('Document file is missing.');
+    if (!data && (!error || /not.?found/i.test(String((error as any)?.message)) || [400, 404].includes(Number((error as any)?.statusCode ?? (error as any)?.status)))) {
+      throw missingFile();
+    }
+    if (error || !data) throw error;
     return Buffer.from(await data.arrayBuffer());
   }
-  return fs.readFile(localPath(key));
+  try {
+    return await fs.readFile(localPath(key));
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') throw Object.assign(missingFile(), { code: 'ENOENT' });
+    throw err;
+  }
 }
 
 // Used only to compensate a failed database write for a newly uploaded object.

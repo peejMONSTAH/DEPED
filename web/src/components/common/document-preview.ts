@@ -16,7 +16,17 @@ export const loadDocumentPreview = async (
   mimeType?: string,
   request?: { signal?: AbortSignal; timeout?: number },
 ): Promise<{ blob: Blob; type: string }> => {
-  const response = await client.get<Blob>(previewRequestPath(fileUrl, baseUrl), { responseType: 'blob', ...request });
+  let response;
+  try {
+    response = await client.get<Blob>(previewRequestPath(fileUrl, baseUrl), { responseType: 'blob', ...request });
+  } catch (err: any) {
+    // With responseType 'blob' the API's JSON error arrives as a Blob; read its message.
+    const data = err?.response?.data;
+    if (data && typeof data.text === 'function') {
+      try { err.serverMessage = JSON.parse(await data.text())?.message; } catch { /* not JSON */ }
+    }
+    throw err;
+  }
   const blob = response.data;
   if (PREVIEWABLE_TYPES.includes(blob.type)) return { blob, type: blob.type };
   // Missing or generic Content-Type (e.g. application/octet-stream): trust the
@@ -51,6 +61,7 @@ export const previewRequestOptions = (signal: AbortSignal) => ({ signal, timeout
 /** A viewer-facing reason; never echoes a storage path or raw URL. */
 export const describePreviewError = (err: any): string => {
   const status = err?.response?.status;
+  if (status === 404 && /file for this document is missing/i.test(String(err?.serverMessage))) return err.serverMessage;
   if (status === 404) return 'This document is unavailable, or you do not have permission to view it.';
   if (status === 403) return 'You do not have authorization to view this document.';
   if (status === 401) return 'Session expired. Please sign in again.';

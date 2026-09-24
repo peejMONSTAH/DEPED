@@ -349,13 +349,53 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
     }
   }
 
+  /// 201 files already on record that fit this requirement, best match first.
+  List<PersonnelDocument> _matchesFor(PromotionChecklistItem item) {
+    final matches = _existing201Documents
+        .where((d) => item.suggestedDocumentTypeIds.contains(d.documentTypeId))
+        .toList();
+    matches.sort((a, b) => item.suggestedDocumentTypeIds
+        .indexOf(a.documentTypeId)
+        .compareTo(item.suggestedDocumentTypeIds.indexOf(b.documentTypeId)));
+    return matches;
+  }
+
+  void _attachExisting(PromotionChecklistItem item, PersonnelDocument d) {
+    setState(() {
+      item.existingDocumentId = d.id;
+      item.isSubmitted = true;
+      item.uploadedFileUrl = d.fileUrl;
+      item.attachedDocument = AcquiredDocument(
+        name: d.originalFileName,
+        mimeType: d.mimeType,
+        sizeBytes: d.fileSize,
+        path: d.fileUrl,
+      );
+    });
+    _showSuccessSnackBar(
+        'Attached "${d.documentTypeName}" to requirement (${item.code.toUpperCase()}).');
+  }
+
   Future<void> _uploadAcquiredDocument(
       PromotionChecklistItem item, AcquiredDocument doc) async {
+    // Filed in the 201 under the requirement's real document type, so it
+    // counts toward the 201 and can be attached again next time. A 201 file of
+    // that type already on record is replaced by this newer copy.
+    final typeId = item.suggestedDocumentTypeIds.isNotEmpty
+        ? item.suggestedDocumentTypeIds.first
+        : 'OTHER';
+    final onFile = typeId == 'OTHER'
+        ? null
+        : _existing201Documents
+            .where((d) => d.documentTypeId == typeId)
+            .map((d) => d.id)
+            .firstOrNull;
     final saved = await _personnelDocumentService.uploadDocument(
       document: doc,
-      documentTypeId: 'OTHER',
-      customDocumentName: 'Annex C ${item.code}: ${item.title}',
-      replacesDocumentId: item.existingDocumentId,
+      documentTypeId: typeId,
+      customDocumentName:
+          typeId == 'OTHER' ? 'Annex C ${item.code}: ${item.title}' : null,
+      replacesDocumentId: item.existingDocumentId ?? onFile,
     );
     if (!mounted) return;
     setState(() {
@@ -364,6 +404,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       item.uploadedFileUrl = saved.fileUrl;
       item.isSubmitted = true;
     });
+    _loadExisting201Documents();
   }
 
   void _showSelect201RecordModal(PromotionChecklistItem item) {
@@ -578,20 +619,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                                     ElevatedButton(
                                       onPressed: () {
                                         Navigator.of(ctx).pop();
-                                        setState(() {
-                                          item.existingDocumentId = d.id;
-                                          item.isSubmitted = true;
-                                          item.uploadedFileUrl = d.fileUrl;
-                                          item.attachedDocument =
-                                              AcquiredDocument(
-                                            name: d.originalFileName,
-                                            mimeType: d.mimeType,
-                                            sizeBytes: d.fileSize,
-                                            path: d.fileUrl,
-                                          );
-                                        });
-                                        _showSuccessSnackBar(
-                                            'Attached "${d.documentTypeName}" to requirement (${item.code.toUpperCase()}).');
+                                        _attachExisting(item, d);
                                       },
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: AppTheme.brandDark,
@@ -1363,6 +1391,43 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               ),
             ),
           ] else ...[
+            // Already in the 201: one tap attaches it, no re-scan.
+            if (_matchesFor(item).isNotEmpty) ...[
+              Builder(builder: (_) {
+                final match = _matchesFor(item).first;
+                return Material(
+                  color: AppTheme.emeraldGreen.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _attachExisting(item, match),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          const Icon(LucideIcons.circleCheck,
+                              size: 16, color: AppTheme.emeraldGreen),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Found in your 201: ${match.documentTypeName} — tap to attach',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.emeraldGreen),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
             // The requested submission button on each requirement
             SizedBox(
               width: double.infinity,
