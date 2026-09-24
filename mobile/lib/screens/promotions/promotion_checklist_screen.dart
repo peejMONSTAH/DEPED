@@ -231,14 +231,14 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   if (!mounted) return;
                   if (_existing201Documents.isEmpty) {
                     _showErrorSnackBar(
-                        'You have no uploaded files in My Documents yet. Scan or upload one instead.');
+                        'You have no uploaded files in My 201 File yet. Scan or upload one instead.');
                     return;
                   }
                   _showSelect201RecordModal(item);
                 },
                 icon: LucideIcons.folderOpen,
                 iconColor: AppTheme.emeraldGreen,
-                title: 'Choose from My Documents',
+                title: 'Choose from My 201 File',
                 subtitle: _existing201Documents.isEmpty
                     ? 'Attach a file you already uploaded'
                     : '${_existing201Documents.length} file${_existing201Documents.length == 1 ? '' : 's'} available',
@@ -889,7 +889,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                             color: AppTheme.textPrimary),
                       ),
                       Text(
-                        'Items (a)–(k) · Scan, upload, or choose from My Documents',
+                        'Items (a)–(k) · Scan, upload, or choose from My 201 File',
                         style: GoogleFonts.inter(
                             fontSize: 12,
                             height: 1.35,

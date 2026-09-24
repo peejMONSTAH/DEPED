@@ -592,3 +592,43 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
     font-size: 16px !important;
   }
 }
+
+/* Personnel checklist on phones: each requirement is a compact card, title on
+   top, actions as one full-width row underneath instead of a squeezed column. */
+@media (max-width: 640px) {
+  .table-card-large { padding: 16px 12px; border-radius: 18px; }
+  .table-card-large .card-header-flex { justify-content: space-between; }
+  .table-card-large .card-heading-title { font-size: 1.125rem; text-align: left; }
+  .checklist-items-stack { gap: 10px; }
+  .checklist-item {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 10px;
+    align-items: start;
+    padding: 12px;
+    border-radius: 14px;
+  }
+  .checklist-item:hover { transform: none; }
+  .checklist-check { width: 28px; height: 28px; }
+  .checklist-name { font-size: 14px; }
+  .checklist-desc {
+    font-size: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .checklist-actions { grid-column: 1 / -1; }
+  .checklist-actions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checklist-actions .btn {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  /* The main next step (e.g. Review scanned information) spans the row. */
+  .checklist-actions .btn-primary, .checklist-actions .btn-danger { flex-basis: 100%; order: -1; }
+}

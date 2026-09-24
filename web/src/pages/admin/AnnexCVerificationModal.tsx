@@ -24,6 +24,7 @@ import { PreviewZoomControls } from '../../components/common/PreviewZoomControls
 import { useToast } from '../../contexts/ToastContext';
 import { groupByAnnex, requirementState, REQUIREMENT_STATE_LABEL } from '../../promotions/annexGroups';
 import './annex-c-verification-modal.css';
+import { PdfPages } from '../../components/common/PdfPages';
 
 export interface AnnexCItemState {
   code: string;
@@ -726,14 +727,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                   ) : isPdf && blobUrl ? (
                     // Zoom resizes the frame inside a scroll area; the src
                     // never changes, so zooming cannot reload the document.
-                    <div className="annex-c-pdf-scroll">
-                      <iframe
-                        src={`${blobUrl}#toolbar=0`}
-                        className="annex-c-preview-iframe"
-                        title={activeDoc.documentName || activeDoc.title}
-                        style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
-                      />
-                    </div>
+                    <PdfPages url={blobUrl} zoom={zoom} title={activeDoc.documentName || activeDoc.title} />
                   ) : isImage && blobUrl ? (
                     <div className="annex-c-image-canvas">
                       <img

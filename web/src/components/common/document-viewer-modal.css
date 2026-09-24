@@ -234,3 +234,23 @@
   min-width: 100%;
   min-height: 100%;
 }
+
+/* The app-wide button rule forces pill padding (9px 18px !important), which
+   left 0px for the icon inside these 36px buttons, so they rendered blank. */
+/* Two classes + element outrank the global button:not(...):not(...) selector. */
+body button.doc-viewer-btn.doc-viewer-btn-icon,
+body .doc-viewer-toolbar button.doc-viewer-close-btn {
+  padding: 0 !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  border-radius: 8px !important;
+  flex-shrink: 0;
+}
+body button.doc-viewer-btn:not(.doc-viewer-btn-icon) { padding: 0 12px !important; min-height: 36px !important; border-radius: 8px !important; font-size: 0.8125rem !important; }
+body button.doc-viewer-btn svg, body button.doc-viewer-close-btn svg { flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .doc-viewer-toolbar { width: 100%; justify-content: space-between; }
+  .doc-viewer-body { align-items: stretch; }
+}

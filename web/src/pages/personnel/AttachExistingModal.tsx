@@ -3,6 +3,7 @@ import { AppIcon } from '../../components/common/AppIcon';
 import { ModalPortal } from '../../components/common/ModalPortal';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import { useDocumentPreview } from '../../components/common/useDocumentPreview';
+import { PdfPages } from '../../components/common/PdfPages';
 
 export type ExistingDocument = {
   id: number;
@@ -51,10 +52,10 @@ export const AttachExistingModal: React.FC<{
       <section className="modal" role="dialog" aria-modal="true" aria-label={`Attach to ${requirementName}`}
         style={{ width: selected ? 'min(94vw, 860px)' : 'min(94vw, 560px)', maxHeight: '88dvh', display: 'flex', flexDirection: 'column', padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
         <header style={{ padding: '20px 20px 12px' }}>
-          <h2 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>{selected ? 'Check before attaching' : 'Attach from My Documents'}</h2>
+          <h2 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>{selected ? 'Check before attaching' : 'Attach from My 201 File'}</h2>
           <p className="text-sm text-muted" style={{ margin: '6px 0 0' }}>
             For <strong style={{ color: 'var(--color-text-primary)' }}>{requirementName}</strong>.{' '}
-            {selected ? 'Make sure this is the right document.' : 'A copy is saved with this transaction; your original stays in My Documents.'}
+            {selected ? 'Make sure this is the right document.' : 'A copy is saved with this transaction; your original stays in My 201 File.'}
           </p>
         </header>
 
@@ -65,7 +66,7 @@ export const AttachExistingModal: React.FC<{
             <div style={{ flex: 1, minHeight: 320, height: '55dvh', border: '1px solid var(--color-border)', borderRadius: 12, overflow: 'hidden', background: 'var(--color-bg-secondary, #f4f6f8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {preview.status === 'ready' && preview.url ? (
                 preview.type === 'application/pdf'
-                  ? <iframe title={`Preview of ${selected.documentTypeName}`} src={preview.url} style={{ width: '100%', height: '100%', border: 0 }} />
+                  ? <PdfPages url={preview.url} zoom={1} title={selected.documentTypeName} />
                   : <img src={preview.url} alt={`Preview of ${selected.documentTypeName}`} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
               ) : preview.status === 'error' ? (
                 <div style={{ textAlign: 'center', padding: 16 }}>
@@ -78,7 +79,7 @@ export const AttachExistingModal: React.FC<{
         ) : (
           <div style={{ overflowY: 'auto', padding: '0 20px', flex: 1, minHeight: 0 }}>
             {loading && <p className="text-sm text-muted">Loading…</p>}
-            {!loading && documents.length === 0 && <p className="text-sm text-muted">No PDF, PNG, or JPEG in My Documents yet. Upload or scan the document instead.</p>}
+            {!loading && documents.length === 0 && <p className="text-sm text-muted">No PDF, PNG, or JPEG in My 201 File yet. Upload or scan the document instead.</p>}
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
               {ranked.map(({ doc }) => {
                 const recommended = doc.id === bestId;

@@ -514,6 +514,32 @@ export const ProfileCompletion: React.FC = () => {
     ]);
   };
 
+  // Contact details are the only part personnel maintain themselves
+  // (PUT /personnel/me accepts contactNumber and address from them).
+  const [contactDraft, setContactDraft] = useState<{ phone: string; address: string } | null>(null);
+  const [contactSaving, setContactSaving] = useState(false);
+  const currentPhone = employment.contactNumber || pds.mobileNo || '';
+  const currentAddress = pds.residentialAddress || pds.permanentAddress || '';
+  const saveContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactDraft) return;
+    const phone = contactDraft.phone.trim();
+    const address = contactDraft.address.trim();
+    if (!phone || !address) { addToast('Enter both a contact number and an address.', 'ERROR'); return; }
+    setContactSaving(true);
+    try {
+      await apiClient.put('/personnel/me', { contactNumber: phone, address });
+      setEmployment(prev => ({ ...prev, contactNumber: phone }));
+      setPds(prev => ({ ...prev, mobileNo: phone, residentialAddress: address }));
+      setContactDraft(null);
+      addToast('Contact details updated.', 'SUCCESS');
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Could not update your contact details.', 'ERROR');
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
   // Determine if all required fields for a tab are already locked
   const isPersonalLocked = isFieldLocked('personal.firstName') && isFieldLocked('personal.lastName') && isFieldLocked('personal.birthDate');
   const isPdsLocked = isFieldLocked('pds.residentialAddress') && isFieldLocked('pds.permanentAddress') && isFieldLocked('pds.mobileNo');
@@ -537,7 +563,7 @@ export const ProfileCompletion: React.FC = () => {
     <div className="animate-fade-in personnel-content-container">
       <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>My Digital 201 File & Profile</div>
+          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>My Profile</div>
         </div>
       </div>
 
@@ -579,6 +605,44 @@ export const ProfileCompletion: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Contact details: the part of the profile personnel edit themselves */}
+      <section className="card" aria-labelledby="contact-details-title" style={{ padding: 16, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h2 id="contact-details-title" style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Contact details</h2>
+          {!contactDraft && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setContactDraft({ phone: currentPhone, address: currentAddress })}>Edit</button>
+          )}
+        </div>
+        {contactDraft ? (
+          <form onSubmit={saveContact} style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span className="form-label" style={{ margin: 0 }}>Contact number</span>
+              <input className="form-input" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={contactDraft.phone} disabled={contactSaving}
+                onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} />
+            </label>
+            <label style={{ display: 'grid', gap: 4 }}>
+              <span className="form-label" style={{ margin: 0 }}>Address</span>
+              <textarea className="form-input" rows={2} maxLength={300} autoComplete="street-address" value={contactDraft.address} disabled={contactSaving}
+                onChange={e => setContactDraft({ ...contactDraft, address: e.target.value })} />
+            </label>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={contactSaving} onClick={() => setContactDraft(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary btn-sm" disabled={contactSaving}>{contactSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </form>
+        ) : (
+          <dl style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, auto) 1fr', gap: '6px 12px', margin: '12px 0 0', fontSize: '0.875rem' }}>
+            <dt className="text-muted">Contact number</dt><dd style={{ margin: 0, fontWeight: 600 }}>{currentPhone || 'Not recorded'}</dd>
+            <dt className="text-muted">Address</dt><dd style={{ margin: 0, fontWeight: 600, overflowWrap: 'anywhere' }}>{currentAddress || 'Not recorded'}</dd>
+          </dl>
+        )}
+      </section>
+
+      <p className="text-sm text-muted" style={{ margin: '0 0 12px' }}>
+        The details below come from your official record and are view only. Your PDS, work experience and appointment papers are kept in{' '}
+        <button type="button" className="btn btn-ghost btn-xs" style={{ padding: 0, display: 'inline', verticalAlign: 'baseline', color: 'var(--color-primary)', fontWeight: 700 }} onClick={() => navigate('/personnel/documents')}>My 201 File</button>.
+      </p>
 
       {/* Tab Navigation with Continuation Cue */}
       <div className="profile-tabs-wrapper">

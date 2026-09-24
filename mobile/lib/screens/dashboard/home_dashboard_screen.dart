@@ -383,11 +383,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       _buildNavTabItem(
                           index: 1,
                           icon: LucideIcons.userCheck,
-                          label: 'My 201 File'),
+                          label: 'My Profile'),
                       _buildNavTabItem(
                           index: 2,
                           icon: LucideIcons.folderOpen,
-                          label: 'My Documents'),
+                          label: 'My 201 File'),
                       // Opens CareerTimelineScreen, which the sidebar calls
                       // Service Record - not My Transactions.
                       _buildNavTabItem(

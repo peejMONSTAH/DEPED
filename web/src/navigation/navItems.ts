@@ -51,10 +51,10 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
     label: 'Personnel Portal',
     items: [
       { label: 'Portal Home',       icon: 'home',            path: '/personnel/home',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'My Documents',      icon: 'document',        path: '/personnel/documents',       roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
+      { label: 'My 201 File',       icon: 'document',        path: '/personnel/documents',       roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'My Transactions',   icon: 'transactions',    path: '/personnel/transactions',    roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'Notifications',     icon: 'notifications',   path: '/personnel/notifications',   roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'My 201 File',       icon: 'profile',         path: '/personnel/profile-completion', roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
+      { label: 'My Profile',        icon: 'profile',         path: '/personnel/profile-completion', roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'Service Record',    icon: 'repository',      path: '/personnel/profile',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
     ],
   },

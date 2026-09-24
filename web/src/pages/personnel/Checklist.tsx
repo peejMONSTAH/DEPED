@@ -209,7 +209,7 @@ export const Checklist: React.FC = () => {
         Boolean(doc.originalFileName) && (doc.fileSize || 0) > 0 && (doc.fileSize || 0) <= 10 * 1024 * 1024));
     } catch (err: any) {
       setAttachReqItem(null);
-      addToast(err.response?.data?.message || 'Could not load My Documents.', 'ERROR');
+      addToast(err.response?.data?.message || 'Could not load My 201 File.', 'ERROR');
     } finally { setAttachLoading(false); }
   };
 
@@ -496,7 +496,7 @@ export const Checklist: React.FC = () => {
                   )}
                 </div>
 
-                <div>
+                <div className="checklist-actions">
                   {isDocLocked ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {item.documentId && (
@@ -568,7 +568,7 @@ export const Checklist: React.FC = () => {
                       <button type="button" className="btn btn-secondary btn-sm"
                         disabled={loading || uploadingReqId !== null || submitting}
                         onClick={() => void openExistingPicker(item)}>
-                        <AppIcon name="documents" size={13} /> From My Documents
+                        <AppIcon name="documents" size={13} /> From My 201 File
                       </button>
                       <button
                         type="button"

@@ -148,9 +148,12 @@ test('the fetch is keyed on the file URL and retries only, so blob URLs and zoom
   for (const file of ['../src/components/common/DocumentViewerModal.tsx', '../src/pages/admin/AnnexCVerificationModal.tsx']) {
     const src = fs.readFileSync(require.resolve(file), 'utf8');
     assert.doesNotMatch(src, /cleanBlobUrl|createObjectURL|revokeObjectURL/, `${file} must not manage blob URLs itself`);
-    // Zoom only restyles the frame; its src is the blob URL alone.
-    assert.match(src, /src=\{`\$\{blobUrl\}#toolbar=0`\}/);
+    // PDFs are drawn by PdfPages from the blob URL; zoom is a separate prop.
+    assert.match(src, /<PdfPages url=\{blobUrl\} zoom=\{zoom\}/);
   }
+  // PdfPages loads the document only when the URL changes, never on zoom.
+  const pages = fs.readFileSync(require.resolve('../src/components/common/PdfPages.tsx'), 'utf8');
+  assert.match(pages, /getDocument\(url\)[\s\S]*?\}, \[url\]\);/);
 });
 
 test('zoom steps are clamped and reported as a percentage', () => {

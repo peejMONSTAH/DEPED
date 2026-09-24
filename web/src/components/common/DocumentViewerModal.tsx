@@ -12,6 +12,7 @@ import { ModalPortal } from './ModalPortal';
 import { ModalOverlay } from './ModalOverlay';
 import { useToast } from '../../contexts/ToastContext';
 import { useDocumentPreview, downloadDocument } from './useDocumentPreview';
+import { PdfPages } from './PdfPages';
 import { PreviewZoomControls } from './PreviewZoomControls';
 import './document-viewer-modal.css';
 
@@ -174,14 +175,7 @@ export const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
             ) : isPdf && blobUrl ? (
               // Zoom resizes the frame inside a scroll area; the src never
               // changes, so zooming cannot reload the document.
-              <div className="doc-viewer-pdf-scroll">
-                <iframe
-                  src={`${blobUrl}#toolbar=0`}
-                  className="doc-viewer-iframe"
-                  title={title}
-                  style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
-                />
-              </div>
+              <PdfPages url={blobUrl} zoom={zoom} title={title} />
             ) : isImage && blobUrl ? (
               <div className="doc-viewer-image-canvas">
                 <img
