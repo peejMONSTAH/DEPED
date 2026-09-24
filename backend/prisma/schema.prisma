@@ -413,8 +413,12 @@ model AccountCreationRequest {
   school            String?
   district          String?
   initialPassword   String               @map("initial_password")
-  dateHired         DateTime?            @map("date_hired")
-  status            AccountRequestStatus @default(PENDING)
+  dateHired          DateTime?            @map("date_hired")
+  pdsOriginalFileName String?             @map("pds_original_file_name")
+  pdsStoragePath      String?             @map("pds_storage_path")
+  pdsMimeType         String?             @map("pds_mime_type")
+  pdsFileSize         Int?                @map("pds_file_size")
+  status              AccountRequestStatus @default(PENDING)
   rejectionReason   String?              @map("rejection_reason")
   createdUserId     Int?                 @map("created_user_id")
   createdAt         DateTime             @default(now()) @map("created_at")

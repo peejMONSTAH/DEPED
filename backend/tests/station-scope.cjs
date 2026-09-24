@@ -22,6 +22,7 @@ const {
   hasStationAssignment,
   isWithinDistrict,
   normalizeStationName,
+  plantillaAssignmentScopeFilter,
   personnelScopeFilter,
   promotionApplicationScopeFilter,
   sameStation,
@@ -84,6 +85,7 @@ test('division-level roles are not restricted to a station', () => {
   assert.deepEqual(promotionApplicationScopeFilter(DIVISION, 'review'), {});
   assert.deepEqual(userReviewFilter(DIVISION), {});
   assert.deepEqual(stationPlantillaFilter(DIVISION), {});
+  assert.deepEqual(plantillaAssignmentScopeFilter(DIVISION), {});
   assert.equal(hasStationAssignment(DIVISION), true);
   assert.equal(isWithinDistrict(DIVISION, 'District 6'), true);
 });
@@ -95,6 +97,7 @@ test('an assigned officer reads their own record plus their station, and reviews
   assert.deepEqual(transactionScopeFilter(MORALES, 'review'), { personnel: MORALES_SUBJECTS });
   assert.deepEqual(promotionApplicationScopeFilter(MORALES, 'review'), { personnel: MORALES_SUBJECTS });
   assert.deepEqual(userReviewFilter(MORALES), { personnel: MORALES_SUBJECTS });
+  assert.deepEqual(plantillaAssignmentScopeFilter(MORALES), { department: { equals: 'Morales Elementary School' } });
   assert.equal(hasStationAssignment(MORALES), true);
 });
 
@@ -150,6 +153,7 @@ test('a district-only officer is not widened to the district: they fail closed',
   assert.deepEqual(transactionScopeFilter(UNASSIGNED, 'review'), { id: -1 });
   assert.deepEqual(userReviewFilter(UNASSIGNED), { id: -1 });
   assert.deepEqual(stationPlantillaFilter(UNASSIGNED), { id: -1 });
+  assert.deepEqual(plantillaAssignmentScopeFilter(UNASSIGNED), { id: -1 });
   assert.doesNotMatch(JSON.stringify(personnelScopeFilter(UNASSIGNED)), /District/);
 });
 
@@ -168,12 +172,19 @@ test('no scope is denied outright everywhere', () => {
   assert.deepEqual(promotionApplicationScopeFilter(NOTHING), { id: -1 });
   assert.deepEqual(userReviewFilter(NOTHING), { id: -1 });
   assert.deepEqual(stationPlantillaFilter(NOTHING), { id: -1 });
+  assert.deepEqual(plantillaAssignmentScopeFilter(NOTHING), { id: -1 });
   assert.equal(hasStationAssignment(NOTHING), false);
   assert.equal(isWithinDistrict(NOTHING, null), false);
 });
 
 test('the plantilla registry is division-level only', () => {
   assert.deepEqual(stationPlantillaFilter(MORALES), { id: -1 });
+});
+
+test('account assignment offers an AO II only exact-station plantilla items', () => {
+  const filter = plantillaAssignmentScopeFilter(MORALES);
+  assert.deepEqual(filter, { department: { equals: 'Morales Elementary School' } });
+  assert.doesNotMatch(JSON.stringify(filter), /contains|insensitive|district/);
 });
 
 test('a cycle district narrows an officer further but never grants access', () => {

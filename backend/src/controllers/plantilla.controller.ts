@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendSuccess, sendCreated, sendNotFound, sendBadRequest, sendForbidden , sendError} from '../utils/response.util';
-import { getStationScope, promotionApplicationScopeFilter, stationPlantillaFilter } from '../utils/scope.util';
+import { getStationScope, plantillaAssignmentScopeFilter, promotionApplicationScopeFilter, stationPlantillaFilter } from '../utils/scope.util';
 import { getAutoSalaryGrade, getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { logger } from '../utils/logger';
 import { validPlantillaLocation } from '../utils/plantilla-location.util';
@@ -171,8 +171,15 @@ export const getPlantillaItems = async (req: Request, res: Response): Promise<vo
  */
 export const getAvailablePlantillaItems = async (req: Request, res: Response): Promise<void> => {
   try {
+    const scope = await getStationScope(req.user);
+    const forAssignment = req.query.forAssignment === 'true';
     const items = await prisma.plantillaItem.findMany({
-      where: { occupiedByPersonnel: null },
+      where: {
+        AND: [
+          { occupiedByPersonnel: null },
+          ...(forAssignment ? [plantillaAssignmentScopeFilter(scope)] : []),
+        ],
+      },
       orderBy: [
         { salaryGrade: 'desc' },
         { positionTitle: 'asc' },
@@ -180,7 +187,6 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
     });
 
     // As in the cycle list: an AO II's applicant count covers their own station only.
-    const scope = await getStationScope(req.user);
     const countedApplications = scope.role === 'AO_II'
       ? { where: promotionApplicationScopeFilter(scope, 'review') }
       : true;
@@ -272,7 +278,7 @@ export const getAvailablePlantillaItems = async (req: Request, res: Response): P
       };
     });
 
-    const excludePromotions = req.query.excludePromotions === 'true' || req.query.forAssignment === 'true';
+    const excludePromotions = req.query.excludePromotions === 'true' || forAssignment;
     const filtered = excludePromotions ? available.filter(item => !item.isOpenForRanking) : available;
     sendSuccess(res, filtered);
   } catch (error: any) {

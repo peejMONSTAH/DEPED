@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import multer from 'multer';
-import path from 'path';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+import { authenticate } from '../middleware/auth.middleware';
+import { personnelDocumentUpload } from '../middleware/personnel-document-upload.middleware';
 import {
   getDocumentTypes,
   listPersonnelDocuments,
@@ -14,26 +13,6 @@ import {
   getExtractionReview,
   applyExtractionTo201,
 } from '../controllers/personnel-documents.controller';
-import { config } from '../config';
-
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
-  fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg'];
-    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
-    const isMimeAllowed = allowedMimes.includes(file.mimetype);
-    const isExtAllowed = allowedExts.includes(ext);
-
-    if (isMimeAllowed && isExtAllowed) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file format. Strict policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for personnel document uploads.'));
-    }
-  },
-});
 
 const router = Router();
 
@@ -45,8 +24,8 @@ router.get('/document-types', getDocumentTypes);
 
 // Personnel document operations
 router.get('/', listPersonnelDocuments);
-router.post('/', upload.single('file'), uploadPersonnelDocument);
-router.put('/:id', upload.single('file'), replacePersonnelDocument);
+router.post('/', personnelDocumentUpload.single('file'), uploadPersonnelDocument);
+router.put('/:id', personnelDocumentUpload.single('file'), replacePersonnelDocument);
 router.delete('/:id', deletePersonnelDocument);
 router.get('/:id/view-token', getPersonnelDocumentViewToken);
 router.get('/:id/file', downloadPersonnelDocumentFile);

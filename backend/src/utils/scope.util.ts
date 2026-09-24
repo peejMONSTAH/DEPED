@@ -210,6 +210,14 @@ export const userReviewFilter = (scope: StationScope): Prisma.UserWhereInput => 
 export const stationPlantillaFilter = (scope: StationScope): Prisma.PlantillaItemWhereInput =>
   scope.kind === 'DIVISION' ? {} : { id: -1 };
 
+/** Plantilla choices for account assignment. Division roles see every item;
+ * an AO II sees only exact-station items, and every other scope fails closed. */
+export const plantillaAssignmentScopeFilter = (scope: StationScope): Prisma.PlantillaItemWhereInput => {
+  if (scope.kind === 'DIVISION') return {};
+  if (scope.kind === 'STATION' && scope.school) return { department: { equals: scope.school } };
+  return { id: -1 };
+};
+
 /**
  * The single-record counterpart of personnelScopeFilter. It runs the same
  * predicate, so it cannot allow a record the list would hide. Callers load and

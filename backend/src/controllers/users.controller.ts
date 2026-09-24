@@ -5,7 +5,7 @@ import {
   sendSuccess, sendCreated, sendError, sendNotFound, sendBadRequest, sendForbidden,
   getPaginationParams, buildPaginationMeta,
 } from '../utils/response.util';
-import { Prisma, UserRole, AccountStatus } from '@prisma/client';
+import { Prisma, UserRole, AccountStatus, PersonnelDocumentStatus } from '@prisma/client';
 import { notifyUserNotifications } from './notifications.controller';
 import {
   getStationScope,
@@ -23,6 +23,10 @@ import { logger } from '../utils/logger';
 import { generateInitialPassword } from '../utils/password-issue.util';
 import { invalidateAuthUserCache } from '../middleware/auth.middleware';
 import { initializePersonnelDocuments } from './personnel-documents.controller';
+import { isValidPersonnelDocumentFile } from '../middleware/personnel-document-upload.middleware';
+import { extractWithTesseract } from '../services/tesseract-ocr.service';
+import { mapTrustedOcrFields } from '../utils/document-extraction.util';
+import { discardUncommittedDocument, storeDocument } from '../services/document-storage.service';
 
 /**
  * GET /users — List all users with pagination and filtering
@@ -724,7 +728,30 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
 /**
  * POST /users/requests — AO II submits an account creation request for personnel
  */
+export const extractAccountRequestPds = async (req: Request, res: Response): Promise<void> => {
+  if (!isValidPersonnelDocumentFile(req.file)) {
+    sendBadRequest(res, 'Choose a valid PDS PDF, PNG or JPEG up to 10 MB.');
+    return;
+  }
+  try {
+    const result = await extractWithTesseract(req.file.buffer, req.file.mimetype, 'PDS');
+    const extracted = mapTrustedOcrFields('PDS', result.fields, result.confidence);
+    if (!Object.values(extracted.fields).some(value => typeof value === 'string' && value.trim())) {
+      throw new Error('No supported identity fields could be read from this PDS. The file can still be attached and the details entered manually.');
+    }
+    sendSuccess(res, {
+      fields: extracted.fields,
+      confidence: extracted.confidence,
+      fileName: req.file.originalname,
+    }, 'PDS fields extracted. Review every field before submitting the request.');
+  } catch (error: any) {
+    logger.warn({ err: error, userId: req.user?.userId }, 'Account-request PDS extraction failed');
+    sendBadRequest(res, error?.message || 'The PDS could not be read. You may still enter the details manually.');
+  }
+};
+
 export const submitAccountRequest = async (req: Request, res: Response): Promise<void> => {
+  if (typeof req.body.nonPlantilla === 'string') req.body.nonPlantilla = req.body.nonPlantilla === 'true';
   const inputError = validateAccountInput(req.body);
   if (inputError) { sendBadRequest(res, inputError); return; }
   if (!isPersonnelRole(req.body.role)) { sendBadRequest(res, 'Only teaching and non-teaching personnel accounts can be requested.'); return; }
@@ -736,6 +763,15 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
 
   if (!email || !initialPassword || !firstName || !lastName || !birthDate || !gender || !civilStatus || !designation) {
     sendBadRequest(res, 'First name, last name, birth date, gender, civil status, designation, official email, and initial password are required.');
+    return;
+  }
+
+  if (req.user?.role === 'AO_II' && !isValidPersonnelDocumentFile(req.file)) {
+    sendBadRequest(res, 'Attach the personnel\'s valid PDS PDF, PNG or JPEG (maximum 10 MB).');
+    return;
+  }
+  if (req.file && !isValidPersonnelDocumentFile(req.file)) {
+    sendBadRequest(res, 'Choose a valid PDS PDF, PNG or JPEG up to 10 MB.');
     return;
   }
 
@@ -809,9 +845,16 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
     finalAddress = `${scope.school}${scope.district ? `, ${scope.district}` : ''}`;
   }
 
-  // Create request record
-  const accountRequest = await prisma.accountCreationRequest.create({
-    data: {
+  // Store the submitted PDS only after all identity, duplicate, plantilla and
+  // station-scope checks have passed. Approval promotes this same private file
+  // into the personnel's Digital 201 record.
+  let pdsStoragePath: string | null = null;
+  try {
+    if (req.file) {
+      pdsStoragePath = await storeDocument(req.file.buffer, req.file.mimetype, `account-requests/${req.user!.userId}`);
+    }
+    const accountRequest = await prisma.accountCreationRequest.create({
+      data: {
       requestedByUserId: req.user!.userId,
       firstName,
       lastName,
@@ -829,41 +872,51 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
       district: finalDistrict || null,
       initialPassword: await hashPassword(initialPassword),
       dateHired: req.body.dateHired ? new Date(req.body.dateHired) : null,
+      pdsOriginalFileName: req.file?.originalname || null,
+      pdsStoragePath,
+      pdsMimeType: req.file?.mimetype || null,
+      pdsFileSize: req.file?.size || null,
       status: 'PENDING',
-    },
-  });
-
-  // Notify System Admins
-  const sysAdmins = await prisma.user.findMany({
-    where: { role: { name: UserRole.SYSTEM_ADMIN } },
-    select: { id: true },
-  });
-
-  if (sysAdmins.length > 0) {
-    await prisma.notification.createMany({
-      data: sysAdmins.map(admin => ({
-        userId: admin.id,
-        message: `📋 New Account Creation Request submitted by ${req.user!.email} for ${firstName} ${lastName} (${role}).`,
-        type: 'INFO' as const,
-        relatedEntityId: accountRequest.id,
-        relatedEntityType: 'AccountCreationRequest',
-      })),
+      },
     });
-  }
 
-  const { initialPassword: _password, ...safeRequest } = accountRequest;
-  await queueTransactionalEmail(`account-request:${accountRequest.id}:recorded`, {
-    recipientEmail: req.user!.email,
-    recipientName: req.user!.email,
-    subject: `Account request received: ${firstName} ${lastName}`,
-    heading: 'Account request recorded',
-    message: `Your request to create a Digital 201 account for ${firstName} ${lastName} was recorded and is awaiting System Administrator approval.`,
-    reference: `Account request ${accountRequest.id}`,
-    actionLabel: 'Open Digital 201',
-    actionUrl: `${config.clientUrl}/admin/personnel`,
-  });
-  void processWorkflowOutbox();
-  sendCreated(res, safeRequest, 'Account creation request submitted successfully. Awaiting System Administrator approval.');
+    // Notify System Admins
+    const sysAdmins = await prisma.user.findMany({
+      where: { role: { name: UserRole.SYSTEM_ADMIN } },
+      select: { id: true },
+    });
+
+    if (sysAdmins.length > 0) {
+      await prisma.notification.createMany({
+        data: sysAdmins.map(admin => ({
+          userId: admin.id,
+          message: `📋 New Account Creation Request submitted by ${req.user!.email} for ${firstName} ${lastName} (${role}).`,
+          type: 'INFO' as const,
+          relatedEntityId: accountRequest.id,
+          relatedEntityType: 'AccountCreationRequest',
+        })),
+      });
+    }
+
+    const { initialPassword: _password, pdsStoragePath: _storage, ...safeRequest } = accountRequest;
+    await queueTransactionalEmail(`account-request:${accountRequest.id}:recorded`, {
+      recipientEmail: req.user!.email,
+      recipientName: req.user!.email,
+      subject: `Account request received: ${firstName} ${lastName}`,
+      heading: 'Account request recorded',
+      message: `Your request to create a Digital 201 account for ${firstName} ${lastName} was recorded and is awaiting System Administrator approval.`,
+      reference: `Account request ${accountRequest.id}`,
+      actionLabel: 'Open Digital 201',
+      actionUrl: `${config.clientUrl}/admin/personnel`,
+    });
+    void processWorkflowOutbox();
+    sendCreated(res, { ...safeRequest, hasPdsFile: Boolean(accountRequest.pdsStoragePath) }, 'Account creation request submitted successfully. Awaiting System Administrator approval.');
+  } catch (error) {
+    if (pdsStoragePath) {
+      await discardUncommittedDocument(pdsStoragePath).catch(cleanupError => logger.error({ err: cleanupError }, 'Failed to discard uncommitted account-request PDS'));
+    }
+    throw error;
+  }
 };
 
 /**
@@ -898,7 +951,10 @@ export const getAccountRequests = async (req: Request, res: Response): Promise<v
     },
   });
 
-  sendSuccess(res, requests.map(({ initialPassword: _password, ...request }) => request));
+  sendSuccess(res, requests.map(({ initialPassword: _password, pdsStoragePath: _storage, ...request }) => ({
+    ...request,
+    hasPdsFile: Boolean(_storage),
+  })));
 };
 
 /**
@@ -1008,6 +1064,27 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
     });
 
     await initializePersonnelDocuments(newPersonnel.id, roleRecord.name, tx);
+
+    if (accountRequest.pdsStoragePath) {
+      await tx.personnelFile.updateMany({
+        where: {
+          personnelId: newPersonnel.id,
+          documentTypeId: 'PDS',
+          status: PersonnelDocumentStatus.NOT_SUBMITTED,
+          deletedAt: null,
+        },
+        data: {
+          originalFileName: accountRequest.pdsOriginalFileName,
+          storedFileName: accountRequest.pdsStoragePath.split('/').pop() || accountRequest.pdsOriginalFileName,
+          storagePath: accountRequest.pdsStoragePath,
+          mimeType: accountRequest.pdsMimeType,
+          fileSize: accountRequest.pdsFileSize,
+          status: PersonnelDocumentStatus.SUBMITTED,
+          remarks: 'Uploaded by AO during account request creation.',
+          ocrStatus: 'PENDING',
+        },
+      });
+    }
 
     // Creating the personnel record above bound the item; log the audit entry.
     if (matchedPlantilla) {

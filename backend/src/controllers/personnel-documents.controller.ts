@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import path from 'path';
+import { isValidPersonnelDocumentFile } from '../middleware/personnel-document-upload.middleware';
 import { storeDocument, readDocument, discardUncommittedDocument } from '../services/document-storage.service';
 import { canAccessPersonnel } from '../utils/scope.util';
 import { Prisma, PersonnelDocumentStatus } from '@prisma/client';
@@ -304,14 +304,6 @@ const parseIsoDate = (raw: unknown): Date | null | undefined => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-function validateFile(file: Express.Multer.File): boolean {
-  if (!file.size || file.size > 10 * 1024 * 1024) return false;
-  if (!['.pdf', '.png', '.jpg', '.jpeg'].includes(path.extname(file.originalname).toLowerCase())) return false;
-  if (file.mimetype === 'application/pdf') return file.buffer.subarray(0, 5).toString() === '%PDF-';
-  if (file.mimetype === 'image/png') return file.buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
-  return file.mimetype === 'image/jpeg' && file.buffer[0] === 255 && file.buffer[1] === 216 && file.buffer[2] === 255;
-}
-
 export const getDocumentTypes = async (_req: Request, res: Response): Promise<void> => {
   sendSuccess(res, CONFIGURABLE_DOCUMENT_TYPES);
 };
@@ -355,7 +347,7 @@ export const listPersonnelDocuments = async (req: Request, res: Response): Promi
 export const uploadPersonnelDocument = async (req: Request, res: Response): Promise<void> => {
   if (!req.user?.personnelId) { sendForbidden(res, 'No linked personnel profile.'); return; }
   const file = req.file;
-  if (!file || !validateFile(file)) { sendBadRequest(res, 'Choose a valid PDF, PNG or JPEG up to 10 MB.'); return; }
+  if (!isValidPersonnelDocumentFile(file)) { sendBadRequest(res, 'Choose a valid PDF, PNG or JPEG up to 10 MB.'); return; }
   const definition = CONFIGURABLE_DOCUMENT_TYPES.find(t => t.id === req.body.documentTypeId);
   if (!definition) { sendBadRequest(res, 'Unknown document type.'); return; }
 

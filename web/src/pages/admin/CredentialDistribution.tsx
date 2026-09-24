@@ -75,11 +75,14 @@ export const CredentialDistribution: React.FC = () => {
   const [selectedPlantillaId, setSelectedPlantillaId] = useState<number | ''>('');
   const [isNonPlantilla, setIsNonPlantilla] = useState(false);
   const [loadingPlantillas, setLoadingPlantillas] = useState(false);
+  const [pdsFile, setPdsFile] = useState<File | null>(null);
+  const [extractingPds, setExtractingPds] = useState(false);
+  const [pdsExtractionNote, setPdsExtractionNote] = useState('');
 
   useEffect(() => {
     if (showAddModal) {
       setLoadingPlantillas(true);
-      apiClient.get('/plantilla/available?excludePromotions=true')
+      apiClient.get('/plantilla/available?forAssignment=true')
         .then(res => {
           setVacantPlantillas(res.data?.data || []);
         })
@@ -260,6 +263,8 @@ export const CredentialDistribution: React.FC = () => {
   };
 
   const handleOpenAddModal = () => {
+    setPdsFile(null);
+    setPdsExtractionNote('');
     if (!isSysAdmin) {
       setFormData(prev => ({
         ...prev,
@@ -268,6 +273,46 @@ export const CredentialDistribution: React.FC = () => {
       }));
     }
     setShowAddModal(true);
+  };
+
+  const handlePdsSelected = async (file: File | null) => {
+    setPdsExtractionNote('');
+    if (!file) {
+      setPdsFile(null);
+      return;
+    }
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (!extension || !['pdf', 'png', 'jpg', 'jpeg'].includes(extension) || file.size > 10 * 1024 * 1024) {
+      addToast('Choose a PDF, PNG, or JPEG PDS file up to 10 MB.', 'WARNING');
+      setPdsFile(null);
+      return;
+    }
+    setPdsFile(file);
+    setExtractingPds(true);
+    try {
+      const extractionForm = new FormData();
+      extractionForm.append('pdsFile', file);
+      const response = await apiClient.post('/users/requests/extract-pds', extractionForm);
+      const fields = response.data?.data?.fields || {};
+      setFormData(previous => ({
+        ...previous,
+        firstName: fields.firstName || previous.firstName,
+        lastName: fields.lastName || previous.lastName,
+        middleName: fields.middleName || previous.middleName,
+        suffix: fields.suffix || previous.suffix,
+        birthDate: fields.birthDate || previous.birthDate,
+        gender: ['MALE', 'FEMALE', 'OTHER'].includes(fields.gender) ? fields.gender : previous.gender,
+        civilStatus: ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(fields.civilStatus) ? fields.civilStatus : previous.civilStatus,
+        contactNumber: fields.contactNumber || previous.contactNumber,
+      }));
+      setPdsExtractionNote('Recognized PDS details were filled in below. Review them before submitting.');
+      addToast('PDS read successfully. Please review the extracted details.', 'SUCCESS');
+    } catch (error: any) {
+      setPdsExtractionNote('The file is attached, but automatic reading was incomplete. Enter or verify the details manually.');
+      addToast(error?.response?.data?.message || 'The PDS is attached, but its fields could not be read automatically.', 'WARNING');
+    } finally {
+      setExtractingPds(false);
+    }
   };
 
     const creatingAccount = usePending();
@@ -313,6 +358,11 @@ export const CredentialDistribution: React.FC = () => {
       return;
     }
 
+    if (isAo && isSchoolPersonnel && !pdsFile) {
+      addToast('Please attach the personnel\'s PDS before submitting the account request.', 'WARNING');
+      return;
+    }
+
     try {
       const payload: any = {
         email: formData.email.trim(),
@@ -352,12 +402,19 @@ export const CredentialDistribution: React.FC = () => {
         const displayName = isCreatingAo ? `AO II ${formData.selectedSchool}` : `${effectiveFirstName} ${effectiveLastName}`;
         addToast(`Station Account created for ${displayName}! Employee ID: ${created?.employeeId || 'Generated'}.`, 'SUCCESS');
       } else {
-        await apiClient.post('/users/requests', payload);
+        const requestForm = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) requestForm.append(key, String(value));
+        });
+        if (pdsFile) requestForm.append('pdsFile', pdsFile);
+        await apiClient.post('/users/requests', requestForm);
         const displayName = isCreatingAo ? `AO II ${formData.selectedSchool}` : `${effectiveFirstName} ${effectiveLastName}`;
         addToast(`Account creation request for ${displayName} submitted to System Administrator for approval!`, 'SUCCESS');
       }
 
       setShowAddModal(false);
+      setPdsFile(null);
+      setPdsExtractionNote('');
       setFormData({
         firstName: '',
         lastName: '',
@@ -1046,6 +1103,41 @@ export const CredentialDistribution: React.FC = () => {
                   </div>
                 </div>
 
+                {isAo && ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(formData.personnelType) && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <AppIcon name="document" size={14} /> Personnel PDS
+                    </div>
+                    <div style={{ padding: 14, border: '1px solid var(--color-border)', borderRadius: 12, background: 'var(--color-bg-secondary)' }}>
+                      <label className="form-label" htmlFor="account-request-pds" style={{ fontWeight: 700 }}>
+                        Upload signed Personal Data Sheet (PDS) <span style={{ color: 'var(--color-danger)' }}>*</span>
+                      </label>
+                      <input
+                        id="account-request-pds"
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg"
+                        onChange={event => void handlePdsSelected(event.target.files?.[0] || null)}
+                        disabled={extractingPds || creatingAccount.pending}
+                        required
+                        style={{ display: 'block', width: '100%', marginTop: 6 }}
+                      />
+                      <div style={{ marginTop: 7, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        PDF, PNG, or JPEG up to 10 MB. Recognized identity fields will be filled automatically; the PDS will become part of the personnel's Digital 201 file after approval.
+                      </div>
+                      {extractingPds && (
+                        <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                          Reading PDS fields…
+                        </div>
+                      )}
+                      {pdsExtractionNote && !extractingPds && (
+                        <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                          {pdsExtractionNote}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Row 2: Personal Info — Hidden for AO II */}
                 {formData.personnelType !== 'AO_II' && (
                   <div>
@@ -1173,7 +1265,7 @@ export const CredentialDistribution: React.FC = () => {
 
               {/* Footer */}
               <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                <button type="submit" disabled={creatingAccount.pending} className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
+                <button type="submit" disabled={creatingAccount.pending || extractingPds} className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
                   {formData.personnelType === 'AO_II'
                     ? (isSysAdmin ? 'Create AO II Account' : 'Submit AO II Request')
                     : (isSysAdmin ? 'Create Personnel Account' : 'Submit Request to System Admin')}

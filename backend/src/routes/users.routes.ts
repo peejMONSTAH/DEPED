@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
+import { personnelDocumentUpload } from '../middleware/personnel-document-upload.middleware';
 import {
   getUsers, createUser, getUserById, updateUser, deleteUser, distributeCredentials, resetUserPassword,
-  submitAccountRequest, getAccountRequests, approveAccountRequest, rejectAccountRequest,
+  extractAccountRequestPds, submitAccountRequest, getAccountRequests, approveAccountRequest, rejectAccountRequest,
 } from '../controllers/users.controller';
 
 const router = Router();
@@ -11,7 +12,8 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/requests', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getAccountRequests);
-router.post('/requests', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), submitAccountRequest);
+router.post('/requests/extract-pds', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), personnelDocumentUpload.single('pdsFile'), extractAccountRequestPds);
+router.post('/requests', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), personnelDocumentUpload.single('pdsFile'), submitAccountRequest);
 router.post('/requests/:id/approve', authorize('SYSTEM_ADMIN', 'HRMO'), approveAccountRequest);
 router.post('/requests/:id/reject', authorize('SYSTEM_ADMIN', 'HRMO'), rejectAccountRequest);
 
