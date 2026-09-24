@@ -15,6 +15,7 @@ import { logger } from '../utils/logger';
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { invalidateAuthUserCache } from '../middleware/auth.middleware';
 import { approvedEmploymentEntries } from '../utils/document-extraction.util';
+import { getCycleTargetPosition } from './promotions.controller';
 
 const personnelSelect = {
   id: true, employeeId: true, firstName: true, lastName: true, middleName: true,
@@ -154,7 +155,10 @@ export const buildServiceRecordPayload = (p: any) => {
       (t.transactionType?.name?.toLowerCase().includes('promotion') || t.remarks?.toLowerCase().includes('promotion'))
   );
 
-  const approvedApps = (p.promotionApplications || []).filter((a: any) => a.status === 'APPROVED');
+  // APPROVED on an application means "selected". The promotion itself only
+  // takes effect once the appointment requirements are approved.
+  const selectedApps = (p.promotionApplications || []).filter((a: any) => a.status === 'APPROVED' && a.scoreDetailsJson?.manuallyPromoted);
+  const approvedApps = selectedApps.filter((a: any) => a.scoreDetailsJson?.appointmentApproved);
 
   let latestPromotionDateStr = 'Original Appointment (No Promotions Yet)';
   let latestAppointmentDateStr = hiredDate?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) || 'Not recorded';
@@ -219,6 +223,30 @@ export const buildServiceRecordPayload = (p: any) => {
       status: 'APPROVED',
       salary: ch.detailsJson?.salary || `${currentSG}`,
       remarks: ch.detailsJson?.notes || 'DepEd SDO Service Milestone',
+    });
+  });
+
+  // 2b. Promotions: selected ones appear at once as the initial appointment to
+  // the applied position, pending until the appointment requirements pass.
+  selectedApps.forEach((a: any) => {
+    const details = a.scoreDetailsJson || {};
+    // Once approved, the promotion transaction carries the timeline entry.
+    if (details.appointmentApproved) return;
+    const rules = a.promotionCycle?.rulesConfigurationJson || {};
+    const target = a.promotionCycle ? getCycleTargetPosition(a.promotionCycle) : 'Applied position';
+    const sg = rules.salaryGrade || rules.targetSalaryGrade;
+    const eDate = new Date(details.promotedAt || a.applicationDate);
+    timeline.push({
+      id: `promo-${a.id}`,
+      year: eDate.getFullYear(),
+      date: eDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      rawDate: eDate.getTime(),
+      event: `Initial appointment to ${target}${sg ? ` (SG ${sg})` : ''}`,
+      type: 'Promotion',
+      ref: details.plantillaItemNumber || `APP-${a.id}`,
+      status: 'PENDING',
+      salary: sg ? `SG ${sg}` : '',
+      remarks: 'Selected for promotion — pending appointment requirements (AO II validation, HRMO approval)',
     });
   });
 

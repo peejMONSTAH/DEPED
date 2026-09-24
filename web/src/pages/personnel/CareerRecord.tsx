@@ -222,7 +222,7 @@ export const CareerRecord: React.FC = () => {
                   <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
                     {entry.event}
                   </span>
-                  <span className="badge badge-approved" style={{ fontSize: 10 }}>{entry.status}</span>
+                  <span className={`badge ${entry.status === 'PENDING' ? 'badge-pending' : 'badge-approved'}`} style={{ fontSize: 10 }}>{entry.status === 'PENDING' ? 'PENDING REQUIREMENTS' : entry.status}</span>
                 </div>
                 <div className="text-xs text-muted flex gap-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

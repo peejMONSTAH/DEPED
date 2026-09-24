@@ -57,7 +57,7 @@ const normalizePositionTitle = (value: unknown): string => String(value || '')
   .replace(/[^a-z0-9]+/g, ' ')
   .trim();
 
-const getCycleTargetPosition = (cycle: { name?: string | null; rulesConfigurationJson?: unknown }): string => {
+export const getCycleTargetPosition = (cycle: { name?: string | null; rulesConfigurationJson?: unknown }): string => {
   const rules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
   if (rules.targetPosition || rules.positionTitle) return String(rules.targetPosition || rules.positionTitle).trim();
   return String(cycle.name || '')

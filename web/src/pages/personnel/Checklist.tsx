@@ -12,8 +12,8 @@ import { DocumentViewerModal } from '../../components/common/DocumentViewerModal
 import { DocumentScannerModal } from '../../components/common/DocumentScannerModal';
 import { ModalPortal } from '../../components/common/ModalPortal';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
+import { AttachExistingModal, type ExistingDocument } from './AttachExistingModal';
 
-type ExistingDocument = { id: number; documentTypeName: string; originalFileName: string | null; mimeType: string | null; fileSize: number | null; hasFile: boolean; status: string };
 
 const TX_TYPE_LABELS: Record<string, string> = {
   PROMOTION_APPOINTMENT: 'Promotion Appointment',
@@ -46,6 +46,8 @@ export const Checklist: React.FC = () => {
   const [activeReqItem, setActiveReqItem] = useState<RequirementItem | null>(null);
   const [scannerReqItem, setScannerReqItem] = useState<RequirementItem | null>(null);
   const [attachReqItem, setAttachReqItem] = useState<RequirementItem | null>(null);
+  // A requirement with a document shows View + Replace; Replace reveals the upload options.
+  const [replacingReqId, setReplacingReqId] = useState<number | null>(null);
   const [existingDocuments, setExistingDocuments] = useState<ExistingDocument[]>([]);
   const [attachLoading, setAttachLoading] = useState(false);
   const attachInFlight = React.useRef(false);
@@ -103,6 +105,7 @@ export const Checklist: React.FC = () => {
         setTxRemarks(txData.remarks || '');
 
         setItems(checklistFromTransaction(txData));
+        setReplacingReqId(null);
         setScore(Number(txData.complianceScore) || 0);
         setActualType(txData.transactionType?.name || '');
         setChecklistError('');
@@ -340,10 +343,13 @@ export const Checklist: React.FC = () => {
           different situations, so they are listed separately. */}
       {(() => {
         const returned = missingReqs.filter(r => r.status === 'DEFICIENT');
-        const notUploaded = missingReqs.filter(r => r.status !== 'DEFICIENT');
+        const toReview = items.filter(r => r.needsExtractionReview && r.status !== 'DEFICIENT');
+        const notUploaded = missingReqs.filter(r => r.status !== 'DEFICIENT' && !r.needsExtractionReview);
+        const uploadedDone = completedReqs.filter(r => !r.needsExtractionReview);
         const tone = isComplete ? 'var(--color-success)' : returned.length ? 'var(--color-danger)' : 'var(--color-warning)';
         const pill = isComplete ? { cls: 'badge-approved', text: 'Ready for validation' }
           : returned.length ? { cls: 'badge-deficiency', text: `${returned.length} returned for correction` }
+          : toReview.length && !notUploaded.length ? { cls: 'badge-pending', text: 'Review needed' }
           : { cls: 'badge-pending', text: completedReqs.length ? 'In progress' : 'Not started' };
         const row = (r: RequirementItem, color: string, icon: 'approved' | 'warning' | 'pending', note?: string) => (
           <li key={r.requirementId} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0', borderTop: '1px solid var(--color-border)' }}>
@@ -382,6 +388,21 @@ export const Checklist: React.FC = () => {
               </div>
             )}
 
+            {toReview.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div className="text-xs" style={{ fontWeight: 700, color: 'var(--color-warning)', marginBottom: 2 }}>Confirm the scanned information before submitting</div>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {toReview.map(r => (
+                    <li key={r.requirementId} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--color-border)' }}>
+                      <AppIcon name="warning" size={14} color="var(--color-warning)" />
+                      <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 'var(--text-sm)' }}>{r.name}</span>
+                      {r.documentId && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewDocument(r.documentId!)}>Review now</button>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {notUploaded.length > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div className="text-xs text-muted" style={{ fontWeight: 700, marginBottom: 2 }}>Still to upload</div>
@@ -391,12 +412,12 @@ export const Checklist: React.FC = () => {
               </div>
             )}
 
-            {completedReqs.length > 0 && (
+            {uploadedDone.length > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div className="text-xs text-muted" style={{ fontWeight: 700, marginBottom: 2 }}>Uploaded</div>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {completedReqs.map(r => row(r, 'var(--color-success)', 'approved',
-                    r.status === 'VALIDATED' ? 'Validated by AO II' : r.needsExtractionReview ? 'Review the extracted information' : 'Awaiting AO II validation'))}
+                  {uploadedDone.map(r => row(r, 'var(--color-success)', 'approved',
+                    r.status === 'VALIDATED' ? 'Validated by AO II' : 'Awaiting AO II validation'))}
                 </ul>
               </div>
             )}
@@ -406,7 +427,9 @@ export const Checklist: React.FC = () => {
                 ? 'All required documents are in. Submit below to send your application to AO II for validation.'
                 : returned.length
                   ? `Upload corrected copies of the ${returned.length} returned document${returned.length === 1 ? '' : 's'}${notUploaded.length ? ` and the ${notUploaded.length} still missing` : ''} to submit.`
-                  : `Upload the ${notUploaded.length} remaining document${notUploaded.length === 1 ? '' : 's'} to submit.`}
+                  : notUploaded.length
+                    ? `Upload the ${notUploaded.length} remaining document${notUploaded.length === 1 ? '' : 's'}${toReview.length ? ' and confirm the scanned information' : ''} to submit.`
+                    : `Confirm the scanned information for ${toReview.map(r => r.name).join(', ')} to submit.`}
             </p>
           </section>
         );
@@ -509,6 +532,14 @@ export const Checklist: React.FC = () => {
                         </button>
                       )}
                       {item.needsExtractionReview && item.documentId && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewDocument(item.documentId)}>Review scanned information</button>}
+                      {item.documentId && !isDeficientDoc && replacingReqId !== item.requirementId ? (
+                        <button type="button" className="btn btn-secondary btn-sm"
+                          disabled={loading || uploadingReqId !== null || submitting}
+                          onClick={() => setReplacingReqId(item.requirementId)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <AppIcon name="upload" size={13} /> Replace
+                        </button>
+                      ) : <>
                       {templateForRequirement(item.name) && <button
                         type="button"
                         className="btn btn-secondary btn-sm"
@@ -548,6 +579,10 @@ export const Checklist: React.FC = () => {
                       >
                         Upload &amp; read form
                       </button>
+                      {item.documentId && !isDeficientDoc && (
+                        <button type="button" className="btn btn-ghost btn-xs" onClick={() => setReplacingReqId(null)}>Keep current</button>
+                      )}
+                      </>}
                     </div>
                   )}
                 </div>
@@ -569,38 +604,13 @@ export const Checklist: React.FC = () => {
         }}
       />}
 
-      {attachReqItem && <ModalPortal><ModalOverlay onDismiss={attachLoading ? undefined : () => setAttachReqItem(null)}>
-        <section className="modal" role="dialog" aria-modal="true" aria-label={`Attach to ${attachReqItem.name}`}
-          style={{ width: 'min(94vw, 560px)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column', padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
-          <header style={{ padding: '20px 20px 12px' }}>
-            <h2 style={{ margin: 0, fontSize: 'var(--text-xl)' }}>Attach from My Documents</h2>
-            <p className="text-sm text-muted" style={{ margin: '6px 0 0' }}>
-              For <strong style={{ color: 'var(--color-text-primary)' }}>{attachReqItem.name}</strong>. A copy is saved with this transaction; your original stays in My Documents.
-            </p>
-          </header>
-          <div style={{ overflowY: 'auto', padding: '0 20px', flex: 1, minHeight: 0 }}>
-            {attachLoading && <p className="text-sm text-muted">Loading…</p>}
-            {!attachLoading && existingDocuments.length === 0 && <p className="text-sm text-muted">No PDF, PNG, or JPEG in My Documents yet. Upload or scan the document instead.</p>}
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
-              {existingDocuments.map(doc => <li key={doc.id}>
-                <button type="button" disabled={attachLoading} onClick={() => void attachExisting(doc.id)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', textAlign: 'left',
-                    background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, cursor: 'pointer', font: 'inherit', color: 'inherit' }}>
-                  <AppIcon name="document" size={18} color="var(--color-primary)" />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontWeight: 700, fontSize: 'var(--text-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.documentTypeName}</span>
-                    <span className="text-xs text-muted" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.originalFileName ?? undefined}>{doc.originalFileName}</span>
-                  </span>
-                  <span className="text-xs" style={{ fontWeight: 700, color: 'var(--color-primary)', flexShrink: 0 }}>Attach</span>
-                </button>
-              </li>)}
-            </ul>
-          </div>
-          <footer style={{ padding: 16, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--color-border)', marginTop: 12 }}>
-            <button type="button" className="btn btn-secondary" disabled={attachLoading} onClick={() => setAttachReqItem(null)}>Cancel</button>
-          </footer>
-        </section>
-      </ModalOverlay></ModalPortal>}
+      {attachReqItem && <AttachExistingModal
+        requirementName={attachReqItem.name}
+        documents={existingDocuments}
+        loading={attachLoading}
+        onAttach={documentId => void attachExisting(documentId)}
+        onClose={() => setAttachReqItem(null)}
+      />}
 
       <input
         aria-label="Choose a document file to upload"
@@ -624,7 +634,7 @@ export const Checklist: React.FC = () => {
                 ? 'Submitted — Under AO II Verification'
                 : isComplete
                 ? 'All Mandatory Requirements Satisfied'
-                : 'Documents Pending Upload'}
+                : missingReqs.every(r => r.needsExtractionReview) ? 'Scanned Information Needs Your Review' : 'Documents Pending Upload'}
             </div>
             <div className="text-xs text-muted">
               {txStatus === 'APPROVED' || txStatus === 'COMPLETED'
@@ -635,6 +645,8 @@ export const Checklist: React.FC = () => {
                 ? 'Your dossier is actively in the receiving queue for AO II validation. You will be notified of any deficiency or endorsement in real time.'
                 : isComplete
                 ? 'Your 201 transaction dossier is complete and ready for AO II receiving and validation.'
+                : missingReqs.every(r => r.needsExtractionReview)
+                ? `Confirm what was read from ${missingReqs.map(r => r.name).join(', ')} ("Review scanned information"), then submit.`
                 : `Please complete the remaining ${missingReqs.length} required document(s) before submitting.`}
             </div>
           </div>
