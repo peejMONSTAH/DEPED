@@ -181,7 +181,7 @@ export const AdminNotifications: React.FC = () => {
 
       <div className="page-content">
         {/* Filter Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="notif-filter-tabs" role="group" aria-label="Filter notifications" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
           <button
             className={`btn btn-sm ${activeFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveFilter('ALL')}
@@ -283,7 +283,7 @@ export const AdminNotifications: React.FC = () => {
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingTop: 8, borderTop: '1px solid rgba(0, 0, 0, 0.06)', gap: 12 }}>
+                  <div className="notif-card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingTop: 8, borderTop: '1px solid rgba(0, 0, 0, 0.06)', gap: 12 }}>
                     <span style={{ fontSize: '11px', opacity: 0.75, display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                       <AppIcon name="pending" size={11} /> {new Date(n.createdAt).toLocaleString()}
                     </span>
@@ -291,7 +291,7 @@ export const AdminNotifications: React.FC = () => {
                     {/* Direct Action Routing Button - perfectly aligned to right */}
                     <button
                       type="button"
-                      className={`btn ${action.btnClass} btn-xs`}
+                      className={`btn ${action.btnClass} btn-xs notif-card-action`}
                       style={{
                         fontSize: 12,
                         padding: '6px 14px',

@@ -632,3 +632,27 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   /* The main next step (e.g. Review scanned information) spans the row. */
   .checklist-actions .btn-primary, .checklist-actions .btn-danger { flex-basis: 100%; order: -1; }
 }
+
+/* Notifications on phones: filters scroll in one row, and the action button
+   takes its own full-width line so long labels stay inside the card. */
+@media (max-width: 640px) {
+  .notif-filter-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    margin: 0 -16px 12px !important;
+    padding: 0 16px 4px;
+    scrollbar-width: none;
+  }
+  .notif-filter-tabs::-webkit-scrollbar { display: none; }
+  .notif-filter-tabs > .btn { flex-shrink: 0; }
+  .notif-card-footer { flex-wrap: wrap; }
+  body button.btn.notif-card-action {
+    margin-left: 0 !important;
+    flex: 1 1 100% !important;
+    justify-content: center !important;
+    white-space: normal !important;
+    text-align: center;
+    min-height: 40px;
+    font-size: 13px !important;
+  }
+}
