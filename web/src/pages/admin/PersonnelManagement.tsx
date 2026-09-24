@@ -14,6 +14,7 @@ import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
 import { usePending } from '../../hooks/usePending';
 import { generateInitialPassword } from '../../utils/password-issue';
+/** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 type PersonnelItem = {
   isCredentialFallback?: boolean;
@@ -733,7 +734,7 @@ export const PersonnelManagement: React.FC = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Date of Birth</label>
-                            <input type="date" className="form-input" value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} aria-label="Date of Birth" />
+                            <input type="date" className="form-input" max={todayDateInput()} value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} aria-label="Date of Birth" />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Gender</label>
@@ -839,7 +840,7 @@ export const PersonnelManagement: React.FC = () => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Original Date Hired</label>
-                            <input type="date" className="form-input" value={editDateHired} onChange={e => setEditDateHired(e.target.value)} aria-label="Original Date Hired" />
+                            <input type="date" className="form-input" max={todayDateInput()} value={editDateHired} onChange={e => setEditDateHired(e.target.value)} aria-label="Original Date Hired" />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
                             <label className="form-label" style={{ fontSize: 11 }}>Employment Status</label>
@@ -1091,7 +1092,7 @@ export const PersonnelManagement: React.FC = () => {
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input aria-label="Date of Birth" type="date" className="form-input" value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} required />
+                      <input aria-label="Date of Birth" type="date" className="form-input" max={todayDateInput()} value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} required />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span></label>
@@ -1296,7 +1297,7 @@ export const PersonnelManagement: React.FC = () => {
                     )}
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input aria-label="Date Hired" type="date" className="form-input" value={newDateHired} onChange={e => setNewDateHired(e.target.value)} required />
+                      <input aria-label="Date Hired" type="date" className="form-input" max={todayDateInput()} value={newDateHired} onChange={e => setNewDateHired(e.target.value)} required />
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>

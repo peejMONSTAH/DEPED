@@ -12,6 +12,7 @@ import { getAllPages } from '../../api/pagination';
 import { personnelDisplayName } from '../../utils/personnel-display';
 import { generateInitialPassword } from '../../utils/password-issue';
 import { usePending } from '../../hooks/usePending';
+/** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
 
 type AccountRecord = {
   id: number;
@@ -1173,7 +1174,7 @@ export const CredentialDistribution: React.FC = () => {
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Date of Birth <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input aria-label="Date of Birth" type="date" className="form-input" value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} required />
+                        <input aria-label="Date of Birth" type="date" className="form-input" max={todayDateInput()} value={formData.birthDate} onChange={e => setFormData({ ...formData, birthDate: e.target.value })} required />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Sex / Gender <span style={{ color: 'var(--color-danger)' }}>*</span></label>
@@ -1242,7 +1243,7 @@ export const CredentialDistribution: React.FC = () => {
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input aria-label="Date Hired" type="date" className="form-input" value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
+                        <input aria-label="Date Hired" type="date" className="form-input" max={todayDateInput()} value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>

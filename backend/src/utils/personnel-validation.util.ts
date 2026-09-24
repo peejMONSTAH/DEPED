@@ -7,6 +7,9 @@ export function isValidDateOnly(value: unknown): value is string {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+/** Today as YYYY-MM-DD in Philippine time; UTC would reject today's date before 8 AM local. */
+const todayInManila = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+
 /** Validate API input independently from HTML controls; reject rollover dates. */
 export function validatePersonnelInput(body: Record<string, unknown>): string | null {
   if (body.email !== undefined && (typeof body.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()))) return 'Enter a valid email address.';
@@ -20,7 +23,7 @@ export function validatePersonnelInput(body: Record<string, unknown>): string | 
     const value = body[field];
     if (value == null || value === '') continue;
     if (!isValidDateOnly(value)) return `${field} must be a valid date in YYYY-MM-DD format.`;
-    if (value > new Date().toISOString().slice(0, 10)) return `${field} cannot be in the future.`;
+    if (value > todayInManila()) return `${field} cannot be in the future.`;
   }
   if (body.birthDate && body.dateHired && String(body.dateHired) <= String(body.birthDate)) return 'Date hired must be after date of birth.';
   const mobile = body.contactNumber ?? body.mobileNo;
