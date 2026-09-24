@@ -204,7 +204,7 @@ export const PersonnelManagement: React.FC = () => {
   };
 
   const isAo = user?.role === 'AO_II';
-  const canManage = user?.role === 'HRMO';
+  const canManage = user?.role === 'HRMO' || user?.role === 'SYSTEM_ADMIN';
 
   // Enable Real-time sync across web and mobile
   useRealtimeNotifications(() => {
@@ -329,6 +329,11 @@ export const PersonnelManagement: React.FC = () => {
     e.preventDefault();
     if (!canManage) {
       addToast('Access denied. HRMO or System Admin privileges required.', 'ERROR');
+      return;
+    }
+
+    if ((newCategory === 'HRMO' || newCategory === 'SYSTEM_ADMIN') && user?.role !== 'SYSTEM_ADMIN') {
+      addToast('Only a System Administrator can create HRMO or System Administrator accounts.', 'ERROR');
       return;
     }
 
@@ -1280,8 +1285,13 @@ export const PersonnelManagement: React.FC = () => {
                         </optgroup>
                         <optgroup label="Administrative System Roles">
                           <option value="AO_II">Administrative Officer II (AO II / SO II)</option>
-                          <option value="HRMO">HRMO Approver / Manager</option>
-                          <option value="SYSTEM_ADMIN">System Administrator</option>
+                          {/* Division-level roles are granted by a System Administrator only (server-enforced). */}
+                          {user?.role === 'SYSTEM_ADMIN' && (
+                            <>
+                              <option value="HRMO">HRMO Approver / Manager</option>
+                              <option value="SYSTEM_ADMIN">System Administrator</option>
+                            </>
+                          )}
                         </optgroup>
                       </select>
                     </div>

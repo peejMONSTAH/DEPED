@@ -87,4 +87,10 @@ test('PersonnelManagement has district and school filters and no division-wide t
   assert.equal(/division-wide/i.test(plSource), false, 'PlantillaManagement must not contain division-wide');
 });
 
+test('PersonnelManagement restricts HRMO and SYSTEM_ADMIN role creation options to SYSTEM_ADMIN', () => {
+  const pmSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/PersonnelManagement.tsx'), 'utf8');
+  assert.match(pmSource, /user\?\.role === 'SYSTEM_ADMIN' && \(\s*<>\s*<option value="HRMO">HRMO Approver \/ Manager<\/option>\s*<option value="SYSTEM_ADMIN">System Administrator<\/option>/);
+});
+
+
 
