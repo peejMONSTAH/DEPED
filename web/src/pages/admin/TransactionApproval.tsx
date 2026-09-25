@@ -83,6 +83,7 @@ export const TransactionApproval: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
   const [returnRemarks, setReturnRemarks] = useState('');
+  const [returnDocumentIds, setReturnDocumentIds] = useState<number[]>([]);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showCareerUpdate, setShowCareerUpdate] = useState<Transaction | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -321,16 +322,23 @@ export const TransactionApproval: React.FC = () => {
       return;
     }
     if (!selected) return;
+    if (returnDocumentIds.length === 0) {
+      addToast('Select at least one document that the personnel must replace.', 'ERROR');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await apiClient.post(`/transactions/${selected.id}/approve`, {
         isApproved: false,
+        decision: 'RETURN_FOR_CORRECTION',
+        deficientDocumentIds: returnDocumentIds,
         notes: returnRemarks,
       });
       addToast(`Transaction #${selected.id} returned by HRMO. Personnel notified with remarks.`, 'WARNING');
       setShowReturnModal(false);
       setSelected(null);
       setReturnRemarks('');
+      setReturnDocumentIds([]);
       fetchApprovals();
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to return transaction.', 'ERROR');
@@ -1069,7 +1077,7 @@ export const TransactionApproval: React.FC = () => {
                     type="button"
                     className="btn btn-danger"
                     style={{ width: '100%', padding: '10px', fontWeight: 700 }}
-                    onClick={() => setShowReturnModal(true)}
+                    onClick={() => { setReturnDocumentIds([]); setReturnRemarks(''); setShowReturnModal(true); }}
                     disabled={isSubmitting}
                   >
                     Return for Correction (Deficiency)
@@ -1152,7 +1160,7 @@ export const TransactionApproval: React.FC = () => {
 
       {/* Return Modal */}
       {showReturnModal && selected && (
-        <ModalOverlay onDismiss={() => setShowReturnModal(false)} className="modal-overlay">
+        <ModalOverlay onDismiss={() => { setShowReturnModal(false); setReturnDocumentIds([]); }} className="modal-overlay">
           <div className="modal" style={{ maxWidth: 480 }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1161,8 +1169,31 @@ export const TransactionApproval: React.FC = () => {
             </div>
             <div className="modal-body">
               <p className="text-sm text-muted" style={{ marginBottom: 14 }}>
-                Status will be set to <strong>"Returned by HRMO"</strong>. Applicant <strong style={{ color: 'var(--color-text-primary)' }}>{selected.personnelName}</strong> will receive an urgent notification to resolve deficiencies.
+                Select the flawed document(s). Only those upload slots will reopen; documents you do not select stay validated and locked.
               </p>
+              <fieldset style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
+                <legend className="form-label" style={{ marginBottom: 8 }}>Documents requiring replacement *</legend>
+                <div style={{ display: 'grid', gap: 8, maxHeight: 210, overflowY: 'auto' }}>
+                  {(selected.detailedDocuments || []).filter(document => document.id !== undefined).map(document => {
+                    const documentId = document.id!;
+                    const checked = returnDocumentIds.includes(documentId);
+                    return (
+                      <label key={documentId} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', border: `1px solid ${checked ? 'var(--color-error)' : 'var(--color-border)'}`, borderRadius: 10, cursor: 'pointer', background: checked ? 'rgba(239, 68, 68, 0.07)' : 'var(--color-bg-secondary)' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => setReturnDocumentIds(current => checked ? current.filter(id => id !== documentId) : [...current, documentId])}
+                          style={{ marginTop: 2 }}
+                        />
+                        <span>
+                          <strong style={{ display: 'block', fontSize: 13 }}>{document.name}</strong>
+                          <span className="text-xs text-muted">{document.type || 'Uploaded document'}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <div className="form-group">
                 <label className="form-label">Return Remarks / Deficiency Notes *</label>
                 <textarea
@@ -1177,8 +1208,8 @@ export const TransactionApproval: React.FC = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowReturnModal(false)}>Cancel</button>
-              <button type="button" className="btn btn-danger" onClick={handleReturn} disabled={isSubmitting}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowReturnModal(false); setReturnDocumentIds([]); }}>Cancel</button>
+              <button type="button" className="btn btn-danger" onClick={handleReturn} disabled={isSubmitting || returnDocumentIds.length === 0}>
                 {isSubmitting ? 'Returning…' : 'Confirm Return → Notify Personnel'}
               </button>
             </div>

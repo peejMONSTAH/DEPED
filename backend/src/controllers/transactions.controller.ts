@@ -931,8 +931,18 @@ export const validateTransaction = async (req: Request, res: Response) => {
 export const approveTransaction = async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
-  const { isApproved, notes } = req.body;
+  const { isApproved, notes, decision, deficientDocumentIds } = req.body;
   if (typeof isApproved !== 'boolean') { sendBadRequest(res, 'isApproved must be a boolean.'); return; }
+  const isReturnedForCorrection = !isApproved && decision === 'RETURN_FOR_CORRECTION';
+  const returnedDocumentIds = Array.isArray(deficientDocumentIds)
+    ? [...new Set(deficientDocumentIds.map((value: unknown) => Number(value)))]
+    : [];
+  if (decision !== undefined && !['RETURN_FOR_CORRECTION', 'REJECT'].includes(decision)) {
+    sendBadRequest(res, 'Unsupported HRMO decision.'); return;
+  }
+  if (isReturnedForCorrection && (returnedDocumentIds.length === 0 || returnedDocumentIds.some(documentId => !Number.isSafeInteger(documentId) || documentId <= 0))) {
+    sendBadRequest(res, 'Select at least one deficient document to return for correction.', 'DEFICIENT_DOCUMENT_REQUIRED'); return;
+  }
   const transaction = await prisma.transaction.findUnique({
     where: { id },
     include: {
@@ -955,8 +965,14 @@ export const approveTransaction = async (req: Request, res: Response) => {
     );
     return;
   }
-  if (!isApproved && !notes) { sendBadRequest(res, 'A rejection reason is required.'); return; }
-  const newStatus = isApproved ? 'APPROVED' : 'REJECTED';
+  if (!isApproved && !String(notes || '').trim()) { sendBadRequest(res, isReturnedForCorrection ? 'Correction instructions are required.' : 'A rejection reason is required.'); return; }
+  if (isReturnedForCorrection && returnedDocumentIds.some(documentId => !transaction.uploadedDocuments.some(document => document.id === documentId))) {
+    sendBadRequest(res, 'One or more selected documents do not belong to this transaction.', 'INVALID_DEFICIENT_DOCUMENT'); return;
+  }
+  const newStatus = isApproved ? 'APPROVED' : isReturnedForCorrection ? 'DEFICIENCY' : 'REJECTED';
+  const returnedDocuments = isReturnedForCorrection
+    ? transaction.uploadedDocuments.filter(document => returnedDocumentIds.includes(document.id))
+    : [];
 
   await prisma.$transaction(async (tx) => {
     await lockTransaction(tx, id);
@@ -969,9 +985,29 @@ export const approveTransaction = async (req: Request, res: Response) => {
     }
     const claimed = await tx.transaction.updateMany({
       where: { id, status: 'FOR_APPROVAL' },
-      data: { status: newStatus, approvalDate: new Date(), remarks: notes },
+      data: {
+        status: newStatus,
+        approvalDate: isReturnedForCorrection ? null : new Date(),
+        remarks: String(notes || '').trim(),
+        currentAssigneeId: req.user!.userId,
+      },
     });
     if (claimed.count !== 1) throw workflowConflict(`Transaction #${id} was already processed by another reviewer.`);
+
+    if (isReturnedForCorrection) {
+      const reopened = await tx.uploadedDocument.updateMany({
+        where: { transactionId: id, id: { in: returnedDocumentIds } },
+        data: {
+          status: 'REJECTED',
+          validationNotes: String(notes).trim(),
+          validatedByUserId: req.user!.userId,
+          validationDate: new Date(),
+        },
+      });
+      if (reopened.count !== returnedDocumentIds.length) {
+        throw workflowConflict('The selected document set changed. Refresh before returning this transaction.');
+      }
+    }
 
     if (isApproved && transaction.personnelId) {
       const pdsDocument = transaction.uploadedDocuments.find(doc => /personal data sheet|\bpds\b/i.test(doc.requirementTemplate.name));
@@ -1124,8 +1160,15 @@ export const approveTransaction = async (req: Request, res: Response) => {
       data: {
         entityType: 'Transaction',
         entityId: id,
-        action: isApproved ? 'TRANSACTION_APPROVED' : 'TRANSACTION_REJECTED',
-        detailsJson: { notes, approvedBy: req.user!.userId },
+        action: isApproved ? 'TRANSACTION_APPROVED' : isReturnedForCorrection ? 'HRMO_RETURNED_FOR_CORRECTION' : 'TRANSACTION_REJECTED',
+        detailsJson: {
+          notes,
+          approvedBy: req.user!.userId,
+          ...(isReturnedForCorrection ? {
+            deficientDocumentIds: returnedDocumentIds,
+            deficientDocuments: returnedDocuments.map(document => document.requirementTemplate.name),
+          } : {}),
+        },
         userId: req.user!.userId,
         status: 'SUCCESS',
       },
@@ -1138,26 +1181,33 @@ export const approveTransaction = async (req: Request, res: Response) => {
         ? (isPromo
             ? `Promotion Appointment Approved! Your submitted documents have been fully verified by AO II and approved by HRMO. Your official personnel position has been updated!`
             : `Congratulations! Transaction #${id} (${transaction.transactionType.name}) has been approved by HRMO.`)
-        : `Transaction #${id} has been rejected by HRMO. Reason: ${notes}`;
+        : isReturnedForCorrection
+          ? `HRMO returned ${returnedDocuments.map(document => `"${document.requirementTemplate.name}"`).join(', ')} on transaction #${id} for correction. Replace only the flagged document${returnedDocuments.length === 1 ? '' : 's'}, then resubmit. Reason: ${notes}`
+          : `Transaction #${id} has been rejected by HRMO. Reason: ${notes}`;
 
       await tx.notification.create({
         data: {
           userId: transaction.personnel.user.id,
           message: notifMessage,
-          type: isApproved ? 'SUCCESS' : 'ERROR',
+          type: isApproved ? 'SUCCESS' : isReturnedForCorrection ? 'WARNING' : 'ERROR',
           relatedEntityId: id,
           relatedEntityType: 'Transaction',
         },
       });
       if (transaction.personnel.user.email) {
-        await queueTransactionalEmail(`transaction:${id}:hrmo:${newStatus}`, {
+        const emailKey = isReturnedForCorrection
+          ? `transaction:${id}:hrmo-deficiency:${transaction.resubmissionCount}`
+          : `transaction:${id}:hrmo:${newStatus}`;
+        await queueTransactionalEmail(emailKey, {
           recipientEmail: transaction.personnel.user.email,
           recipientName: `${transaction.personnel.firstName} ${transaction.personnel.lastName}`,
-          subject: `${isApproved ? 'Approved' : 'Decision issued'}: TRX-${id}`,
-          heading: isApproved ? 'Your transaction was approved' : 'Your transaction was not approved',
+          subject: `${isApproved ? 'Approved' : isReturnedForCorrection ? 'Correction required' : 'Decision issued'}: TRX-${id}`,
+          heading: isApproved ? 'Your transaction was approved' : isReturnedForCorrection ? 'HRMO returned documents for correction' : 'Your transaction was not approved',
           message: isApproved
             ? `HRMO approved your ${transaction.transactionType.name} transaction. Your Digital 201 record will reflect the finalized appointment information.`
-            : `HRMO did not approve your ${transaction.transactionType.name} transaction. Review the recorded reason in Digital 201: ${notes || 'No additional remarks were provided.'}`,
+            : isReturnedForCorrection
+              ? `Replace only these document${returnedDocuments.length === 1 ? '' : 's'}: ${returnedDocuments.map(document => document.requirementTemplate.name).join(', ')}. HRMO instructions: ${notes}`
+              : `HRMO did not approve your ${transaction.transactionType.name} transaction. Review the recorded reason in Digital 201: ${notes || 'No additional remarks were provided.'}`,
           reference: `TRX-${id}`,
           actionLabel: 'View transaction',
           actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
@@ -1169,12 +1219,16 @@ export const approveTransaction = async (req: Request, res: Response) => {
   if (transaction.personnel.user) notifyUserNotifications([transaction.personnel.user.id]);
   void processWorkflowOutbox();
   notifyTransactionChange({
-    type: isApproved ? 'TRANSACTION_APPROVED' : 'TRANSACTION_REJECTED',
+    type: isApproved ? 'TRANSACTION_APPROVED' : isReturnedForCorrection ? 'TRANSACTION_RETURNED_BY_HRMO' : 'TRANSACTION_REJECTED',
     transactionId: id,
     status: newStatus,
     isApproved,
   });
-  sendSuccess(res, { id, status: newStatus, approvalDate: new Date() }, isApproved ? 'Transaction approved.' : 'Transaction rejected.');
+  sendSuccess(
+    res,
+    { id, status: newStatus, approvalDate: isReturnedForCorrection ? null : new Date(), deficientDocumentIds: returnedDocumentIds },
+    isApproved ? 'Transaction approved.' : isReturnedForCorrection ? 'Transaction returned for document correction.' : 'Transaction rejected.',
+  );
 };
 
 /** GET /transactions/:id/requirements */

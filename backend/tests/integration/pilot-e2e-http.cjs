@@ -329,6 +329,25 @@ test('3. appointment: requirements, AO check, HR approval, official appointment'
   ok(await http(T.matAo, 'POST', `/transactions/${T.txId}/validate`, { body: validation }), 404, 'another station\'s AO II cannot validate');
   ok(await http(T.morAo, 'POST', `/transactions/${T.txId}/validate`, { body: validation }), 200, 'own AO II validates');
   ok(await http(T.morAo, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true } }), 403, 'AO II cannot give final approval');
+
+  // HR finds a flaw after AO II validated: return one document for correction.
+  const flawed = docs[docs.length - 1];
+  ok(await http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: false, decision: 'RETURN_FOR_CORRECTION', deficientDocumentIds: [], notes: 'x' } }), 400, 'HR must pick the flawed document');
+  ok(await http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: false, decision: 'RETURN_FOR_CORRECTION',
+    deficientDocumentIds: [flawed.id], notes: 'Unsigned page 2' } }), 200, 'HR returns one document for correction');
+  const returnedTx = await db.transaction.findUnique({ where: { id: T.txId }, include: { uploadedDocuments: true } });
+  assert.equal(returnedTx.status, 'DEFICIENCY', 'an HR return reopens the transaction, it is not a final rejection');
+  assert.equal(returnedTx.uploadedDocuments.find(d => d.id === flawed.id).status, 'REJECTED', 'the flawed document is returned');
+  assert.ok(returnedTx.uploadedDocuments.filter(d => d.id !== flawed.id).every(d => d.status === 'VALIDATED'), 'the other documents stay validated');
+  assert.ok(emails.some(e => e.recipientEmail === 'teacher@pilot.invalid' && /correction/i.test(e.subject || '')), 'the personnel is emailed');
+  // The personnel replaces only the flawed document and resubmits.
+  const redo = new FormData();
+  redo.append('file', pdfFile('corrected'), 'corrected.pdf');
+  redo.append('requirementId', String(flawed.requirementTemplateId));
+  ok(await http(T.teacher, 'POST', `/transactions/${T.txId}/documents`, { form: redo }), 201, 'the personnel re-uploads the returned document');
+  ok(await http(T.teacher, 'POST', `/transactions/${T.txId}/submit`), 200, 'the personnel resubmits');
+  const redocs = await db.uploadedDocument.findMany({ where: { transactionId: T.txId } });
+  ok(await http(T.morAo, 'POST', `/transactions/${T.txId}/validate`, { body: { documentValidations: redocs.map(d => ({ documentId: d.id, isValid: true })), targetStatus: 'FOR_APPROVAL' } }), 200, 'AO II validates the correction');
   ok(await http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true, notes: 'Pilot approval' } }), 200, 'HR approves');
 
   const person = await db.personnel.findUnique({ where: { id: T.teacherPersonnelId } });

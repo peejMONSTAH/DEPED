@@ -375,7 +375,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                                   BorderRadius.circular(8),
                                             ),
                                             child: const Text(
-                                              'APPROVED by AO II',
+                                              'VALIDATED — Locked',
                                               style: TextStyle(
                                                   fontSize: 11,
                                                   color: AppTheme.emeraldGreen,

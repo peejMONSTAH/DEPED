@@ -38,6 +38,7 @@ export const Checklist: React.FC = () => {
   const [actualType, setActualType] = useState('');
   const [txStatus, setTxStatus] = useState<string>('UNKNOWN');
   const [txRemarks, setTxRemarks] = useState<string>('');
+  const [returningAuthority, setReturningAuthority] = useState<'AO II' | 'HRMO'>('AO II');
   const [loading, setLoading] = useState<boolean>(true);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingReqId, setUploadingReqId] = useState<number | null>(null);
@@ -101,6 +102,11 @@ export const Checklist: React.FC = () => {
       if (txData) {
         setTxStatus(txData.status || 'UNKNOWN');
         setTxRemarks(txData.remarks || '');
+        setReturningAuthority(
+          Array.isArray(txData.history) && txData.history.some((entry: any) => entry.action === 'HRMO_RETURNED_FOR_CORRECTION')
+            ? 'HRMO'
+            : 'AO II',
+        );
 
         setItems(checklistFromTransaction(txData));
         setReplacingReqId(null);
@@ -323,10 +329,10 @@ export const Checklist: React.FC = () => {
         <div className="card mb-4" style={{ background: 'rgba(248, 81, 73, 0.1)', border: '1px solid #f85149', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <AppIcon name="warning" size={20} color="#f85149" />
-            <strong style={{ color: '#f85149', fontSize: 14 }}>AO II Deficiency Action Required</strong>
+            <strong style={{ color: '#f85149', fontSize: 14 }}>{returningAuthority} Deficiency Action Required</strong>
           </div>
           <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-            {txRemarks ? `AO II Remarks: "${txRemarks}"` : 'Your application was returned by AO II due to document deficiencies.'}
+            {txRemarks ? `${returningAuthority} Remarks: "${txRemarks}"` : `Your application was returned by ${returningAuthority} due to document deficiencies.`}
             <br />
             <span style={{ color: 'var(--color-primary-light)', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>
               Note: Only the flagged deficient documents below require re-upload. Your approved documents are locked and verified.
@@ -377,7 +383,7 @@ export const Checklist: React.FC = () => {
 
             {returned.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <div className="text-xs" style={{ fontWeight: 700, color: 'var(--color-danger)', marginBottom: 2 }}>Returned by AO II — upload a corrected copy</div>
+                <div className="text-xs" style={{ fontWeight: 700, color: 'var(--color-danger)', marginBottom: 2 }}>Returned by {returningAuthority} — upload a corrected copy</div>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                   {returned.map(r => row(r, 'var(--color-danger)', 'warning', r.rejectionNotes || undefined))}
                 </ul>
@@ -472,7 +478,7 @@ export const Checklist: React.FC = () => {
                   <div className="checklist-desc">{item.description}</div>
                   {isDeficientDoc && item.rejectionNotes && (
                     <div style={{ fontSize: 12, color: '#f85149', marginTop: 6, fontWeight: 600 }}>
-                      AO II Evaluation Note: {item.rejectionNotes}
+                      {returningAuthority} Evaluation Note: {item.rejectionNotes}
                     </div>
                   )}
                 </div>
