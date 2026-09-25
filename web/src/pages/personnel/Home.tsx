@@ -650,7 +650,7 @@ export const PersonnelHome: React.FC = () => {
           to="/personnel/documents"
           className="soft-card metric-card"
           style={{ textDecoration: 'none', color: 'inherit', display: 'block', cursor: 'pointer' }}
-          title="Open My 201 File"
+          title="Open My 201 Files"
         >
           <div className="metric-card-top">
             <span className="metric-label">201 MASTER FILE</span>
@@ -776,7 +776,7 @@ export const PersonnelHome: React.FC = () => {
                   minHeight: 44,
                 }}
               >
-                <AppIcon name="folder" size={16} /> Open My 201 File →
+                <AppIcon name="folder" size={16} /> Open My 201 Files →
               </Link>
             </div>
           </div>
@@ -2487,7 +2487,7 @@ export const PersonnelHome: React.FC = () => {
                       </p>
                       <span style={{ fontSize: '0.78rem' }}>
                         {validDocs.length === 0
-                          ? 'Please use the "Upload File" option in the checklist or upload documents in My 201 File first.'
+                          ? 'Please use the "Upload File" option in the checklist or upload documents in My 201 Files first.'
                           : 'Try adjusting your search query to find your document.'}
                       </span>
                     </div>

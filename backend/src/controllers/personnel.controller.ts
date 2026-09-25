@@ -499,14 +499,21 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
     'birthDate', 'gender', 'civilStatus', 'designation', 'dateHired',
     'position', 'firstDayOfService', 'wes'
   ];
+  // Personnel may fill an identity field only while it is still empty (the
+  // creating AO II/HRMO left it out). Anything on record stays with staff, and
+  // the work experience sheet is never personnel-editable.
+  const PERSONNEL_FILLABLE = ['middleName', 'suffix', 'birthDate', 'gender', 'civilStatus', 'designation', 'dateHired'] as const;
+  const isBlank = (value: unknown) => value === null || value === undefined || (typeof value === 'string' && !value.trim());
   const requestedStaffFields = staffOnlyFields.filter(field => req.body[field] !== undefined);
-  if (!isStaffUpdate && requestedStaffFields.length > 0) {
-    sendForbidden(res, 'Personal identity and appointment information is maintained by AO II and cannot be edited from a personnel account.');
+  const lockedRequest = requestedStaffFields.filter(field =>
+    !(PERSONNEL_FILLABLE as readonly string[]).includes(field) || !isBlank((existingPersonnel as Record<string, unknown>)[field]));
+  if (!isStaffUpdate && lockedRequest.length > 0) {
+    sendForbidden(res, 'This information is already on your official record and is maintained by AO II or HRMO. Ask them to correct it.');
     return;
   }
   const allowedFields = isStaffUpdate
     ? [...staffOnlyFields, 'contactNumber', 'address', 'designation', 'dateHired']
-    : ['contactNumber', 'address'];
+    : ['contactNumber', 'address', ...requestedStaffFields];
   const updateData: Record<string, unknown> = {};
 
   // Store every updated field directly in the database without skipping

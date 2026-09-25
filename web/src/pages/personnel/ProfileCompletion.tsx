@@ -1,1565 +1,270 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import apiClient from '../../api/client';
 import { useAuthContext } from '../../contexts/AuthContext';
-import { isPersonnel } from '../../auth/permissions';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
-import apiClient from '../../api/client';
-import { DEPED_REGION_12_SCHOOLS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
+import './profile.css';
 
-// Step 3: Profile Completion — Required Information per 201-System-Workflow.md
-// Personal Information, PDS, WES, Employment Information, Contact Information
-// DepEd 201 Immutability Policy: Filled-up and verified information is permanently locked.
+/**
+ * Profile: the details entered when the account was created, and the
+ * password. Anything on the official record is locked (AO II / HRMO maintain
+ * it); a field they left blank may be filled in here, once. Contact details
+ * stay editable. Documents live in My 201 Files, not here.
+ */
 
-interface WesEntry {
-  id: number;
-  dateFrom: string;
-  dateTo: string;
-  positionTitle: string;
-  department: string;
-  monthlySalary: string;
-  salaryGrade: string;
-  status: string;
-  government: boolean;
-  isLocked?: boolean;
-}
-
-const toDateInput = (value: string) => {
-  if (!value) return '';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '';
-  return parsed.toISOString().slice(0, 10);
+type Person = {
+  employeeId: string; firstName: string; lastName: string; middleName: string | null; suffix: string | null;
+  birthDate: string | null; gender: string | null; civilStatus: string | null; contactNumber: string | null;
+  address: string | null; school: string | null; district: string | null; designation: string | null;
+  dateHired: string | null; plantillaItem: { itemNumber: string; positionTitle: string; salaryGrade: number } | null;
+  user?: { email: string; role?: { name: string } };
 };
 
-const splitDuration = (value: string) => {
-  const parts = String(value || '').split(/\s+(?:to|until|[-–—])\s+/i).map(part => part.trim()).filter(Boolean);
-  return { from: toDateInput(parts[0] || ''), to: /present/i.test(parts[1] || '') ? 'Present' : toDateInput(parts[1] || '') };
+type FieldKey = 'middleName' | 'suffix' | 'birthDate' | 'gender' | 'civilStatus' | 'designation' | 'dateHired';
+const FILLABLE: { key: FieldKey; label: string; kind: 'text' | 'date' | 'select'; options?: string[] }[] = [
+  { key: 'middleName', label: 'Middle name', kind: 'text' },
+  { key: 'suffix', label: 'Suffix', kind: 'select', options: ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'] },
+  { key: 'birthDate', label: 'Date of birth', kind: 'date' },
+  { key: 'gender', label: 'Sex', kind: 'select', options: ['MALE', 'FEMALE'] },
+  { key: 'civilStatus', label: 'Civil status', kind: 'select', options: ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'] },
+  { key: 'designation', label: 'Position', kind: 'text' },
+  { key: 'dateHired', label: 'Date of first appointment', kind: 'date' },
+];
+
+const blank = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && !v.trim());
+const pretty = (key: FieldKey, v: string | null) => {
+  if (blank(v)) return '';
+  if (key === 'birthDate' || key === 'dateHired') {
+    return new Date(v!).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  }
+  if (key === 'gender' || key === 'civilStatus') return v!.charAt(0) + v!.slice(1).toLowerCase();
+  return v!;
 };
+const todayManila = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+
+const Row: React.FC<{ label: string; value?: React.ReactNode; locked?: boolean }> = ({ label, value, locked = true }) => (
+  <div className="profile-row">
+    <dt>{label}</dt>
+    <dd>
+      <span>{value || <span className="text-muted">Not recorded</span>}</span>
+      {locked && value ? <AppIcon name="lock" size={12} color="var(--color-text-muted)" aria-label="Locked" /> : null}
+    </dd>
+  </div>
+);
 
 export const ProfileCompletion: React.FC = () => {
-  const { user } = useAuthContext();
+  const { user, logout } = useAuthContext();
   const { addToast } = useToast();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'personal' | 'pds' | 'wes' | 'employment'>('personal');
-  const [savedTabs, setSavedTabs] = useState<Set<string>>(new Set());
-  const [lockedFields, setLockedFields] = useState<Set<string>>(new Set());
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [documentSources, setDocumentSources] = useState<Record<string, { status?: string; uploadDate?: string }>>({});
-  const aoOwnedPersonalFields = new Set([
-    'personal.firstName', 'personal.lastName', 'personal.middleName', 'personal.suffix',
-    'personal.birthDate', 'personal.birthPlace', 'personal.civilStatus', 'personal.sex',
-    'personal.nationality', 'personal.religion', 'personal.height', 'personal.weight', 'personal.bloodType',
-  ]);
+  const [person, setPerson] = useState<Person | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [fill, setFill] = useState<Partial<Record<FieldKey, string>>>({});
+  const [savingFill, setSavingFill] = useState(false);
+  const [contact, setContact] = useState<{ phone: string; address: string } | null>(null);
+  const [savingContact, setSavingContact] = useState(false);
+  const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
+  const [savingPw, setSavingPw] = useState(false);
 
-  // Personal Information
-  const [personal, setPersonal] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
-    middleName: '',
-    suffix: '',
-    birthDate: '',
-    birthPlace: '',
-    civilStatus: 'Single',
-    sex: 'Male',
-    nationality: 'Filipino',
-    religion: '',
-    height: '',
-    weight: '',
-    bloodType: '',
-  });
-
-  // Personal Data Sheet (PDS)
-  const [pds, setPds] = useState({
-    gsisNumber: '',
-    pagibigNumber: '',
-    philhealthNumber: '',
-    sssNumber: '',
-    tinNumber: '',
-    agencyEmployeeNumber: '',
-    residentialAddress: '',
-    permanentAddress: '',
-    telephoneNo: '',
-    mobileNo: '',
-    emailAddress: user?.email || '',
-    spouseName: '',
-    spouseOccupation: '',
-    fathersName: '',
-    mothersName: '',
-    educationalBackground: '',
-    civilServiceEligibility: '',
-    voluntaryWork: '',
-    learningAndDevelopment: '',
-  });
-
-  // Work Experience Sheet (WES)
-  const [wes, setWes] = useState<WesEntry[]>([
-    { id: 1, dateFrom: '', dateTo: '', positionTitle: '', department: '', monthlySalary: '', salaryGrade: '', status: '', government: true, isLocked: false },
-  ]);
-
-  // Employment Information
-  const [employment, setEmployment] = useState({
-    employeeId: '',
-    position: '',
-    itemNumber: '',
-    salaryGrade: '',
-    stepIncrement: '',
-    monthlySalary: '',
-    appointmentStatus: 'Permanent',
-    firstDayOfService: '',
-    districtId: 1,
-    schoolAssignment: DEPED_KORONADAL_DISTRICTS[0].schools[0],
-    divisionAssignment: 'City Schools Division of Koronadal',
-    region: 'Region XII',
-    contactNumber: '',
-    emergencyContactName: '',
-    emergencyContactNumber: '',
-    emergencyContactRelationship: '',
-  });
-
-  // Preload existing personnel profile data from server & localStorage
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await apiClient.get('/personnel/me');
-        const data = res.data?.data;
-        const uid = data?.id || user?.id || 'default';
-
-        // Load any previously persisted PDS/WES/Employment details from local cache
-        const documentProfile = data?.profileDocumentData || {};
-        setDocumentSources(documentProfile);
-        const uploadedPds = documentProfile.pds?.fields || {};
-        const uploadedWes = documentProfile.wes?.fields || {};
-        const compact = (prefix: string) => Object.entries(uploadedPds).filter(([key, value]) => key.startsWith(prefix) && String(value).trim()).map(([, value]) => String(value)).join('; ');
-        const uploadedResidential = ['house', 'street', 'subdivision', 'barangay', 'city', 'province'].map(key => uploadedPds[`residential.${key}`]).filter(Boolean).join(', ');
-        const uploadedPermanent = ['house', 'street', 'subdivision', 'barangay', 'city', 'province'].map(key => uploadedPds[`permanent.${key}`]).filter(Boolean).join(', ');
-        const savedPdsStr = localStorage.getItem(`deped_pds_${uid}`);
-        const savedPds = savedPdsStr ? JSON.parse(savedPdsStr) : {};
-        const savedWesStr = localStorage.getItem(`deped_wes_${uid}`);
-        const savedWes: WesEntry[] | null = savedWesStr ? JSON.parse(savedWesStr) : null;
-        const savedEmpStr = localStorage.getItem(`deped_emp_${uid}`);
-        const savedEmp = savedEmpStr ? JSON.parse(savedEmpStr) : {};
-
-        const initialLocked = new Set<string>();
-
-        if (data) {
-          const birthDateStr = data.birthDate ? data.birthDate.split('T')[0] : '';
-          const civilStatusStr = data.civilStatus ? data.civilStatus.charAt(0) + data.civilStatus.slice(1).toLowerCase() : 'Single';
-          const sexStr = data.gender === 'FEMALE' ? 'Female' : 'Male';
-
-          setPersonal(prev => {
-            const next = {
-              ...prev,
-              firstName: data.firstName || prev.firstName,
-              lastName: data.lastName || prev.lastName,
-              middleName: data.middleName || savedEmp.middleName || '',
-              suffix: data.suffix || savedEmp.suffix || '',
-              birthDate: birthDateStr || savedEmp.birthDate || '',
-              birthPlace: savedEmp.birthPlace || prev.birthPlace,
-              civilStatus: civilStatusStr,
-              sex: sexStr,
-              height: savedEmp.height || prev.height,
-              weight: savedEmp.weight || prev.weight,
-              bloodType: savedEmp.bloodType || prev.bloodType,
-              religion: savedEmp.religion || prev.religion,
-            };
-
-            // Lock all populated personal fields
-            if (next.firstName) initialLocked.add('personal.firstName');
-            if (next.lastName) initialLocked.add('personal.lastName');
-            if (next.middleName) initialLocked.add('personal.middleName');
-            if (next.suffix) initialLocked.add('personal.suffix');
-            if (next.birthDate) initialLocked.add('personal.birthDate');
-            if (next.birthPlace) initialLocked.add('personal.birthPlace');
-            if (next.civilStatus) initialLocked.add('personal.civilStatus');
-            if (next.sex) initialLocked.add('personal.sex');
-            if (next.height) initialLocked.add('personal.height');
-            if (next.weight) initialLocked.add('personal.weight');
-            if (next.bloodType) initialLocked.add('personal.bloodType');
-            if (next.religion) initialLocked.add('personal.religion');
-
-            return next;
-          });
-
-          setPds(prev => {
-            const next = {
-              ...prev,
-              ...savedPds,
-              gsisNumber: uploadedPds.gsis || savedPds.gsisNumber || '',
-              pagibigNumber: uploadedPds.pagibig || savedPds.pagibigNumber || '',
-              philhealthNumber: uploadedPds.philhealth || savedPds.philhealthNumber || '',
-              sssNumber: uploadedPds.sss || savedPds.sssNumber || '',
-              tinNumber: uploadedPds.tin || savedPds.tinNumber || '',
-              agencyEmployeeNumber: uploadedPds.agencyEmployeeNo || savedPds.agencyEmployeeNumber || '',
-              residentialAddress: uploadedResidential || data.address || savedPds.residentialAddress || '',
-              permanentAddress: uploadedPermanent || data.address || savedPds.permanentAddress || '',
-              telephoneNo: uploadedPds.telephone || savedPds.telephoneNo || '',
-              mobileNo: uploadedPds.mobile || data.contactNumber || savedPds.mobileNo || '',
-              emailAddress: uploadedPds.email || user?.email || prev.emailAddress,
-              spouseName: compact('spouse.') || savedPds.spouseName || '',
-              fathersName: compact('father.') || savedPds.fathersName || '',
-              mothersName: compact('mother.') || savedPds.mothersName || '',
-              educationalBackground: compact('education.') || savedPds.educationalBackground || '',
-              civilServiceEligibility: compact('eligibility.') || savedPds.civilServiceEligibility || '',
-              voluntaryWork: compact('voluntary.') || savedPds.voluntaryWork || '',
-              learningAndDevelopment: compact('training.') || savedPds.learningAndDevelopment || '',
-            };
-
-            // Lock all populated PDS fields
-            Object.entries(next).forEach(([key, val]) => {
-              if (val && typeof val === 'string' && val.trim() !== '') {
-                initialLocked.add(`pds.${key}`);
-              }
-            });
-
-            return next;
-          });
-
-          setEmployment(prev => {
-            const next = {
-              ...prev,
-              ...savedEmp,
-              employeeId: data.employeeId || savedEmp.employeeId || '',
-              position: data.designation || savedEmp.position || '',
-              itemNumber: data.plantillaItem?.itemNumber || savedEmp.itemNumber || '',
-              salaryGrade: data.plantillaItem?.salaryGrade?.toString() || savedEmp.salaryGrade || '',
-              firstDayOfService: data.dateHired ? data.dateHired.split('T')[0] : savedEmp.firstDayOfService || '',
-              contactNumber: data.contactNumber || savedEmp.contactNumber || '',
-            };
-
-            // Lock all populated employment fields
-            if (next.employeeId) initialLocked.add('employment.employeeId');
-            if (next.position) initialLocked.add('employment.position');
-            if (next.itemNumber) initialLocked.add('employment.itemNumber');
-            if (next.salaryGrade) initialLocked.add('employment.salaryGrade');
-            if (next.stepIncrement) initialLocked.add('employment.stepIncrement');
-            if (next.appointmentStatus) initialLocked.add('employment.appointmentStatus');
-            if (next.firstDayOfService) initialLocked.add('employment.firstDayOfService');
-            if (next.schoolAssignment) initialLocked.add('employment.schoolAssignment');
-            if (next.contactNumber) initialLocked.add('employment.contactNumber');
-            if (next.emergencyContactName) initialLocked.add('employment.emergencyContactName');
-            if (next.emergencyContactNumber) initialLocked.add('employment.emergencyContactNumber');
-            if (next.emergencyContactRelationship) initialLocked.add('employment.emergencyContactRelationship');
-
-            return next;
-          });
-
-          // WES entries: prioritize authentic database careerHistoryEntries
-          const uploadedWorkRows = Object.keys(uploadedWes).map(key => key.match(/^work\.(\d+)\./)?.[1]).filter(Boolean);
-          const uploadedWorkIndexes = [...new Set(uploadedWorkRows)].map(Number).sort((a, b) => a - b);
-          if (uploadedWorkIndexes.length > 0) {
-            setWes(uploadedWorkIndexes.map((index, row) => {
-              const duration = splitDuration(uploadedWes[`work.${index}.duration`] || '');
-              return {
-                id: row + 1,
-                dateFrom: toDateInput(uploadedWes[`work.${index}.from`] || '') || duration.from,
-                dateTo: toDateInput(uploadedWes[`work.${index}.to`] || '') || duration.to,
-                positionTitle: uploadedWes[`work.${index}.position`] || '',
-                department: uploadedWes[`work.${index}.office`] || uploadedWes[`work.${index}.agency`] || '',
-                monthlySalary: '', salaryGrade: '', status: '', government: true, isLocked: true,
-              };
-            }));
-          } else if (Array.isArray(data.careerHistoryEntries) && data.careerHistoryEntries.length > 0) {
-            setWes(data.careerHistoryEntries.map((che: any, index: number) => ({
-              id: che.id || index + 1,
-              dateFrom: che.eventDate ? che.eventDate.split('T')[0] : '',
-              dateTo: che.detailsJson?.dateTo || 'Present',
-              positionTitle: che.detailsJson?.title || data.designation || 'Teacher I',
-              department: che.detailsJson?.department || 'DepEd Division of Koronadal City',
-              monthlySalary: che.detailsJson?.salary || '27,000',
-              salaryGrade: String(che.detailsJson?.salaryGrade || data.plantillaItem?.salaryGrade || '11'),
-              status: che.detailsJson?.status || 'Permanent',
-              government: che.detailsJson?.government !== false,
-              isLocked: false,
-            })));
-          } else if (savedWes && savedWes.length > 0) {
-            setWes(savedWes.map(e => ({ ...e, isLocked: false })));
-          } else if (data.designation) {
-            // Create default entry from official appointment
-            setWes([
-              {
-                id: 1,
-                dateFrom: data.dateHired ? data.dateHired.split('T')[0] : '',
-                dateTo: 'Present',
-                positionTitle: data.designation || 'Teacher I',
-                department: 'City Schools Division of Koronadal',
-                monthlySalary: '27,000',
-                salaryGrade: data.plantillaItem?.salaryGrade?.toString() || '11',
-                status: 'Permanent',
-                government: true,
-                isLocked: false,
-              },
-            ]);
-          }
-
-          setLockedFields(initialLocked);
-
-          // If core tabs have all required fields filled, mark them saved
-          const tabsSaved = new Set<string>();
-          if (data.firstName && data.lastName && data.birthDate) tabsSaved.add('personal');
-          if (data.address && data.contactNumber) tabsSaved.add('pds');
-          if (savedWes && savedWes.length > 0) tabsSaved.add('wes');
-          if (data.employeeId && data.designation) tabsSaved.add('employment');
-          setSavedTabs(tabsSaved);
-        }
-      } catch (_) {}
-    };
-    fetchProfile();
-  }, [user]);
-
-  const markSaved = (tab: string) => {
-    setSavedTabs(prev => new Set([...prev, tab]));
-  };
-
-  const isFieldLocked = (fieldKey: string) => {
-    void fieldKey;
-    return true;
-  };
-
-  const renderFieldLabel = (label: string, fieldKey: string, required = false) => {
-    void fieldKey;
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <label className="form-label" style={{ marginBottom: 0, fontSize: '0.85rem', fontWeight: 600 }}>
-          {label} {required && <span style={{ color: 'var(--color-danger)' }}>*</span>}
-        </label>
-      </div>
-    );
-  };
-
-  const getLockedStyle = (fieldKey: string): React.CSSProperties => {
-    if (!isFieldLocked(fieldKey)) return {};
-    return {
-      backgroundColor: 'var(--color-bg-secondary, #f7faf6)',
-      borderColor: 'var(--color-border, #dce6de)',
-      color: 'var(--color-text-primary, #1f2a23)',
-      cursor: 'default',
-      opacity: 0.95,
-      fontSize: '16px',
-      fontWeight: 500,
-    };
-  };
-
-  const handleSavePersonal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
+  const load = useCallback(async () => {
     try {
-      const res = await apiClient.put('/personnel/me', {
-        firstName: personal.firstName,
-        lastName: personal.lastName,
-        middleName: personal.middleName,
-        suffix: personal.suffix,
-        birthDate: personal.birthDate || '1990-01-01',
-        gender: personal.sex.toUpperCase() === 'FEMALE' ? 'FEMALE' : 'MALE',
-        civilStatus: personal.civilStatus.toUpperCase(),
-        address: pds.residentialAddress || personal.birthPlace || '',
-        contactNumber: pds.mobileNo || '',
-      });
-
-      const updated = res.data?.data;
-      if (updated) {
-        setPersonal(prev => ({
-          ...prev,
-          firstName: updated.firstName || prev.firstName,
-          lastName: updated.lastName || prev.lastName,
-          middleName: updated.middleName || prev.middleName,
-          suffix: updated.suffix || prev.suffix,
-          birthDate: updated.birthDate ? updated.birthDate.split('T')[0] : prev.birthDate,
-          gender: updated.gender === 'FEMALE' ? 'Female' : 'Male',
-        }));
-      }
-
-      // Persist additional personal details locally
-      const uid = user?.id || 'default';
-      localStorage.setItem(`deped_emp_${uid}`, JSON.stringify({ ...personal }));
-
-      // Lock all newly filled fields
-      const newLocked = new Set(lockedFields);
-      Object.entries(personal).forEach(([key, val]) => {
-        if (val && val.trim() !== '') {
-          newLocked.add(`personal.${key}`);
-        }
-      });
-      setLockedFields(newLocked);
-
-      markSaved('personal');
-      setIsEditMode(false);
-      addToast('Personal Information changes applied and stored in database successfully!', 'SUCCESS');
-      setActiveTab('pds');
+      const res = await apiClient.get('/personnel/me');
+      setPerson(res.data?.data);
+      setLoadError('');
     } catch (err: any) {
-      console.error('Failed to save personal information:', err);
-      addToast(err.response?.data?.message || 'Failed to save personal information in database.', 'ERROR');
-    } finally {
-      setIsSaving(false);
+      setLoadError(err.response?.data?.message || 'Could not load your profile.');
     }
-  };
+  }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  const handleSavePds = async (e: React.FormEvent) => {
+  const missing = person ? FILLABLE.filter(f => blank(person[f.key])) : [];
+
+  const saveFill = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
+    const body = Object.fromEntries(Object.entries(fill).filter(([, v]) => !blank(v)).map(([k, v]) => [k, String(v).trim()]));
+    if (!Object.keys(body).length) { addToast('Fill in at least one missing detail.', 'ERROR'); return; }
+    setSavingFill(true);
     try {
-      await apiClient.put('/personnel/me', {
-        address: pds.residentialAddress || pds.permanentAddress || '',
-        contactNumber: pds.mobileNo || pds.telephoneNo || '',
-      });
-
-      const uid = user?.id || 'default';
-      localStorage.setItem(`deped_pds_${uid}`, JSON.stringify(pds));
-
-      // Lock all newly filled PDS fields
-      const newLocked = new Set(lockedFields);
-      Object.entries(pds).forEach(([key, val]) => {
-        if (val && val.trim() !== '') {
-          newLocked.add(`pds.${key}`);
-        }
-      });
-      setLockedFields(newLocked);
-
-      markSaved('pds');
-      setIsEditMode(false);
-      addToast('Personal Data Sheet (PDS) changes applied and stored in database successfully!', 'SUCCESS');
-      setActiveTab('wes');
+      await apiClient.put('/personnel/me', body);
+      addToast('Details saved to your record. They are now locked.', 'SUCCESS');
+      setFill({});
+      await load();
     } catch (err: any) {
-      console.error('Failed to save PDS details:', err);
-      addToast(err.response?.data?.message || 'Failed to save PDS details in database.', 'ERROR');
-    } finally {
-      setIsSaving(false);
-    }
+      addToast(err.response?.data?.message || 'Could not save these details.', 'ERROR');
+    } finally { setSavingFill(false); }
   };
 
-  const handleSaveWes = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      await apiClient.put('/personnel/me', {
-        wes: wes.map(item => ({
-          dateFrom: item.dateFrom,
-          dateTo: item.dateTo,
-          positionTitle: item.positionTitle,
-          department: item.department,
-          monthlySalary: item.monthlySalary,
-          salaryGrade: item.salaryGrade,
-          status: item.status,
-          government: item.government,
-        })),
-      });
-
-      const uid = user?.id || 'default';
-      const lockedWes = wes.map(item => ({ ...item, isLocked: true }));
-      setWes(lockedWes);
-      localStorage.setItem(`deped_wes_${uid}`, JSON.stringify(lockedWes));
-
-      markSaved('wes');
-      setIsEditMode(false);
-      addToast('Work Experience Sheet changes applied and stored in database successfully!', 'SUCCESS');
-      setActiveTab('employment');
-    } catch (err: any) {
-      console.error('Failed to save WES records:', err);
-      addToast(err.response?.data?.message || 'Failed to save Work Experience records in database.', 'ERROR');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveEmployment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      await apiClient.put('/personnel/me', {
-        designation: employment.position,
-        contactNumber: employment.contactNumber || pds.mobileNo || '',
-        address: pds.residentialAddress || '',
-        dateHired: employment.firstDayOfService || undefined,
-      });
-
-      const uid = user?.id || 'default';
-      localStorage.setItem(`deped_emp_${uid}`, JSON.stringify(employment));
-
-      // Lock all employment fields
-      const newLocked = new Set(lockedFields);
-      Object.entries(employment).forEach(([key, val]) => {
-        if (val && String(val).trim() !== '') {
-          newLocked.add(`employment.${key}`);
-        }
-      });
-      setLockedFields(newLocked);
-
-      markSaved('employment');
-      setIsEditMode(false);
-      addToast('Employment & Contact changes applied and stored in database successfully!', 'SUCCESS');
-      navigate('/personnel/home');
-    } catch (err: any) {
-      console.error('Failed to save employment details:', err);
-      addToast(err.response?.data?.message || 'Failed to save employment details in database.', 'ERROR');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const addWesEntry = () => {
-    setWes(prev => [
-      ...prev,
-      {
-        id: prev.length + 1,
-        dateFrom: '',
-        dateTo: '',
-        positionTitle: '',
-        department: '',
-        monthlySalary: '',
-        salaryGrade: '',
-        status: '',
-        government: true,
-        isLocked: false,
-      },
-    ]);
-  };
-
-  // Contact details are the only part personnel maintain themselves
-  // (PUT /personnel/me accepts contactNumber and address from them).
-  const [contactDraft, setContactDraft] = useState<{ phone: string; address: string } | null>(null);
-  const [contactSaving, setContactSaving] = useState(false);
-  const currentPhone = employment.contactNumber || pds.mobileNo || '';
-  const currentAddress = pds.residentialAddress || pds.permanentAddress || '';
   const saveContact = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactDraft) return;
-    const phone = contactDraft.phone.trim();
-    const address = contactDraft.address.trim();
+    if (!contact) return;
+    const phone = contact.phone.trim();
+    const address = contact.address.trim();
     if (!phone || !address) { addToast('Enter both a contact number and an address.', 'ERROR'); return; }
-    setContactSaving(true);
+    setSavingContact(true);
     try {
       await apiClient.put('/personnel/me', { contactNumber: phone, address });
-      setEmployment(prev => ({ ...prev, contactNumber: phone }));
-      setPds(prev => ({ ...prev, mobileNo: phone, residentialAddress: address }));
-      setContactDraft(null);
       addToast('Contact details updated.', 'SUCCESS');
+      setContact(null);
+      await load();
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Could not update your contact details.', 'ERROR');
-    } finally {
-      setContactSaving(false);
-    }
+    } finally { setSavingContact(false); }
   };
 
-  // Determine if all required fields for a tab are already locked
-  const isPersonalLocked = isFieldLocked('personal.firstName') && isFieldLocked('personal.lastName') && isFieldLocked('personal.birthDate');
-  const isPdsLocked = isFieldLocked('pds.residentialAddress') && isFieldLocked('pds.permanentAddress') && isFieldLocked('pds.mobileNo');
-  const isWesLocked = true;
-  // The authorized office maintains the Work Experience Sheet. A personnel
-  // account may read it but never create, edit, delete or replace an entry:
-  // PUT /personnel/me lists 'wes' in staffOnlyFields and answers 403 to any
-  // other role. Deriving this from the role rather than from entry.isLocked
-  // means a state refresh cannot quietly re-enable the form.
-  const wesReadOnly = isPersonnel(user);
-  const isEmploymentLocked = isFieldLocked('employment.position') && isFieldLocked('employment.firstDayOfService') && isFieldLocked('employment.contactNumber');
-
-  const tabs = [
-    { id: 'personal',   label: 'Personal Info',       icon: 'profile',   locked: isPersonalLocked },
-    { id: 'pds',        label: 'PDS',                 icon: 'checklist', locked: isPdsLocked },
-    { id: 'wes',        label: 'Work Experience',     icon: 'wes',       locked: isWesLocked },
-    { id: 'employment', label: 'Employment & Contact', icon: 'personnel', locked: isEmploymentLocked },
+  // Same rule the server enforces (≥12 chars, upper, lower, number, symbol).
+  const pwRules = [
+    { ok: pw.next.length >= 12, text: 'At least 12 characters' },
+    { ok: /[A-Z]/.test(pw.next) && /[a-z]/.test(pw.next), text: 'Upper- and lowercase letters' },
+    { ok: /[0-9]/.test(pw.next), text: 'A number' },
+    { ok: /[^A-Za-z0-9]/.test(pw.next), text: 'A symbol' },
+    { ok: pw.next.length > 0 && pw.next === pw.confirm, text: 'Both new passwords match' },
   ];
+  const changePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pw.current || pwRules.some(r => !r.ok)) { addToast('Check the password requirements.', 'ERROR'); return; }
+    setSavingPw(true);
+    try {
+      await apiClient.post('/auth/change-password', { currentPassword: pw.current, newPassword: pw.next });
+      addToast('Password changed. Sign in again with your new password.', 'SUCCESS');
+      setPw({ current: '', next: '', confirm: '' });
+      await logout();
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Could not change your password.', 'ERROR');
+    } finally { setSavingPw(false); }
+  };
+
+  if (loadError) {
+    return (
+      <div className="personnel-content-container">
+        <div className="card" role="alert" style={{ padding: 20 }}>
+          {loadError} <button type="button" className="btn btn-secondary btn-sm" onClick={() => void load()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+  if (!person) return <div className="personnel-content-container"><p className="text-muted">Loading your profile…</p></div>;
+
+  const fullName = [person.firstName, person.middleName, person.lastName, person.suffix].filter(Boolean).join(' ');
 
   return (
-    <div className="animate-fade-in personnel-content-container">
-      <div className="topbar" style={{ padding: '0 0 20px 0', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800 }}>My Profile</div>
-        </div>
-      </div>
+    <div className="animate-fade-in personnel-content-container profile-page">
+      <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 16px' }}>Profile</h1>
 
-      {/* Compact Official Record Status Summary */}
-      <div
-        className="profile-record-status-summary"
-        style={{
-          background: 'rgba(16, 185, 129, 0.08)',
-          border: '1px solid rgba(16, 185, 129, 0.22)',
-          borderRadius: 12,
-          padding: '12px 16px',
-          marginBottom: 16,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            background: 'rgba(16, 185, 129, 0.15)',
-            color: '#059669',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <AppIcon name="lock" size={16} color="#059669" />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
-            Official DepEd Record • Locked
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.35 }}>
-            Verified against SDO Koronadal master plantilla. To request corrections, contact your Station Administrative Officer II.
-          </div>
-        </div>
-      </div>
+      <section className="card profile-card" aria-labelledby="profile-account">
+        <h2 id="profile-account">Account</h2>
+        <dl>
+          <Row label="Name" value={fullName} />
+          <Row label="Employee ID" value={person.employeeId} />
+          <Row label="Email (sign-in)" value={person.user?.email || user?.email} />
+          <Row label="Station" value={[person.school, person.district].filter(Boolean).join(', ')} />
+          {person.plantillaItem && (
+            <Row label="Plantilla item" value={`${person.plantillaItem.itemNumber} · ${person.plantillaItem.positionTitle} (SG ${person.plantillaItem.salaryGrade})`} />
+          )}
+        </dl>
+      </section>
 
-      {/* Contact details: the part of the profile personnel edit themselves */}
-      <section className="card" aria-labelledby="contact-details-title" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h2 id="contact-details-title" style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Contact details</h2>
-          {!contactDraft && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setContactDraft({ phone: currentPhone, address: currentAddress })}>Edit</button>
+      <section className="card profile-card" aria-labelledby="profile-record">
+        <h2 id="profile-record">Personal and appointment details</h2>
+        <p className="text-sm text-muted profile-note">
+          Details on your official record are locked and maintained by your AO II or HRMO. Ask them to correct anything that is wrong.
+        </p>
+        <dl>
+          {FILLABLE.filter(f => !blank(person[f.key])).map(f => <Row key={f.key} label={f.label} value={pretty(f.key, person[f.key])} />)}
+        </dl>
+        {missing.length > 0 && (
+          <form onSubmit={saveFill} className="profile-fill">
+            <div className="profile-fill-head">
+              <AppIcon name="warning" size={14} color="var(--color-warning)" />
+              <span>These were left blank when your account was made. Fill them in once; they lock after saving.</span>
+            </div>
+            {missing.map(f => (
+              <label key={f.key} className="profile-field">
+                <span>{f.label}</span>
+                {f.kind === 'select' ? (
+                  <select className="form-input" value={fill[f.key] || ''} disabled={savingFill}
+                    onChange={e => setFill({ ...fill, [f.key]: e.target.value })}>
+                    <option value="">Select…</option>
+                    {f.options!.map(o => <option key={o} value={o}>{pretty(f.key === 'suffix' ? 'middleName' : f.key, o)}</option>)}
+                  </select>
+                ) : (
+                  <input className="form-input" type={f.kind} max={f.kind === 'date' ? todayManila() : undefined} maxLength={100}
+                    value={fill[f.key] || ''} disabled={savingFill} onChange={e => setFill({ ...fill, [f.key]: e.target.value })} />
+                )}
+              </label>
+            ))}
+            <div className="profile-actions">
+              <button type="submit" className="btn btn-primary btn-sm" disabled={savingFill}>{savingFill ? 'Saving…' : 'Save details'}</button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section className="card profile-card" aria-labelledby="profile-contact">
+        <div className="profile-card-head">
+          <h2 id="profile-contact">Contact details</h2>
+          {!contact && (
+            <button type="button" className="btn btn-secondary btn-sm"
+              onClick={() => setContact({ phone: person.contactNumber || '', address: person.address || '' })}>Edit</button>
           )}
         </div>
-        {contactDraft ? (
-          <form onSubmit={saveContact} style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-            <label style={{ display: 'grid', gap: 4 }}>
-              <span className="form-label" style={{ margin: 0 }}>Contact number</span>
-              <input className="form-input" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={contactDraft.phone} disabled={contactSaving}
-                onChange={e => setContactDraft({ ...contactDraft, phone: e.target.value })} />
+        {contact ? (
+          <form onSubmit={saveContact} className="profile-form">
+            <label className="profile-field">
+              <span>Contact number</span>
+              <input className="form-input" type="tel" inputMode="tel" autoComplete="tel" maxLength={13} placeholder="09XXXXXXXXX"
+                value={contact.phone} disabled={savingContact} onChange={e => setContact({ ...contact, phone: e.target.value })} />
             </label>
-            <label style={{ display: 'grid', gap: 4 }}>
-              <span className="form-label" style={{ margin: 0 }}>Address</span>
-              <textarea className="form-input" rows={2} maxLength={300} autoComplete="street-address" value={contactDraft.address} disabled={contactSaving}
-                onChange={e => setContactDraft({ ...contactDraft, address: e.target.value })} />
+            <label className="profile-field">
+              <span>Address</span>
+              <textarea className="form-input" rows={2} maxLength={300} autoComplete="street-address"
+                value={contact.address} disabled={savingContact} onChange={e => setContact({ ...contact, address: e.target.value })} />
             </label>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button type="button" className="btn btn-secondary btn-sm" disabled={contactSaving} onClick={() => setContactDraft(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={contactSaving}>{contactSaving ? 'Saving…' : 'Save'}</button>
+            <div className="profile-actions">
+              <button type="button" className="btn btn-secondary btn-sm" disabled={savingContact} onClick={() => setContact(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary btn-sm" disabled={savingContact}>{savingContact ? 'Saving…' : 'Save'}</button>
             </div>
           </form>
         ) : (
-          <dl style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, auto) 1fr', gap: '6px 12px', margin: '12px 0 0', fontSize: '0.875rem' }}>
-            <dt className="text-muted">Contact number</dt><dd style={{ margin: 0, fontWeight: 600 }}>{currentPhone || 'Not recorded'}</dd>
-            <dt className="text-muted">Address</dt><dd style={{ margin: 0, fontWeight: 600, overflowWrap: 'anywhere' }}>{currentAddress || 'Not recorded'}</dd>
+          <dl>
+            <Row label="Contact number" value={person.contactNumber} locked={false} />
+            <Row label="Address" value={person.address} locked={false} />
           </dl>
         )}
       </section>
 
-      <p className="text-sm text-muted" style={{ margin: '0 0 12px' }}>
-        The details below come from your official record and are view only. Your PDS, work experience and appointment papers are kept in{' '}
-        <button type="button" className="btn btn-ghost btn-xs" style={{ padding: 0, display: 'inline', verticalAlign: 'baseline', color: 'var(--color-primary)', fontWeight: 700 }} onClick={() => navigate('/personnel/documents')}>My 201 File</button>.
-      </p>
-
-      {/* Tab Navigation with Continuation Cue */}
-      <div className="profile-tabs-wrapper">
-        <div className="profile-tabs-scroller" role="tablist" aria-label="Profile Sections">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`profile-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
-            >
-              <AppIcon name={tab.icon} size={16} />
-              <span>{tab.label}</span>
-              {savedTabs.has(tab.id) && !tab.locked && (
-                <AppIcon name="check" size={12} color="var(--color-success)" />
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="profile-tabs-fade-right" aria-hidden="true" />
-      </div>
-
-      {/* Tab 1: Personal Information */}
-      {activeTab === 'personal' && (
-        <form onSubmit={handleSavePersonal} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--color-text-primary)' }}>Personal Information</h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
-            <div className="form-group">
-              {renderFieldLabel('First Name', 'personal.firstName', true)}
-              <input aria-label="First Name"
-                className="form-input"
-                value={personal.firstName}
-                readOnly={isFieldLocked('personal.firstName')}
-                disabled={isFieldLocked('personal.firstName')}
-                style={getLockedStyle('personal.firstName')}
-                onChange={e => !isFieldLocked('personal.firstName') && setPersonal({ ...personal, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Last Name', 'personal.lastName', true)}
-              <input aria-label="Last Name"
-                className="form-input"
-                value={personal.lastName}
-                readOnly={isFieldLocked('personal.lastName')}
-                disabled={isFieldLocked('personal.lastName')}
-                style={getLockedStyle('personal.lastName')}
-                onChange={e => !isFieldLocked('personal.lastName') && setPersonal({ ...personal, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Middle Name', 'personal.middleName')}
-              <input aria-label="Middle Name"
-                className="form-input"
-                value={personal.middleName}
-                readOnly={isFieldLocked('personal.middleName')}
-                disabled={isFieldLocked('personal.middleName')}
-                style={getLockedStyle('personal.middleName')}
-                onChange={e => !isFieldLocked('personal.middleName') && setPersonal({ ...personal, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Suffix (Jr., Sr., etc.)', 'personal.suffix')}
-              <select aria-label="Suffix (Jr., Sr., etc.)"
-                className="form-input"
-                value={personal.suffix}
-                disabled={isFieldLocked('personal.suffix')}
-                style={getLockedStyle('personal.suffix')}
-                onChange={e => !isFieldLocked('personal.suffix') && setPersonal({ ...personal, suffix: e.target.value })}
-              >
-                {NAME_SUFFIX_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-                {personal.suffix && !NAME_SUFFIX_OPTIONS.some(opt => opt.value === personal.suffix) && (
-                  <option value={personal.suffix}>{personal.suffix}</option>
-                )}
-              </select>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Date of Birth', 'personal.birthDate', true)}
-              <input aria-label="Date of Birth"
-                className="form-input"
-                type="date"
-                value={personal.birthDate}
-                readOnly={isFieldLocked('personal.birthDate')}
-                disabled={isFieldLocked('personal.birthDate')}
-                style={getLockedStyle('personal.birthDate')}
-                onChange={e => !isFieldLocked('personal.birthDate') && setPersonal({ ...personal, birthDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Place of Birth', 'personal.birthPlace')}
-              <input aria-label="Place of Birth"
-                className="form-input"
-                value={personal.birthPlace}
-                readOnly={isFieldLocked('personal.birthPlace')}
-                disabled={isFieldLocked('personal.birthPlace')}
-                style={getLockedStyle('personal.birthPlace')}
-                onChange={e => !isFieldLocked('personal.birthPlace') && setPersonal({ ...personal, birthPlace: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Civil Status', 'personal.civilStatus')}
-              <select aria-label="Civil Status"
-                className="form-input"
-                value={personal.civilStatus}
-                disabled={isFieldLocked('personal.civilStatus')}
-                style={getLockedStyle('personal.civilStatus')}
-                onChange={e => !isFieldLocked('personal.civilStatus') && setPersonal({ ...personal, civilStatus: e.target.value })}
-              >
-                <option>Single</option>
-                <option>Married</option>
-                <option>Widowed</option>
-                <option>Separated</option>
-              </select>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Sex', 'personal.sex')}
-              <select aria-label="Sex"
-                className="form-input"
-                value={personal.sex}
-                disabled={isFieldLocked('personal.sex')}
-                style={getLockedStyle('personal.sex')}
-                onChange={e => !isFieldLocked('personal.sex') && setPersonal({ ...personal, sex: e.target.value })}
-              >
-                <option>Male</option>
-                <option>Female</option>
-              </select>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Height (m)', 'personal.height')}
-              <input
-                aria-label="Height (m)"
-                className="form-input"
-                placeholder="e.g. 1.65"
-                value={personal.height}
-                readOnly={isFieldLocked('personal.height')}
-                disabled={isFieldLocked('personal.height')}
-                style={getLockedStyle('personal.height')}
-                onChange={e => !isFieldLocked('personal.height') && setPersonal({ ...personal, height: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Weight (kg)', 'personal.weight')}
-              <input
-                aria-label="Weight (kg)"
-                className="form-input"
-                placeholder="e.g. 60"
-                value={personal.weight}
-                readOnly={isFieldLocked('personal.weight')}
-                disabled={isFieldLocked('personal.weight')}
-                style={getLockedStyle('personal.weight')}
-                onChange={e => !isFieldLocked('personal.weight') && setPersonal({ ...personal, weight: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Blood Type', 'personal.bloodType')}
-              <select aria-label="Blood Type"
-                className="form-input"
-                value={personal.bloodType}
-                disabled={isFieldLocked('personal.bloodType')}
-                style={getLockedStyle('personal.bloodType')}
-                onChange={e => !isFieldLocked('personal.bloodType') && setPersonal({ ...personal, bloodType: e.target.value })}
-              >
-                <option value="">-- Select --</option>
-                <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-                <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-              </select>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Religion', 'personal.religion')}
-              <input aria-label="Religion"
-                className="form-input"
-                value={personal.religion}
-                readOnly={isFieldLocked('personal.religion')}
-                disabled={isFieldLocked('personal.religion')}
-                style={getLockedStyle('personal.religion')}
-                onChange={e => !isFieldLocked('personal.religion') && setPersonal({ ...personal, religion: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {isPersonalLocked ? (
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('pds')}
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                Continue to PDS →
-              </button>
-            </div>
-          ) : (
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="btn btn-primary btn-full mt-4"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-            >
-              {isSaving ? (
-                <>
-                  <div className="spinner" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  Applying Changes to Database...
-                </>
-              ) : (
-                <>
-                  <AppIcon name="check" size={16} /> Apply Changes
-                </>
-              )}
-            </button>
+      <section className="card profile-card" aria-labelledby="profile-password">
+        <h2 id="profile-password">Change password</h2>
+        <form onSubmit={changePassword} className="profile-form">
+          <label className="profile-field">
+            <span>Current password</span>
+            <input className="form-input" type="password" autoComplete="current-password" value={pw.current} disabled={savingPw}
+              onChange={e => setPw({ ...pw, current: e.target.value })} />
+          </label>
+          <label className="profile-field">
+            <span>New password</span>
+            <input className="form-input" type="password" autoComplete="new-password" value={pw.next} disabled={savingPw}
+              onChange={e => setPw({ ...pw, next: e.target.value })} />
+          </label>
+          <label className="profile-field">
+            <span>Confirm new password</span>
+            <input className="form-input" type="password" autoComplete="new-password" value={pw.confirm} disabled={savingPw}
+              onChange={e => setPw({ ...pw, confirm: e.target.value })} />
+          </label>
+          {pw.next && (
+            <ul className="profile-pw-rules" aria-label="Password requirements">
+              {pwRules.map(r => (
+                <li key={r.text} style={{ color: r.ok ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                  <AppIcon name={r.ok ? 'approved' : 'pending'} size={12} /> {r.text}
+                </li>
+              ))}
+            </ul>
           )}
-        </form>
-      )}
-
-      {/* Tab 2: Personal Data Sheet (PDS) */}
-      {activeTab === 'pds' && (
-        <form onSubmit={handleSavePds} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--color-text-primary)' }}>
-              Personal Data Sheet (PDS) — CS Form No. 212
-            </h3>
-            {documentSources.pds && (
-              <span className="badge badge-info" style={{ fontSize: 11 }} title={documentSources.pds.uploadDate ? `Uploaded ${new Date(documentSources.pds.uploadDate).toLocaleString()}` : undefined}>
-                Imported from transaction PDS · {documentSources.pds.status || 'Recorded'}
-              </span>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
-            <div className="form-group">
-              {renderFieldLabel('GSIS ID Number', 'pds.gsisNumber')}
-              <input
-                aria-label="GSIS Number"
-                className="form-input"
-                placeholder="GSIS Number"
-                value={pds.gsisNumber}
-                readOnly={isFieldLocked('pds.gsisNumber')}
-                disabled={isFieldLocked('pds.gsisNumber')}
-                style={getLockedStyle('pds.gsisNumber')}
-                onChange={e => !isFieldLocked('pds.gsisNumber') && setPds({ ...pds, gsisNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Pag-IBIG ID Number', 'pds.pagibigNumber')}
-              <input
-                aria-label="Pag-IBIG Number"
-                className="form-input"
-                placeholder="Pag-IBIG Number"
-                value={pds.pagibigNumber}
-                readOnly={isFieldLocked('pds.pagibigNumber')}
-                disabled={isFieldLocked('pds.pagibigNumber')}
-                style={getLockedStyle('pds.pagibigNumber')}
-                onChange={e => !isFieldLocked('pds.pagibigNumber') && setPds({ ...pds, pagibigNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('PhilHealth Number', 'pds.philhealthNumber')}
-              <input
-                aria-label="PhilHealth Number"
-                className="form-input"
-                placeholder="PhilHealth Number"
-                value={pds.philhealthNumber}
-                readOnly={isFieldLocked('pds.philhealthNumber')}
-                disabled={isFieldLocked('pds.philhealthNumber')}
-                style={getLockedStyle('pds.philhealthNumber')}
-                onChange={e => !isFieldLocked('pds.philhealthNumber') && setPds({ ...pds, philhealthNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('TIN Number', 'pds.tinNumber')}
-              <input
-                aria-label="TIN Number"
-                className="form-input"
-                placeholder="TIN Number"
-                value={pds.tinNumber}
-                readOnly={isFieldLocked('pds.tinNumber')}
-                disabled={isFieldLocked('pds.tinNumber')}
-                style={getLockedStyle('pds.tinNumber')}
-                onChange={e => !isFieldLocked('pds.tinNumber') && setPds({ ...pds, tinNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              {renderFieldLabel('Residential Address', 'pds.residentialAddress', true)}
-              <input
-                aria-label="Residential Address"
-                className="form-input"
-                required
-                placeholder="House No., Street, Barangay, City/Municipality, Province"
-                value={pds.residentialAddress}
-                readOnly={isFieldLocked('pds.residentialAddress')}
-                disabled={isFieldLocked('pds.residentialAddress')}
-                style={getLockedStyle('pds.residentialAddress')}
-                onChange={e => !isFieldLocked('pds.residentialAddress') && setPds({ ...pds, residentialAddress: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              {renderFieldLabel('Permanent Address', 'pds.permanentAddress', true)}
-              <input
-                aria-label="Permanent address (if different from residential)"
-                className="form-input"
-                required
-                placeholder="Permanent address (if different from residential)"
-                value={pds.permanentAddress}
-                readOnly={isFieldLocked('pds.permanentAddress')}
-                disabled={isFieldLocked('pds.permanentAddress')}
-                style={getLockedStyle('pds.permanentAddress')}
-                onChange={e => !isFieldLocked('pds.permanentAddress') && setPds({ ...pds, permanentAddress: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Telephone Number', 'pds.telephoneNo')}
-              <input
-                aria-label="Telephone No"
-                className="form-input"
-                type="tel"
-                inputMode="numeric"
-                maxLength={15}
-                placeholder="Telephone No."
-                value={pds.telephoneNo}
-                readOnly={isFieldLocked('pds.telephoneNo')}
-                disabled={isFieldLocked('pds.telephoneNo')}
-                style={getLockedStyle('pds.telephoneNo')}
-                onChange={e => !isFieldLocked('pds.telephoneNo') && setPds({ ...pds, telephoneNo: e.target.value.replace(/[^0-9\-\s()]/g, '') })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Mobile Number', 'pds.mobileNo', true)}
-              <input
-                aria-label="Contact number"
-                className="form-input"
-                type="tel"
-                inputMode="numeric"
-                maxLength={13}
-                required
-                placeholder="09XXXXXXXXX"
-                value={pds.mobileNo}
-                readOnly={isFieldLocked('pds.mobileNo')}
-                disabled={isFieldLocked('pds.mobileNo')}
-                style={getLockedStyle('pds.mobileNo')}
-                onChange={e => !isFieldLocked('pds.mobileNo') && setPds({ ...pds, mobileNo: e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '') })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel("Spouse's Name", 'pds.spouseName')}
-              <input
-                aria-label="Spouse's Name"
-                className="form-input"
-                value={pds.spouseName}
-                readOnly={isFieldLocked('pds.spouseName')}
-                disabled={isFieldLocked('pds.spouseName')}
-                style={getLockedStyle('pds.spouseName')}
-                onChange={e => !isFieldLocked('pds.spouseName') && setPds({ ...pds, spouseName: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel("Spouse's Occupation", 'pds.spouseOccupation')}
-              <input
-                aria-label="Spouse's Occupation"
-                className="form-input"
-                value={pds.spouseOccupation}
-                readOnly={isFieldLocked('pds.spouseOccupation')}
-                disabled={isFieldLocked('pds.spouseOccupation')}
-                style={getLockedStyle('pds.spouseOccupation')}
-                onChange={e => !isFieldLocked('pds.spouseOccupation') && setPds({ ...pds, spouseOccupation: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel("Father's Name", 'pds.fathersName')}
-              <input
-                aria-label="Father's Name"
-                className="form-input"
-                value={pds.fathersName}
-                readOnly={isFieldLocked('pds.fathersName')}
-                disabled={isFieldLocked('pds.fathersName')}
-                style={getLockedStyle('pds.fathersName')}
-                onChange={e => !isFieldLocked('pds.fathersName') && setPds({ ...pds, fathersName: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel("Mother's Maiden Name", 'pds.mothersName')}
-              <input
-                aria-label="Mother's Maiden Name"
-                className="form-input"
-                value={pds.mothersName}
-                readOnly={isFieldLocked('pds.mothersName')}
-                disabled={isFieldLocked('pds.mothersName')}
-                style={getLockedStyle('pds.mothersName')}
-                onChange={e => !isFieldLocked('pds.mothersName') && setPds({ ...pds, mothersName: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              {renderFieldLabel('Civil Service Eligibility', 'pds.civilServiceEligibility')}
-              <textarea
-                aria-label="Civil Service Eligibility"
-                className="form-input"
-                rows={2}
-                placeholder="e.g. Licensure Exam for Teachers (LET), Career Service Professional"
-                value={pds.civilServiceEligibility}
-                readOnly={isFieldLocked('pds.civilServiceEligibility')}
-                disabled={isFieldLocked('pds.civilServiceEligibility')}
-                style={getLockedStyle('pds.civilServiceEligibility')}
-                onChange={e => !isFieldLocked('pds.civilServiceEligibility') && setPds({ ...pds, civilServiceEligibility: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              {renderFieldLabel('Educational Background & Graduate Units', 'pds.educationalBackground')}
-              <textarea aria-label="Educational Background & Graduate Units"
-                className="form-input"
-                rows={3}
-                placeholder="Highest educational attainment (e.g., Bachelor of Secondary Education, 18 Masteral Units completed, Master of Arts in Education)..."
-                value={pds.educationalBackground}
-                readOnly={isFieldLocked('pds.educationalBackground')}
-                disabled={isFieldLocked('pds.educationalBackground')}
-                style={getLockedStyle('pds.educationalBackground')}
-                onChange={e => !isFieldLocked('pds.educationalBackground') && setPds({ ...pds, educationalBackground: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {isPdsLocked && !isEditMode ? (
-            <div className="profile-tab-actions" style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('wes')}
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                Continue to Work Experience →
-              </button>
-            </div>
-          ) : (
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="btn btn-primary btn-full mt-4"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-            >
-              {isSaving ? (
-                <>
-                  <div className="spinner" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  Applying Changes to Database...
-                </>
-              ) : (
-                <>
-                  <AppIcon name="check" size={16} /> Apply Changes
-                </>
-              )}
+          <p className="text-xs text-muted" style={{ margin: 0 }}>You will be signed out and asked to sign in with the new password.</p>
+          <div className="profile-actions">
+            <button type="submit" className="btn btn-primary btn-sm" disabled={savingPw || !pw.current || pwRules.some(r => !r.ok)}>
+              {savingPw ? 'Changing…' : 'Change password'}
             </button>
-          )}
+          </div>
         </form>
-      )}
-
-      {/* Tab 3: Work Experience Sheet (WES) */}
-      {activeTab === 'wes' && (
-        <form onSubmit={handleSaveWes} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div><h3 style={{ fontWeight: 700, fontSize: 'var(--text-base)', margin: 0 }}>Work Experience Sheet (WES)</h3>
-              {wesReadOnly && (
-                <p style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '6px 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                  {/* Not colour alone: the lock icon and the words carry the state. */}
-                  <AppIcon name="lock" size={14} />
-                  <span><strong>WES record · Locked.</strong> Maintained by the authorized office.</span>
-                </p>
-              )}
-              {documentSources.wes && <span className="badge badge-info" title={documentSources.wes.uploadDate ? `Uploaded ${new Date(documentSources.wes.uploadDate).toLocaleString()}` : undefined}>
-                Imported from transaction WES · {documentSources.wes.status || 'Recorded'}
-              </span>}
-            </div>
-            {!wesReadOnly && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={addWesEntry}>
-                + Add Past Experience Entry
-              </button>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {wes.map((entry, idx) => {
-              const entryLocked = entry.isLocked === true || wesReadOnly;
-              return (
-                <div
-                  key={entry.id}
-                  className="card"
-                  style={{
-                    background: entryLocked ? 'rgba(255, 255, 255, 0.02)' : 'var(--color-bg-secondary)',
-                    border: entryLocked ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid var(--color-border)',
-                    padding: 'var(--space-4)',
-                    borderRadius: 12,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div className="text-xs text-muted" style={{ fontWeight: 600 }}>
-                      Work Experience Entry #{idx + 1}
-                    </div>
-                    {entryLocked && (
-                      <span
-                        className="badge"
-                        style={{
-                          fontSize: 10,
-                          padding: '2px 8px',
-                          background: 'rgba(16, 185, 129, 0.1)',
-                          color: '#10b981',
-                          border: '1px solid rgba(16, 185, 129, 0.25)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <AppIcon name="lock" size={10} color="#10b981" /> Verified Service Record Locked
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
-                    <div className="form-group">
-                      <label className="form-label">Date From *</label>
-                      <input
-                        aria-label="Date From"
-                        className="form-input"
-                        type="date"
-                        value={entry.dateFrom}
-                        readOnly={entryLocked}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, dateFrom: e.target.value } : w)))}
-                        required={idx === 0}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Date To (or "Present")</label>
-                      <input
-                        aria-label="Date To (or &quot;Present&quot;)"
-                        className="form-input"
-                        type={entry.dateTo === 'Present' ? 'text' : 'date'}
-                        value={entry.dateTo}
-                        readOnly={entryLocked}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, dateTo: e.target.value } : w)))}
-                      />
-                    </div>
-                    <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                      <label className="form-label">Position Title *</label>
-                      <input
-                        aria-label="Position Title"
-                        className="form-input"
-                        placeholder="e.g. Teacher I"
-                        value={entry.positionTitle}
-                        readOnly={entryLocked}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, positionTitle: e.target.value } : w)))}
-                        required={idx === 0}
-                      />
-                    </div>
-                    <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                      <label className="form-label">Department / Agency / Office / Company</label>
-                      <input
-                        aria-label="Department / Agency / Office / Company"
-                        className="form-input"
-                        placeholder="e.g. DepEd City Schools Division of Koronadal"
-                        value={entry.department}
-                        readOnly={entryLocked}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, department: e.target.value } : w)))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Monthly Salary</label>
-                      <input
-                        aria-label="Monthly Salary"
-                        className="form-input"
-                        placeholder="e.g. 25,439"
-                        value={entry.monthlySalary}
-                        readOnly={entryLocked}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, monthlySalary: e.target.value } : w)))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Salary Grade</label>
-                      <input
-                        aria-label="Salary Grade"
-                        className="form-input"
-                        placeholder="e.g. 11"
-                        value={entry.salaryGrade}
-                        readOnly={entryLocked}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, salaryGrade: e.target.value } : w)))}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Status of Appointment</label>
-                      <select
-                        aria-label="Status of Appointment"
-                        className="form-input"
-                        value={entry.status}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, status: e.target.value } : w)))}
-                      >
-                        <option value="">-- Select --</option>
-                        <option>Permanent</option>
-                        <option>Temporary</option>
-                        <option>Contractual</option>
-                        <option>Part-Time</option>
-                        <option>Casual</option>
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Government Service?</label>
-                      <select
-                        aria-label="Government Service?"
-                        className="form-input"
-                        value={entry.government ? 'Yes' : 'No'}
-                        disabled={entryLocked}
-                        style={entryLocked ? { backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' } : {}}
-                        onChange={e => setWes(prev => prev.map(w => (w.id === entry.id ? { ...w, government: e.target.value === 'Yes' } : w)))}
-                      >
-                        <option>Yes</option>
-                        <option>No</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {isWesLocked && !isEditMode ? (
-            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('employment')}
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                Continue to Employment & Contact →
-              </button>
-            </div>
-          ) : (
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="btn btn-primary btn-full mt-4"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-            >
-              {isSaving ? (
-                <>
-                  <div className="spinner" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  Applying Changes to Database...
-                </>
-              ) : (
-                <>
-                  <AppIcon name="check" size={16} /> Apply Changes
-                </>
-              )}
-            </button>
-          )}
-        </form>
-      )}
-
-      {/* Tab 4: Employment & Contact Information */}
-      {activeTab === 'employment' && (
-        <form onSubmit={handleSaveEmployment} className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ fontWeight: 700, fontSize: '1rem', margin: 0, color: 'var(--color-text-primary)' }}>
-              Employment & Contact Information
-            </h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 12 }}>
-            <div className="form-group">
-              {renderFieldLabel('Employee ID', 'employment.employeeId')}
-              <input
-                aria-label="Employee ID"
-                className="form-input"
-                placeholder="e.g. EMP-001"
-                value={employment.employeeId}
-                readOnly={isFieldLocked('employment.employeeId')}
-                disabled={isFieldLocked('employment.employeeId')}
-                style={getLockedStyle('employment.employeeId')}
-                onChange={e => !isFieldLocked('employment.employeeId') && setEmployment({ ...employment, employeeId: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Plantilla Item Number', 'employment.itemNumber')}
-              <input
-                aria-label="Plantilla Item No"
-                className="form-input"
-                placeholder="Plantilla Item No."
-                value={employment.itemNumber}
-                readOnly={isFieldLocked('employment.itemNumber')}
-                disabled={isFieldLocked('employment.itemNumber')}
-                style={getLockedStyle('employment.itemNumber')}
-                onChange={e => !isFieldLocked('employment.itemNumber') && setEmployment({ ...employment, itemNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              {renderFieldLabel('Position Title', 'employment.position', true)}
-              <input
-                aria-label="Position Title"
-                className="form-input"
-                required
-                placeholder="e.g. Teacher I"
-                value={employment.position}
-                readOnly={isFieldLocked('employment.position')}
-                disabled={isFieldLocked('employment.position')}
-                style={getLockedStyle('employment.position')}
-                onChange={e => !isFieldLocked('employment.position') && setEmployment({ ...employment, position: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Salary Grade', 'employment.salaryGrade')}
-              <input
-                aria-label="Salary Grade"
-                className="form-input"
-                placeholder="e.g. 11"
-                value={employment.salaryGrade}
-                readOnly={isFieldLocked('employment.salaryGrade')}
-                disabled={isFieldLocked('employment.salaryGrade')}
-                style={getLockedStyle('employment.salaryGrade')}
-                onChange={e => !isFieldLocked('employment.salaryGrade') && setEmployment({ ...employment, salaryGrade: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Step Increment', 'employment.stepIncrement')}
-              <input
-                aria-label="Step Increment"
-                className="form-input"
-                placeholder="e.g. 1"
-                value={employment.stepIncrement}
-                readOnly={isFieldLocked('employment.stepIncrement')}
-                disabled={isFieldLocked('employment.stepIncrement')}
-                style={getLockedStyle('employment.stepIncrement')}
-                onChange={e => !isFieldLocked('employment.stepIncrement') && setEmployment({ ...employment, stepIncrement: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Appointment Status', 'employment.appointmentStatus')}
-              <select aria-label="Appointment Status"
-                className="form-input"
-                value={employment.appointmentStatus}
-                disabled={isFieldLocked('employment.appointmentStatus')}
-                style={getLockedStyle('employment.appointmentStatus')}
-                onChange={e => !isFieldLocked('employment.appointmentStatus') && setEmployment({ ...employment, appointmentStatus: e.target.value })}
-              >
-                <option>Permanent</option>
-                <option>Temporary</option>
-                <option>Contractual</option>
-                <option>Casual</option>
-              </select>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('First Day of Service', 'employment.firstDayOfService', true)}
-              <input aria-label="First Day of Service"
-                className="form-input"
-                type="date"
-                required
-                value={employment.firstDayOfService}
-                readOnly={isFieldLocked('employment.firstDayOfService')}
-                disabled={isFieldLocked('employment.firstDayOfService')}
-                style={getLockedStyle('employment.firstDayOfService')}
-                onChange={e => !isFieldLocked('employment.firstDayOfService') && setEmployment({ ...employment, firstDayOfService: e.target.value })}
-              />
-            </div>
-            {/* Cascading District -> School Assignment */}
-            <div className="form-group">
-              <label className="form-label">Assigned District (District 1 & District 6) *</label>
-              <select
-                aria-label="Assigned District (District 1 & District 6)"
-                className="form-input"
-                required
-                value={employment.districtId}
-                disabled={isFieldLocked('employment.schoolAssignment')}
-                style={getLockedStyle('employment.schoolAssignment')}
-                onChange={e => {
-                  const dId = Number(e.target.value);
-                  const dist = DEPED_KORONADAL_DISTRICTS.find(d => d.id === dId) || DEPED_KORONADAL_DISTRICTS[0];
-                  setEmployment({ ...employment, districtId: dId, schoolAssignment: dist.schools[0] || '' });
-                }}
-              >
-                {DEPED_KORONADAL_DISTRICTS.map(d => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} ({d.schools.length} Schools)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('School / Station Assignment', 'employment.schoolAssignment', true)}
-              <select aria-label="School / Station Assignment"
-                className="form-input"
-                required
-                value={employment.schoolAssignment}
-                disabled={isFieldLocked('employment.schoolAssignment')}
-                style={getLockedStyle('employment.schoolAssignment')}
-                onChange={e => setEmployment({ ...employment, schoolAssignment: e.target.value })}
-              >
-                {(DEPED_KORONADAL_DISTRICTS.find(d => d.id === employment.districtId)?.schools || DEPED_REGION_12_SCHOOLS).map(school => (
-                  <option key={school} value={school}>{school}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Division</label>
-              <input className="form-input" value={employment.divisionAssignment} readOnly disabled style={{ background: 'rgba(255,255,255,0.03)', opacity: 0.8, cursor: 'not-allowed' }} aria-label="Division" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Region</label>
-              <input className="form-input" value={employment.region} readOnly disabled style={{ background: 'rgba(255,255,255,0.03)', opacity: 0.8, cursor: 'not-allowed' }} aria-label="Region" />
-            </div>
-
-            <div className="form-group" style={{ gridColumn: '1/-1' }}>
-              <div className="text-xs text-muted mt-4 mb-2" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Contact & Emergency Information
-              </div>
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Contact Number', 'employment.contactNumber', true)}
-              <input
-                aria-label="Region"
-                className="form-input"
-                required
-                placeholder="09XXXXXXXXX"
-                value={employment.contactNumber}
-                readOnly={isFieldLocked('employment.contactNumber')}
-                disabled={isFieldLocked('employment.contactNumber')}
-                style={getLockedStyle('employment.contactNumber')}
-                onChange={e => !isFieldLocked('employment.contactNumber') && setEmployment({ ...employment, contactNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Emergency Contact Name', 'employment.emergencyContactName', true)}
-              <input
-                aria-label="Full Name"
-                className="form-input"
-                required
-                placeholder="Full Name"
-                value={employment.emergencyContactName}
-                readOnly={isFieldLocked('employment.emergencyContactName')}
-                disabled={isFieldLocked('employment.emergencyContactName')}
-                style={getLockedStyle('employment.emergencyContactName')}
-                onChange={e => !isFieldLocked('employment.emergencyContactName') && setEmployment({ ...employment, emergencyContactName: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Emergency Contact Number', 'employment.emergencyContactNumber', true)}
-              <input
-                aria-label="Contact number"
-                className="form-input"
-                required
-                placeholder="09XXXXXXXXX"
-                value={employment.emergencyContactNumber}
-                readOnly={isFieldLocked('employment.emergencyContactNumber')}
-                disabled={isFieldLocked('employment.emergencyContactNumber')}
-                style={getLockedStyle('employment.emergencyContactNumber')}
-                onChange={e => !isFieldLocked('employment.emergencyContactNumber') && setEmployment({ ...employment, emergencyContactNumber: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              {renderFieldLabel('Relationship', 'employment.emergencyContactRelationship')}
-              <input
-                aria-label="Emergency Contact Relationship"
-                className="form-input"
-                placeholder="e.g. Spouse, Parent, Sibling"
-                value={employment.emergencyContactRelationship}
-                readOnly={isFieldLocked('employment.emergencyContactRelationship')}
-                disabled={isFieldLocked('employment.emergencyContactRelationship')}
-                style={getLockedStyle('employment.emergencyContactRelationship')}
-                onChange={e => !isFieldLocked('employment.emergencyContactRelationship') && setEmployment({ ...employment, emergencyContactRelationship: e.target.value })}
-              />
-            </div>
-          </div>
-
-          {isEmploymentLocked && !isEditMode ? (
-            <div className="profile-tab-actions" style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => navigate('/personnel/home')}
-                className="btn btn-secondary"
-                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                Return to Home
-              </button>
-            </div>
-          ) : (
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="btn btn-primary btn-full mt-4"
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700 }}
-            >
-              {isSaving ? (
-                <>
-                  <div className="spinner" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  Applying Changes to Database...
-                </>
-              ) : (
-                <>
-                  <AppIcon name="check" size={16} /> Apply Changes
-                </>
-              )}
-            </button>
-          )}
-        </form>
-      )}
+      </section>
     </div>
   );
 };

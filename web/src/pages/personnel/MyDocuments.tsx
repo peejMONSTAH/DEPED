@@ -5,6 +5,7 @@ import { ModalPortal } from '../../components/common/ModalPortal';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
+import { TransactionDocumentGroups } from './TransactionDocumentGroups';
 import { DocumentScannerModal } from '../../components/common/DocumentScannerModal';
 import { useToast } from '../../contexts/ToastContext';
 import apiClient from '../../api/client';
@@ -33,16 +34,6 @@ type PersonnelDocument = {
   ocrStatus?: string | null;
 };
 
-type ExtractionField = {
-  field: string;
-  label: string;
-  currentValue: string | null;
-  extractedValue: string;
-  changed: boolean;
-  isLocked: boolean;
-};
-type EmploymentEntry = { dateFrom: string; dateTo: string | null; positionTitle: string; department: string; status: string | null };
-type ExtractionReview = { documentId: number; confidenceScore: number; fields: ExtractionField[]; employmentEntries?: EmploymentEntry[] };
 
 type DocumentTypeConfig = {
   id: string;
@@ -172,12 +163,6 @@ export const MyDocuments: React.FC = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [targetDoc, setTargetDoc] = useState<PersonnelDocument | null>(null);
   const [previewDoc, setPreviewDoc] = useState<PersonnelDocument | null>(null);
-  const [reviewDoc, setReviewDoc] = useState<PersonnelDocument | null>(null);
-  const [reviewData, setReviewData] = useState<ExtractionReview | null>(null);
-  const [reviewSelection, setReviewSelection] = useState<string[]>([]);
-  const [reviewEntrySelection, setReviewEntrySelection] = useState<number[]>([]);
-  const [reviewBusy, setReviewBusy] = useState(false);
-  const [reviewError, setReviewError] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<PersonnelDocument | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PersonnelDocument | null>(null);
@@ -233,46 +218,6 @@ export const MyDocuments: React.FC = () => {
   }, [load]);
 
   const selectedType = useMemo(() => types.find(t => t.id === typeId), [types, typeId]);
-
-  const openExtractionReview = async (doc: PersonnelDocument) => {
-    setReviewDoc(doc);
-    setReviewData(null);
-    setReviewSelection([]);
-    setReviewEntrySelection([]);
-    setReviewError('');
-    setReviewBusy(true);
-    try {
-      if (doc.ocrStatus !== 'NEEDS_REVIEW') {
-        await apiClient.post(`/personnel/documents/${doc.id}/extract`);
-      }
-      const response = await apiClient.get(`/personnel/documents/${doc.id}/extraction-review`);
-      const review = response.data?.data as ExtractionReview;
-      setReviewData(review);
-      setReviewSelection(review.fields.filter(field => field.changed).map(field => field.field));
-      setReviewEntrySelection((review.employmentEntries || []).map((_, index) => index));
-    } catch (error: any) {
-      setReviewError(error?.response?.data?.message || 'Could not read fields from this document. The file remains saved.');
-    } finally {
-      setReviewBusy(false);
-    }
-  };
-
-  const applyExtractionReview = async () => {
-    if (!reviewDoc || reviewBusy || (reviewSelection.length === 0 && reviewEntrySelection.length === 0)) return;
-    setReviewBusy(true);
-    setReviewError('');
-    try {
-      await apiClient.post(`/personnel/documents/${reviewDoc.id}/apply-extraction`, { approvedFields: reviewSelection, approvedEntryIndexes: reviewEntrySelection });
-      addToast('Selected fields were updated in your Digital 201 record.', 'SUCCESS');
-      setReviewDoc(null);
-      setReviewData(null);
-      await load();
-    } catch (error: any) {
-      setReviewError(error?.response?.data?.message || 'Could not update your Digital 201 record.');
-    } finally {
-      setReviewBusy(false);
-    }
-  };
 
   // Active documents currently on file in 201 library
   const activeDocs = useMemo(() => {
@@ -449,9 +394,6 @@ export const MyDocuments: React.FC = () => {
       );
       closeUploadModal(true);
       await load();
-      if (['PDS', 'WES', 'APPOINTMENT', 'COE'].includes(typeId) && uploadResponse.data?.data?.id) {
-        void openExtractionReview(uploadResponse.data.data as PersonnelDocument);
-      }
     } catch (error: any) {
       const responseData = error?.response?.data;
       const conflictData = responseData?.data;
@@ -553,7 +495,7 @@ export const MyDocuments: React.FC = () => {
       {/* Top bar */}
       <div className="topbar" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div style={{ minWidth: 0 }}>
-          <h1 className="page-title" style={{ margin: 0 }}>My 201 File</h1>
+          <h1 className="page-title" style={{ margin: 0 }}>My 201 Files</h1>
         </div>
 
         <div className="my-documents-topbar-actions">
@@ -771,11 +713,6 @@ export const MyDocuments: React.FC = () => {
                                 >
                                   <AppIcon name="view" size={14} /> Preview
                                 </button>
-                                {['PDS', 'WES', 'APPOINTMENT', 'COE'].includes(doc.documentTypeId) && doc.ocrStatus !== 'APPLIED' && (
-                                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => void openExtractionReview(doc)}>
-                                    Review 201 data
-                                  </button>
-                                )}
                                 <button
                                   type="button"
                                   className="btn btn-secondary btn-sm"
@@ -924,11 +861,6 @@ export const MyDocuments: React.FC = () => {
                           >
                             <AppIcon name="view" size={16} /> Preview
                           </button>
-                          {['PDS', 'WES', 'APPOINTMENT', 'COE'].includes(doc.documentTypeId) && doc.ocrStatus !== 'APPLIED' && (
-                            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void openExtractionReview(doc)} style={{ minHeight: 44 }}>
-                              Review 201 data
-                            </button>
-                          )}
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
@@ -991,6 +923,9 @@ export const MyDocuments: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Documents filed with each appointment transaction */}
+      <TransactionDocumentGroups />
 
       {/* Upload & Replacement Modal */}
       {uploadOpen && (
@@ -1299,62 +1234,6 @@ export const MyDocuments: React.FC = () => {
                 </div>
               </form>
             </div>
-          </ModalOverlay>
-        </ModalPortal>
-      )}
-
-      {reviewDoc && (
-        <ModalPortal>
-          <ModalOverlay onDismiss={() => { if (!reviewBusy) setReviewDoc(null); }} className="modal-overlay">
-            <section className="modal my-documents-extraction-review" role="dialog" aria-modal="true" aria-label="Review extracted 201 data">
-              <div className="modal-header">
-                <h2>Review 201 data from {reviewDoc.documentTypeName}</h2>
-                <button type="button" className="modal-close" aria-label="Close review" onClick={() => setReviewDoc(null)} disabled={reviewBusy}>×</button>
-              </div>
-              <div className="my-documents-extraction-body">
-                <p>Compare the stored 201 record with what was read from {reviewDoc.originalFileName}. Select only values or employment entries you want to record.</p>
-                {reviewBusy && !reviewData && <p role="status">Reading document fields…</p>}
-                {reviewError && <p className="form-error" role="alert">{reviewError}</p>}
-                {reviewData && (
-                  <>
-                    <p>Extraction confidence: {Math.round(reviewData.confidenceScore * 100)}%</p>
-                    {reviewData.fields.length === 0 && !reviewData.employmentEntries?.length ? <p>No supported fields were found in this document.</p> : (
-                      <div className="my-documents-extraction-fields">
-                        {reviewData.fields.map(field => (
-                          <label key={field.field} className="my-documents-extraction-field">
-                            <input type="checkbox" checked={reviewSelection.includes(field.field)} disabled={!field.changed || reviewBusy}
-                              onChange={event => setReviewSelection(previous => event.target.checked
-                                ? [...previous, field.field] : previous.filter(value => value !== field.field))} />
-                            <span><strong>{field.label}{field.isLocked ? ' (locked field)' : ''}</strong><br />
-                              Current: {field.currentValue || 'Not recorded'}<br />
-                              Document: {field.extractedValue}
-                            </span>
-                          </label>
-                        ))}
-                        {(reviewData.employmentEntries || []).map((entry, index) => (
-                          <label key={`employment-${index}`} className="my-documents-extraction-field">
-                            <input type="checkbox" checked={reviewEntrySelection.includes(index)} disabled={reviewBusy}
-                              onChange={event => setReviewEntrySelection(previous => event.target.checked
-                                ? [...previous, index] : previous.filter(value => value !== index))} />
-                            <span><strong>Historical employment {index + 1}</strong><br />
-                              {entry.positionTitle} — {entry.department}<br />
-                              {entry.dateFrom} to {entry.dateTo || 'Present'}{entry.status ? ` · ${entry.status}` : ''}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setReviewDoc(null)} disabled={reviewBusy}>Cancel</button>
-                <button type="button" className="btn btn-primary" onClick={() => void applyExtractionReview()}
-                  disabled={reviewBusy || !reviewData || (reviewSelection.length === 0 && reviewEntrySelection.length === 0) || reviewData.confidenceScore < 0.8}>
-                  {reviewBusy ? 'Updating…' : reviewEntrySelection.length ? 'Record selected employment' : 'Update selected fields'}
-                </button>
-              </div>
-            </section>
           </ModalOverlay>
         </ModalPortal>
       )}

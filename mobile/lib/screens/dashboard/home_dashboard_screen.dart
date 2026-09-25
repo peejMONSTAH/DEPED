@@ -37,8 +37,8 @@ class HomeDashboardScreen extends StatefulWidget {
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   int _currentIndex = 0;
 
-  /// Alerts is the last tab. Named so the app-bar bell, the unread badge and
-  /// the tab itself cannot drift apart if the order changes again.
+  /// The Notifications page, opened from the app-bar bell (it has no bottom
+  /// tab). Named so the bell and the page list cannot drift apart.
   static const int _alertsTabIndex = 4;
   bool _isStretched = false;
   late final ProfileService _profileService;
@@ -311,11 +311,20 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           child: Divider(height: 1, thickness: 1, color: AppTheme.lightBorder),
         ),
         actions: [
+          // Notifications live here only (not in the bottom bar), so the
+          // unread count is shown on this bell.
           IconButton(
-            icon: const Icon(LucideIcons.bell,
-                size: 20, color: AppTheme.textSecondary),
+            icon: Badge(
+              isLabelVisible: _unreadCount > 0,
+              backgroundColor: const Color(0xFFF85149),
+              label: Text(_unreadCount > 99 ? '99+' : '$_unreadCount'),
+              child: const Icon(LucideIcons.bell,
+                  size: 20, color: AppTheme.textSecondary),
+            ),
             onPressed: () => setState(() => _currentIndex = _alertsTabIndex),
-            tooltip: 'Alerts',
+            tooltip: _unreadCount > 0
+                ? 'Notifications ($_unreadCount unread)'
+                : 'Notifications',
           ),
           IconButton(
             icon: const Icon(LucideIcons.logOut,
@@ -381,23 +390,21 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           icon: LucideIcons.home,
                           label: 'Portal Home'),
                       _buildNavTabItem(
-                          index: 1,
-                          icon: LucideIcons.userCheck,
-                          label: 'My Profile'),
-                      _buildNavTabItem(
                           index: 2,
                           icon: LucideIcons.folderOpen,
-                          label: 'My 201 File'),
+                          label: 'My 201 Files'),
                       // Opens CareerTimelineScreen, which the sidebar calls
                       // Service Record - not My Transactions.
                       _buildNavTabItem(
                           index: 3,
                           icon: LucideIcons.award,
                           label: 'Service Record'),
+                      // Profile sits at the far right. The index is the page
+                      // it opens, not its position in this row.
                       _buildNavTabItem(
-                          index: _alertsTabIndex,
-                          icon: LucideIcons.bell,
-                          label: 'Notifications'),
+                          index: 1,
+                          icon: LucideIcons.userCheck,
+                          label: 'Profile'),
                     ],
                   ),
                 ),

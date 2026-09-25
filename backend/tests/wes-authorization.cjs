@@ -57,8 +57,8 @@ function fakeRes() {
   };
 }
 
-async function callUpdate(user, body) {
-  const { updateMyProfile } = loadController(mockPrisma());
+async function callUpdate(user, body, record) {
+  const { updateMyProfile } = loadController(mockPrisma(record ? { personnel: { findUnique: async () => record } } : {}));
   const res = fakeRes();
   await updateMyProfile({ user, body, params: {}, ip: '127.0.0.1' }, res);
   return res;
@@ -92,10 +92,24 @@ test('the refusal covers the other office-maintained identity fields too', async
     designation: 'Teacher III',
     dateHired: '2015-06-01',
   };
+  // A record the office already filled in: every field is on record.
+  const filled = { id: 8, userId: 11, school: 'A', district: 'D', plantillaItemId: null, firstName: 'Ana', lastName: 'Cruz',
+    birthDate: new Date('1988-01-01'), designation: 'Teacher I', dateHired: new Date('2012-06-01') };
   for (const [field, value] of Object.entries(officeFields)) {
-    const res = await callUpdate(PERSONNEL, { [field]: value });
-    assert.equal(res.statusCode, 403, `${field} must be refused for a personnel account`);
+    const res = await callUpdate(PERSONNEL, { [field]: value }, filled);
+    assert.equal(res.statusCode, 403, `${field} already on record must be refused for a personnel account`);
   }
+});
+
+test('personnel may fill an identity field the office left blank, once', async () => {
+  // The creating AO II/HRMO left these out; the person may supply them.
+  const blank = { id: 8, userId: 11, school: 'A', district: 'D', plantillaItemId: null, firstName: 'Ana', lastName: 'Cruz' };
+  for (const [field, value] of Object.entries({ birthDate: '1990-05-14', designation: 'Teacher III', dateHired: '2015-06-01', civilStatus: 'MARRIED' })) {
+    const res = await callUpdate(PERSONNEL, { [field]: value }, blank);
+    assert.notEqual(res.statusCode, 403, `a blank ${field} may be filled by the person`);
+  }
+  // Names are never blank, so they are never personnel-editable.
+  assert.equal((await callUpdate(PERSONNEL, { firstName: 'Other' }, blank)).statusCode, 403);
 });
 
 test('the fields personnel do own are still accepted', async () => {
