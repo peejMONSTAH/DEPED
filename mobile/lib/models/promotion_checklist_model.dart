@@ -12,6 +12,9 @@ class PromotionChecklistItem {
   AcquiredDocument? attachedDocument;
   String? uploadedFileUrl;
   int? existingDocumentId;
+  /// Why AO II returned this item, while the returned file is still attached.
+  /// Cleared once the applicant attaches a replacement.
+  String? returnedReason;
 
   PromotionChecklistItem({
     required this.code,

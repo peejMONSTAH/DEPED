@@ -18,12 +18,16 @@ class PromotionChecklistScreen extends StatefulWidget {
   final Map<String, dynamic> cycle;
   final UserModel user;
   final PersonnelProfileModel? profile;
+  /// Items of an application AO II returned (from /promotions/my-applications).
+  /// When given, the checklist opens pre-filled for correction and resubmission.
+  final List<Map<String, dynamic>>? resubmitItems;
 
   const PromotionChecklistScreen({
     Key? key,
     required this.cycle,
     required this.user,
     this.profile,
+    this.resubmitItems,
   }) : super(key: key);
 
   @override
@@ -90,8 +94,32 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
     // Starts from the bundled copy so the form renders immediately, then adopts
     // the backend list -- that is the one AO II verifies against.
+    _prefillResubmission(_checklistItems);
     _loadAnnexCRequirements();
     _loadExisting201Documents();
+  }
+
+  bool get _isResubmission => widget.resubmitItems != null;
+
+  /// Restores what was submitted before and marks what AO II returned.
+  void _prefillResubmission(List<PromotionChecklistItem> items) {
+    final previous = {for (final p in widget.resubmitItems ?? const <Map<String, dynamic>>[]) p['code']?.toString(): p};
+    for (final item in items) {
+      final p = previous[item.code];
+      if (p == null || p['submitted'] != true) continue;
+      final docId = p['personnelDocumentId'];
+      item.isSubmitted = true;
+      item.existingDocumentId = docId is int ? docId : int.tryParse('${docId ?? ''}');
+      item.attachedDocument = AcquiredDocument(
+        name: (p['fileName'] ?? 'Previously submitted file').toString(),
+        mimeType: 'application/pdf',
+        sizeBytes: 0,
+      );
+      if (p['verificationStatus'] == 'INCOMPLETE') {
+        final why = (p['verificationRemarks'] ?? '').toString().trim();
+        item.returnedReason = why.isEmpty ? 'Returned by AO II' : why;
+      }
+    }
   }
 
   @override
@@ -120,6 +148,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         item.attachedDocument = previous.attachedDocument;
         item.uploadedFileUrl = previous.uploadedFileUrl;
         item.existingDocumentId = previous.existingDocumentId;
+        item.returnedReason = previous.returnedReason;
       }
       // The server sends Annex C order (a–k); the screen shows A–Z.
       _checklistItems = PromotionChecklistItem.sortedByTitle(items);
@@ -362,6 +391,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
   void _attachExisting(PromotionChecklistItem item, PersonnelDocument d) {
     setState(() {
+      item.returnedReason = null;
       item.existingDocumentId = d.id;
       item.isSubmitted = true;
       item.uploadedFileUrl = d.fileUrl;
@@ -399,6 +429,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
     );
     if (!mounted) return;
     setState(() {
+      item.returnedReason = null;
       item.attachedDocument = doc;
       item.existingDocumentId = saved.id;
       item.uploadedFileUrl = saved.fileUrl;
@@ -672,6 +703,12 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         .where((i) =>
             i.isMandatory && (!i.isSubmitted || i.attachedDocument == null))
         .toList();
+    final stillReturned = _checklistItems.where((i) => i.returnedReason != null).toList();
+    if (stillReturned.isNotEmpty) {
+      _showErrorSnackBar('Replace the returned documents first: '
+          '${stillReturned.map((i) => 'Item ${i.code.toUpperCase()}').join(', ')}');
+      return;
+    }
     if (missingMandatory.isNotEmpty) {
       final codes = missingMandatory
           .map((m) => 'Item ${m.code.toUpperCase()} (${m.title})')
@@ -745,7 +782,9 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Annex C Checklist & Application for "${widget.cycle['name']}" submitted successfully!',
+                  _isResubmission
+                      ? 'Corrected requirements for "${widget.cycle['name']}" resubmitted to your AO II.'
+                      : 'Annex C Checklist & Application for "${widget.cycle['name']}" submitted successfully!',
                   style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.bold, color: Colors.white),
                 ),
@@ -1226,6 +1265,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
   Widget _buildRequirementCard(PromotionChecklistItem item) {
     final hasDoc = item.attachedDocument != null;
+    final returned = item.returnedReason != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1234,17 +1274,40 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         color: AppTheme.lightBgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasDoc
-              ? AppTheme.emeraldGreen.withOpacity(0.4)
-              : (item.isMandatory
-                  ? const Color(0xFFFDE68A)
-                  : AppTheme.lightBorder),
-          width: hasDoc ? 1.4 : 1.0,
+          color: returned
+              ? const Color(0xFFDC2626)
+              : hasDoc
+                  ? AppTheme.emeraldGreen.withOpacity(0.4)
+                  : (item.isMandatory
+                      ? const Color(0xFFFDE68A)
+                      : AppTheme.lightBorder),
+          width: returned || hasDoc ? 1.4 : 1.0,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (returned)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(LucideIcons.triangleAlert, size: 16, color: Color(0xFFDC2626)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Returned by AO II: ${item.returnedReason}. Replace this document.',
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF991B1B))),
+                  ),
+                ],
+              ),
+            ),
           // Top Row: Code Badge, Title, Mandatory Chip, Status
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

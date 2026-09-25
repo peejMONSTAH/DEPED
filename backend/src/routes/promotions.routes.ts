@@ -10,7 +10,7 @@ import {
   submitManualApplication, getPromotionApplications,
   submitFinalRating, getCycleLeaderboard, selectPromotionCandidate,
   verifyApplicationRequirements,
-  getMyPromotionStatus, generateCarDocument, getAnnexCRequirements,
+  getMyPromotionStatus, generateCarDocument, getAnnexCRequirements, getMyApplications,
 } from '../controllers/promotions.controller';
 
 const router = Router();
@@ -19,6 +19,7 @@ router.use(authenticate);
 router.get('/my-promotion-status', getMyPromotionStatus);
 // Reference data every role needs in order to assemble or verify a promotion pack.
 router.get('/annex-c-requirements', getAnnexCRequirements);
+router.get('/my-applications', authorize('TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'), getMyApplications);
 router.get('/cycles', authorize('HRMO', 'AO_II', 'TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'), getPromotionCycles);
 router.post('/cycles', authorize('HRMO'), validateBody(createCycleSchema), createPromotionCycle);
 router.put('/cycles/:id', authorize('HRMO'), updatePromotionCycle);

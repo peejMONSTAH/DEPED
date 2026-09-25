@@ -6,6 +6,7 @@ import '../../models/personnel_profile_model.dart';
 import '../../models/transaction_model.dart';
 import '../../models/user_model.dart';
 import '../../services/api_service.dart';
+import '../../services/local_notification_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/realtime_service.dart';
@@ -17,6 +18,7 @@ import '../../widgets/ui_kit.dart';
 import '../../widgets/compliance_gauge.dart';
 import '../../widgets/eminence_logo.dart';
 import '../../widgets/status_badge.dart';
+import '../applications/my_applications_screen.dart';
 import '../auth/login_screen.dart';
 import '../career/career_timeline_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -40,6 +42,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   /// The Notifications page, opened from the app-bar bell (it has no bottom
   /// tab). Named so the bell and the page list cannot drift apart.
   static const int _alertsTabIndex = 4;
+
+  /// My Applications: promotion applications and appointment transactions,
+  /// where returned documents are replaced and resubmitted.
+  static const int _applicationsTabIndex = 5;
   bool _isStretched = false;
   late final ProfileService _profileService;
   late final TransactionService _transactionService;
@@ -68,6 +74,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _transactionService = TransactionService(_apiService);
     _realtimeService = RealtimeService(_apiService);
 
+    LocalNotificationService.instance.init();
     _loadData();
     _initRealtimeListeners();
   }
@@ -81,37 +88,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       }
     });
 
-    _notifSub = _realtimeService.onNotificationReceived.listen((notif) {
-      if (mounted) {
-        _loadData();
-        final msg =
-            notif['message']?.toString() ?? 'New transaction update received!';
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(LucideIcons.bellRing, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    msg,
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppTheme.primaryLight,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
+    // The live event carries no content; reloading fetches the unread list,
+    // and _announce() rings and shows only what is new since the last load.
+    _notifSub = _realtimeService.onNotificationReceived.listen((_) {
+      if (mounted) _loadData();
     });
   }
 
@@ -121,6 +101,57 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     _notifSub?.cancel();
     _realtimeService.dispose();
     super.dispose();
+  }
+
+  /// Newest notification id already known; null until the first load.
+  int? _lastSeenNotifId;
+
+  /// Rings (phone notification shade) and shows a header banner for
+  /// notifications newer than the last load. The first load only records
+  /// where to start, so opening the app never replays old notifications.
+  void _announce(List<Map<String, dynamic>> unread) {
+    final ids = unread.map((n) => n['id']).whereType<int>();
+    final newest = ids.isEmpty ? null : ids.reduce((a, b) => a > b ? a : b);
+    if (_lastSeenNotifId == null) {
+      _lastSeenNotifId = newest ?? 0;
+      LocalNotificationService.instance.markSeen(_lastSeenNotifId);
+      return;
+    }
+    final fresh = unread.where((n) => n['id'] is int && (n['id'] as int) > _lastSeenNotifId!).toList()
+      ..sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+    if (fresh.isEmpty) return;
+    _lastSeenNotifId = fresh.first['id'] as int;
+    LocalNotificationService.instance.showNew(fresh);
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context)..clearMaterialBanners();
+    messenger.showMaterialBanner(MaterialBanner(
+      backgroundColor: AppTheme.brandDark,
+      leading: const Icon(LucideIcons.bellRing, color: Colors.white, size: 20),
+      content: Text(
+        fresh.length > 1
+            ? '${fresh.first['message']}  (+${fresh.length - 1} more)'
+            : (fresh.first['message'] ?? 'New notification').toString(),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            messenger.hideCurrentMaterialBanner();
+            setState(() => _currentIndex = _alertsTabIndex);
+          },
+          child: const Text('View', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        ),
+        TextButton(
+          onPressed: messenger.hideCurrentMaterialBanner,
+          child: const Text('Dismiss', style: TextStyle(color: Colors.white70)),
+        ),
+      ],
+    ));
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) messenger.hideCurrentMaterialBanner();
+    });
   }
 
   Future<void> _loadData() async {
@@ -176,7 +207,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       final res =
           await _apiService.dio.get<dynamic>('/notifications?status=unread');
       if (res.data != null && res.data['data'] is List) {
-        unread = (res.data['data'] as List).length;
+        final list = (res.data['data'] as List)
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+        unread = list.length;
+        _announce(list);
       }
     } catch (_) {}
 
@@ -293,6 +329,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       const PersonnelDocumentsScreen(embedded: true),
       const CareerTimelineScreen(),
       const NotificationsScreen(),
+      MyApplicationsScreen(user: widget.user, profile: _profile),
     ];
 
     return Scaffold(
@@ -395,6 +432,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           label: 'My 201 Files'),
                       // Opens CareerTimelineScreen, which the sidebar calls
                       // Service Record - not My Transactions.
+                      _buildNavTabItem(
+                          index: _applicationsTabIndex,
+                          icon: LucideIcons.clipboardList,
+                          label: 'My Applications'),
                       _buildNavTabItem(
                           index: 3,
                           icon: LucideIcons.award,

@@ -80,7 +80,8 @@ const plainTextFor = (options: TransactionalEmailOptions): string => [
 const renderTransactionalEmail = (options: TransactionalEmailOptions): string => {
   const tone = toneTokens[toneFor(options)];
   const safeHeading = escapeHtml(options.heading);
-  const safeMessage = escapeHtml(options.message);
+  // Line breaks in the message (e.g. a list of returned documents) survive in HTML.
+  const safeMessage = escapeHtml(options.message).replace(/\n/g, '<br>');
   const safeName = escapeHtml(options.recipientName);
   const reference = options.reference ? escapeHtml(options.reference) : '';
   const actionUrl = options.actionUrl ? escapeHtml(options.actionUrl) : '';

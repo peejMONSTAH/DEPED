@@ -792,11 +792,39 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
             ? `Requirements Verified Complete: Your documentary requirements for "${cycle.name}" were verified COMPLETE by AO II and endorsed for HRMPSB deliberation.`
             : `Requirements Incomplete / Deficient: Your documentary requirements for "${cycle.name}" were marked INCOMPLETE by AO II. Remarks: ${remarks || 'Please check deficiencies and resubmit required documents.'}`,
           type: isComplete ? 'SUCCESS' : 'WARNING',
-          relatedEntityId: cycleId,
-          relatedEntityType: 'PromotionCycle',
+          relatedEntityId: appId,
+          relatedEntityType: 'PromotionApplication',
         },
       });
       notifyUserNotifications([applicantUserId]);
+
+      // A deficiency needs the applicant to act, so it is emailed too, listing
+      // each returned document and why.
+      if (!isComplete) {
+        const applicant = await prisma.user.findUnique({ where: { id: applicantUserId }, select: { email: true } });
+        const returned = (Array.isArray(itemVerifications) ? itemVerifications : [])
+          .filter((v: any) => v?.status === 'INCOMPLETE')
+          .map((v: any) => {
+            const title = (updatedAnnexC?.items || []).find((it: any) => it.code === v.code)?.title || `Requirement ${String(v.code).toUpperCase()}`;
+            return `• ${title}${v.remarks ? ` — ${v.remarks}` : ''}`;
+          });
+        if (applicant?.email) {
+          await queueTransactionalEmail(`promotion-application:${appId}:deficient:${verificationRecord.verifiedAt}`, {
+            recipientEmail: applicant.email,
+            recipientName: `${app.personnel.firstName} ${app.personnel.lastName}`.trim(),
+            subject: `Action needed: documents returned for "${cycle.name}"`,
+            heading: 'Documents returned for correction',
+            message: `Your AO II reviewed your promotion application for "${cycle.name}" and returned it for correction.`
+              + (returned.length ? `\n\n${returned.join('\n')}` : '')
+              + (remarks ? `\n\nRemarks: ${remarks}` : '')
+              + '\n\nOpen My Applications in the Digital 201 app or website, replace the returned documents, and resubmit.',
+            reference: `Application ${app.applicantNumber || appId}`,
+            actionLabel: 'Open My Applications',
+            actionUrl: `${config.clientUrl}/personnel/home`,
+          });
+          void processWorkflowOutbox();
+        }
+      }
     }
 
     notifyTransactionChange();
@@ -1759,7 +1787,7 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
 
   const personnel = await prisma.personnel.findUnique({
     where: { id: req.user.personnelId },
-    select: { designation: true, plantillaItem: { select: { positionTitle: true } } },
+    select: { designation: true, school: true, firstName: true, lastName: true, plantillaItem: { select: { positionTitle: true } } },
   });
   if (!personnel) {
     sendBadRequest(res, 'Personnel profile not found.', 'PERSONNEL_NOT_FOUND');
@@ -1904,6 +1932,38 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     }
     if (existing.status === 'SUBMITTED') {
       sendSuccess(res, existing, 'Application already submitted for this promotion cycle.');
+      return;
+    }
+    // Resubmission after AO II returned the requirements as deficient: the
+    // corrected checklist replaces the old one and goes back to AO II for a
+    // fresh completeness check. The previous check is kept as history.
+    const priorDetails = (existing.scoreDetailsJson as Record<string, any>) || {};
+    if (checklistData && existing.status === 'UNDER_REVIEW' && priorDetails.stageStatus === 'REQUIREMENTS_DEFICIENT') {
+      const { requirementsCheck, ...rest } = priorDetails;
+      const resubmitted = await prisma.promotionApplication.update({
+        where: { id: existing.id },
+        data: {
+          status: 'SUBMITTED',
+          scoreDetailsJson: {
+            ...rest,
+            annexCChecklist: { ...checklistData, applicationCode: priorDetails.annexCChecklist?.applicationCode },
+            stageStatus: 'RESUBMITTED',
+            resubmittedAt: new Date().toISOString(),
+            requirementsCheckHistory: [...(priorDetails.requirementsCheckHistory || []), ...(requirementsCheck ? [requirementsCheck] : [])],
+          },
+        },
+      });
+      const aoIds = await stationOfficerUserIds(personnel.school);
+      if (aoIds.length) {
+        await prisma.notification.createMany({ data: aoIds.map(userId => ({
+          userId,
+          message: `Requirements Resubmitted: ${personnel.firstName} ${personnel.lastName} resubmitted corrected documents for "${cycle.name}". Please check completeness again.`,
+          type: 'INFO' as const, relatedEntityId: existing.id, relatedEntityType: 'PromotionApplication',
+        })) });
+        notifyUserNotifications(aoIds);
+      }
+      notifyTransactionChange();
+      sendSuccess(res, resubmitted, 'Corrected requirements resubmitted to AO II for checking.');
       return;
     }
     sendBadRequest(res, 'You have already applied for this promotion cycle.', 'ALREADY_APPLIED');
@@ -2375,4 +2435,45 @@ export const generateCarDocument = async (req: Request, res: Response): Promise<
  */
 export const getAnnexCRequirements = async (_req: Request, res: Response): Promise<void> => {
   sendSuccess(res, ANNEX_C_REQUIREMENTS);
+};
+
+/**
+ * GET /promotions/my-applications — the signed-in personnel's promotion
+ * applications, newest first, with each Annex C item's AO II verdict so the
+ * applicant can see what was returned and resubmit it.
+ */
+export const getMyApplications = async (req: Request, res: Response): Promise<void> => {
+  const personnelId = req.user?.personnelId;
+  if (!personnelId) { sendSuccess(res, []); return; }
+  const apps = await prisma.promotionApplication.findMany({
+    where: { personnelId },
+    include: { promotionCycle: { select: { id: true, name: true, type: true, status: true, endDate: true, rulesConfigurationJson: true } } },
+    orderBy: { applicationDate: 'desc' },
+  });
+  sendSuccess(res, apps.map(app => {
+    const details = (app.scoreDetailsJson as Record<string, any>) || {};
+    const check = details.requirementsCheck || null;
+    const verdicts = new Map<string, any>((check?.itemVerifications || []).map((v: any) => [v.code, v]));
+    const items = (details.annexCChecklist?.items || []).map((it: any) => {
+      const v = verdicts.get(it.code);
+      return {
+        code: it.code, title: it.title, isMandatory: Boolean(it.isMandatory), submitted: Boolean(it.submitted ?? it.isSubmitted),
+        fileName: it.fileName || it.documentName || null, personnelDocumentId: it.personnelDocumentId ?? null,
+        verificationStatus: v?.status || it.verificationStatus || null,
+        verificationRemarks: v?.remarks ?? it.verificationRemarks ?? null,
+      };
+    });
+    const deficient = details.stageStatus === 'REQUIREMENTS_DEFICIENT' && app.status === 'UNDER_REVIEW';
+    return {
+      id: app.id, applicantNumber: app.applicantNumber, status: app.status, stageStatus: details.stageStatus || null,
+      applicationDate: app.applicationDate, finalRank: app.finalRank,
+      cycle: { id: app.promotionCycle.id, name: app.promotionCycle.name, type: app.promotionCycle.type,
+        status: app.promotionCycle.status, endDate: app.promotionCycle.endDate,
+        targetPosition: getCycleTargetPosition(app.promotionCycle) },
+      requirementsCheck: check ? { status: check.status, remarks: check.remarks, verifiedAt: check.verifiedAt } : null,
+      canResubmit: deficient && app.promotionCycle.status !== 'CANCELLED',
+      transactionId: Number.isSafeInteger(Number(details.transactionId)) ? Number(details.transactionId) : null,
+      items,
+    };
+  }));
 };

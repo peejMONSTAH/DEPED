@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.eminence.hris.mobile">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+: show Digital 201 notifications in the notification shade. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="Digital 201"
         android:name="${applicationName}"

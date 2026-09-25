@@ -239,7 +239,22 @@ test('2. promotion: HR cycle, application, AO completeness, HR deliberation and 
   ok(await http(T.matAo, 'POST', `${app}/verify-requirements`, { body: { status: 'COMPLETE' } }), 404, 'another station\'s AO II cannot see the application');
   ok(await http(T.teacher, 'POST', `${app}/verify-requirements`, { body: { status: 'COMPLETE' } }), 403, 'the applicant cannot verify');
   ok(await http(T.hr, 'POST', `${app}/final-rating`, { body: rating }), 400, 'HR cannot deliberate before AO completeness check');
-  ok(await http(T.morAo, 'POST', `${app}/verify-requirements`, { body: { status: 'INCOMPLETE', remarks: 'Page 2 unreadable' } }), 200, 'AO returns a deficiency');
+  ok(await http(T.morAo, 'POST', `${app}/verify-requirements`, { body: { status: 'INCOMPLETE', remarks: 'Page 2 unreadable',
+    itemVerifications: [{ code: items.find(i => i.submitted).code, status: 'INCOMPLETE', remarks: 'Blurred scan' }] } }), 200, 'AO returns a deficiency');
+  // The applicant sees what was returned, is emailed, and resubmits.
+  const mine = await http(T.teacher, 'GET', '/promotions/my-applications');
+  ok(mine, 200, 'teacher lists own applications');
+  const listed = mine.json.data.find(a => a.id === T.appId);
+  assert.ok(listed?.canResubmit, 'a deficient application can be resubmitted');
+  assert.ok(listed.items.some(i => i.verificationStatus === 'INCOMPLETE' && i.verificationRemarks === 'Blurred scan'), 'the returned document and its remark are shown');
+  assert.ok(emails.some(e => e.recipientEmail === 'teacher@pilot.invalid' && /returned/i.test(e.subject)), 'the applicant is emailed about the deficiency');
+  ok(await http(T.matAo, 'GET', '/promotions/my-applications'), 403, 'my-applications is for personnel only');
+  const resubmit = await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`, { body: { checklist: { items } } });
+  ok(resubmit, 200, 'teacher resubmits corrected requirements');
+  assert.equal((await db.promotionApplication.findUnique({ where: { id: T.appId } })).status, 'SUBMITTED', 'resubmission returns it to AO II');
+  assert.ok(await db.notification.findFirst({ where: { user: { email: 'ao.morales@pilot.invalid' }, relatedEntityId: T.appId,
+    message: { contains: 'Resubmitted' } } }), 'the AO II is told about the resubmission');
+  ok(await http(T.hr, 'POST', `${app}/final-rating`, { body: rating }), 400, 'HR still cannot deliberate until AO re-checks');
   ok(await http(T.morAo, 'POST', `${app}/verify-requirements`, { body: { status: 'COMPLETE', remarks: 'Verified' } }), 200, 'AO confirms completeness');
   ok(await http(T.morAo, 'POST', `${app}/final-rating`, { body: rating }), 403, 'AO II cannot deliberate');
   ok(await http(T.hr, 'POST', `${app}/select-promotion`, { body: { isPromoted: true } }), 400, 'HR cannot select before deliberation');
