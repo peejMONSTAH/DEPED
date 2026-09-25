@@ -8,6 +8,7 @@ import '../../theme/tokens.dart';
 import '../../utils/display.dart';
 import '../../widgets/ui_kit.dart';
 import '../personnel_documents/personnel_documents_screen.dart';
+import 'profile_actions.dart';
 
 class ProfileScreen extends StatelessWidget {
   final PersonnelProfileModel? profile;
@@ -419,7 +420,7 @@ class ProfileScreen extends StatelessWidget {
                 _buildInfoRow('Civil Status', humanizeEnum(p.civilStatus, fallback: 'Not Specified')),
                 _buildInfoRow('DepEd Email', p.email ?? 'Not Provided', onCopy: p.email != null ? () => _copyToClipboard(context, p.email!, 'Email') : null),
                 _buildInfoRow('Contact Number', p.mobileNo ?? 'Not Provided', onCopy: p.mobileNo != null ? () => _copyToClipboard(context, p.mobileNo!, 'Contact Number') : null),
-                _buildInfoRow('Residential Address', p.address ?? 'Division Office, Koronadal City'),
+                _buildInfoRow('Residential Address', p.address ?? 'Not Provided'),
               ],
             ),
             const SizedBox(height: 16),
@@ -436,6 +437,11 @@ class ProfileScreen extends StatelessWidget {
                 _buildInfoRow('Date Appointed / Hired', formatDate(p.dateHired, fallback: 'Not Provided')),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // What the person may change: blank required details, contact
+            // details and the password. The rest is maintained by AO II/HRMO.
+            ProfileActions(profile: p, onSaved: onRefresh),
             const SizedBox(height: 16),
 
             // Section 3: Personnel 201 Documents & Credentials

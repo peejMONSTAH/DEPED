@@ -75,7 +75,10 @@ export const ProfileCompletion: React.FC = () => {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const missing = person ? FILLABLE.filter(f => blank(person[f.key])) : [];
+  // Middle name and suffix are legitimately empty for many people, so only
+  // the details every record needs are asked for when blank.
+  const OPTIONAL: FieldKey[] = ['middleName', 'suffix'];
+  const missing = person ? FILLABLE.filter(f => !OPTIONAL.includes(f.key) && blank(person[f.key])) : [];
 
   const saveFill = async (e: React.FormEvent) => {
     e.preventDefault();
