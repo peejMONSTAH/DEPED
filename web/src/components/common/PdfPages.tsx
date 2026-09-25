@@ -5,7 +5,8 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 GlobalWorkerOptions.workerSrc = workerUrl;
 
 /**
- * Every page of a PDF drawn to fit the viewer's width (zoom 1 = fit width).
+ * Every page of a PDF drawn so the whole page fits the viewer (zoom 1 = fit
+ * page: width and height), never opening zoomed in; zoom enlarges from there.
  * Used instead of an <iframe>: iOS Safari draws framed PDFs at native size,
  * cannot scroll them, and so showed only a zoomed-in corner of the page.
  */
@@ -13,6 +14,7 @@ export const PdfPages: React.FC<{ url: string; zoom: number; title: string }> = 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(0);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -26,9 +28,10 @@ export const PdfPages: React.FC<{ url: string; zoom: number; title: string }> = 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    const measure = () => { setWidth(el.clientWidth); setHeight(el.clientHeight); };
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
-    setWidth(el.clientWidth);
+    measure();
     return () => observer.disconnect();
   }, []);
 
@@ -37,15 +40,16 @@ export const PdfPages: React.FC<{ url: string; zoom: number; title: string }> = 
       {failed && <p className="text-sm" style={{ textAlign: 'center', color: 'var(--color-danger)' }}>This PDF could not be displayed here. Use Download to open it.</p>}
       {!pdf && !failed && <p className="text-sm text-muted" style={{ textAlign: 'center' }}>Rendering pages…</p>}
       {pdf && width > 0 && Array.from({ length: pdf.numPages }, (_, i) => (
-        <PdfPage key={i} pdf={pdf} pageNumber={i + 1} cssWidth={Math.max(120, (width - 24) * zoom)} label={`${title}, page ${i + 1} of ${pdf.numPages}`} />
+        <PdfPage key={i} pdf={pdf} pageNumber={i + 1} boxWidth={width - 24} boxHeight={height - 24} zoom={zoom} label={`${title}, page ${i + 1} of ${pdf.numPages}`} />
       ))}
     </div>
   );
 };
 
-const PdfPage: React.FC<{ pdf: PDFDocumentProxy; pageNumber: number; cssWidth: number; label: string }> = ({ pdf, pageNumber, cssWidth, label }) => {
+const PdfPage: React.FC<{ pdf: PDFDocumentProxy; pageNumber: number; boxWidth: number; boxHeight: number; zoom: number; label: string }> = ({ pdf, pageNumber, boxWidth, boxHeight, zoom, label }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cssHeight, setCssHeight] = useState<number | undefined>();
+  const [cssWidth, setCssWidth] = useState<number>(Math.max(120, boxWidth));
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +57,10 @@ const PdfPage: React.FC<{ pdf: PDFDocumentProxy; pageNumber: number; cssWidth: n
     pdf.getPage(pageNumber).then(page => {
       if (cancelled || !canvasRef.current) return;
       const base = page.getViewport({ scale: 1 });
-      const scale = cssWidth / base.width;
+      // Fit the whole page in the box (a very short box falls back to width).
+      const fitScale = boxHeight > 200 ? Math.min(boxWidth / base.width, boxHeight / base.height) : boxWidth / base.width;
+      const scale = Math.max(0.1, fitScale * zoom);
+      setCssWidth(base.width * scale);
       // Sharp on high-density screens, capped so large zooms stay within canvas limits.
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
       const viewport = page.getViewport({ scale: scale * pixelRatio });
@@ -65,7 +72,7 @@ const PdfPage: React.FC<{ pdf: PDFDocumentProxy; pageNumber: number; cssWidth: n
       renderTask.promise.catch(() => { /* superseded by a newer zoom */ });
     });
     return () => { cancelled = true; renderTask?.cancel(); };
-  }, [pdf, pageNumber, cssWidth]);
+  }, [pdf, pageNumber, boxWidth, boxHeight, zoom]);
 
   return (
     <canvas ref={canvasRef} role="img" aria-label={label}

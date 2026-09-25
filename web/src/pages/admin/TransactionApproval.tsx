@@ -1,4 +1,5 @@
 import { ModalOverlay } from '../../components/common/ModalOverlay';
+import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
@@ -1042,6 +1043,8 @@ export const TransactionApproval: React.FC = () => {
                         type="button"
                         className="btn btn-secondary btn-xs"
                         onClick={() => setViewingDoc(doc)}
+                        disabled={(doc as DetailedDocument).id === undefined}
+                        title={(doc as DetailedDocument).id === undefined ? 'Reload the transaction to open its files' : undefined}
                       >
                         Inspect
                       </button>
@@ -1183,42 +1186,15 @@ export const TransactionApproval: React.FC = () => {
         </ModalOverlay>
       )}
 
-      {/* Full Document View Modal */}
-      {viewingDoc && (
-        <ModalOverlay onDismiss={() => setViewingDoc(null)} className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal" style={{ maxWidth: 760, width: '90%' }}>
-            <div className="modal-header">
-              <div>
-                <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <AppIcon name="repository" size={18} color="var(--color-primary)" /> {viewingDoc.name}
-                </h3>
-                <span className="badge badge-approved" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                  <AppIcon name="check" size={10} /> AO II VALIDATED VAULT FILE
-                </span>
-              </div>
-              <button type="button" className="modal-close" onClick={() => setViewingDoc(null)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              <div style={{
-                background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 12,
-                height: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--color-text-secondary)', fontSize: 14, gap: 12, padding: 20, textAlign: 'center'
-              }}>
-                <div style={{ padding: 14, borderRadius: '50%', background: 'rgba(59, 130, 246, 0.12)' }}>
-                  <AppIcon name="repository" size={48} color="#3F9265" />
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)' }}>{viewingDoc.name}</div>
-                <div style={{ fontSize: 12 }}>Evaluator: {viewingDoc.validatedBy || 'Not recorded'}</div>
-                <div style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--color-text-muted)' }}>
-                  Validation Feedback: "{viewingDoc.validationNotes || 'Verified & Compliant under Quality Standards'}"
-                </div>
-                <span className="badge badge-info" style={{ marginTop: 6 }}>
-                  DepEd SDO e-201 Official Digital Vault Certified
-                </span>
-              </div>
-            </div>
-          </div>
-        </ModalOverlay>
+      {/* The actual uploaded file, fitted to the viewer's width */}
+      {viewingDoc && viewingDoc.id !== undefined && (
+        <DocumentViewerModal
+          isOpen
+          onClose={() => setViewingDoc(null)}
+          title={viewingDoc.name}
+          fileName={viewingDoc.type}
+          fileUrl={`/documents/${viewingDoc.id}/file`}
+        />
       )}
     </div>
   );
