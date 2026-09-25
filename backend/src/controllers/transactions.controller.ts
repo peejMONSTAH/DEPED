@@ -604,14 +604,6 @@ export const submitTransaction = async (req: Request, res: Response) => {
       return;
     }
   }
-  const unconfirmedPds = transaction.uploadedDocuments.find(doc => {
-    const template = mandatoryTemplates.find(t => t.id === doc.requirementTemplateId);
-    return /personal data sheet|\bpds\b/i.test(template?.name || '') && doc.ocrExtractedDataJson && !isConfirmedPdsData(doc.correctedOcrDataJson);
-  });
-  if (unconfirmedPds) {
-    sendBadRequest(res, 'Review and confirm the fields detected from your PDS before submitting the transaction.', 'PDS_CONFIRMATION_REQUIRED');
-    return;
-  }
   // The status change and its audit entry must land together; notifying AO II is a
   // post-commit side effect and stays outside so its latency cannot abort the write.
   const updated = await prisma.$transaction(async tx => {
@@ -621,9 +613,7 @@ export const submitTransaction = async (req: Request, res: Response) => {
     });
     if (current.status !== transaction.status) throw workflowConflict('The transaction changed. Refresh before submitting again.');
     const compliance = transactionCompliance(current.transactionType.requirementTemplates, current.uploadedDocuments);
-    if (!compliance.isComplete) throw workflowConflict(compliance.unconfirmedPds
-      ? 'Review and confirm the extracted PDS fields before submitting.'
-      : 'Upload or replace all missing and rejected mandatory documents before submitting.');
+    if (!compliance.isComplete) throw workflowConflict('Upload or replace all missing and rejected mandatory documents before submitting.');
     const claimed = await tx.transaction.updateMany({
       where: { id, status: transaction.status },
       data: {

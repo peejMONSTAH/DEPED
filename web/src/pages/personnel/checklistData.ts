@@ -30,11 +30,12 @@ export function checklistFromTransaction(transaction: any): RequirementItem[] {
 }
 
 export function checklistReadiness(items: RequirementItem[]) {
-  const complete = (item: RequirementItem) => ['UPLOADED', 'VALIDATED'].includes(item.status) && !item.needsExtractionReview;
+  // Reviewing OCR-read fields is optional; an uploaded document counts.
+  const complete = (item: RequirementItem) => ['UPLOADED', 'VALIDATED'].includes(item.status);
   const required = items.filter(item => item.isMandatory);
   return {
     missing: required.filter(item => !complete(item)),
-    complete: items.length > 0 && required.every(complete) && items.some(complete) && !items.some(item => item.needsExtractionReview),
+    complete: items.length > 0 && required.every(complete) && items.some(complete),
   };
 }
 

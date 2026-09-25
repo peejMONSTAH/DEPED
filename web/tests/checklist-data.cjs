@@ -21,9 +21,9 @@ test('upload is not validation; optional files do not prevent submission, reject
   transaction.uploadedDocuments[0].status = 'REJECTED';
   assert.equal(checklistReadiness(checklistFromTransaction(transaction)).complete, false);
 });
-test('unconfirmed OCR fields block readiness until personnel review', () => {
+test('unconfirmed OCR fields do not block readiness; reviewing them is optional', () => {
   const transaction = { transactionType: { requirementTemplates: templates }, uploadedDocuments: [{ id: 4, requirementTemplateId: 101, status: 'OCR_PROCESSED', ocrExtractedDataJson: { fields: {} } }] };
-  assert.equal(checklistReadiness(checklistFromTransaction(transaction)).complete, false);
+  assert.equal(checklistReadiness(checklistFromTransaction(transaction)).complete, true);
   transaction.uploadedDocuments[0].correctedOcrDataJson = { confirmation: { confirmedAt: '2026-09-22' } };
   assert.equal(checklistReadiness(checklistFromTransaction(transaction)).complete, true);
 });

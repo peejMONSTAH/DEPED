@@ -7,7 +7,6 @@ import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { templateForRequirement } from '../../components/forms/templateMatch';
 import { checklistFromTransaction, checklistReadiness, type RequirementItem } from './checklistData';
-import { ExtractionReview } from '../../components/forms/ExtractionReview';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
 import { DocumentScannerModal } from '../../components/common/DocumentScannerModal';
 import { ModalPortal } from '../../components/common/ModalPortal';
@@ -35,7 +34,6 @@ export const Checklist: React.FC = () => {
   const [items, setItems] = useState<RequirementItem[]>([]);
   const [score, setScore] = useState(0);
   const [checklistError, setChecklistError] = useState('');
-  const [reviewDocument, setReviewDocument] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actualType, setActualType] = useState('');
   const [txStatus, setTxStatus] = useState<string>('UNKNOWN');
@@ -343,13 +341,11 @@ export const Checklist: React.FC = () => {
           different situations, so they are listed separately. */}
       {(() => {
         const returned = missingReqs.filter(r => r.status === 'DEFICIENT');
-        const toReview = items.filter(r => r.needsExtractionReview && r.status !== 'DEFICIENT');
-        const notUploaded = missingReqs.filter(r => r.status !== 'DEFICIENT' && !r.needsExtractionReview);
-        const uploadedDone = completedReqs.filter(r => !r.needsExtractionReview);
+        const notUploaded = missingReqs.filter(r => r.status !== 'DEFICIENT');
+        const uploadedDone = completedReqs;
         const tone = isComplete ? 'var(--color-success)' : returned.length ? 'var(--color-danger)' : 'var(--color-warning)';
         const pill = isComplete ? { cls: 'badge-approved', text: 'Ready for validation' }
           : returned.length ? { cls: 'badge-deficiency', text: `${returned.length} returned for correction` }
-          : toReview.length && !notUploaded.length ? { cls: 'badge-pending', text: 'Review needed' }
           : { cls: 'badge-pending', text: completedReqs.length ? 'In progress' : 'Not started' };
         const row = (r: RequirementItem, color: string, icon: 'approved' | 'warning' | 'pending', note?: string) => (
           <li key={r.requirementId} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '6px 0', borderTop: '1px solid var(--color-border)' }}>
@@ -388,21 +384,6 @@ export const Checklist: React.FC = () => {
               </div>
             )}
 
-            {toReview.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                <div className="text-xs" style={{ fontWeight: 700, color: 'var(--color-warning)', marginBottom: 2 }}>Confirm the scanned information before submitting</div>
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {toReview.map(r => (
-                    <li key={r.requirementId} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--color-border)' }}>
-                      <AppIcon name="warning" size={14} color="var(--color-warning)" />
-                      <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 'var(--text-sm)' }}>{r.name}</span>
-                      {r.documentId && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewDocument(r.documentId!)}>Review now</button>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             {notUploaded.length > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div className="text-xs text-muted" style={{ fontWeight: 700, marginBottom: 2 }}>Still to upload</div>
@@ -428,8 +409,8 @@ export const Checklist: React.FC = () => {
                 : returned.length
                   ? `Upload corrected copies of the ${returned.length} returned document${returned.length === 1 ? '' : 's'}${notUploaded.length ? ` and the ${notUploaded.length} still missing` : ''} to submit.`
                   : notUploaded.length
-                    ? `Upload the ${notUploaded.length} remaining document${notUploaded.length === 1 ? '' : 's'}${toReview.length ? ' and confirm the scanned information' : ''} to submit.`
-                    : `Confirm the scanned information for ${toReview.map(r => r.name).join(', ')} to submit.`}
+                    ? `Upload the ${notUploaded.length} remaining document${notUploaded.length === 1 ? '' : 's'} to submit.`
+                    : 'Upload the remaining documents to submit.'}
             </p>
           </section>
         );
@@ -531,7 +512,6 @@ export const Checklist: React.FC = () => {
                           <AppIcon name="view" size={13} /> View
                         </button>
                       )}
-                      {item.needsExtractionReview && item.documentId && <button type="button" className="btn btn-primary btn-sm" onClick={() => setReviewDocument(item.documentId)}>Review scanned information</button>}
                       {item.documentId && !isDeficientDoc && replacingReqId !== item.requirementId ? (
                         <button type="button" className="btn btn-secondary btn-sm"
                           disabled={loading || uploadingReqId !== null || submitting}
@@ -592,7 +572,6 @@ export const Checklist: React.FC = () => {
         </div>
       </div>
 
-      {reviewDocument && <ExtractionReview documentId={reviewDocument} onClose={() => setReviewDocument(null)} onConfirmed={() => { setReviewDocument(null); void fetchTransactionData(); }} />}
 
       {scannerReqItem && <DocumentScannerModal
         isOpen={Boolean(scannerReqItem)} documentTypeName={scannerReqItem.name}
@@ -634,7 +613,7 @@ export const Checklist: React.FC = () => {
                 ? 'Submitted — Under AO II Verification'
                 : isComplete
                 ? 'All Mandatory Requirements Satisfied'
-                : missingReqs.every(r => r.needsExtractionReview) ? 'Scanned Information Needs Your Review' : 'Documents Pending Upload'}
+                : 'Documents Pending Upload'}
             </div>
             <div className="text-xs text-muted">
               {txStatus === 'APPROVED' || txStatus === 'COMPLETED'
@@ -645,8 +624,6 @@ export const Checklist: React.FC = () => {
                 ? 'Your dossier is actively in the receiving queue for AO II validation. You will be notified of any deficiency or endorsement in real time.'
                 : isComplete
                 ? 'Your 201 transaction dossier is complete and ready for AO II receiving and validation.'
-                : missingReqs.every(r => r.needsExtractionReview)
-                ? `Confirm what was read from ${missingReqs.map(r => r.name).join(', ')} ("Review scanned information"), then submit.`
                 : `Please complete the remaining ${missingReqs.length} required document(s) before submitting.`}
             </div>
           </div>

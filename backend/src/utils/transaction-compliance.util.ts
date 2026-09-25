@@ -16,5 +16,8 @@ export function transactionCompliance(requirements: Requirement[], documents: Do
   const complianceScore = mandatory.length
     ? Math.round(((mandatory.length - missing.length) / mandatory.length) * 100)
     : acceptable.length ? 100 : 0;
-  return { complianceScore, missing, unconfirmedPds, isComplete: acceptable.length > 0 && missing.length === 0 && !unconfirmedPds };
+  // Confirming the PDS fields read by OCR is optional: a transaction with every
+  // mandatory document uploaded (100% compliance) may be submitted. AO II checks
+  // the documents themselves. unconfirmedPds is still reported for display.
+  return { complianceScore, missing, unconfirmedPds, isComplete: acceptable.length > 0 && missing.length === 0 };
 }

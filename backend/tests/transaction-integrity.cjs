@@ -18,9 +18,9 @@ test('all mandatory documents, with no optional upload, are complete', () => {
   assert.equal(result.complianceScore,100); assert.equal(result.isComplete,true);
   assert.equal(transactionCompliance([],[]).isComplete,false);
 });
-test('extracted PDS information requires personnel confirmation', () => {
+test('unconfirmed PDS fields are reported but do not block submission', () => {
   const result=transactionCompliance([{id:1,isMandatory:true,name:'Personal Data Sheet'}],[{requirementTemplateId:1,status:'OCR_PROCESSED',ocrExtractedDataJson:{templateId:'pds-2025',fields:{firstName:'Test'}}}]);
-  assert.equal(result.unconfirmedPds,true); assert.equal(result.isComplete,false);
+  assert.equal(result.unconfirmedPds,true); assert.equal(result.isComplete,true, '100% compliance is enough to submit');
 });
 
 const fixture={id:12,personnelId:42,transactionType:{name:'Promotion',requirementTemplates:mandatory},personnel:{promotionApplications:[]},uploadedDocuments:[]};

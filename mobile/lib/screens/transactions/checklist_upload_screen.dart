@@ -12,7 +12,6 @@ import '../../utils/display.dart';
 import '../../widgets/compliance_gauge.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/transaction_tracker_card.dart';
-import 'extraction_review_screen.dart';
 
 class ChecklistUploadScreen extends StatefulWidget {
   final TransactionModel transaction;
@@ -30,15 +29,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
   bool _isUploading = false;
   bool _isSubmitting = false;
   bool _unavailableDialogShown = false;
-  bool get _needsReview => _currentTx.requirements.any((item) => item.needsExtractionReview);
-
-  Future<void> _reviewExtraction(RequirementItemModel item) async {
-    if (item.documentId == null || _isUploading || _isSubmitting) return;
-    final confirmed = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => ExtractionReviewScreen(documentId: item.documentId!, service: _transactionService),
-    ));
-    if (confirmed == true && mounted) await _refreshTransaction();
-  }
+  // Reviewing OCR-read fields is optional: 100% compliance is enough to submit.
 
   @override
   void initState() {
@@ -116,7 +107,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
 
   void _handleSubmitTransaction() async {
     // Submission eligibility belongs to this assigned transaction and is enforced by the API.
-    if (_isUploading || _needsReview || _currentTx.complianceScore < 100) return;
+    if (_isUploading || _currentTx.complianceScore < 100) return;
 
     if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
@@ -216,7 +207,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                 StatusBadge(status: _currentTx.status),
                                 const SizedBox(height: 6),
                                 Text(
-                                  _needsReview ? 'Review the scanned information below' : _currentTx.complianceScore >= 100.0
+                                  _currentTx.complianceScore >= 100.0
                                       ? 'Ready for AO II Submission'
                                       : 'Upload all mandatory requirements below',
                                   style: TextStyle(
@@ -418,12 +409,6 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                               fontSize: 11,
                                               color: AppTheme.textSecondary)),
                                     ],
-                                    if (canEdit && item.needsExtractionReview && item.documentId != null)
-                                      TextButton.icon(
-                                        onPressed: () => _reviewExtraction(item),
-                                        icon: const Icon(Icons.fact_check_outlined, size: 18),
-                                        label: const Text('Review scanned information'),
-                                      ),
                                     if (isDeficient &&
                                         item.rejectionReason != null) ...[
                                       const SizedBox(height: 6),
@@ -567,7 +552,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
-                      onTap: !_isUploading && !_isSubmitting && !_needsReview && _currentTx.complianceScore >= 100 ? _handleSubmitTransaction : null,
+                      onTap: !_isUploading && !_isSubmitting && _currentTx.complianceScore >= 100 ? _handleSubmitTransaction : null,
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -576,7 +561,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                 color: Colors.white, size: 16),
                             const SizedBox(width: 8),
                             Text(
-                              _needsReview ? 'Review scanned information first' : _currentTx.complianceScore >= 100.0
+                              _currentTx.complianceScore >= 100.0
                                   ? 'Submit to AO II for Validation'
                                   : 'Complete required documents (${_currentTx.complianceScore.toInt()}%)',
                               style: GoogleFonts.plusJakartaSans(
