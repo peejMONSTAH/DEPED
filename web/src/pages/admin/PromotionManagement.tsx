@@ -4975,16 +4975,10 @@ export const PromotionManagement: React.FC = () => {
                     </div>
                     <div>
                       <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                        Applicant Capacity & Vacant Plantilla Quota
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                        Input total applicant capacity and how many applicants will be chosen for promotion.
+                        Vacancy
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 800, background: 'var(--color-primary)', color: '#ffffff', padding: '3px 10px', borderRadius: '9999px' }}>
-                    Top Priority
-                  </span>
                 </div>
 
                 {/* 2-Column Grid at Top: Max Applicants Capacity & Applicants to be Chosen */}
@@ -4992,7 +4986,7 @@ export const PromotionManagement: React.FC = () => {
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <AppIcon name="users" size={13} color="var(--color-primary)" />
-                      Max Applicants Capacity <span style={{ color: 'var(--color-danger)' }}>*</span>
+                      Maximum applicants <span style={{ color: 'var(--color-danger)' }}>*</span>
                     </label>
                     <input
                       aria-label="Max Applicants Capacity"
@@ -5010,15 +5004,12 @@ export const PromotionManagement: React.FC = () => {
                       style={{ fontWeight: 700, fontSize: '1.0625rem' }}
                       required
                     />
-                    <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                      Total applicant submissions allowed before pool closes.
-                    </div>
                   </div>
 
                   <div className="form-group" style={{ margin: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <AppIcon name="approved" size={13} color="#10B981" />
-                      Applicants That Will Be Chosen <span style={{ color: 'var(--color-danger)' }}>*</span>
+                      Positions to fill <span style={{ color: 'var(--color-danger)' }}>*</span>
                     </label>
                     <input
                       aria-label="Applicants That Will Be Chosen"
@@ -5036,9 +5027,6 @@ export const PromotionManagement: React.FC = () => {
                       style={{ fontWeight: 700, fontSize: '1.0625rem', borderColor: '#10B981' }}
                       required
                     />
-                    <div style={{ fontSize: '0.875rem', color: '#059669', marginTop: '4px', fontWeight: 600 }}>
-                      {Number(newVacantPositions) || 1} applicant{(Number(newVacantPositions) || 1) > 1 ? 's' : ''} to be promoted ({Number(newVacantPositions) || 1} plantilla slot{(Number(newVacantPositions) || 1) > 1 ? 's' : ''} below).
-                    </div>
                   </div>
                 </div>
 
@@ -5047,14 +5035,11 @@ export const PromotionManagement: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <label style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <AppIcon name="employment" size={14} color="var(--color-primary)" />
-                      Designated Vacant Plantilla Items ({Number(newVacantPositions) || 1} Required)
+                      Plantilla item{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}
                     </label>
                     <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                      {designatedPlantillas.filter(Boolean).length} of {Number(newVacantPositions) || 1} Selected
+                      {designatedPlantillas.filter(Boolean).length} of {Number(newVacantPositions) || 1} selected
                     </span>
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>
-                    Because <strong>{Number(newVacantPositions) || 1} applicant{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</strong> will be chosen, input/select <strong>{Number(newVacantPositions) || 1} vacant plantilla post{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</strong>. Chosen personnels will be assigned to these plantillas.
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -5124,20 +5109,7 @@ export const PromotionManagement: React.FC = () => {
                                 <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                                   Plantilla Post #{idx + 1}
                                 </span>
-                                {isFirst && (
-                                  <span style={{
-                                    marginLeft: '8px',
-                                    fontSize: '0.875rem',
-                                    fontWeight: 700,
-                                    color: 'var(--color-primary)',
-                                    background: 'rgba(59, 130, 246, 0.12)',
-                                    padding: '2px 7px',
-                                    borderRadius: '9999px',
-                                    border: '1px solid rgba(59, 130, 246, 0.25)',
-                                  }}>
-                                    Primary Post • Auto-Sync
-                                  </span>
-                                )}
+                                
                               </div>
                             </div>
 
@@ -5540,10 +5512,10 @@ export const PromotionManagement: React.FC = () => {
                                 </div>
                                 <div>
                                   <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                                    Select Vacant Plantilla Item for Post #{idx + 1}
+                                    Choose a plantilla item{(Number(newVacantPositions) || 1) > 1 ? ` for post #${idx + 1}` : ''}
                                   </div>
                                   <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                                    Click to browse {availableItems.length} vacant plantilla item{availableItems.length !== 1 ? 's' : ''} available for allocation
+                                    {availableItems.length} vacant item{availableItems.length !== 1 ? 's' : ''} available
                                   </div>
                                 </div>
                               </div>
@@ -5589,34 +5561,15 @@ export const PromotionManagement: React.FC = () => {
                     <CheckCircle2 size={18} color="#10B981" />
                     <div>
                       <div style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>
-                        Plantilla Position & Jurisdiction Auto-Synchronized
+                        From the plantilla item
                       </div>
                       <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        Position: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.positionTitle}</strong> (SG {linkedPlantilla.salaryGrade}) • District: <strong style={{ color: 'var(--color-text-primary)' }}>{newCycleDistrict}</strong> • Station: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.department || 'All Schools in District'}</strong> • Track: <strong style={{ color: '#059669' }}>{newCycleTrack === 'TEACHING' ? 'Teaching Track (100 pts)' : 'Non-Teaching Track (100 pts)'}</strong>
+                        Position: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.positionTitle}</strong> (SG {linkedPlantilla.salaryGrade}) • District: <strong style={{ color: 'var(--color-text-primary)' }}>{newCycleDistrict}</strong> • Station: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.department || 'All Schools in District'}</strong> • Track: <strong style={{ color: '#059669' }}>{newCycleTrack === 'TEACHING' ? 'Teaching' : 'Non-teaching'}</strong>
                       </div>
                     </div>
                   </div>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.15)', padding: '3px 8px', borderRadius: '6px' }}>
-                    ● Plantilla Locked
-                  </span>
                 </div>
-              ) : (
-                <div style={{
-                  padding: '10px 14px',
-                  borderRadius: '8px',
-                  background: theme === 'dark' ? 'rgba(245, 158, 11, 0.1)' : '#FFFBEB',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  marginBottom: '18px',
-                  fontSize: '0.9375rem',
-                  color: theme === 'dark' ? '#FBBF24' : '#D97706',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}>
-                  <AlertCircle size={15} />
-                  <span>Please select a vacant plantilla item above. Position, district, and track will automatically synchronize.</span>
-                </div>
-              )}
+              ) : null}
 
               {/* Cycle Information & Schedule (Spacious 2-Column Grid) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '14px', marginBottom: '16px' }}>
