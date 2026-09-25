@@ -51,6 +51,11 @@ test('Discontinued Promotion Cycles: general opportunities query enforces status
   let capturedWhere = null;
   const origFindMany = prisma.promotionCycle.findMany;
   const origCount = prisma.promotionCycle.count;
+  // The personnel lookups must never reach a real database from a unit test.
+  const origPersonnel = prisma.personnel.findUnique;
+  const origApps = prisma.promotionApplication.findMany;
+  prisma.personnel.findUnique = async () => ({ id: 11, district: 'District 1', designation: 'Teacher I', plantillaItem: null });
+  prisma.promotionApplication.findMany = async () => [];
 
   try {
     prisma.promotionCycle.findMany = async (args) => {
@@ -82,5 +87,7 @@ test('Discontinued Promotion Cycles: general opportunities query enforces status
   } finally {
     prisma.promotionCycle.findMany = origFindMany;
     prisma.promotionCycle.count = origCount;
+    prisma.personnel.findUnique = origPersonnel;
+    prisma.promotionApplication.findMany = origApps;
   }
 });

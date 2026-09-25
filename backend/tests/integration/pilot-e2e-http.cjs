@@ -196,7 +196,22 @@ test('2. promotion: HR cycle, application, AO completeness, HR deliberation and 
     user: { email } } });
   assert.ok(await cycleNotice('teacher@pilot.invalid'), "personnel at the cycle's school are told it opened");
   assert.ok(await cycleNotice('ao.morales@pilot.invalid'), "the AO II at the cycle's school is told it opened");
-  assert.equal(await cycleNotice('ao.matulas@pilot.invalid'), null, "another school's AO II is not told about this vacancy");
+  assert.ok(await cycleNotice('ao.matulas@pilot.invalid'), 'a division-wide vacancy is announced to every station');
+
+  // "Open to": a district-only cycle is hidden from, and closed to, other districts.
+  const original = (await db.promotionCycle.findUnique({ where: { id: T.cycleId } })).rulesConfigurationJson;
+  await db.promotionCycle.update({ where: { id: T.cycleId }, data: { rulesConfigurationJson: { ...original, openTo: 'DISTRICT', district: 'District 9' } } });
+  const hidden = await http(T.teacher, 'GET', '/promotions/cycles');
+  assert.ok(!(hidden.json.data || []).some(c => c.id === T.cycleId), 'a district-only cycle is hidden from other districts');
+  ok(await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`, { body: { checklist: { items: [] } } }), 403, 'applying outside the district is refused');
+  await db.promotionCycle.update({ where: { id: T.cycleId }, data: { rulesConfigurationJson: { ...original, openTo: 'DISTRICT', district: 'District 1' } } });
+  const shown = await http(T.teacher, 'GET', '/promotions/cycles');
+  assert.ok((shown.json.data || []).some(c => c.id === T.cycleId), 'a district-only cycle is shown to its own district');
+  await db.promotionCycle.update({ where: { id: T.cycleId }, data: { rulesConfigurationJson: original } });
+
+  const ecp = await http(T.hr, 'POST', '/promotions/cycles', { body: { ...cycleBody, name: 'ECP reclassification pilot', type: 'ECP' } });
+  ok(ecp, 201, 'HR can create an ECP cycle');
+  await db.promotionCycle.update({ where: { id: ecp.json.data.id }, data: { status: 'CANCELLED' } });
   const visible = await http(T.teacher, 'GET', '/promotions/cycles');
   ok(visible, 200, 'teacher lists cycles');
   assert.ok((visible.json.data || []).some(c => c.id === T.cycleId), 'teacher sees the open cycle');

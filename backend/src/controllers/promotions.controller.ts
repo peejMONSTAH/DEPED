@@ -66,6 +66,20 @@ export const getCycleTargetPosition = (cycle: { name?: string | null; rulesConfi
     .trim();
 };
 
+/**
+ * Who a cycle is open to. HR chooses "Whole division" (everyone may view and
+ * apply) or "District only" (only personnel of that district). Cycles made
+ * before this setting existed are division-wide.
+ */
+export const cycleOpenToDistrict = (cycle: { rulesConfigurationJson?: unknown }): string | null => {
+  const rules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
+  return rules.openTo === 'DISTRICT' && typeof rules.district === 'string' && rules.district.trim() ? rules.district : null;
+};
+export const cycleOpenToPerson = (cycle: { rulesConfigurationJson?: unknown }, person?: { district?: string | null } | null): boolean => {
+  const district = cycleOpenToDistrict(cycle);
+  return !district || sameStation(person?.district, district);
+};
+
 export const getPromotionCycles = async (req: Request, res: Response): Promise<void> => {
   if (req.user?.role === 'SYSTEM_ADMIN') {
     res.status(403).json({
@@ -136,6 +150,19 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
     prisma.promotionCycle.count({ where }),
   ]);
 
+  // Personnel only see division-wide cycles and those open to their district
+  // (plus any they already applied to).
+  let visibleData = data;
+  let visibleTotal = total;
+  if (isPersonnelRole(req.user?.role) && req.user?.personnelId) {
+    const me = await prisma.personnel.findUnique({ where: { id: req.user.personnelId }, select: { district: true } });
+    const appliedIds = new Set((await prisma.promotionApplication.findMany({
+      where: { personnelId: req.user.personnelId }, select: { promotionCycleId: true },
+    })).map(a => a.promotionCycleId));
+    visibleData = data.filter(c => appliedIds.has(c.id) || cycleOpenToPerson(c, me));
+    visibleTotal = total - (data.length - visibleData.length);
+  }
+
   let myApplications: any[] = [];
   let currentPosition = '';
   if (req.user?.personnelId) {
@@ -162,7 +189,7 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
 
   const appsMap = new Map(myApplications.map(a => [a.promotionCycleId, a]));
 
-  const enriched = data.map(cycle => {
+  const enriched = visibleData.map(cycle => {
     const targetPosition = getCycleTargetPosition(cycle);
     const eligibility = currentPosition
       ? checkPromotionEligibility(currentPosition, targetPosition, cycle.type)
@@ -204,7 +231,7 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
     };
   });
 
-  sendSuccess(res, enriched, undefined, 200, buildPaginationMeta(page, limit, total));
+  sendSuccess(res, enriched, undefined, 200, buildPaginationMeta(page, limit, visibleTotal));
 };
 
 export const createPromotionCycle = async (req: Request, res: Response): Promise<void> => {
@@ -273,11 +300,10 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
     // Before, every station was told about another school's vacancy.
     try {
       const cycleRules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
-      const inAudience = (person?: { school: string | null; district: string | null } | null): boolean => {
-        if (cycleRules.school) return sameStation(person?.school, cycleRules.school);
-        if (cycleRules.district) return sameStation(person?.district, cycleRules.district);
-        return true;
-      };
+      // A district-only cycle is announced to that district; a division-wide
+      // one to everyone (the same people who can see and apply).
+      const inAudience = (person?: { school: string | null; district: string | null } | null): boolean =>
+        cycleRules.openTo === 'DISTRICT' ? cycleOpenToPerson(cycle, person) : true;
       const candidates = await prisma.user.findMany({
         where: {
           accountStatus: 'ACTIVE',
@@ -1787,7 +1813,7 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
 
   const personnel = await prisma.personnel.findUnique({
     where: { id: req.user.personnelId },
-    select: { designation: true, school: true, firstName: true, lastName: true, plantillaItem: { select: { positionTitle: true } } },
+    select: { designation: true, school: true, district: true, firstName: true, lastName: true, plantillaItem: { select: { positionTitle: true } } },
   });
   if (!personnel) {
     sendBadRequest(res, 'Personnel profile not found.', 'PERSONNEL_NOT_FOUND');
@@ -1797,6 +1823,10 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
   const currentPosition = personnel.designation || personnel.plantillaItem?.positionTitle || '';
   const targetPosition = getCycleTargetPosition(cycle);
 
+  if (!cycleOpenToPerson(cycle, personnel)) {
+    sendForbidden(res, `This vacancy is open only to personnel of ${cycleOpenToDistrict(cycle)}.`);
+    return;
+  }
   const eligibility = checkPromotionEligibility(currentPosition, targetPosition, cycle.type);
   if (!eligibility.isEligible) {
     sendBadRequest(

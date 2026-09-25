@@ -423,6 +423,8 @@ export const PromotionManagement: React.FC = () => {
   const [newCycleName, setNewCycleName] = useState('');
   const [newCycleTrack, setNewCycleTrack] = useState<'TEACHING' | 'NON_TEACHING'>('TEACHING');
   const [newCycleType, setNewCycleType] = useState('NATURAL_VACANCY');
+  // Who may see and apply: the whole division, or only the vacancy's district.
+  const [newOpenTo, setNewOpenTo] = useState<'DIVISION' | 'DISTRICT'>('DIVISION');
   const [newTargetPosition, setNewTargetPosition] = useState<string>('Teacher I');
   const [newCycleStatus, setNewCycleStatus] = useState('ACTIVE');
   const [newStartDate, setNewStartDate] = useState(todayStr);
@@ -1058,6 +1060,7 @@ export const PromotionManagement: React.FC = () => {
           plantillaItemNumbers: activePlantillaNumbers,
           district: finalDistrict,
           school: finalSchool,
+          openTo: newOpenTo === 'DISTRICT' && finalDistrict ? 'DISTRICT' : 'DIVISION',
           maxApplicants: Number(newMaxApplicants) || 10,
           vacantPositions: Number(newVacantPositions) || 1,
         },
@@ -1072,6 +1075,7 @@ export const PromotionManagement: React.FC = () => {
       setDesignatedPlantillas(['']);
       setNewVacantPositions(1);
       setOverridePlantillaFields(false);
+      setNewOpenTo('DIVISION');
 
       if (createdCycle) {
         setCycles(prev => [createdCycle, ...prev]);
@@ -5600,7 +5604,24 @@ export const PromotionManagement: React.FC = () => {
                     onChange={(e) => setNewCycleType(e.target.value)}
                   >
                     <option value="NATURAL_VACANCY">Natural Vacancy (DepEd DO 19)</option>
-                    <option value="EXECUTIVE_CLASS">ECP Reclassification (DepEd DO 24)</option>
+                    <option value="ECP">ECP Reclassification (DepEd DO 24)</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
+                    Open to
+                  </label>
+                  <select
+                    aria-label="Open to"
+                    className="form-input"
+                    value={newOpenTo}
+                    onChange={(e) => setNewOpenTo(e.target.value as 'DIVISION' | 'DISTRICT')}
+                  >
+                    <option value="DIVISION">Whole division — anyone can view and apply</option>
+                    <option value="DISTRICT" disabled={!newCycleDistrict}>
+                      {newCycleDistrict ? `${newCycleDistrict} only` : 'District only (choose a plantilla item first)'}
+                    </option>
                   </select>
                 </div>
 
