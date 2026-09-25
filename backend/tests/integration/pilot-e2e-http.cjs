@@ -348,6 +348,10 @@ test('3. appointment: requirements, AO check, HR approval, official appointment'
   ok(await http(T.teacher, 'POST', `/transactions/${T.txId}/submit`), 200, 'the personnel resubmits');
   const redocs = await db.uploadedDocument.findMany({ where: { transactionId: T.txId } });
   ok(await http(T.morAo, 'POST', `/transactions/${T.txId}/validate`, { body: { documentValidations: redocs.map(d => ({ documentId: d.id, isValid: true })), targetStatus: 'FOR_APPROVAL' } }), 200, 'AO II validates the correction');
+  // Like TRX-5 in production: the PDS carries OCR data nobody confirmed.
+  const pdsDoc = (await db.uploadedDocument.findMany({ where: { transactionId: T.txId }, include: { requirementTemplate: true } }))
+    .find(d => /personal data sheet|pds/i.test(d.requirementTemplate.name));
+  if (pdsDoc) await db.uploadedDocument.update({ where: { id: pdsDoc.id }, data: { ocrExtractedDataJson: { templateId: 'pds-2025', fields: { firstName: 'Rosa' } } } });
   ok(await http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true, notes: 'Pilot approval' } }), 200, 'HR approves');
 
   const person = await db.personnel.findUnique({ where: { id: T.teacherPersonnelId } });

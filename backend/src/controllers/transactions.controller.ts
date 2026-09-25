@@ -1011,9 +1011,9 @@ export const approveTransaction = async (req: Request, res: Response) => {
 
     if (isApproved && transaction.personnelId) {
       const pdsDocument = transaction.uploadedDocuments.find(doc => /personal data sheet|\bpds\b/i.test(doc.requirementTemplate.name));
-      if (pdsDocument?.ocrExtractedDataJson && !isConfirmedPdsData(pdsDocument.correctedOcrDataJson)) {
-        throw new Error('The submitted PDS contains extracted data that the personnel has not confirmed. Return it for correction before approval.');
-      }
+      // Confirming the OCR-read PDS fields is optional (the documents were checked
+      // by AO II and HRMO). Unconfirmed data simply is not copied into the
+      // profile; it used to throw here, failing every such approval with a 500.
       if (pdsDocument?.status === 'VALIDATED' && isConfirmedPdsData(pdsDocument.correctedOcrDataJson)) {
         const proposal = pdsProfileProposal(pdsDocument.correctedOcrDataJson) as any;
         const allowedProposal = Object.fromEntries(Object.entries(proposal).filter(([, value]) => value !== undefined));
