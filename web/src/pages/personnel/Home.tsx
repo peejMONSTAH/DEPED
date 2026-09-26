@@ -318,6 +318,17 @@ export const PersonnelHome: React.FC = () => {
     fetchAvailablePlantilla();
   }, [fetchMyTransactions, fetchOpenCycles, fetchAvailablePlantilla, user?.id]);
 
+  // The 201 card reports the person's real files, never a fixed figure.
+  useEffect(() => {
+    apiClient.get('/personnel/documents')
+      .then(res => setUser201Documents(res.data?.data || []))
+      .catch(() => setUser201Documents([]));
+  }, [user?.id]);
+
+  const filesOnRecord = user201Documents.filter((d: any) => d.status !== 'REJECTED' && d.status !== 'PENDING_UPLOAD');
+  const filesValidated = filesOnRecord.filter((d: any) => d.status === 'VALIDATED').length;
+  const filesPercent = filesOnRecord.length ? Math.round((filesValidated / filesOnRecord.length) * 100) : 0;
+
   // The Annex C wording and its mandatory set come from the backend, so a DepEd
   // revision applies everywhere at once. DEFAULT_ANNEX_C_FORM_ITEMS is the offline
   // fallback. Cached for the page lifetime — it is reference data, not per-user.
@@ -656,14 +667,14 @@ export const PersonnelHome: React.FC = () => {
             <span className="metric-label">201 MASTER FILE</span>
             <span className="metric-lime-pill">VIEW REPOSITORY →</span>
           </div>
-          <div className="metric-value-num">100%</div>
-          <div className="metric-footer-note">DepEd CS Form 212 & WES Verified</div>
-          <div className="metric-dot-matrix">
-            <span className="dot active-dot" />
-            <span className="dot active-dot" />
-            <span className="dot active-dot" />
-            <span className="dot active-dot" />
-            <span className="dot active-dot" />
+          <div className="metric-value-num">{filesOnRecord.length ? `${filesPercent}%` : '0'}</div>
+          <div className="metric-footer-note">
+            {filesOnRecord.length
+              ? `${filesValidated} of ${filesOnRecord.length} file${filesOnRecord.length === 1 ? '' : 's'} validated by HR`
+              : 'No files uploaded yet'}
+          </div>
+          <div className="metric-bar-visualizer">
+            <div className="bar-fill" style={{ width: `${filesPercent}%` }} />
           </div>
         </Link>
 
