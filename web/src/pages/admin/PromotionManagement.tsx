@@ -542,11 +542,8 @@ export const PromotionManagement: React.FC = () => {
       const res = await apiClient.get(`/promotions/cycles?${params.toString()}`);
       const list = res.data?.data || [];
       setCycles(list);
-      setSelectedCycle((prev: any) => {
-        if (!prev) return list.length > 0 ? list[0] : null;
-        const matching = list.find((c: any) => c.id === prev.id);
-        return matching ? matching : (list.length > 0 ? list[0] : null);
-      });
+      // Refresh the open cycle only; a reload or filter never opens one by itself.
+      setSelectedCycle((prev: any) => (prev ? (list.find((c: any) => c.id === prev.id) ?? prev) : null));
     } catch (err) {
       console.error('Failed to load promotion cycles:', err);
     } finally {
