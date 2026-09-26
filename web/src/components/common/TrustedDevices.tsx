@@ -4,8 +4,11 @@ import { useToast } from '../../contexts/ToastContext';
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
 
-/** Devices that skip the emailed sign-in code; removing one makes it ask again. */
-export const TrustedDevices: React.FC = () => {
+/**
+ * Devices that skip the emailed sign-in code; removing one makes it ask again.
+ * `embedded`: shown inside a dialog that already has its own title and frame.
+ */
+export const TrustedDevices: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { addToast } = useToast();
   const [devices, setDevices] = useState<TrustedDevice[] | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
@@ -35,8 +38,8 @@ export const TrustedDevices: React.FC = () => {
   };
 
   return (
-    <section className="card profile-card" aria-labelledby="profile-devices">
-      <h2 id="profile-devices">Signed-in devices</h2>
+    <section className={embedded ? undefined : 'card profile-card'} aria-labelledby={embedded ? undefined : 'profile-devices'} style={embedded ? { padding: '16px 20px 20px' } : undefined}>
+      {!embedded && <h2 id="profile-devices">Signed-in devices</h2>}
       <p className="text-sm text-muted" style={{ margin: '0 0 12px' }}>
         These devices sign in without an emailed code. Remove any you do not recognise, then change your password.
       </p>

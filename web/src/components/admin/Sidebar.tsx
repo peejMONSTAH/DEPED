@@ -8,6 +8,8 @@ import { Digital201Logo } from '../common/Digital201Logo';
 import { notificationsApi } from '../../api/notifications.api';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { AccountSetupModal } from '../common/AccountSetupModal';
+import { ModalOverlay } from '../common/ModalOverlay';
+import { TrustedDevices } from '../common/TrustedDevices';
 import { CommandPalette } from '../common/CommandPalette';
 import { OfflineSyncBanner } from '../common/OfflineSyncBanner';
 import { personnelDisplayName } from '../../utils/personnel-display';
@@ -97,6 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     };
   }, [isOpen, onClose]);
   const [showAccountSetupModal, setShowAccountSetupModal] = useState(false);
+  const [showDevices, setShowDevices] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -246,6 +249,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <span>Account Profile</span>
               </button>
 
+              <button
+                type="button"
+                className="popover-menu-btn"
+                onClick={() => { setShowUserMenu(false); setShowDevices(true); }}
+              >
+                <AppIcon name="security" size={15} />
+                <span>Signed-in devices</span>
+              </button>
+
               <div className="popover-divider" />
 
               <button
@@ -281,6 +293,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         isOpen={showAccountSetupModal}
         onClose={() => setShowAccountSetupModal(false)}
       />
+
+      {showDevices && (
+        <ModalOverlay onDismiss={() => setShowDevices(false)} className="modal-overlay" onClick={() => setShowDevices(false)}>
+          <div className="modal animate-scale-in" role="dialog" aria-modal="true" aria-labelledby="devices-title"
+            onClick={e => e.stopPropagation()} style={{ maxWidth: 560, width: '94vw' }}>
+            <div className="modal-header">
+              <h3 id="devices-title" className="modal-title">Signed-in devices</h3>
+              <button type="button" className="modal-close" aria-label="Close" onClick={() => setShowDevices(false)}>×</button>
+            </div>
+            <TrustedDevices embedded />
+          </div>
+        </ModalOverlay>
+      )}
 
       <CommandPalette
         isOpen={showCommandPalette}

@@ -23,7 +23,7 @@ test('System Administrator is kept out of HR transaction decisions in the web ap
   const queue = src('pages/admin/TransactionQueue.tsx');
   assert.match(queue, /const canValidate = user\?\.role === 'AO_II';/);
   assert.match(queue, /const canApprove = user\?\.role === 'HRMO';/);
-  assert.match(src('App.tsx'), /path="transactions" element=\{<RequireAuth allowedRoles=\{\['AO_II', 'HRMO'\]\}>/);
+  assert.match(src('App.tsx'), /path="transactions(\/:id\?)?" element=\{<RequireAuth allowedRoles=\{\['AO_II', 'HRMO'\]\}>/);
 });
 
 test('both account creation forms use one vacant-plantilla rule', () => {
@@ -124,7 +124,7 @@ test('the emailed setup link opens a password page that signs the user in', () =
   assert.match(src('App.tsx'), /<Route path="\/auth\/setup-account" element=\{<SetupAccount \/>\} \/>/);
   const page = src('pages/auth/SetupAccount.tsx');
   assert.match(page, /authApi\.completeSetup\(token, password\)/);
-  assert.match(page, /loginWithTokens\(data\.accessToken, data\.refreshToken, data\.user\)/);
+  assert.match(page, /loginWithTokens\(data\.accessToken, data\.refreshToken, data\.user(, data\.deviceToken)?\)/);
   assert.match(page, /autoComplete="new-password"/);
   assert.match(page, /Go to sign in/, 'an expired or used link falls back to the temporary-password sign-in');
   const client = src('api/client.ts');

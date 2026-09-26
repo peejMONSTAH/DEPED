@@ -858,6 +858,10 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             tone: AppStatusTone.success,
                             icon: LucideIcons.check,
                           )
+                        else if (isActive && cycle['applicationsState'] == 'CLOSED')
+                          StatusPill(label: 'Applications closed on ${cycle['applicationsCloseOn'] ?? 'the deadline'}')
+                        else if (isActive && cycle['applicationsState'] == 'NOT_YET_OPEN')
+                          StatusPill(label: 'Applications open on ${cycle['applicationsOpenOn'] ?? 'a later date'}')
                         else if (isActive)
                           SizedBox(
                             width: double.infinity,

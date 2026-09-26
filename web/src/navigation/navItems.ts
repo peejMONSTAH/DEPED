@@ -54,8 +54,8 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
       { label: 'My 201 Files',       icon: 'document',        path: '/personnel/documents',       roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'My Transactions',   icon: 'transactions',    path: '/personnel/transactions',    roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
       { label: 'Notifications',     icon: 'notifications',   path: '/personnel/notifications',   roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'Service Record',    icon: 'repository',      path: '/personnel/profile',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
-      { label: 'Profile',           icon: 'profile',         path: '/personnel/profile-completion', roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
+      { label: 'Service Record',    icon: 'repository',      path: '/personnel/service-record',     roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
+      { label: 'Profile',           icon: 'profile',         path: '/personnel/profile',            roles: ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'] },
     ],
   },
 ];

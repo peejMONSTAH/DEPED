@@ -231,6 +231,8 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
       maxAllowedJump: eligibility?.maxAllowedJump ?? (cycle.type === 'ECP' ? 3 : 2),
       // Whether "Apply" should be offered at all; the apply endpoint enforces the same rule.
       applicationsOpen: cycle.status === 'ACTIVE' && isWithinApplicationWindow(cycle),
+      applicationsState: new Date() < applicationWindow(cycle).opensAt ? 'NOT_YET_OPEN' : new Date() > applicationWindow(cycle).closesAt ? 'CLOSED' : 'OPEN',
+      applicationsOpenOn: applicationWindow(cycle).opensLabel,
       applicationsCloseOn: applicationWindow(cycle).closesLabel,
     };
   });

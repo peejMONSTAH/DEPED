@@ -43,10 +43,13 @@ test('changing the signed-in account leaves nothing cached from the previous one
 
 test('every change of identity resets the cache', () => {
   const auth = fs.readFileSync(path.join(__dirname, '../src/contexts/AuthContext.tsx'), 'utf8');
-  for (const handler of ['const login', 'const loginWithTokens', 'const logout']) {
-    const body = auth.slice(auth.indexOf(handler), auth.indexOf('}, [', auth.indexOf(handler)));
-    assert.match(body, /resetClientCaches\(\)/, `${handler} must reset cached records`);
+  const bodyOf = handler => auth.slice(auth.indexOf(handler), auth.indexOf('}, [', auth.indexOf(handler)));
+  // Every sign-in path goes through startSession, which resets; sign-out resets itself.
+  assert.match(bodyOf('const startSession'), /resetClientCaches\(\)/, 'startSession must reset cached records');
+  for (const handler of ['const login ', 'const loginWithTokens', 'const verifyDevice']) {
+    assert.match(bodyOf(handler), /startSession\(|resetClientCaches\(\)/, `${handler.trim()} must reset cached records`);
   }
+  assert.match(bodyOf('const logout'), /resetClientCaches\(\)/, 'logout must reset cached records');
   const client = fs.readFileSync(path.join(__dirname, '../src/api/client.ts'), 'utf8');
   const clearSession = client.slice(client.indexOf('function clearSession'), client.indexOf('}', client.indexOf('function clearSession')));
   assert.match(clearSession, /resetClientCaches\(\)/, 'an ended session must reset cached records');

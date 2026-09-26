@@ -1,3 +1,4 @@
+import { transactionStatusLabel } from '../../constants/transactionStatus';
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
@@ -137,7 +138,7 @@ export const UploadDocument: React.FC = () => {
         ? 'This transaction was cancelled, so no further documents can be attached.'
         : txStatus === 'APPROVED' || txStatus === 'COMPLETED'
           ? 'This transaction is complete. Its documents form part of your official 201 record and can no longer be changed.'
-          : `This transaction is under official review (${txStatus}). Documents cannot be modified until a reviewer returns it to you.`;
+          : `This transaction is under official review (${transactionStatusLabel(txStatus)}). Documents cannot be modified until a reviewer returns it to you.`;
 
   return (
     <div className="animate-fade-in" style={{ padding: 'var(--space-4)', background: 'var(--color-bg-workspace)', minHeight: '100vh' }}>

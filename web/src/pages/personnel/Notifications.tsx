@@ -119,7 +119,7 @@ export const PersonnelNotifications: React.FC = () => {
 
     if (isAccount) {
       return {
-        path: '/personnel/profile-completion',
+        path: '/personnel/profile',
         label: 'Account Alert',
         category: 'Account',
         iconName: 'profile' as const,
@@ -155,7 +155,7 @@ export const PersonnelNotifications: React.FC = () => {
     }
     if (isCareer) {
       return {
-        path: '/personnel/profile',
+        path: '/personnel/service-record',
         label: 'Career Event',
         category: 'Career',
         iconName: 'repository' as const,

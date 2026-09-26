@@ -13,7 +13,7 @@ const items: BottomNavItem[] = [
   { label: 'Home', path: '/personnel/home', icon: Home },
   { label: 'My 201 Files', path: '/personnel/documents', icon: FileText },
   { label: 'Transactions', path: '/personnel/transactions', icon: ClipboardList },
-  { label: 'Profile', path: '/personnel/profile-completion', icon: User },
+  { label: 'Profile', path: '/personnel/profile', icon: User },
 ];
 
 export const PersonnelBottomNav: React.FC = () => {

@@ -3,7 +3,10 @@ import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 
 class AppConfig {
   static const String appName = 'Digital 201';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.1.0';
+  /// Keep equal to the +N build number in pubspec.yaml. Sent as X-App-Build so the
+  /// server can require an update (backend MIN_APP_BUILD).
+  static const int appBuild = 2;
 
   // Dynamic Base API resolution:
   // - Android Emulator requires 10.0.2.2 to connect to host PC backend at port 5000

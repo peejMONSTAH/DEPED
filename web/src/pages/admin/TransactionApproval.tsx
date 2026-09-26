@@ -101,8 +101,9 @@ export const TransactionApproval: React.FC = () => {
         const isPromo = tx.isPromotion || tx.transactionType?.name?.toUpperCase().includes('PROMOTION') || !!tx.promotionDetails;
         const promoDetails = tx.promotionDetails || (isPromo ? {
           isSelected: true,
-          cycleName: 'DepEd Promotion Cycle',
-          targetPosition: tx.personnel?.designation || 'Master Teacher I',
+          cycleName: '',
+          // Unknown here: never guessed from the current post or a default rank.
+    targetPosition: '',
           cycleType: 'NATURAL_VACANCY',
         } : null);
 

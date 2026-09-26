@@ -196,13 +196,15 @@ export const App: React.FC = () => {
               <Route path="home" element={<PersonnelHome />} />
 
               {/* Step 3: Profile Completion (PDS, WES, Employment, Contact) */}
-              <Route path="profile-completion" element={<ProfileCompletion />} />
+              <Route path="profile" element={<ProfileCompletion />} />
+              {/* Old address of the Profile page, kept for bookmarks. */}
+              <Route path="profile-completion" element={<Navigate to="/personnel/profile" replace />} />
 
               {/* Step 9: Notification Monitoring */}
               <Route path="notifications" element={<PersonnelNotifications />} />
 
               {/* Step 10: Service Record Viewing */}
-              <Route path="profile" element={<CareerRecord />} />
+              <Route path="service-record" element={<CareerRecord />} />
 
               {/* Step 4: Transaction Selection */}
               <Route path="new-transaction" element={<Navigate to="/personnel/transactions" replace />} />

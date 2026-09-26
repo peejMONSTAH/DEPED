@@ -46,6 +46,7 @@ class ApiService {
           if (accessToken != null && accessToken.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $accessToken';
           }
+          options.headers['X-App-Build'] = AppConfig.appBuild.toString();
           // Lets the server keep this device trusted across a password change.
           final deviceToken = await _storage.read(key: 'key_device_token');
           if (deviceToken != null && deviceToken.isNotEmpty) {

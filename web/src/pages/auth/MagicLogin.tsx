@@ -18,7 +18,10 @@ export const MagicLogin: React.FC = () => {
   const [authenticatedName, setAuthenticatedName] = useState('');
 
   const token = searchParams.get('token');
-  const targetRedirect = searchParams.get('redirect');
+  // Only a path inside this site: "//host" and backslash forms are how an open
+  // redirect is built (react-router GHSA-wrjc-x8rr-h8h6), so they are ignored.
+  const rawRedirect = searchParams.get('redirect');
+  const targetRedirect = rawRedirect && /^\/(?![/\\])[^\\]*$/.test(rawRedirect) ? rawRedirect : null;
 
   useEffect(() => {
     let isMounted = true;

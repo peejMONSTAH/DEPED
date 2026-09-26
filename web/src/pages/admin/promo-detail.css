@@ -54,3 +54,8 @@ span.pcd-status { padding-right: 14px; }
   .pcd-head__actions { width: 100%; }
   .pcd-head__actions .pcd-btn { flex: 1; justify-content: center; }
 }
+
+/* Reason for passing over a higher-ranked applicant (selection dialog). */
+.promo-select-reason { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.promo-select-reason__title { font-weight: 800; font-size: .9375rem; color: var(--color-text-primary); }
+.promo-select-reason__note { font-size: .875rem; color: var(--color-text-secondary); line-height: 1.45; }

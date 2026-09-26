@@ -1,3 +1,4 @@
+import { humanizeEnum, transactionStatusLabel } from '../../constants/transactionStatus';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -715,10 +716,10 @@ export const AdminDashboard: React.FC = () => {
                               </div>
                             </td>
                             <td className="code-cell">{req.email}</td>
-                            <td className="type-cell">{req.role}</td>
+                            <td className="type-cell">{humanizeEnum(req.role)}</td>
                             <td>
                               <span className={`status-pill ${req.status === 'APPROVED' ? 'status-lime' : req.status === 'REJECTED' ? 'status-rose' : 'status-lavender'}`}>
-                                {req.status}
+                                {humanizeEnum(req.status)}
                               </span>
                             </td>
                             <td style={{ textAlign: 'right' }}>
@@ -1012,7 +1013,7 @@ export const AdminDashboard: React.FC = () => {
                           <td className="type-cell">{tx.type}</td>
                           <td>
                             <span className={`status-pill ${tx.status === 'APPROVED' ? 'status-lime' : 'status-lavender'}`}>
-                              {tx.status}
+                              {transactionStatusLabel(tx.status)}
                             </span>
                           </td>
                           <td className="date-cell" style={{ textAlign: 'right' }}>{tx.date}</td>

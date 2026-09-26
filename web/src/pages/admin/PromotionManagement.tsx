@@ -184,6 +184,8 @@ export const PromotionManagement: React.FC = () => {
   // Promotion Selection Confirmation Modal State
   const [showConfirmPromotionModal, setShowConfirmPromotionModal] = useState(false);
   const [selectedCandidateForConfirm, setSelectedCandidateForConfirm] = useState<any | null>(null);
+  // Written reason when HR chooses this candidate over higher-ranked ones (server-enforced).
+  const [selectionJustification, setSelectionJustification] = useState('');
   const [selectedPlantillaForCandidate, setSelectedPlantillaForCandidate] = useState<string>('');
 
   // Handlers for dynamic vacancy count and multiple plantilla slots
@@ -302,6 +304,8 @@ export const PromotionManagement: React.FC = () => {
       return;
     }
     setSelectedCandidateForConfirm(app);
+    setSelectionJustification('');
+    setSelectionJustification('');
 
     const cyclePlantillas: string[] = selectedCycle?.rulesConfigurationJson?.plantillaItemNumbers ||
       (selectedCycle?.rulesConfigurationJson?.plantillaItemNumber ? [selectedCycle.rulesConfigurationJson.plantillaItemNumber] : []);
@@ -325,13 +329,23 @@ export const PromotionManagement: React.FC = () => {
     setShowConfirmPromotionModal(true);
   };
 
+  // Deliberated, unselected applicants who outscore the one being confirmed.
+  const higherRankedThanCandidate = selectedCandidateForConfirm
+    ? leaderboard.filter(l => l.id !== selectedCandidateForConfirm.id
+        && !l.scoreDetailsJson?.manuallyPromoted
+        && l.scoreDetailsJson?.finalRating
+        && Number(l.overallTotalScore) > Number(selectedCandidateForConfirm.overallTotalScore))
+    : [];
+
   const handleConfirmSelectionSubmit = async () => {
     if (!selectedCandidateForConfirm) return;
     if (!isHR) {
       addToast('Access denied: System Administrator cannot create or approve promotions. Only HR (HRMO) has permission to promote candidates.', 'ERROR');
       return;
     }
-    await handleTogglePromotionCandidate(selectedCandidateForConfirm, true, selectedPlantillaForCandidate);
+    const done = await handleTogglePromotionCandidate(selectedCandidateForConfirm, true, selectedPlantillaForCandidate, selectionJustification.trim());
+    // A refused selection keeps the dialog open with what was entered.
+    if (!done) return;
     setShowConfirmPromotionModal(false);
     setSelectedCandidateForConfirm(null);
   };
@@ -450,11 +464,11 @@ export const PromotionManagement: React.FC = () => {
 
 
 
-  const handleTogglePromotionCandidate = async (app: any, shouldPromote: boolean, plantillaItemNumber?: string) => {
-    if (!selectedCycle) return;
+  const handleTogglePromotionCandidate = async (app: any, shouldPromote: boolean, plantillaItemNumber?: string, justification?: string): Promise<boolean> => {
+    if (!selectedCycle) return false;
     if (!isHR) {
       addToast('Access denied: System Administrator cannot create or select promotions. Only HR (HRMO) can select promotion candidates.', 'ERROR');
-      return;
+      return false;
     }
     try {
       const targetPlantilla = shouldPromote
@@ -467,6 +481,7 @@ export const PromotionManagement: React.FC = () => {
           ? (targetPlantilla ? `Selected for promotion & assigned to Plantilla Item ${targetPlantilla}` : 'Manually selected for promotion by HRMO')
           : 'Promotion selection removed',
         plantillaItemNumber: targetPlantilla,
+        ...(justification ? { justification } : {}),
       });
       addToast(
         shouldPromote
@@ -475,8 +490,10 @@ export const PromotionManagement: React.FC = () => {
         shouldPromote ? 'SUCCESS' : 'INFO'
       );
       await fetchLeaderboard(selectedCycle.id);
+      return true;
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to update candidate promotion selection.', 'ERROR');
+      return false;
     }
   };
 
@@ -504,16 +521,16 @@ export const PromotionManagement: React.FC = () => {
     // FINALIZED and CLOSED close the cycle to applicants and reviewers alike.
     if (newStatus === 'FINALIZED' || newStatus === 'CLOSED') {
       const { confirmed } = await confirm({
-        title: `Set cycle to ${newStatus}`,
-        message: `Change this promotion cycle to ${newStatus}? Applicants and reviewers lose access to it in its current state.`,
-        confirmLabel: `Set ${newStatus}`,
+        title: `Mark cycle as ${newStatus.toLowerCase()}`,
+        message: `Mark this promotion cycle as ${newStatus.toLowerCase()}? Applicants can no longer apply, and ratings lock once it is finalized.`,
+        confirmLabel: `Mark as ${newStatus.toLowerCase()}`,
       });
       if (!confirmed) return;
     }
 
     try {
       await apiClient.patch(`/promotions/cycles/${cycleId}`, { status: newStatus, ...(cancellationReason && { cancellationReason }) });
-      addToast(`Promotion cycle status updated to "${newStatus}"! Real-time synchronization active.`, 'SUCCESS');
+      addToast(`Cycle marked as ${newStatus === 'ACTIVE' ? 'open for applications' : newStatus.toLowerCase()}.`, 'SUCCESS');
       
       setCycles(prev => prev.map(c => c.id === cycleId ? { ...c, status: newStatus } : c));
       setSelectedCycle((prev: any) => prev && prev.id === cycleId ? { ...prev, status: newStatus } : prev);
@@ -1500,10 +1517,11 @@ export const PromotionManagement: React.FC = () => {
                       </span>
                     </div>
                     <div style={{ fontSize: '1.125rem', fontWeight: 700, color: isSelected ? (theme === 'dark' ? '#8FD3A8' : '#276A45') : 'var(--color-text-primary)', lineHeight: 1.35, marginBottom: '8px' }}>
-                      {String(cycle.name || '').replace(/^Ranking for (Natural )?Vacancy:s*/i, '')}
+                      {String(cycle.name || '').replace(/^Ranking for (Natural )?Vacancy:\s*/i, '')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                      <span>{cycle.applicantCount || 0} {(cycle.applicantCount || 0) === 1 ? 'applicant' : 'applicants'}</span>
+                      <span>{cycle.applicantCount || 0} {(cycle.applicantCount || 0) === 1 ? 'applicant' : 'applicants'}
+                        {' · '}{cycle.rulesConfigurationJson?.openTo === 'DISTRICT' && cycle.rulesConfigurationJson?.district ? `${cycle.rulesConfigurationJson.district} only` : 'Whole division'}</span>
                       {cycle.endDate && (
                         <span>Ends {new Date(cycle.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                       )}
@@ -4942,7 +4960,7 @@ export const PromotionManagement: React.FC = () => {
                                 flexWrap: 'wrap',
                               }}>
                                 <span>🏫 <strong>School / Station:</strong> {selectedPlantilla.department || 'Schools Division Office'}</span>
-                                <span>📍 <strong>Division:</strong> {selectedPlantilla.division || 'CSD Koronadal City'}</span>
+                                <span>📍 <strong>Division:</strong> {selectedPlantilla.division || 'Not recorded'}</span>
                               </div>
                             </div>
                           )}
@@ -5139,7 +5157,7 @@ export const PromotionManagement: React.FC = () => {
                                               </span>
                                             </div>
                                             <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                                              <strong style={{ fontFamily: 'monospace', color: 'var(--color-text-primary)' }}>{p.itemNumber}</strong> • {p.department} ({p.division || 'SDO Koronadal'})
+                                              <strong style={{ fontFamily: 'monospace', color: 'var(--color-text-primary)' }}>{p.itemNumber}</strong> • {p.department} {p.division ? ` (${p.division})` : ''}
                                             </div>
                                           </div>
                                         </div>
@@ -5576,6 +5594,18 @@ export const PromotionManagement: React.FC = () => {
                   Selecting this candidate will send an immediate real-time web & mobile notification requiring <strong>{selectedCandidateForConfirm.name}</strong> to submit official <strong>Promotion Appointment Documents</strong> (CS Form 33, Oath of Office, PDF, IPCRF). The official position update will take effect after verification by AO II and final approval by HRMO.
                 </div>
               </div>
+
+              {higherRankedThanCandidate.length > 0 && (
+                <label className="promo-select-reason">
+                  <span className="promo-select-reason__title">Reason for choosing this applicant <span style={{ color: 'var(--color-danger)' }}>*</span></span>
+                  <span className="promo-select-reason__note">
+                    {higherRankedThanCandidate.map(l => `${l.name} (${l.overallTotalScore})`).join(', ')} {higherRankedThanCandidate.length === 1 ? 'ranks' : 'rank'} higher.
+                    Write why this applicant is chosen instead; it is kept with the selection record.
+                  </span>
+                  <textarea className="form-input" rows={3} maxLength={1000} value={selectionJustification}
+                    onChange={e => setSelectionJustification(e.target.value)} placeholder="At least 15 characters" />
+                </label>
+              )}
             </div>
 
             <div style={{
@@ -5601,6 +5631,7 @@ export const PromotionManagement: React.FC = () => {
                 type="button"
                 className="btn btn-primary"
                 onClick={handleConfirmSelectionSubmit}
+                disabled={higherRankedThanCandidate.length > 0 && selectionJustification.trim().length < 15}
                 style={{ background: 'var(--color-primary)', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '8px 18px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
               >
                 <AppIcon name="promotions" size={15} color="#ffffff" /> Confirm Selection & Request Documents

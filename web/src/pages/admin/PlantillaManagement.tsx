@@ -277,7 +277,8 @@ export const PlantillaManagement: React.FC = () => {
       return;
     }
     setEditingItem(null);
-    setFormItemNumber(`OSEC-DECSB-TCH3-${Math.floor(100000 + Math.random() * 900000)}-2026`);
+    // Item numbers are issued by DBM; HR types the real one, never a generated guess.
+    setFormItemNumber('');
     setFormPositionTitle('Teacher I');
     setFormSalaryGrade(getAutoSalaryGrade('Teacher I'));
     setFormDepartment('');

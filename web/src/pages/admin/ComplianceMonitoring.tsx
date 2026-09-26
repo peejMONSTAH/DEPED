@@ -1,3 +1,4 @@
+import { humanizeEnum } from '../../constants/transactionStatus';
 import React, { useState, useEffect } from 'react';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
@@ -451,7 +452,7 @@ export const ComplianceMonitoring: React.FC = () => {
                               gap: 5
                             }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: colorInfo.border }} />
-                              {p.complianceStatus}
+                              {humanizeEnum(p.complianceStatus)}
                             </span>
                           </td>
                         </tr>

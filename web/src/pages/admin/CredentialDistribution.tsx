@@ -1476,7 +1476,7 @@ export const CredentialDistribution: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                 <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`} style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-                  {selectedAccount.accountStatus}
+                  {ACCOUNT_STATUS_LABEL[selectedAccount.accountStatus as keyof typeof ACCOUNT_STATUS_LABEL] || selectedAccount.accountStatus}
                 </span>
                 <button
                   type="button"
@@ -1526,7 +1526,7 @@ export const CredentialDistribution: React.FC = () => {
                 <div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Account Status</div>
                   <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`}>
-                    {selectedAccount.accountStatus}
+                    {ACCOUNT_STATUS_LABEL[selectedAccount.accountStatus as keyof typeof ACCOUNT_STATUS_LABEL] || selectedAccount.accountStatus}
                   </span>
                 </div>
               </div>

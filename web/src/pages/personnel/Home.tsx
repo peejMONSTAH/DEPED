@@ -1,3 +1,4 @@
+import { transactionStatusLabel } from '../../constants/transactionStatus';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -52,6 +53,11 @@ type PromotionCycleItem = {
   isCurrentPosition?: boolean;
   isEligible?: boolean;
   ineligibilityReason?: string | null;
+  // Server-computed from the published window (Manila time).
+  applicationsOpen?: boolean;
+  applicationsState?: 'OPEN' | 'NOT_YET_OPEN' | 'CLOSED';
+  applicationsOpenOn?: string;
+  applicationsCloseOn?: string;
   jumpPositions?: number | null;
   maxAllowedJump?: number;
   rulesConfigurationJson?: Record<string, any>;
@@ -1195,6 +1201,10 @@ export const PersonnelHome: React.FC = () => {
                           <span className="vac-meta-label">Applicants</span>
                           <span className="vac-meta-value">{cycle.applicantCount || 0}</span>
                         </div>
+                        <div className="vac-meta-item">
+                          <span className="vac-meta-label">Open to</span>
+                          <span className="vac-meta-value">{rules.openTo === 'DISTRICT' && rules.district ? `${rules.district} only` : 'Whole division'}</span>
+                        </div>
                         {rules.plantillaItemNumber && (
                           <div className="vac-meta-item">
                             <span className="vac-meta-label">Plantilla item</span>
@@ -1263,6 +1273,13 @@ export const PersonnelHome: React.FC = () => {
                                 See why
                               </button>
                             </>
+                          ) : isActive && cycle.applicationsState && cycle.applicationsState !== 'OPEN' ? (
+                            <span className="vac-note is-blocked">
+                              <AppIcon name="pending" size={14} />
+                              {cycle.applicationsState === 'NOT_YET_OPEN'
+                                ? `Applications open on ${cycle.applicationsOpenOn}`
+                                : `Applications closed on ${cycle.applicationsCloseOn}`}
+                            </span>
                           ) : isActive ? (
                             <button
                               type="button"
@@ -1557,7 +1574,7 @@ export const PersonnelHome: React.FC = () => {
                             <AppIcon name="promotions" size={13} color="#2f7d52" />
                             <span>
                               Linked Cycle: <strong>{cycle.name}</strong>{' '}
-                              <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 11 }}>({cycle.status})</span>
+                              <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 11 }}>({transactionStatusLabel(cycle.status)})</span>
                             </span>
                           </div>
                         )}
