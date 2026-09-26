@@ -78,8 +78,7 @@ export const App: React.FC = () => {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="notifications" element={<AdminNotifications />} />
               {/* The HR workflow queue: AO II validates, HRMO approves. */}
-              <Route path="transactions" element={<RequireAuth allowedRoles={['AO_II', 'HRMO']}><TransactionQueue /></RequireAuth>} />
-              <Route path="transactions/:id" element={<RequireAuth allowedRoles={['AO_II', 'HRMO']}><TransactionQueue /></RequireAuth>} />
+              <Route path="transactions/:id?" element={<RequireAuth allowedRoles={['AO_II', 'HRMO']}><TransactionQueue /></RequireAuth>} />
 
               {/* AO II Step 4 & 5: Document Validation & School Qualification */}
               <Route

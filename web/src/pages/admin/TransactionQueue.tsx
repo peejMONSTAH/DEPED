@@ -77,11 +77,16 @@ export const TransactionQueue: React.FC = () => {
     }
   }, [addToast, navigate]);
 
+  // Read through a ref so a list reload (realtime, paging) does not re-run
+  // the effect below and re-fetch or blank the open record.
+  const transactionsRef = useRef(transactions);
+  transactionsRef.current = transactions;
+
   useEffect(() => {
     if (routeTxId) {
       const parsedId = parseInt(routeTxId, 10);
       if (!isNaN(parsedId)) {
-        const found = transactions.find(t => t.id === parsedId);
+        const found = transactionsRef.current.find(t => t.id === parsedId);
         // Never keep showing a different record while this one loads.
         setSelectedTx((prev: any) => (prev?.id === parsedId ? prev : (found ?? null)));
         loadTransactionDetail(parsedId);
@@ -93,7 +98,7 @@ export const TransactionQueue: React.FC = () => {
       requestedTxId.current = null;
       setSelectedTx(null);
     }
-  }, [routeTxId, transactions, loadTransactionDetail, navigate]);
+  }, [routeTxId, loadTransactionDetail, navigate]);
 
   const handleCloseModal = () => {
     setSelectedTx(null);
