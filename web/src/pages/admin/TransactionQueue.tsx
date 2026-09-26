@@ -43,6 +43,9 @@ export const TransactionQueue: React.FC = () => {
   const navigate = useNavigate();
   const [selectedTx, setSelectedTx] = useState<any | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  // The record whose full detail is on screen; a re-fetch of it keeps showing it.
+  const [loadedDetailId, setLoadedDetailId] = useState<number | null>(null);
+  const hasLoadedList = useRef(false);
 
   const { user } = useAuthContext();
   const { addToast } = useToast();
@@ -60,6 +63,7 @@ export const TransactionQueue: React.FC = () => {
       const res = await transactionsApi.getById(txId);
       if (requestedTxId.current !== txId) return;
       setSelectedTx(res.data?.data ?? null);
+      setLoadedDetailId(txId);
     } catch (err) {
       if (requestedTxId.current !== txId) return;
       if (isAccessDenied(err)) {
@@ -107,7 +111,8 @@ export const TransactionQueue: React.FC = () => {
 
   const loadTransactions = useCallback(async () => {
     try {
-      setIsLoading(true);
+      // Skeleton on the first load only; live reloads refresh in place.
+      if (!hasLoadedList.current) setIsLoading(true);
       const params: Record<string, any> = { page, limit: 15 };
       if (statusFilter !== 'All') params.status = statusFilter;
       if (search.trim()) params.search = search.trim();
@@ -121,6 +126,7 @@ export const TransactionQueue: React.FC = () => {
       // Handled by interceptor
     } finally {
       setIsLoading(false);
+      hasLoadedList.current = true;
     }
   }, [page, statusFilter, search]);
 
@@ -591,7 +597,7 @@ export const TransactionQueue: React.FC = () => {
                 backgroundColor: 'var(--color-bg-card)',
               }}
             >
-              {isLoadingDetail ? (
+              {isLoadingDetail && loadedDetailId !== selectedTx?.id ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <SkeletonBox width={44} height={44} borderRadius={12} />
