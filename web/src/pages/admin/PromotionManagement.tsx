@@ -4720,53 +4720,15 @@ export const PromotionManagement: React.FC = () => {
             <div className="pc-create__head">
               <div>
                 <h3 id="pc-create-title" className="pc-create__title">New promotion cycle</h3>
-                <p className="pc-create__sub">Set the slots, pick the vacant item, then schedule it.</p>
+                <p className="pc-create__sub">Choose the vacant item, then set who can apply and when.</p>
               </div>
               <button type="button" className="pc-create__close" aria-label="Close" onClick={() => setShowConfigModal(false)}>×</button>
             </div>
 
             <form onSubmit={handleCreateCycle} className="pc-create__form">
+              <div className="pc-create__main">
               <div className="pc-create__body">
               <section className="pc-sec">
-                <div className="pc-sec__num">1</div>
-                <div>
-                  <h4 className="pc-sec__title">Slots</h4>
-                  <p className="pc-sec__hint">The cycle closes by itself once every position is filled.</p>
-                  <div className="pc-grid">
-                    <label className="pc-field">
-                      <span>Positions to fill <span className="pc-req">*</span></span>
-                      <input
-                        aria-label="Applicants That Will Be Chosen"
-                        type="number" min={1} max={50}
-                        className="form-input"
-                        placeholder="e.g. 1"
-                        value={newVacantPositions}
-                        onChange={(e) => handleVacantPositionsChange(e.target.value)}
-                        onBlur={() => { if (newVacantPositions === '' || Number(newVacantPositions) < 1) handleVacantPositionsChange(1); }}
-                        required
-                      />
-                      <small>One plantilla item per position.</small>
-                    </label>
-                    <label className="pc-field">
-                      <span>Maximum applicants <span className="pc-req">*</span></span>
-                      <input
-                        aria-label="Max Applicants Capacity"
-                        type="number" min={1} max={500}
-                        className="form-input"
-                        placeholder="e.g. 10"
-                        value={newMaxApplicants}
-                        onChange={(e) => handleMaxApplicantsChange(e.target.value)}
-                        onBlur={() => { if (newMaxApplicants === '' || Number(newMaxApplicants) < 1) setNewMaxApplicants(10); }}
-                        required
-                      />
-                      <small>Applications stop at this number.</small>
-                    </label>
-                  </div>
-                </div>
-              </section>
-
-              <section className="pc-sec">
-                <div className="pc-sec__num">2</div>
                 <div>
                   <h4 className="pc-sec__title">Plantilla item{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</h4>
                   <p className="pc-sec__hint">
@@ -4799,6 +4761,8 @@ export const PromotionManagement: React.FC = () => {
                         );
                       });
 
+                      // One slot needs no numbered card around it.
+                      const single = (Number(newVacantPositions) || 1) === 1;
                       return (
                         <div
                           key={idx}
@@ -4813,10 +4777,11 @@ export const PromotionManagement: React.FC = () => {
                             boxShadow: currentValue
                               ? (theme === 'dark' ? '0 4px 14px rgba(0, 0, 0, 0.35)' : '0 2px 8px rgba(59, 130, 246, 0.08)')
                               : 'none',
+                            ...(single ? { border: 'none', padding: 0, background: 'transparent', boxShadow: 'none' } : {}),
                           }}
                         >
                           {/* Slot Header */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <div style={{ display: single ? 'none' : 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span style={{
                                 width: '22px',
@@ -5270,19 +5235,48 @@ export const PromotionManagement: React.FC = () => {
                       );
                     })}
                   </div>
-                  {linkedPlantilla && (
-                    <div className="pc-summary">
-                      <span className="pc-chip">{linkedPlantilla.positionTitle} · SG {linkedPlantilla.salaryGrade}</span>
-                      <span className="pc-chip">{newCycleDistrict}</span>
-                      <span className="pc-chip">{linkedPlantilla.department || 'All schools in district'}</span>
-                      <span className="pc-chip">{newCycleTrack === 'TEACHING' ? 'Teaching' : 'Non-teaching'}</span>
-                    </div>
-                  )}
                 </div>
               </section>
 
               <section className="pc-sec">
-                <div className="pc-sec__num">3</div>
+                <div>
+                  <h4 className="pc-sec__title">Slots</h4>
+                  <p className="pc-sec__hint">The cycle closes by itself once every position is filled.</p>
+                  <div className="pc-grid">
+                    <label className="pc-field">
+                      <span>Positions to fill <span className="pc-req">*</span></span>
+                      <input
+                        aria-label="Applicants That Will Be Chosen"
+                        type="number" min={1} max={50}
+                        className="form-input"
+                        placeholder="e.g. 1"
+                        value={newVacantPositions}
+                        onChange={(e) => handleVacantPositionsChange(e.target.value)}
+                        onBlur={() => { if (newVacantPositions === '' || Number(newVacantPositions) < 1) handleVacantPositionsChange(1); }}
+                        required
+                      />
+                      <small>One plantilla item per position.</small>
+                    </label>
+                    <label className="pc-field">
+                      <span>Maximum applicants <span className="pc-req">*</span></span>
+                      <input
+                        aria-label="Max Applicants Capacity"
+                        type="number" min={1} max={500}
+                        className="form-input"
+                        placeholder="e.g. 10"
+                        value={newMaxApplicants}
+                        onChange={(e) => handleMaxApplicantsChange(e.target.value)}
+                        onBlur={() => { if (newMaxApplicants === '' || Number(newMaxApplicants) < 1) setNewMaxApplicants(10); }}
+                        required
+                      />
+                      <small>Applications stop at this number.</small>
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+
+              <section className="pc-sec">
                 <div>
                   <h4 className="pc-sec__title">Details</h4>
                   <p className="pc-sec__hint">What applicants will see.</p>
@@ -5321,7 +5315,6 @@ export const PromotionManagement: React.FC = () => {
               </section>
 
               <section className="pc-sec">
-                <div className="pc-sec__num">4</div>
                 <div>
                   <h4 className="pc-sec__title">Schedule</h4>
                   <p className="pc-sec__hint">When personnel can apply.</p>
@@ -5345,6 +5338,33 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                 </div>
               </section>
+              </div>
+              <aside className="pc-notice" aria-label="Preview of the vacancy notice">
+                <p className="pc-notice__kicker">Personnel will see</p>
+                <div className="pc-notice__sheet">
+                  <p className="pc-notice__type">{newCycleType === 'ECP' ? 'ECP reclassification' : 'Natural vacancy'}</p>
+                  <h4 className="pc-notice__position">{linkedPlantilla?.positionTitle || 'Choose a plantilla item'}</h4>
+                  {linkedPlantilla && (
+                    <p className="pc-notice__place">
+                      {linkedPlantilla.department || 'All schools in district'}
+                      {newCycleDistrict ? `, ${newCycleDistrict}` : ''}
+                    </p>
+                  )}
+                  <p className="pc-notice__title">{newCycleName.trim() || 'Cycle title'}</p>
+                  <dl className="pc-notice__facts">
+                    <div><dt>Positions</dt><dd>{Number(newVacantPositions) || 1}</dd></div>
+                    <div><dt>Applicants</dt><dd>Up to {Number(newMaxApplicants) || 10}</dd></div>
+                    <div><dt>Salary grade</dt><dd>{linkedPlantilla ? linkedPlantilla.salaryGrade : '—'}</dd></div>
+                    <div><dt>Apply by</dt><dd>{newEndDate ? formatDateString(newEndDate) : '—'}</dd></div>
+                  </dl>
+                  <p className="pc-notice__who">
+                    {newOpenTo === 'DISTRICT' && newCycleDistrict ? `Only personnel in ${newCycleDistrict} can apply.` : 'Anyone in the division can apply.'}
+                  </p>
+                </div>
+                <p className="pc-notice__state">
+                  {newCycleStatus === 'PLANNING' ? 'Saved as planning. Personnel will not see it yet.' : `Goes live ${newStartDate ? `on ${formatDateString(newStartDate)}` : 'when created'}.`}
+                </p>
+              </aside>
               </div>
 
               <div className="pc-create__foot">
