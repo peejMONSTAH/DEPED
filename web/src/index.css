@@ -386,6 +386,25 @@ tr:hover td {
   border: 1px solid var(--color-warning) !important;
 }
 
+/* Handed on to HR: in progress, a step past AO II. */
+.badge-validated {
+  background: #E6F0FA !important;
+  color: #1F4F7A !important;
+  border: 1px solid #9CC0E0 !important;
+}
+
+.badge-draft {
+  background: var(--color-bg-secondary) !important;
+  color: var(--color-text-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.badge-escalated {
+  background: #F3E8FA !important;
+  color: #5E2F7A !important;
+  border: 1px solid #CDA8E3 !important;
+}
+
 .badge-rejected, .badge-danger, .badge-error, [class*="rejected"], [class*="deficiency"] {
   background: var(--color-error-light) !important;
   color: var(--color-error-text) !important;
