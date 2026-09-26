@@ -425,4 +425,9 @@ test('4. sign-in from a new device needs the emailed code; a trusted device does
   ok(await http(token, 'DELETE', `/auth/devices/${mine.id}`), 200, 'the owner removes it');
   const afterRemoval = await rawLogin(email, PASSWORD, phone);
   assert.equal(afterRemoval.json.data.requiresVerification, true, 'a removed device needs a code again');
+
+  // Accounts from before the check (placeholder emails) sign in without a code.
+  await db.user.update({ where: { email }, data: { deviceVerification: false } });
+  const exempt = await rawLogin(email, PASSWORD);
+  assert.ok(exempt.json.data.accessToken, 'an exempt account needs no code on a new device');
 });

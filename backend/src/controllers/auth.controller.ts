@@ -121,8 +121,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // A password alone is enough only on a device that earlier passed an emailed code.
-  if (!(await isTrustedDevice(user.id, req.body.deviceToken))) {
+  // A password alone is enough only on a device that earlier passed an emailed code
+  // (accounts from before the check was introduced are exempt).
+  if (user.deviceVerification && !(await isTrustedDevice(user.id, req.body.deviceToken))) {
     try {
       const challenge = await startChallenge({ id: user.id, email: user.email, name: displayName(user) }, req);
       sendSuccess(res, { requiresVerification: true, ...challenge }, 'Enter the code sent to your email.');

@@ -35,6 +35,10 @@ model User {
   /// administrator-known password cannot be used to work in the system.
   mustChangePassword       Boolean                  @default(false) @map("must_change_password")
   lockedUntil              DateTime?                @map("locked_until")
+  /// Whether sign-in from a new device needs an emailed code. On for every account
+  /// created after the check was introduced; accounts that existed before (pilot
+  /// data with placeholder emails) keep signing in without it.
+  deviceVerification       Boolean                  @default(true) @map("device_verification")
   accountRequestsCreated   AccountCreationRequest[] @relation("AccountRequestCreatedUser")
   accountRequestsSubmitted AccountCreationRequest[] @relation("AccountRequestsSubmitted")
   complianceChecks         ComplianceCheck[]
