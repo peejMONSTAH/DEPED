@@ -20,7 +20,7 @@ require.cache[prismaPath] = {
       create: args => ({ op: 'used.create', args }),
       findUnique: async ({ where }) => (state.used.has(where.jti) ? { jti: where.jti } : null),
     },
-    refreshToken: { updateMany: args => ({ op: 'rt.revoke', args }), create: args => ({ op: 'rt.create', args }) },
+    refreshToken: { updateMany: args => ({ op: 'rt.revoke', args }), create: args => ({ op: 'rt.create', args }), findMany: async () => [] },
     validationLog: { create: args => ({ op: 'log', args }) },
     trustedDevice: {
       updateMany: async args => { state.writes.push({ op: 'device.revokeAll', args }); return { count: 0 }; },

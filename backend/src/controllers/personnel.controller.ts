@@ -175,54 +175,66 @@ export const buildServiceRecordPayload = (p: any) => {
     latestAppointmentDateStr = latestPromotionDateStr;
   }
 
-  const currentPosition = p.designation || p.plantillaItem?.positionTitle || 'Teaching Personnel';
+  const currentPosition = p.designation || p.plantillaItem?.positionTitle || 'Not recorded';
   const currentSG = p.plantillaItem?.salaryGrade ? `SG ${p.plantillaItem.salaryGrade}` : 'Not recorded';
 
   // Build authentic interactive career timeline
   const timeline: any[] = [];
 
-  // 1. Add approved promotion transactions
+  // Every line states only what is on record. Each past step carries its own
+  // position (from the career entry written when it was approved), never the
+  // person's current one, and nothing is labelled permanent unless it is.
+  const careerEntries: any[] = p.careerHistoryEntries || [];
+  const entryForTx = new Map<number, any>();
+  careerEntries.forEach(ch => {
+    const txId = Number(ch.detailsJson?.transactionId);
+    if (Number.isInteger(txId)) entryForTx.set(txId, ch);
+  });
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const statusLabel = p.appointmentStatus ? String(p.appointmentStatus).replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase()) : '';
+
+  // 1. Approved transactions without their own career entry (older data).
   (p.transactions || []).forEach((t: any) => {
-    if (t.status === 'APPROVED' || t.status === 'COMPLETED') {
-      const isPromo = t.transactionType?.name?.toLowerCase().includes('promotion');
-      const isAppoint = t.transactionType?.name?.toLowerCase().includes('appointment') || t.transactionType?.name?.toLowerCase().includes('appoint');
-      const isSalary = t.transactionType?.name?.toLowerCase().includes('salary') || t.transactionType?.name?.toLowerCase().includes('step');
-      const eventDate = t.approvalDate ? new Date(t.approvalDate) : new Date(t.createdAt);
-      timeline.push({
-        id: `tx-${t.id}`,
-        year: eventDate.getFullYear(),
-        date: eventDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-        rawDate: eventDate.getTime(),
-        event: isPromo
-          ? `Promoted to ${currentPosition} (${currentSG})`
-          : isAppoint
-            ? `Appointed as ${currentPosition} (${currentSG})`
-            : `${t.transactionType?.name || 'Transaction Approved'}`,
-        type: isPromo ? 'Promotion' : isSalary ? 'Salary Adjustment' : 'Appointment',
-        ref: `TX-${String(t.id).padStart(3, '0')}`,
-        status: 'APPROVED',
-        salary: (isPromo || isAppoint) ? `${currentSG} Plantilla Compensation` : 'Official Step Adjusted',
-        remarks: t.remarks || 'Officially Approved by Division HRMO',
-      });
-    }
+    if (t.status !== 'APPROVED' && t.status !== 'COMPLETED') return;
+    if (entryForTx.has(t.id)) return; // the career entry below describes it, with its position
+    const name = t.transactionType?.name || 'Transaction';
+    const isPromo = name.toLowerCase().includes('promotion');
+    const isAppoint = name.toLowerCase().includes('appoint');
+    const eventDate = t.approvalDate ? new Date(t.approvalDate) : new Date(t.createdAt);
+    timeline.push({
+      id: `tx-${t.id}`,
+      year: eventDate.getFullYear(),
+      date: fmt(eventDate),
+      rawDate: eventDate.getTime(),
+      event: `${name} approved`,
+      type: isPromo ? 'Promotion' : isAppoint ? 'Appointment' : 'Transaction',
+      ref: `TX-${String(t.id).padStart(3, '0')}`,
+      status: 'APPROVED',
+      salary: '',
+      remarks: t.remarks || '',
+    });
   });
 
-  // 2. Add career history entries from DB
-  (p.careerHistoryEntries || []).forEach((ch: any) => {
+  // 2. Career history entries: approved promotions/appointments and work experience.
+  careerEntries.forEach((ch: any) => {
+    const d = ch.detailsJson || {};
     const eDate = new Date(ch.eventDate || ch.createdAt);
+    const position = d.newDesignation || d.title || '';
+    const event = ch.eventType === 'PROMOTION' && position ? `Promoted to ${position}`
+      : ch.eventType === 'RECLASSIFICATION' && position ? `Reclassified to ${position}`
+      : d.newDesignation ? `Appointed as ${d.newDesignation}`
+      : position || String(ch.eventType || 'Career event').replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase());
     timeline.push({
       id: `che-${ch.id}`,
       year: eDate.getFullYear(),
-      date: eDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      date: fmt(eDate),
       rawDate: eDate.getTime(),
-      event: ch.detailsJson?.newDesignation
-        ? `Appointment to ${ch.detailsJson.newDesignation}`
-        : `${ch.eventType?.replace('_', ' ') || 'Career Event'}`,
+      event,
       type: ch.eventType === 'PROMOTION' ? 'Promotion' : ch.eventType === 'AWARD' ? 'Award' : 'Career Milestone',
-      ref: ch.detailsJson?.transactionId ? `TX-${String(ch.detailsJson.transactionId).padStart(3, '0')}` : 'CH-LOG',
+      ref: d.transactionId ? `TX-${String(d.transactionId).padStart(3, '0')}` : 'Work experience',
       status: 'APPROVED',
-      salary: ch.detailsJson?.salary || `${currentSG}`,
-      remarks: ch.detailsJson?.notes || 'DepEd SDO Service Milestone',
+      salary: d.salary || (d.salaryGrade ? `SG ${String(d.salaryGrade).replace(/^SG\s*/i, '')}` : ''),
+      remarks: d.notes || d.status || '',
     });
   });
 
@@ -239,7 +251,7 @@ export const buildServiceRecordPayload = (p: any) => {
     timeline.push({
       id: `promo-${a.id}`,
       year: eDate.getFullYear(),
-      date: eDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      date: fmt(eDate),
       rawDate: eDate.getTime(),
       event: `Initial appointment to ${target}${sg ? ` (SG ${sg})` : ''}`,
       type: 'Promotion',
@@ -250,19 +262,25 @@ export const buildServiceRecordPayload = (p: any) => {
     });
   });
 
-  // 3. Add base Initial Appointment
+  // 3. Original appointment: the position held before the first recorded step,
+  // or the current one when nothing has changed since hiring.
   if (hiredDate) {
+    const steps = careerEntries
+      .filter(ch => ch.detailsJson?.previousDesignation)
+      .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+    const firstPosition = steps[0]?.detailsJson?.previousDesignation || p.designation || '';
+    const unchanged = !steps.length;
     timeline.push({
       id: 'initial-appointment',
       year: hiredDate.getFullYear(),
-      date: hiredDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      date: fmt(hiredDate),
       rawDate: hiredDate.getTime(),
-      event: `Initial Appointment: ${p.designation || 'Teacher I'} (${currentSG})`,
+      event: firstPosition ? `Original appointment: ${firstPosition}${unchanged && p.plantillaItem?.salaryGrade ? ` (SG ${p.plantillaItem.salaryGrade})` : ''}` : 'Original appointment',
       type: 'Appointment',
       ref: 'Initial',
       status: 'APPROVED',
-      salary: `${currentSG} Base Entry`,
-      remarks: 'DepEd SDO Koronadal City Permanent Appointment',
+      salary: unchanged && p.plantillaItem?.salaryGrade ? `SG ${p.plantillaItem.salaryGrade}` : '',
+      remarks: unchanged ? statusLabel : '',
     });
   }
 
@@ -502,7 +520,9 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
   // Personnel may fill an identity field only while it is still empty (the
   // creating AO II/HRMO left it out). Anything on record stays with staff, and
   // the work experience sheet is never personnel-editable.
-  const PERSONNEL_FILLABLE = ['middleName', 'suffix', 'birthDate', 'gender', 'civilStatus', 'designation', 'dateHired'] as const;
+  // Position and first appointment are never self-declared: promotion eligibility
+  // is computed from them.
+  const PERSONNEL_FILLABLE = ['middleName', 'suffix', 'birthDate', 'gender', 'civilStatus'] as const;
   const isBlank = (value: unknown) => value === null || value === undefined || (typeof value === 'string' && !value.trim());
   const requestedStaffFields = staffOnlyFields.filter(field => req.body[field] !== undefined);
   const lockedRequest = requestedStaffFields.filter(field =>
@@ -515,6 +535,15 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
     ? [...staffOnlyFields, 'contactNumber', 'address', 'designation', 'dateHired']
     : ['contactNumber', 'address', ...requestedStaffFields];
   const updateData: Record<string, unknown> = {};
+
+  // An unrecognised value is refused, not silently recorded as MALE or SINGLE.
+  const presentValue = (v: unknown) => v !== undefined && v !== null && v !== '';
+  if (presentValue(req.body.gender) && !['MALE', 'FEMALE', 'OTHER'].includes(String(req.body.gender).toUpperCase())) {
+    sendBadRequest(res, 'Sex must be Male or Female.'); return;
+  }
+  if (presentValue(req.body.civilStatus) && !['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(String(req.body.civilStatus).toUpperCase())) {
+    sendBadRequest(res, 'Civil status must be Single, Married, Widowed or Separated.'); return;
+  }
 
   // Store every updated field directly in the database without skipping
   allowedFields.forEach(field => {
@@ -603,7 +632,7 @@ export const updateMyProfile = async (req: Request, res: Response): Promise<void
             department: entry.department || 'DepEd',
             salary: entry.monthlySalary || '',
             salaryGrade: entry.salaryGrade || '',
-            status: entry.status || 'Permanent',
+            status: entry.status || '',
             government: Boolean(entry.government),
             dateTo: entry.dateTo || 'Present',
           },

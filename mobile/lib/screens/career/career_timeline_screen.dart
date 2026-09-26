@@ -229,7 +229,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                                 border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
                                               ),
                                               child: Text(
-                                                'SG ${item.salaryGrade} Step ${item.stepIncrement}',
+                                                item.gradeLabel ?? 'SG not recorded',
                                                 style: GoogleFonts.plusJakartaSans(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w800,
@@ -257,7 +257,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
-                                                item.stationPlace,
+                                                item.stationPlace ?? 'Station not recorded',
                                                 style: GoogleFonts.plusJakartaSans(
                                                   fontSize: 12,
                                                   color: AppTheme.textSecondary,
@@ -266,7 +266,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                               ),
                                             ),
                                             Text(
-                                              '${formatPeso(item.monthlySalary)}/mo',
+                                              item.monthlySalary == null ? 'Salary not recorded' : '${formatPeso(item.monthlySalary!)}/mo',
                                               style: GoogleFonts.jetBrainsMono(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 13,

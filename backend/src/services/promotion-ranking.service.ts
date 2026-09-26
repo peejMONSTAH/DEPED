@@ -153,3 +153,19 @@ export const computeCycleRanking = async (cycleId: number) => {
     return null;
   }
 };
+
+/**
+ * Deliberated, unselected applicants who outscore `target`. Choosing `target`
+ * over them is the appointing officer's discretion, but it must be justified
+ * in writing; ties are not "higher".
+ */
+export const higherRankedUnselected = <TApp extends { id: number; status: string; scoreDetailsJson: unknown }>(apps: TApp[], target: TApp): TApp[] => {
+  const targetScore = resolveApplicationScore(target.scoreDetailsJson);
+  return apps.filter(a => {
+    if (a.id === target.id || a.status === 'REJECTED') return false;
+    const details = (a.scoreDetailsJson as Record<string, any>) || {};
+    if (details.manuallyPromoted || details.stageStatus === 'CANCELLED' || details.cycleCancelled) return false;
+    if (!isRequirementsVerified(a.scoreDetailsJson) || !details.finalRating) return false;
+    return resolveApplicationScore(a.scoreDetailsJson) > targetScore;
+  });
+};

@@ -575,7 +575,7 @@ export const CredentialDistribution: React.FC = () => {
     try {
       const res = await apiClient.post(`/users/${resetModalUser.id}/reset-password`, { newPassword: newResetPass });
       const data = res.data?.data;
-      addToast(`Password for ${resetModalUser.email} reset successfully! Temp Password: ${data?.tempPassword || newResetPass}`, 'SUCCESS');
+      addToast(`New password emailed to ${resetModalUser.email}.${data?.tempPassword ? ` Temporary password: ${data.tempPassword}` : ''}`, 'SUCCESS');
       setResetModalUser(null);
       fetchUsers();
     } catch (err: any) {
@@ -1340,7 +1340,7 @@ export const CredentialDistribution: React.FC = () => {
             <form onSubmit={handleResetPasswordSubmit}>
               <div className="alert alert-info mb-4" style={{ fontSize: 12 }}>
                 <span>
-                  This resets the password for <strong>{resetModalUser.email}</strong> and signs out all of their active sessions. For security the password is <strong>not</strong> included in their notification — it is shown to you once below, and you must hand it over through your own approved channel.
+                  This resets the password for <strong>{resetModalUser.email}</strong>, signs out their sessions and forgets their trusted devices. The new temporary password and a one-time setup link are <strong>emailed to them</strong>. Hand the password over yourself only if their email cannot be reached.
                 </span>
               </div>
 

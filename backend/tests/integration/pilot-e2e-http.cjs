@@ -246,6 +246,25 @@ test('2. promotion: HR cycle, application, AO completeness, HR deliberation and 
     items.push({ code: req.code, personnelDocumentId: id, submitted: true });
   }
   T.fileIds = [...byType.values()];
+  // The published window binds: nothing before it opens, nothing after it closes.
+  const day = 86400000;
+  const past = await db.promotionCycle.create({ data: { name: 'Closed pilot cycle', type: 'NATURAL_VACANCY', status: 'ACTIVE',
+    startDate: new Date(Date.now() - 10 * day), endDate: new Date(Date.now() - 3 * day), rulesConfigurationJson: cycleBody.rulesConfigurationJson } });
+  const late = await http(T.teacher, 'POST', `/promotions/cycles/${past.id}/apply`, { body: { checklist: { items } } });
+  ok(late, 400, 'an application after the deadline is refused');
+  assert.equal(late.json.code, 'CYCLE_DEADLINE_PASSED');
+  const future = await db.promotionCycle.create({ data: { name: 'Future pilot cycle', type: 'NATURAL_VACANCY', status: 'ACTIVE',
+    startDate: new Date(Date.now() + 3 * day), endDate: new Date(Date.now() + 10 * day), rulesConfigurationJson: cycleBody.rulesConfigurationJson } });
+  const early = await http(T.teacher, 'POST', `/promotions/cycles/${future.id}/apply`, { body: { checklist: { items } } });
+  ok(early, 400, 'an application before the cycle opens is refused');
+  assert.equal(early.json.code, 'CYCLE_NOT_OPEN');
+  const listing = await http(T.teacher, 'GET', '/promotions/cycles');
+  assert.equal(listing.json.data.find(c => c.id === T.cycleId)?.applicationsOpen, true, 'an open cycle says so');
+  assert.equal(listing.json.data.find(c => c.id === past.id)?.applicationsOpen, false, 'a past-deadline cycle is not offered for applying');
+  const bare = await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`, { body: {} });
+  ok(bare, 400, 'an application without its Annex C checklist is refused');
+  assert.equal(bare.json.code, 'CHECKLIST_REQUIRED');
+
   const incomplete = await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`,
     { body: { checklist: { items: items.filter(i => i.code !== MANDATORY_ANNEX_C_CODES[0]) } } });
   ok(incomplete, 400, 'applying without a mandatory Annex C document is refused');
@@ -282,6 +301,9 @@ test('2. promotion: HR cycle, application, AO completeness, HR deliberation and 
   ok(await http(T.morAo, 'POST', `${app}/verify-requirements`, { body: { status: 'COMPLETE', remarks: 'Verified' } }), 200, 'AO confirms completeness');
   ok(await http(T.morAo, 'POST', `${app}/final-rating`, { body: rating }), 403, 'AO II cannot deliberate');
   ok(await http(T.hr, 'POST', `${app}/select-promotion`, { body: { isPromoted: true } }), 400, 'HR cannot select before deliberation');
+  const partial = await http(T.hr, 'POST', `${app}/final-rating`, { body: { track: 'TEACHING', educationScore: 10 } });
+  ok(partial, 400, 'an incomplete rating is refused, never filled with maximum scores');
+  assert.match(partial.json.message, /Missing: Training, Experience, Performance, PPST COIs, PPST NCOIs/);
   ok(await http(T.hr, 'POST', `${app}/final-rating`, { body: rating }), 200, 'HR deliberates');
   ok(await http(T.morAo, 'POST', `/promotions/cycles/${T.cycleId}/generate-ranking`), 403, 'AO II cannot rank');
   ok(await http(T.hr, 'POST', `/promotions/cycles/${T.cycleId}/generate-ranking`), 200, 'HR ranks');
@@ -292,6 +314,8 @@ test('2. promotion: HR cycle, application, AO completeness, HR deliberation and 
 
   const selected = await db.promotionApplication.findUnique({ where: { id: T.appId } });
   T.txId = selected.scoreDetailsJson.transactionId;
+  assert.equal(selected.scoreDetailsJson.forBackgroundInvestigation, '', 'nothing the board did not write goes on the CAR');
+  ok(await http(T.hr, 'POST', `${app}/final-rating`, { body: rating }), 400, 'ratings are locked once a candidate is selected');
   assert.ok(Number.isInteger(T.txId), 'selection opens an appointment transaction');
   const note = await db.notification.findFirst({ where: { userId: T.teacherUserId, relatedEntityId: T.txId } });
   assert.ok(note, 'the applicant is notified of the promotion');
@@ -430,4 +454,70 @@ test('4. sign-in from a new device needs the emailed code; a trusted device does
   await db.user.update({ where: { email }, data: { deviceVerification: false } });
   const exempt = await rawLogin(email, PASSWORD);
   assert.ok(exempt.json.data.accessToken, 'an exempt account needs no code on a new device');
+});
+
+test('5. records say only what is on file; resets, sessions and removals keep the trail', async () => {
+  // The service record: each post keeps its own position; nothing is estimated.
+  const rows = await http(T.teacher, 'GET', '/career/service-records');
+  ok(rows, 200, 'service record rows');
+  const current = rows.json.data.find(r => r.dateTo === null && r.remarks === 'Promotion');
+  assert.equal(current?.designation, 'Teacher II', 'the current post is the promoted position');
+  const original = rows.json.data.find(r => r.remarks === 'Original appointment');
+  assert.equal(original?.designation, 'Teacher I', 'the original appointment keeps its own position');
+  assert.ok(rows.json.data.every(r => r.monthlySalary === null && r.stepIncrement === null), 'no salary or step is estimated');
+  const timeline = (await http(T.teacher, 'GET', '/personnel/me/service-record')).json.data.careerTimeline;
+  assert.ok(timeline.some(e => e.event === 'Promoted to Teacher II'), 'the timeline names the position each promotion conferred');
+  assert.ok(timeline.some(e => /^Original appointment: Teacher I\b/.test(e.event)), 'the original appointment is the first position, not the current one');
+  assert.ok(!timeline.some(e => /permanent/i.test(`${e.remarks} ${e.event}`)), 'nothing is labelled permanent without a record');
+
+  // Evidence: a 201 file cited by an application stays viewable after the owner removes it.
+  const cited = T.fileIds[0];
+  const removed = await http(T.teacher, 'DELETE', `/personnel/documents/${cited}`);
+  ok(removed, 200, 'the teacher removes a file an application cited');
+  ok(await http(T.hr, 'GET', `/personnel/documents/${cited}/file`), 200, 'the reviewer can still open what was submitted');
+  assert.ok(await db.validationLog.findFirst({ where: { action: 'PERSONNEL_DOCUMENT_REMOVED', entityId: cited } }), 'the removal is logged');
+
+  // An HR reset is emailed to the holder; HR never learns the password.
+  const hrReset = await http(T.hr, 'POST', `/users/${T.teacherUserId}/reset-password`, { body: { newPassword: 'Chosen#ByHr2026' } });
+  ok(hrReset, 200, 'HR resets a teacher password');
+  assert.equal(hrReset.json.data.tempPassword, undefined, 'HR is not shown the new password');
+  const resetMail = [...emails].reverse().find(e => e.recipientEmail === 'teacher@pilot.invalid' && /reset/i.test(e.subject || ''));
+  assert.ok(resetMail?.credentials?.initialPassword, 'the holder is emailed the new password');
+  assert.notEqual(resetMail.credentials.initialPassword, 'Chosen#ByHr2026', 'HR cannot choose it either');
+
+  // Sessions: stored hashed, idle browsers signed out, at most three at once.
+  const hrLogin = await login('hr@pilot.invalid', PASSWORD);
+  const refreshValue = hrLogin.json.data.refreshToken;
+  assert.equal(await db.refreshToken.count({ where: { token: refreshValue } }), 0, 'refresh tokens are stored only as hashes');
+  ok(await http(null, 'POST', '/auth/refresh-token', { body: { refreshToken: refreshValue } }), 200, 'an active session refreshes');
+  const hashed = require('node:crypto').createHash('sha256').update(refreshValue).digest('hex');
+  await db.refreshToken.update({ where: { token: hashed }, data: { lastUsedAt: new Date(Date.now() - 60 * 60000) } });
+  const idle = await http(null, 'POST', '/auth/refresh-token', { body: { refreshToken: refreshValue } });
+  ok(idle, 401, 'a browser session unused for an hour is signed out');
+  assert.equal(idle.json.code, 'SESSION_IDLE');
+  for (let i = 0; i < 4; i++) await login('hr@pilot.invalid', PASSWORD);
+  const live = await db.refreshToken.count({ where: { user: { email: 'hr@pilot.invalid' }, revoked: false } });
+  assert.ok(live <= 3, `at most three live sessions (found ${live})`);
+
+  // A phone app from before the sign-in code is told to update, not left to crash.
+  const oldApp = await fetch(`${baseUrl}/api/v1/auth/login`, { method: 'POST',
+    headers: { 'content-type': 'application/json', 'user-agent': 'Dart/3.5 (dart:io)' },
+    body: JSON.stringify({ email: 'ao.matulas@pilot.invalid', password: PASSWORD }) });
+  assert.equal(oldApp.status, 426, 'an old app build is asked to update');
+
+  // Removing an officer who has acted deactivates them; their record of work stays.
+  const morId = (await db.user.findUnique({ where: { email: 'ao.morales@pilot.invalid' } })).id;
+  const trailBefore = await db.validationLog.count({ where: { userId: morId } });
+  assert.ok(trailBefore > 0, 'the AO II has a trail');
+  const del = await http(T.sa, 'DELETE', `/users/${morId}`);
+  ok(del, 200, 'removing an officer with history');
+  assert.equal(del.json.data.accountStatus, 'INACTIVE', 'is a deactivation');
+  assert.ok(await db.validationLog.count({ where: { userId: morId } }) >= trailBefore, 'their audit trail is kept');
+  assert.ok(await db.uploadedDocument.count({ where: { validatedByUserId: morId } }) > 0, 'what they validated still names them');
+  const spare = await http(T.sa, 'POST', '/users', { body: { email: 'spare.hr@pilot.invalid', password: 'Temp#Pass2026!', role: 'HRMO',
+    firstName: 'Pilot', lastName: 'Spare', birthDate: '1985-01-01', gender: 'FEMALE', civilStatus: 'SINGLE', contactNumber: '09170000000',
+    dateHired: '2015-06-01', designation: 'HRMO' } });
+  ok(spare, 201, 'create an account that is never used');
+  const spareId = spare.json.data.user?.id ?? spare.json.data.id;
+  ok(await http(T.sa, 'DELETE', `/users/${spareId}`), 204, 'an account never used is removed outright');
 });

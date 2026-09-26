@@ -6,6 +6,8 @@ import { logger } from '../utils/logger';
 import { plainNotificationText } from '../utils/notification-text.util';
 
 export const notificationEvents = new EventEmitter();
+// One listener per open stream; the default cap of 10 would warn with a normal pilot.
+notificationEvents.setMaxListeners(0);
 
 export const notifyUserNotifications = (userIds: number | number[]) => {
   const ids = Array.isArray(userIds) ? userIds : [userIds];

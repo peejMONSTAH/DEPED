@@ -231,7 +231,7 @@ class ProfileScreen extends StatelessWidget {
                                     border: Border.all(color: AppTheme.primaryLight.withOpacity(0.25)),
                                   ),
                                   child: Text(
-                                    'SG ${p.salaryGrade} · Step ${p.stepIncrement}',
+                                    p.salaryGrade == null ? 'SG not recorded' : (p.stepIncrement == null ? 'SG ${p.salaryGrade}' : 'SG ${p.salaryGrade} · Step ${p.stepIncrement}'),
                                     style: GoogleFonts.jetBrainsMono(
                                       color: AppTheme.primaryLight,
                                       fontSize: 11,
@@ -432,7 +432,7 @@ class ProfileScreen extends StatelessWidget {
               items: [
                 _buildInfoRow('Position Designation', p.positionTitle),
                 _buildInfoRow('Plantilla Item No.', p.plantillaItemNo, isMono: true, onCopy: () => _copyToClipboard(context, p.plantillaItemNo, 'Plantilla Item No.')),
-                _buildInfoRow('Salary Grade & Step', 'Salary Grade ${p.salaryGrade} · Step ${p.stepIncrement}'),
+                _buildInfoRow('Salary Grade & Step', p.salaryGrade == null ? 'Not recorded' : (p.stepIncrement == null ? 'Salary Grade ${p.salaryGrade}' : 'Salary Grade ${p.salaryGrade} · Step ${p.stepIncrement}')),
                 _buildInfoRow('Station / School', p.stationName),
                 _buildInfoRow('Date Appointed / Hired', formatDate(p.dateHired, fallback: 'Not Provided')),
               ],

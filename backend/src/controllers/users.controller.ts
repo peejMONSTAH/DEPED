@@ -517,10 +517,26 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   }
   if (!canManageAccount(req.user?.role, existing.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
 
-  // If the user has active transactions or promotion records, deactivate to preserve audit history
+  // Government records outlive the account. Anything the person did or that
+  // was done in their name keeps the account as its reference, so it is only
+  // deactivated. A hard delete is reserved for an account that never became
+  // anything: never signed in and nothing on record by or about it.
+  const personnelId = existing.personnel?.id;
+  const [actions, documentsTouched, checks, filesReviewed, filesUploaded, requests, assigned] = await Promise.all([
+    prisma.validationLog.count({ where: { userId } }),
+    prisma.uploadedDocument.count({ where: { OR: [{ uploadedByUserId: userId }, { validatedByUserId: userId }] } }),
+    prisma.complianceCheck.count({ where: { checkedByUserId: userId } }),
+    prisma.personnelFile.count({ where: { reviewedByUserId: userId } }),
+    personnelId ? prisma.personnelFile.count({ where: { personnelId, storagePath: { not: null } } }) : Promise.resolve(0),
+    prisma.accountCreationRequest.count({ where: { requestedByUserId: userId } }),
+    prisma.transaction.count({ where: { currentAssigneeId: userId } }),
+  ]);
   const hasHistory =
+    Boolean(existing.lastLogin) ||
     (existing.personnel?.transactions?.length ?? 0) > 0 ||
-    (existing.personnel?.promotionApplications?.length ?? 0) > 0;
+    (existing.personnel?.promotionApplications?.length ?? 0) > 0 ||
+    (existing.personnel?.careerHistoryEntries?.length ?? 0) > 0 ||
+    actions + documentsTouched + checks + filesReviewed + filesUploaded + requests + assigned > 0;
 
   if (hasHistory) {
     await prisma.$transaction([
@@ -529,83 +545,49 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
         data: { accountStatus: 'INACTIVE' },
       }),
       prisma.refreshToken.deleteMany({ where: { userId } }),
+      prisma.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
       prisma.validationLog.create({
         data: {
           entityType: 'User',
           entityId: userId,
           action: 'USER_DEACTIVATED_PRESERVED_TRAIL',
-          detailsJson: { reason: 'Deactivated to INACTIVE instead of hard-deleted to preserve transaction/audit history' },
+          detailsJson: { reason: 'Deactivated instead of deleted: the account has records that must be retained.' },
           userId: req.user!.userId,
+          ipAddress: req.ip,
           status: 'SUCCESS',
         },
       }),
     ]);
-    sendSuccess(res, { id: userId, accountStatus: 'INACTIVE' }, 'User account has existing transaction history and was set to INACTIVE to preserve government audit records.');
+    // Deactivation must take effect now, not when the 30s auth cache expires.
+    invalidateAuthUserCache(userId);
+    sendSuccess(res, { id: userId, accountStatus: 'INACTIVE' }, 'This account has records that must be kept, so it was deactivated instead of deleted.');
     return;
   }
 
-  // Safe hard delete: clean up dependent transient records first
+  // Hard delete of an unused account: only its own empty placeholders go with it.
   await prisma.$transaction(async (tx) => {
-    // The account and its personnel record are joined by personnel.user_id
-    // alone, so there is no longer a circular reference to break first.
-
-    // 1. Remove refresh tokens & used magic tokens
     await tx.refreshToken.deleteMany({ where: { userId } });
     await tx.usedMagicToken.deleteMany({ where: { userId } });
-
-    // 2. Remove user notifications
     await tx.notification.deleteMany({ where: { userId } });
-
-    // 3. Disassociate uploaded / validated documents
-    await tx.uploadedDocument.updateMany({
-      where: { uploadedByUserId: userId },
-      data: { uploadedByUserId: req.user!.userId },
-    });
-    await tx.uploadedDocument.updateMany({
-      where: { validatedByUserId: userId },
-      data: { validatedByUserId: null },
-    });
-
-    // 4. Disassociate account creation requests
-    await tx.accountCreationRequest.updateMany({
-      where: { createdUserId: userId },
-      data: { createdUserId: null },
-    });
-    await tx.accountCreationRequest.deleteMany({
-      where: { requestedByUserId: userId },
-    });
-
-    // 5. Compliance checks performed by this user
-    await tx.complianceCheck.deleteMany({
-      where: { checkedByUserId: userId },
-    });
-
-    // 6. Unassign assigned transactions
-    await tx.transaction.updateMany({
-      where: { currentAssigneeId: userId },
-      data: { currentAssigneeId: null },
-    });
-
-    // 7. Delete linked personnel if clean
-    if (existing.personnel) {
-      await tx.careerHistoryEntry.deleteMany({ where: { personnelId: existing.personnel.id } });
+    await tx.accountCreationRequest.updateMany({ where: { createdUserId: userId }, data: { createdUserId: null } });
+    if (personnelId) {
+      // Only NOT_SUBMITTED placeholders exist here (files were checked above).
+      await tx.personnelFile.deleteMany({ where: { personnelId, storagePath: null } });
       // Deleting the occupant is what vacates the item.
-      await tx.personnel.delete({ where: { id: existing.personnel.id } });
+      await tx.personnel.delete({ where: { id: personnelId } });
     }
-
-    // 8. Delete validation logs for this user
-    await tx.validationLog.deleteMany({ where: { userId } });
-
-    // 9. Delete user record
     await tx.user.delete({ where: { id: userId } });
   });
+  invalidateAuthUserCache(userId);
 
   await prisma.validationLog.create({
     data: {
       entityType: 'User',
       entityId: userId,
       action: 'USER_DELETED',
+      detailsJson: { email: existing.email, role: existing.role.name },
       userId: req.user!.userId,
+      ipAddress: req.ip,
       status: 'SUCCESS',
     },
   }).catch((err: any) => logger.error({ err }, 'Failed to log USER_DELETED'));
@@ -703,19 +685,19 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
     return;
   }
 
-  const { newPassword } = req.body;
-
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: { role: { select: { name: true } }, personnel: { select: { firstName: true, lastName: true, employeeId: true } } },
   });
   if (!user) { sendNotFound(res, 'User not found.'); return; }
-  // The caller receives the new password, so this is as strong as a sign-in.
   if (!canManageAccount(req.user?.role, user.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
 
-  // Math.random() is not a cryptographic source and the old shape was guessable
-  // from one example. Generate unless the administrator supplied a specific value.
-  const tempPassword = newPassword || generateInitialPassword();
+  // The new password goes to the account holder by email. Only a System
+  // Administrator, who can already manage every account, may also be shown it
+  // (for holders whose inbox is unreachable) or choose it. An HRMO never sees
+  // it: a password known to HR would let HR sign in as the teacher.
+  const isSystemAdmin = req.user?.role === 'SYSTEM_ADMIN';
+  const tempPassword = (isSystemAdmin && req.body?.newPassword) || generateInitialPassword();
 
   const passwordCheck = validatePasswordComplexity(tempPassword);
   if (!passwordCheck.valid) {
@@ -724,25 +706,25 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
   }
 
   const passwordHash = await hashPassword(tempPassword);
+  const actorLabel = isSystemAdmin ? 'the System Administrator' : 'the Division HR office';
 
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
       data: {
         passwordHash,
-        // The administrator knows this one too.
+        // The holder must replace it with one only they know.
         mustChangePassword: true,
       },
     }),
-    prisma.refreshToken.updateMany({
-      where: { userId },
-      data: { revoked: true },
-    }),
+    prisma.refreshToken.updateMany({ where: { userId }, data: { revoked: true } }),
+    // Devices trusted under the old password must prove themselves again.
+    prisma.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
     // SEC-H3: Do not persist temporary password plaintext in notification records
     prisma.notification.create({
       data: {
         userId,
-        message: `Your account password has been reset by the System Administrator. Please use the temporary credentials provided to you to log in and update your password immediately.`,
+        message: `Your password was reset by ${actorLabel}. Check your email for the setup link and set a new password.`,
         type: 'WARNING',
       },
     }),
@@ -751,7 +733,7 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
         entityType: 'User',
         entityId: userId,
         action: 'PASSWORD_RESET_BY_ADMIN',
-        detailsJson: { email: user.email, resetBy: req.user!.userId },
+        detailsJson: { email: user.email, resetBy: req.user!.userId, resetByRole: req.user?.role, shownToActor: isSystemAdmin },
         userId: req.user!.userId,
         ipAddress: req.ip,
         status: 'SUCCESS',
@@ -763,12 +745,35 @@ export const resetUserPassword = async (req: Request, res: Response): Promise<vo
   // not when the 30s auth cache happens to expire.
   invalidateAuthUserCache(userId);
   notifyUserNotifications(userId);
+
+  const setupToken = generateMagicToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role.name,
+    purpose: 'ACCOUNT_SETUP',
+    pwdv: passwordTokenVersion(passwordHash),
+  });
+  await queueTransactionalEmail(`user:${user.id}:password-reset:${Date.now()}`, {
+    recipientEmail: user.email,
+    recipientName: user.personnel ? `${user.personnel.firstName} ${user.personnel.lastName}` : user.email,
+    subject: 'Your Digital 201 password was reset',
+    heading: 'Set a new password',
+    message: `Your Digital 201 password was reset by ${actorLabel}. Use the button below to choose a new password; the link works once and expires in 48 hours. You can also sign in at ${config.clientUrl}/login with the temporary password below and you will be asked to change it. If you did not ask for this, contact your HR office.`,
+    reference: `User account ${user.id}`,
+    credentials: { username: user.email, initialPassword: tempPassword },
+    actionLabel: 'Set a new password',
+    actionUrl: `${config.clientUrl}/auth/setup-account?token=${encodeURIComponent(setupToken)}`,
+    sensitive: true,
+  });
+  void processWorkflowOutbox();
+
   sendSuccess(res, {
     userId: user.id,
     email: user.email,
-    tempPassword,
     employeeId: user.personnel?.employeeId,
-  }, `Password for ${user.email} reset successfully.`);
+    emailed: true,
+    ...(isSystemAdmin ? { tempPassword } : {}),
+  }, `A new password for ${user.email} was set and emailed to them.`);
 };
 
 /**

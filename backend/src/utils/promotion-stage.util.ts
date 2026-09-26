@@ -55,3 +55,34 @@ export const selectionBlockReason = (scoreDetailsJson: unknown): string | null =
   }
   return null;
 };
+
+type ContestApp = { id: number; status: string; scoreDetailsJson: unknown; personnel?: { firstName?: string | null; lastName?: string | null } | null };
+
+/** No longer competing: rejected, or discontinued with its cycle. */
+export const isOutOfContest = (app: ContestApp): boolean => {
+  const details = asDetails(app.scoreDetailsJson);
+  return app.status === 'REJECTED' || details.stageStatus === 'CANCELLED' || Boolean(details.cycleCancelled);
+};
+
+const namesOf = (apps: ContestApp[]): string =>
+  apps.map(a => [a.personnel?.firstName, a.personnel?.lastName].filter(Boolean).join(' ') || `application #${a.id}`).join(', ');
+
+/**
+ * Selection compares everyone in the contest, so it waits until each applicant
+ * is resolved: AO II has checked their requirements, and every applicant found
+ * complete has been deliberated. Otherwise one favoured applicant could be rated
+ * and selected before the others were even scored. Applicants returned as
+ * deficient do not hold up selection: the next step is theirs, not the board's.
+ */
+export const cycleSelectionBlockReason = (apps: ContestApp[]): string | null => {
+  const inContest = apps.filter(a => !isOutOfContest(a));
+  const awaitingCheck = inContest.filter(a => !requirementsVerification(a.scoreDetailsJson));
+  if (awaitingCheck.length > 0) {
+    return `${awaitingCheck.length} applicant(s) still await the AO II completeness check (${namesOf(awaitingCheck)}). Selection can follow only once every applicant is checked and deliberated.`;
+  }
+  const undeliberated = inContest.filter(a => isRequirementsVerified(a.scoreDetailsJson) && !isDeliberated(a.scoreDetailsJson));
+  if (undeliberated.length > 0) {
+    return `${undeliberated.length} verified applicant(s) have not been deliberated yet (${namesOf(undeliberated)}). Rate every verified applicant before selecting.`;
+  }
+  return null;
+};

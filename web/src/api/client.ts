@@ -7,10 +7,10 @@ export const apiUrl = (path: string) => `${API_BASE_URL}/${path.replace(/^\//, '
 
 // Also reached when the server ends a session, e.g. after the officer's station
 // is reassigned: nothing cached under the old assignment survives it.
-function clearSession() {
+function clearSession(reason?: string) {
   for (const key of ['accessToken', 'refreshToken', 'user']) localStorage.removeItem(key);
   resetClientCaches();
-  if (window.location.pathname !== '/login') window.location.href = '/login';
+  if (window.location.pathname !== '/login') window.location.href = reason ? `/login?reason=${reason}` : '/login';
 }
 
 export const refreshAccessToken = singleFlight(async (): Promise<string> => {
@@ -102,7 +102,9 @@ apiClient.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return apiClient(originalRequest);
       } catch (refreshError: any) {
-        if ([401, 403].includes(refreshError.response?.status) && localStorage.getItem('refreshToken') === refreshToken) clearSession();
+        if ([401, 403].includes(refreshError.response?.status) && localStorage.getItem('refreshToken') === refreshToken) {
+          clearSession(refreshError.response?.data?.code === 'SESSION_IDLE' ? 'idle' : undefined);
+        }
         return Promise.reject(refreshError);
       }
     }

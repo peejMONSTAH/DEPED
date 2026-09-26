@@ -57,12 +57,19 @@ export const config = {
   },
 
   session: {
-    timeoutMinutes: 30,
-    mobileTimeoutMinutes: 60,
+    // The web app signs out after this long without input (web/src/hooks/useIdleSignOut).
+    webIdleMinutes: 30,
+    // Server side: a browser session unused this long cannot be refreshed. Idle
+    // limit plus one access-token lifetime, so an active user is never cut off.
+    webRefreshIdleMinutes: 45,
     maxConcurrentSessions: 3,
     lockoutDurationMinutes: 15,
     maxFailedAttempts: 5,
   },
+
+  // Phone-app builds below this are refused with "update the app" (0 = off). Raise it
+  // when a release must reach everyone, e.g. MIN_APP_BUILD=2.
+  minAppBuild: parseInt(process.env.MIN_APP_BUILD || '0', 10),
 
   documents: {
     maxSizeBytes: 10 * 1024 * 1024, // 10 MB

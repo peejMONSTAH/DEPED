@@ -30,8 +30,6 @@ List<_Missing> _missingDetails(PersonnelProfileModel p) => [
       if (_blank(p.gender)) const _Missing('gender', 'Sex', options: ['MALE', 'FEMALE']),
       if (_blank(p.civilStatus))
         const _Missing('civilStatus', 'Civil status', options: ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED']),
-      if (_blank(p.positionTitle)) const _Missing('designation', 'Position'),
-      if (_blank(p.dateHired)) const _Missing('dateHired', 'Date of first appointment', isDate: true),
     ];
 
 String _nice(String v) => v.isEmpty ? v : v[0] + v.substring(1).toLowerCase();

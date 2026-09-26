@@ -17,7 +17,10 @@ export const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  // Arriving from an idle sign-out explains itself instead of looking like a crash.
+  const [error, setError] = useState(() => new URLSearchParams(window.location.search).get('reason') === 'idle'
+    ? 'You were signed out after 30 minutes without activity. Sign in again to continue.'
+    : '');
 
   const { login, verifyDevice } = useAuthContext();
 

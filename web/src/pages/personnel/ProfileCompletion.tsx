@@ -79,7 +79,10 @@ export const ProfileCompletion: React.FC = () => {
   // Middle name and suffix are legitimately empty for many people, so only
   // the details every record needs are asked for when blank.
   const OPTIONAL: FieldKey[] = ['middleName', 'suffix'];
-  const missing = person ? FILLABLE.filter(f => !OPTIONAL.includes(f.key) && blank(person[f.key])) : [];
+  // Position and first appointment decide promotion eligibility, so only AO II
+  // or HRMO record them; a blank one is shown as not recorded, never self-filled.
+  const STAFF_RECORDED: FieldKey[] = ['designation', 'dateHired'];
+  const missing = person ? FILLABLE.filter(f => !OPTIONAL.includes(f.key) && !STAFF_RECORDED.includes(f.key) && blank(person[f.key])) : [];
 
   const saveFill = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +174,7 @@ export const ProfileCompletion: React.FC = () => {
           Details on your official record are locked and maintained by your AO II or HRMO. Ask them to correct anything that is wrong.
         </p>
         <dl>
-          {FILLABLE.filter(f => !blank(person[f.key])).map(f => <Row key={f.key} label={f.label} value={pretty(f.key, person[f.key])} />)}
+          {FILLABLE.filter(f => !blank(person[f.key]) || STAFF_RECORDED.includes(f.key)).map(f => <Row key={f.key} label={f.label} value={pretty(f.key, person[f.key])} />)}
         </dl>
         {missing.length > 0 && (
           <form onSubmit={saveFill} className="profile-fill">

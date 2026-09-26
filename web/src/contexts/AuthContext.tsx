@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { AuthUser } from '../types';
 import { authApi, DEVICE_TOKEN_KEY, type VerificationChallenge } from '../api/auth.api';
 import { resetClientCaches } from '../api/queryClient';
+import { useIdleSignOut } from '../hooks/useIdleSignOut';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -92,6 +93,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetClientCaches();
     setUser(null);
   }, []);
+
+  // Shared school computers: a signed-in browser left alone signs itself out.
+  const signOutIdle = useCallback(() => {
+    void logout().finally(() => { window.location.href = '/login?reason=idle'; });
+  }, [logout]);
+  useIdleSignOut(Boolean(user), signOutIdle);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, verifyDevice, loginWithTokens, logout, updateUser }}>

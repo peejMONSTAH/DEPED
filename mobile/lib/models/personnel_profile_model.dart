@@ -7,8 +7,8 @@ class PersonnelProfileModel {
   final String? extensionName;
   final String positionTitle;
   final String plantillaItemNo;
-  final int salaryGrade;
-  final int stepIncrement;
+  final int? salaryGrade;
+  final int? stepIncrement;
   final String stationName;
   final String personnelType;
   final String? mobileNo;
@@ -28,8 +28,8 @@ class PersonnelProfileModel {
     this.extensionName,
     required this.positionTitle,
     required this.plantillaItemNo,
-    required this.salaryGrade,
-    required this.stepIncrement,
+    this.salaryGrade,
+    this.stepIncrement,
     required this.stationName,
     required this.personnelType,
     this.mobileNo,
@@ -133,9 +133,10 @@ class PersonnelProfileModel {
 
     final rawItemNo = (plantilla['itemNumber'] ?? json['plantillaItemNo'] ?? '').toString().trim();
     final itemNo = rawItemNo.isNotEmpty ? rawItemNo : 'Pending Item Assignment';
-    final sg = int.tryParse(plantilla['salaryGrade']?.toString() ?? json['salaryGrade']?.toString() ?? '11') ?? 11;
-    final step = int.tryParse(json['stepIncrement']?.toString() ?? json['step_increment']?.toString() ?? '1') ?? 1;
-    final station = (plantilla['department'] ?? json['stationName'] ?? 'SDO Koronadal').toString();
+    // Grade and step are shown only when on record, never assumed.
+    final sg = int.tryParse(plantilla['salaryGrade']?.toString() ?? json['salaryGrade']?.toString() ?? '');
+    final step = int.tryParse(json['stepIncrement']?.toString() ?? json['step_increment']?.toString() ?? '');
+    final station = (plantilla['department'] ?? json['school'] ?? json['stationName'] ?? 'Station not recorded').toString();
     final mob = (json['contactNumber'] ?? json['mobileNo'] ?? json['mobile_no'])?.toString();
     final mail = (userObj['email'] ?? json['email'])?.toString();
 

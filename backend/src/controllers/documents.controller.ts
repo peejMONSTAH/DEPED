@@ -490,7 +490,7 @@ export const downloadDocumentFile = async (req: Request, res: Response): Promise
         mimeType: doc.mimeType,
         transactionId: doc.transaction?.personnelId ? doc.transactionId : undefined,
       },
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.ip || null,
+      ipAddress: req.ip || null,
       userAgent: (req.headers['user-agent'] as string) || null,
       status: 'SUCCESS',
     }).catch(err => logger.error({ err }, 'Failed to log document access'));

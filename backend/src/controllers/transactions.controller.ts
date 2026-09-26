@@ -22,8 +22,19 @@ import { lockTransaction, workflowConflict } from '../utils/transaction-lock.uti
 
 const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
 export const transactionEvents = new EventEmitter();
-const notifyTransactionChange = (data?: Record<string, any>) => {
-  transactionEvents.emit('change', { timestamp: Date.now(), ...(data || {}) });
+// One listener per open stream; the default cap of 10 would warn with a normal pilot.
+transactionEvents.setMaxListeners(0);
+
+// Every connected screen refetches on a change, so a burst of writes (one approval
+// touches several records) is sent as a single signal at most once a second.
+let pendingChange: NodeJS.Timeout | null = null;
+const notifyTransactionChange = (_data?: Record<string, any>) => {
+  if (pendingChange) return;
+  pendingChange = setTimeout(() => {
+    pendingChange = null;
+    transactionEvents.emit('change', { timestamp: Date.now() });
+  }, 1000);
+  pendingChange.unref?.();
 };
 export { notifyTransactionChange };
 
@@ -957,6 +968,10 @@ export const approveTransaction = async (req: Request, res: Response) => {
     },
   });
   if (!transaction) { sendNotFound(res, 'Transaction not found.'); return; }
+  // Approval is independent review, as validation is: nobody decides their own.
+  if (req.user?.personnelId && req.user.personnelId === transaction.personnelId) {
+    sendForbidden(res, 'You cannot approve your own transaction.'); return;
+  }
   if (transaction.status !== 'FOR_APPROVAL') {
     sendBadRequest(
       res,

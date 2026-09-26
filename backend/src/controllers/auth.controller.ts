@@ -6,6 +6,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMa
 import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound } from '../utils/response.util';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { capSessions, hashRefreshToken, isPhoneApp, isSessionIdle, refreshTokenRow } from '../services/session.service';
 import {
   isTrustedDevice, startChallenge, verifyChallenge, resendChallenge, trustDevice, notifyNewDevice,
   listDevices, revokeDevice, revokeAllDevices, hashDeviceToken,
@@ -42,32 +43,19 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       include: userInclude,
     });
 
-    // 2. Flexible fallback: match by username prefix or standard division domain aliases
-    if (!user) {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: `${username}@deped.koronadal.gov.ph` },
-            { email: `${username}@deped.gov.ph` },
-            { email: `${username}@deped.gov` },
-            { email: { startsWith: `${username}@` } },
-          ],
-        },
-        include: userInclude,
-      });
+    // 2. A bare username ("jdelacruz") means one of the division's own domains,
+    // tried in a fixed order. Never a prefix match, and never when a full email
+    // was typed: "juan" must not sign in whichever account happens to start with it.
+    if (!user && !rawInput.includes('@')) {
+      for (const domain of ['deped.gov.ph', 'deped.koronadal.gov.ph', 'deped.gov']) {
+        user = await prisma.user.findUnique({ where: { email: `${username}@${domain}` }, include: userInclude });
+        if (user) break;
+      }
     }
   } catch (err) {
     logger.warn('DB Connection retry for login user query...');
     try {
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { email: rawInput },
-            { email: { startsWith: `${username}@` } },
-          ],
-        },
-        include: userInclude,
-      });
+      user = await prisma.user.findUnique({ where: { email: rawInput }, include: userInclude });
     } catch (retryErr) {
       logger.error({ err: retryErr }, 'Database connection unreachable during login');
       sendError(res, 'Database connection temporary timeout. Please try logging in again.', 503);
@@ -124,6 +112,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   // A password alone is enough only on a device that earlier passed an emailed code
   // (accounts from before the check was introduced are exempt).
   if (user.deviceVerification && !(await isTrustedDevice(user.id, req.body.deviceToken))) {
+    // App builds from before this check cannot show the code screen; tell them to update.
+    if (isPhoneApp(req) && req.body.deviceName === undefined) {
+      sendError(res, 'Update the Digital 201 app to the latest version to sign in on this phone.', 426, 'APP_UPDATE_REQUIRED');
+      return;
+    }
     try {
       const challenge = await startChallenge({ id: user.id, email: user.email, name: displayName(user) }, req);
       sendSuccess(res, { requiresVerification: true, ...challenge }, 'Enter the code sent to your email.');
@@ -156,7 +149,7 @@ const completeSignIn = async (user: any, req: Request, res: Response, extra: Rec
 
   try {
     await prisma.$transaction([
-      prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id, expiresAt } }),
+      prisma.refreshToken.create({ data: refreshTokenRow(user.id, refreshToken, req, expiresAt) }),
       prisma.user.update({
         where: { id: user.id },
         data: { lastLogin: new Date() },
@@ -178,12 +171,13 @@ const completeSignIn = async (user: any, req: Request, res: Response, extra: Rec
   } catch (txErr) {
     logger.warn({ err: txErr }, 'Login succeeded but its transaction failed; refresh token written via fallback');
     try {
-      await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id, expiresAt } });
+      await prisma.refreshToken.create({ data: refreshTokenRow(user.id, refreshToken, req, expiresAt) });
     } catch (rfErr) {
       logger.error({ err: rfErr }, 'Failed to persist refresh token on fallback');
     }
   }
 
+  await capSessions(user.id);
   sendSuccess(res, {
     accessToken,
     refreshToken,
@@ -276,19 +270,26 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 
     let storedToken: any = null;
     try {
-      storedToken = await prisma.refreshToken.findUnique({ where: { token } });
+      storedToken = await prisma.refreshToken.findUnique({ where: { token: hashRefreshToken(token) } });
     } catch {
       try {
-        storedToken = await prisma.refreshToken.findUnique({ where: { token } });
+        storedToken = await prisma.refreshToken.findUnique({ where: { token: hashRefreshToken(token) } });
       } catch {
         sendUnauthorized(res, 'Database connection timeout.');
         return;
       }
     }
-    if (!storedToken || storedToken.revoked || storedToken.expiresAt < new Date()) {
+    if (!storedToken || storedToken.revoked || storedToken.expiresAt < new Date() || storedToken.userId !== payload.userId) {
       sendUnauthorized(res, 'Invalid or expired refresh token.');
       return;
     }
+    // A browser left unused ends its session (shared school computers).
+    if (isSessionIdle(storedToken)) {
+      await prisma.refreshToken.update({ where: { id: storedToken.id }, data: { revoked: true } });
+      sendError(res, 'You were signed out after a period of inactivity. Please sign in again.', 401, 'SESSION_IDLE');
+      return;
+    }
+    await prisma.refreshToken.update({ where: { id: storedToken.id }, data: { lastUsedAt: new Date() } });
 
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -313,9 +314,10 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 export const logout = async (req: Request, res: Response): Promise<void> => {
   const { refreshToken: token } = req.body;
 
-  if (token) {
+  if (typeof token === 'string' && token) {
+    // Only the caller's own session: knowing another account's token is not enough.
     await prisma.refreshToken.updateMany({
-      where: { token },
+      where: { token: hashRefreshToken(token), userId: req.user!.userId },
       data: { revoked: true },
     });
   }
@@ -463,7 +465,7 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
     const expiresAt = payload.exp ? new Date(payload.exp * 1000) : new Date(Date.now() + 48 * 60 * 60 * 1000);
     await prisma.$transaction([
       prisma.usedMagicToken.create({ data: { jti, userId: user.id, expiresAt } }),
-      prisma.refreshToken.create({ data: { userId: user.id, token: refreshToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
+      prisma.refreshToken.create({ data: refreshTokenRow(user.id, refreshToken, req, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) }),
     ]);
 
     // Audit log
@@ -482,6 +484,7 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
     const deviceToken = await trustDevice(user.id, req);
     res.locals.auditLogged = true;
 
+    await capSessions(user.id);
     sendSuccess(
       res,
       {
@@ -569,7 +572,7 @@ export const completeAccountSetup = async (req: Request, res: Response): Promise
       prisma.user.update({ where: { id: user.id }, data: { passwordHash: newHash, mustChangePassword: false, failedLoginAttempts: 0, lockedUntil: null } }),
       // Sessions opened with the temporary password end now.
       prisma.refreshToken.updateMany({ where: { userId: user.id, revoked: false }, data: { revoked: true } }),
-      prisma.refreshToken.create({ data: { userId: user.id, token: refreshTokenValue, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } }),
+      prisma.refreshToken.create({ data: refreshTokenRow(user.id, refreshTokenValue, req, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) }),
       prisma.validationLog.create({ data: { entityType: 'User', entityId: user.id, action: 'ACCOUNT_SETUP_COMPLETED', userId: user.id, ipAddress: req.ip, status: 'SUCCESS', detailsJson: { jti: payload.jti } } }),
     ]);
   } catch (err: any) {
@@ -585,6 +588,7 @@ export const completeAccountSetup = async (req: Request, res: Response): Promise
   await revokeAllDevices(user.id);
   const deviceToken = await trustDevice(user.id, req);
 
+  await capSessions(user.id);
   sendSuccess(res, {
     accessToken,
     refreshToken: refreshTokenValue,

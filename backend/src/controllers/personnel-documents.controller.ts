@@ -606,30 +606,43 @@ export const deletePersonnelDocument = async (req: Request, res: Response): Prom
         sendBadRequest(res, 'Required document checklist items cannot be removed.');
         return;
       }
-      // Reset required item back to unsubmitted placeholder
-      await prisma.personnelFile.update({
-        where: { id: record.id },
-        data: {
-          status: PersonnelDocumentStatus.NOT_SUBMITTED,
-          originalFileName: null,
-          storedFileName: null,
-          storagePath: null,
-          mimeType: null,
-          fileSize: null,
-          issueDate: null,
-          expirationDate: null,
-          remarks: null,
-          rejectionReason: null,
-        },
-      });
-      sendSuccess(res, { id: record.id }, 'Document reset to unsubmitted placeholder.');
+      // The uploaded row is archived, never blanked: an application may cite it,
+      // and the reviewer must still be able to open exactly what was submitted.
+      // A fresh placeholder takes its place on the checklist.
+      await prisma.$transaction([
+        prisma.personnelFile.update({ where: { id: record.id }, data: { deletedAt: new Date() } }),
+        prisma.personnelFile.create({
+          data: {
+            personnelId: record.personnelId,
+            documentTypeId: record.documentTypeId,
+            documentTypeName: record.documentTypeName,
+            isRequired: true,
+            status: PersonnelDocumentStatus.NOT_SUBMITTED,
+          },
+        }),
+      ]);
+      await logDocumentRemoval(req, record);
+      sendSuccess(res, { id: record.id }, 'Document removed. The requirement is open for a new upload.');
       return;
     }
   }
 
   await prisma.personnelFile.update({ where: { id: record.id }, data: { deletedAt: new Date() } });
+  await logDocumentRemoval(req, record);
   sendSuccess(res, { id: record.id }, 'Document archived. Previously submitted copies are retained.');
 };
+
+const logDocumentRemoval = (req: Request, record: { id: number; personnelId: number; documentTypeId: string; originalFileName: string | null }) =>
+  recordAuditLog({
+    userId: req.user!.userId,
+    action: 'PERSONNEL_DOCUMENT_REMOVED',
+    entityType: 'PersonnelDocument',
+    entityId: record.id,
+    details: { personnelId: record.personnelId, documentTypeId: record.documentTypeId, fileName: record.originalFileName },
+    ipAddress: req.ip || null,
+    userAgent: (req.headers['user-agent'] as string) || null,
+    status: 'SUCCESS',
+  }).catch(err => logger.error({ err }, 'Failed to log personnel document removal'));
 
 export const isDocumentAccessibleHistoricalEvidence = async (documentId: number, personnelId: number): Promise<boolean> => {
   const apps = await prisma.promotionApplication.findMany({
@@ -742,7 +755,7 @@ export const downloadPersonnelDocumentFile = async (req: Request, res: Response)
         fileName: record.originalFileName,
         personnelId: record.personnelId,
       },
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.ip || null,
+      ipAddress: req.ip || null,
       userAgent: (req.headers['user-agent'] as string) || null,
       status: 'SUCCESS',
     }).catch(err => logger.error({ err }, 'Failed to log personnel document access'));

@@ -25,9 +25,10 @@ import { hashPassword, validatePasswordComplexity } from '../utils/hash.util';
 import { checkPromotionEligibility, resolveCanonicalPosition } from '../utils/deped.util';
 import { logger } from '../utils/logger';
 import { applicantNumberFor } from '../utils/applicant-number.util';
+import { applicationWindow, isWithinApplicationWindow } from '../utils/promotion-window.util';
 import { CarDocumentService, CarDataIncompleteError, CarCycleNotFoundError } from '../services/car-document.service';
-import { computeCycleRanking } from '../services/promotion-ranking.service';
-import { deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
+import { computeCycleRanking, higherRankedUnselected, resolveApplicationScore } from '../services/promotion-ranking.service';
+import { cycleSelectionBlockReason, deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
 import { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } from '../utils/annex-c.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 
@@ -228,6 +229,9 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
       ineligibilityReason: eligibility && !eligibility.isEligible ? eligibility.reason : null,
       jumpPositions: eligibility?.jump ?? null,
       maxAllowedJump: eligibility?.maxAllowedJump ?? (cycle.type === 'ECP' ? 3 : 2),
+      // Whether "Apply" should be offered at all; the apply endpoint enforces the same rule.
+      applicationsOpen: cycle.status === 'ACTIVE' && isWithinApplicationWindow(cycle),
+      applicationsCloseOn: applicationWindow(cycle).closesLabel,
     };
   });
 
@@ -636,9 +640,9 @@ export const getRankingResults = async (req: Request, res: Response): Promise<vo
       // CAR Master Results
       totalScore: parseFloat(overallTotal.toFixed(2)),
       remarks: details.remarks || fin?.hrmoRemarks || (hasAoRating ? init?.aoRemarks : 'Pending Evaluation'),
-      forBackgroundInvestigation: details.forBackgroundInvestigation || 'YES',
-      forAppointment: details.forAppointment || 'Recommended for Appointment',
-      forProbation: details.forProbation || '6 months',
+      forBackgroundInvestigation: details.forBackgroundInvestigation || '',
+      forAppointment: details.forAppointment || '',
+      forProbation: details.forProbation || '',
       rank: a.finalRank || 1,
       status: a.status,
       stageStatus: details.stageStatus || a.status,
@@ -924,18 +928,71 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
     }
 
     const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
+
+    // A rating decides the ranking, so it cannot change once the result is acted on.
+    if (['FINALIZED', 'PUBLISHED', 'RESOLVED', 'CANCELLED'].includes(app.promotionCycle.status)) {
+      sendBadRequest(res, `This cycle is ${app.promotionCycle.status.toLowerCase()}; its ratings can no longer be changed.`, 'CYCLE_RATINGS_LOCKED');
+      return;
+    }
+    if (currentDetails.appointmentApproved) {
+      sendBadRequest(res, 'This applicant\'s appointment is already approved; the rating can no longer be changed.', 'APPOINTMENT_ALREADY_APPROVED');
+      return;
+    }
+    const selectedInCycle = await prisma.promotionApplication.count({ where: { promotionCycleId: cycleId, status: 'APPROVED' } });
+    if (selectedInCycle > 0) {
+      sendBadRequest(res, 'A candidate has already been selected in this cycle. Withdraw the selection before changing any rating, so the ranking it was based on stays on record.', 'SELECTION_ALREADY_MADE');
+      return;
+    }
+
     const isNonTeaching = track === 'NON_TEACHING' || currentDetails.track === 'NON_TEACHING' ||
       app.personnel.designation?.toLowerCase().includes('administrative') ||
       app.personnel.designation?.toLowerCase().includes('registrar') ||
       app.personnel.designation?.toLowerCase().includes('officer') ||
       app.personnel.designation?.toLowerCase().includes('assistant');
 
-    // Deliberate Criteria (Max 100 pts overall according to DepEd Order No. 007, s. 2023)
-    const edu = Math.min(10, Math.max(0, Number(educationScore ?? currentDetails.finalRating?.educationScore ?? currentDetails.initialRating?.educationScore ?? 10)));
-    const train = Math.min(10, Math.max(0, Number(trainingScore ?? currentDetails.finalRating?.trainingScore ?? currentDetails.initialRating?.trainingScore ?? 10)));
-    const exp = Math.min(10, Math.max(0, Number(experienceScore ?? currentDetails.finalRating?.experienceScore ?? currentDetails.initialRating?.experienceScore ?? 10)));
-    const maxPerf = isNonTeaching ? 20 : 30;
-    const perf = Math.min(maxPerf, Math.max(0, Number(performanceScore ?? currentDetails.finalRating?.performanceScore ?? currentDetails.initialRating?.performanceScore ?? maxPerf)));
+    // Every criterion is entered by the board. A missing one used to default to
+    // its maximum, so an incomplete submission produced a perfect score. A
+    // revision may leave out criteria it does not change; the previous final
+    // rating supplies them, never an assumed value.
+    const previous = currentDetails.finalRating || {};
+    const LABELS: Record<string, string> = {
+      educationScore: 'Education', trainingScore: 'Training', experienceScore: 'Experience', performanceScore: 'Performance',
+      ppstCoiScore: 'PPST COIs', ppstNcoiScore: 'PPST NCOIs', outstandingAccomplishmentsScore: 'Outstanding accomplishments',
+      applicationOfEducationScore: 'Application of education', applicationOfLdScore: 'Application of L&D',
+      potentialWrittenScore: 'Potential (written test)', potentialBeiScore: 'Potential (BEI)', potentialSkillsScore: 'Potential (skills)',
+    };
+    const MAX: Record<string, number> = {
+      educationScore: 10, trainingScore: 10, experienceScore: 10, performanceScore: isNonTeaching ? 20 : 30,
+      ppstCoiScore: 25, ppstNcoiScore: 15, outstandingAccomplishmentsScore: 5, applicationOfEducationScore: 15,
+      applicationOfLdScore: 10, potentialWrittenScore: 5, potentialBeiScore: 5, potentialSkillsScore: 10,
+    };
+    const fields = isNonTeaching
+      ? ['educationScore', 'trainingScore', 'experienceScore', 'performanceScore', 'outstandingAccomplishmentsScore',
+         'applicationOfEducationScore', 'applicationOfLdScore', 'potentialWrittenScore', 'potentialBeiScore', 'potentialSkillsScore']
+      : ['educationScore', 'trainingScore', 'experienceScore', 'performanceScore', 'ppstCoiScore', 'ppstNcoiScore'];
+    const scores: Record<string, number> = {};
+    const missing: string[] = [];
+    const overMax: string[] = [];
+    for (const field of fields) {
+      const raw = req.body[field] ?? previous[field];
+      const value = raw === '' || raw === null || raw === undefined ? NaN : Number(raw);
+      if (!Number.isFinite(value) || value < 0) { missing.push(LABELS[field]); continue; }
+      if (value > MAX[field]) { overMax.push(`${LABELS[field]} (max ${MAX[field]})`); continue; }
+      scores[field] = value;
+    }
+    if (missing.length > 0) {
+      sendBadRequest(res, `Enter every score before saving. Missing: ${missing.join(', ')}.`, 'RATING_INCOMPLETE');
+      return;
+    }
+    if (overMax.length > 0) {
+      sendBadRequest(res, `Some scores exceed their maximum: ${overMax.join(', ')}.`, 'RATING_OUT_OF_RANGE');
+      return;
+    }
+
+    const edu = scores.educationScore;
+    const train = scores.trainingScore;
+    const exp = scores.experienceScore;
+    const perf = scores.performanceScore;
 
     let overallTotalScore = 0;
     let hrmoBreakdown: Record<string, any> = {
@@ -948,14 +1005,13 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
     if (isNonTeaching) {
       // Non-Teaching: Education (10), Training (10), Experience (10), Performance (20),
       // Accomplishments (5), App of Ed (15), App of L&D (10), Potential (20) = 100
-      const outAcc = Math.min(5, Math.max(0, Number(outstandingAccomplishmentsScore ?? currentDetails.finalRating?.outstandingAccomplishmentsScore ?? currentDetails.initialRating?.outstandingAccomplishmentsScore ?? 5)));
-      const appEdu = Math.min(15, Math.max(0, Number(applicationOfEducationScore ?? currentDetails.finalRating?.applicationOfEducationScore ?? currentDetails.initialRating?.applicationOfEducationScore ?? 15)));
-      const appLd = Math.min(10, Math.max(0, Number(applicationOfLdScore ?? currentDetails.finalRating?.applicationOfLdScore ?? currentDetails.initialRating?.applicationOfLdScore ?? 10)));
-
-      const written = Math.min(5, Math.max(0, Number(potentialWrittenScore ?? currentDetails.finalRating?.potentialWrittenScore ?? 5)));
-      const bei = Math.min(5, Math.max(0, Number(potentialBeiScore ?? currentDetails.finalRating?.potentialBeiScore ?? 5)));
-      const skills = Math.min(10, Math.max(0, Number(potentialSkillsScore ?? currentDetails.finalRating?.potentialSkillsScore ?? 10)));
-      const totalPotential = potentialScore !== undefined ? Math.min(20, Math.max(0, Number(potentialScore))) : Math.min(20, written + bei + skills);
+      const outAcc = scores.outstandingAccomplishmentsScore;
+      const appEdu = scores.applicationOfEducationScore;
+      const appLd = scores.applicationOfLdScore;
+      const written = scores.potentialWrittenScore;
+      const bei = scores.potentialBeiScore;
+      const skills = scores.potentialSkillsScore;
+      const totalPotential = Math.min(20, written + bei + skills);
 
       overallTotalScore = parseFloat((edu + train + exp + perf + outAcc + appEdu + appLd + totalPotential).toFixed(2));
       hrmoBreakdown = {
@@ -971,8 +1027,8 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
     } else {
       // Teaching: Education (10), Training (10), Experience (10), Performance (30),
       // PPST COIs (25), PPST NCOIs (15) = 100
-      const coi = Math.min(25, Math.max(0, Number(ppstCoiScore ?? currentDetails.finalRating?.ppstCoiScore ?? 25)));
-      const ncoi = Math.min(15, Math.max(0, Number(ppstNcoiScore ?? currentDetails.finalRating?.ppstNcoiScore ?? 15)));
+      const coi = scores.ppstCoiScore;
+      const ncoi = scores.ppstNcoiScore;
       overallTotalScore = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
       hrmoBreakdown = {
         ...hrmoBreakdown,
@@ -981,24 +1037,33 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       };
     }
 
+    // Only what the board wrote goes on the CAR; nothing is filled in for it.
+    const text = (value: unknown, fallback: unknown) => {
+      const v = typeof value === 'string' ? value.trim() : '';
+      return v || (typeof fallback === 'string' ? fallback : '');
+    };
     const updatedDetails = {
       ...currentDetails,
       track: isNonTeaching ? 'NON_TEACHING' : 'TEACHING',
       stageStatus: currentDetails.manuallyPromoted ? (currentDetails.stageStatus || 'SELECTED_PENDING_DOCS') : 'FINAL_RANKED',
+      // Every earlier rating is kept, so a changed score can be traced.
+      ratingHistory: currentDetails.finalRating
+        ? [...(currentDetails.ratingHistory || []), currentDetails.finalRating]
+        : (currentDetails.ratingHistory || []),
       finalRating: {
         track: isNonTeaching ? 'NON_TEACHING' : 'TEACHING',
         ...hrmoBreakdown,
         finalTotalScore: overallTotalScore,
         overallTotalScore,
-        hrmoRemarks: remarks || 'Comparative Assessment deliberated and finalized by HRMPSB / HRMO',
+        hrmoRemarks: text(remarks, previous.hrmoRemarks),
         ratedByUserId: req.user?.userId,
         ratedAt: new Date().toISOString(),
       },
       totalScore: overallTotalScore,
-      remarks: remarks || 'Meets DepEd Merit and Qualification Standards',
-      forBackgroundInvestigation: forBackgroundInvestigation || 'YES',
-      forAppointment: forAppointment || 'Recommended for Appointment',
-      forProbation: forProbation || '6 months',
+      remarks: text(remarks, currentDetails.remarks),
+      forBackgroundInvestigation: text(forBackgroundInvestigation, currentDetails.forBackgroundInvestigation),
+      forAppointment: text(forAppointment, currentDetails.forAppointment),
+      forProbation: text(forProbation, currentDetails.forProbation),
     };
 
     const updated = await prisma.promotionApplication.update({
@@ -1179,9 +1244,9 @@ export const getCycleLeaderboard = async (req: Request, res: Response): Promise<
       overallTotalScore: parseFloat(Number(overallTotal).toFixed(2)),
       totalScore: parseFloat(Number(overallTotal).toFixed(2)),
       remarks: details.remarks || (hasHrmoRating ? finalRating?.hrmoRemarks : (hasAoRating ? initialRating?.aoRemarks : 'Pending Evaluation')),
-      forBackgroundInvestigation: details.forBackgroundInvestigation || 'YES',
-      forAppointment: details.forAppointment || 'Recommended for Appointment',
-      forProbation: details.forProbation || '6 months',
+      forBackgroundInvestigation: details.forBackgroundInvestigation || '',
+      forAppointment: details.forAppointment || '',
+      forProbation: details.forProbation || '',
       initialDetails: initialRating,
       finalDetails: finalRating,
       scoreDetailsJson: details,
@@ -1230,10 +1295,36 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
   // Selecting a candidate is the final act of the cycle, so it must follow the
   // whole sequence. Deselecting stays open — undoing a mistake should never be
   // blocked by the gate that was missing when the mistake was made.
+  let bypassed: Array<{ id: number; name: string; score: number }> = [];
+  const justification = typeof req.body.justification === 'string' ? req.body.justification.trim() : '';
   if (isPromoted !== false) {
     const selectionBlocked = selectionBlockReason(app.scoreDetailsJson);
     if (selectionBlocked) {
       sendBadRequest(res, selectionBlocked, 'PROMOTION_STAGE_INCOMPLETE');
+      return;
+    }
+    // Selection compares the whole field, so every applicant must be resolved first.
+    const contest = await prisma.promotionApplication.findMany({
+      where: { promotionCycleId: cycleId },
+      include: { personnel: { select: { firstName: true, lastName: true } } },
+    });
+    const cycleBlocked = cycleSelectionBlockReason(contest);
+    if (cycleBlocked) {
+      sendBadRequest(res, cycleBlocked, 'CYCLE_NOT_FULLY_DELIBERATED');
+      return;
+    }
+    // Passing over a higher-ranked applicant is allowed, but only with a written reason.
+    bypassed = higherRankedUnselected(contest, contest.find(a => a.id === appId)!).map(a => ({
+      id: a.id,
+      name: `${a.personnel.firstName} ${a.personnel.lastName}`,
+      score: resolveApplicationScore(a.scoreDetailsJson),
+    }));
+    if (bypassed.length > 0 && justification.length < 15) {
+      sendBadRequest(
+        res,
+        `${bypassed.map(b => `${b.name} (${b.score})`).join(', ')} ${bypassed.length === 1 ? 'ranks' : 'rank'} higher. Write the reason for choosing this applicant instead (at least 15 characters).`,
+        'SELECTION_JUSTIFICATION_REQUIRED',
+      );
       return;
     }
   }
@@ -1280,6 +1371,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     promotedAt: isPromoted ? new Date().toISOString() : null,
     promotedByUserId: isPromoted ? req.user?.userId : null,
     promotionRemarks: remarks || '',
+    ...(isPromoted && bypassed.length > 0 ? { selectionJustification: justification, passedOver: bypassed } : {}),
     plantillaItemNumber: isPromoted ? assignedPlantilla : null,
   };
 
@@ -1844,8 +1936,37 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     return;
   }
 
+  // The published window is binding: nothing before it opens, nothing after it
+  // closes. The one exception is correcting requirements AO II returned as
+  // deficient, which answers the officer rather than entering the contest late.
+  const window = applicationWindow(cycle);
+  const now = new Date();
+  if (now < window.opensAt) {
+    sendBadRequest(res, `Applications for this cycle open on ${window.opensLabel}.`, 'CYCLE_NOT_OPEN');
+    return;
+  }
+  if (now > window.closesAt) {
+    const prior = await prisma.promotionApplication.findUnique({
+      where: { personnelId_promotionCycleId: { personnelId: req.user.personnelId, promotionCycleId: cycleId } },
+      select: { status: true, scoreDetailsJson: true },
+    });
+    const correctingDeficiency = prior?.status === 'UNDER_REVIEW'
+      && (prior.scoreDetailsJson as Record<string, any> | null)?.stageStatus === 'REQUIREMENTS_DEFICIENT';
+    if (!correctingDeficiency) {
+      sendBadRequest(res, `Applications for this cycle closed on ${window.closesLabel}.`, 'CYCLE_DEADLINE_PASSED');
+      return;
+    }
+  }
+
   const checklistData = req.body?.checklist || null;
   const appliedVia = req.body?.appliedVia || 'WEB_PORTAL';
+
+  // An application is its Annex C checklist; one without it skipped every
+  // mandatory-document check below.
+  if (!checklistData || !Array.isArray(checklistData.items) || checklistData.items.length === 0) {
+    sendBadRequest(res, 'Attach the required Annex C documents before applying.', 'CHECKLIST_REQUIRED');
+    return;
+  }
 
   // Server-side validation of Annex C requirements and referenced documents
   if (checklistData && Array.isArray(checklistData.items)) {
@@ -1924,9 +2045,10 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
           storagePath: docRecord.storagePath,
           fileSize: docRecord.fileSize,
           mimeType: docRecord.mimeType,
-          submittedAt: item.submittedAt || new Date().toISOString(),
+          submittedAt: new Date().toISOString(),
           remarks: item.remarks || '',
-          verificationStatus: item.verificationStatus || 'PENDING',
+          // Verification is AO II's to record, never the applicant's to claim.
+          verificationStatus: 'PENDING',
         });
       } else {
         snapshottedItems.push({
@@ -2013,6 +2135,8 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
   let application;
   try {
     application = await prisma.$transaction(async tx => {
+      // Serialises applications to this cycle so two at once cannot both take the last place.
+      await tx.$queryRaw`SELECT id FROM promotion_cycles WHERE id = ${cycleId} FOR UPDATE`;
       const appCount = await tx.promotionApplication.count({ where: { promotionCycleId: cycleId } });
       if (appCount >= maxCapacity) {
         throw new Error('CAPACITY_REACHED');
@@ -2116,164 +2240,86 @@ export const getCareerHistory = async (req: Request, res: Response): Promise<voi
   sendSuccess(res, entries);
 };
 
-const getMonthlySalaryBySG = (sg: number): number => {
-  const salaries: Record<number, number> = {
-    1: 13000, 2: 13807, 3: 14678, 4: 15586, 5: 16543,
-    6: 17553, 7: 18620, 8: 19744, 9: 21211, 10: 23176,
-    11: 27000, 12: 29165, 13: 31320, 14: 33843, 15: 36619,
-    16: 39672, 17: 43030, 18: 46725, 19: 51357, 20: 57347,
-    21: 64147, 22: 71761, 23: 80303, 24: 90078,
-  };
-  return salaries[sg] || 27000;
-};
-
+/**
+ * GET /career/service-records — the service record as rows, built only from
+ * what is on file: the original appointment, each approved promotion (with the
+ * position it conferred) and work-experience entries. Salary, step and status
+ * are filled only where recorded; anything else is null for the officer to
+ * complete, never an estimate.
+ */
 export const getMyServiceRecords = async (req: Request, res: Response): Promise<void> => {
   const userId = req.user!.userId;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { personnel: { select: { id: true } } } });
   const personnelId = user?.personnel?.id || req.user?.personnelId;
-
-  if (!personnelId) {
-    sendSuccess(res, []);
-    return;
-  }
+  if (!personnelId) { sendSuccess(res, []); return; }
 
   const personnel = await prisma.personnel.findUnique({
     where: { id: personnelId },
-    include: {
-      plantillaItem: true,
-      careerHistoryEntries: {
-        orderBy: { eventDate: 'desc' },
-        include: { supportingDocument: true },
-      },
-      transactions: {
-        where: { status: 'APPROVED' },
-        include: { transactionType: true },
-        orderBy: { approvalDate: 'desc' },
-      },
-      promotionApplications: {
-        where: { status: 'APPROVED' },
-        include: { promotionCycle: true },
-        orderBy: { updatedAt: 'desc' },
-      },
-    },
+    include: { plantillaItem: true, careerHistoryEntries: { orderBy: { eventDate: 'asc' } } },
   });
+  if (!personnel) { sendSuccess(res, []); return; }
 
-  if (!personnel) {
-    sendSuccess(res, []);
-    return;
-  }
-
-  const currentPosition = personnel.designation || personnel.plantillaItem?.positionTitle || 'Teacher I';
-  const currentSG = personnel.plantillaItem?.salaryGrade || 11;
-  const stationName = personnel.plantillaItem?.department || 'SDO Koronadal City';
-  const dateHiredStr = personnel.dateHired
-    ? new Date(personnel.dateHired).toISOString().split('T')[0]
-    : new Date(personnel.createdAt).toISOString().split('T')[0];
-
+  const day = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().split('T')[0] : null);
+  const num = (v: unknown) => {
+    const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const station = personnel.school || personnel.plantillaItem?.department || null;
+  const status = personnel.appointmentStatus || null;
   const records: any[] = [];
-  let recordIdCounter = 1;
-
-  // 1. Current Active Appointed Post
-  const latestApprovedTx = personnel.transactions?.find(t =>
-    t.transactionType?.name?.toUpperCase().includes('PROMOTION') ||
-    t.transactionType?.name?.toUpperCase().includes('APPOINTMENT')
-  );
-  const latestApp = personnel.promotionApplications?.[0];
-  const latestCareerEntry = personnel.careerHistoryEntries?.[0];
-
-  const currentDateFrom = latestApprovedTx?.approvalDate
-    ? new Date(latestApprovedTx.approvalDate).toISOString().split('T')[0]
-    : latestCareerEntry?.eventDate
-      ? new Date(latestCareerEntry.eventDate).toISOString().split('T')[0]
-      : latestApp?.updatedAt
-        ? new Date(latestApp.updatedAt).toISOString().split('T')[0]
-        : dateHiredStr;
-
-  records.push({
-    id: recordIdCounter++,
-    designation: currentPosition,
-    positionTitle: currentPosition,
-    position_title: currentPosition,
-    dateFrom: currentDateFrom,
-    dateTo: null,
-    status: 'PERMANENT',
-    salaryGrade: currentSG,
-    salary_grade: currentSG,
-    stepIncrement: 1,
-    step_increment: 1,
-    monthlySalary: getMonthlySalaryBySG(currentSG),
-    monthly_salary: getMonthlySalaryBySG(currentSG),
-    stationPlace: stationName,
-    station_place: stationName,
-    stationDepartment: stationName,
-    branch: 'NATIONAL',
-    separationCause: null,
-    remarks: 'Active DepEd Permanent Appointment verified by HRMO',
+  let nextId = 1;
+  const row = (r: Record<string, unknown>) => records.push({
+    id: nextId++, dateTo: null, status: null, salaryGrade: null, stepIncrement: null, monthlySalary: null,
+    stationPlace: station, branch: 'NATIONAL', separationCause: null, remarks: '', ...r,
+    positionTitle: r.designation,
   });
 
-  // 2. Past Career History Entries (Milestones, Promotions, Appointments)
-  if (personnel.careerHistoryEntries && personnel.careerHistoryEntries.length > 0) {
-    for (const entry of personnel.careerHistoryEntries) {
-      const details = (entry.detailsJson as any) || {};
-      const posTitle = details.newDesignation || details.previousDesignation || (entry.eventType === 'PROMOTION' ? 'Promoted Rank' : 'Appointed Rank');
-      const entryDate = entry.eventDate ? new Date(entry.eventDate).toISOString().split('T')[0] : dateHiredStr;
-
-      if (posTitle !== currentPosition || entryDate !== currentDateFrom) {
-        const entrySg = details.salaryGrade ? parseInt(String(details.salaryGrade).replace(/[^0-9]/g, ''), 10) || 11 : 11;
-        records.push({
-          id: recordIdCounter++,
-          designation: posTitle,
-          positionTitle: posTitle,
-          position_title: posTitle,
-          dateFrom: entryDate,
-          dateTo: currentDateFrom,
-          status: 'PERMANENT',
-          salaryGrade: entrySg,
-          salary_grade: entrySg,
-          stepIncrement: 1,
-          step_increment: 1,
-          monthlySalary: getMonthlySalaryBySG(entrySg),
-          monthly_salary: getMonthlySalaryBySG(entrySg),
-          stationPlace: stationName,
-          station_place: stationName,
-          stationDepartment: stationName,
-          branch: 'NATIONAL',
-          separationCause: null,
-          remarks: details.notes || `${entry.eventType} officially confirmed in 201 file`,
-        });
-      }
-    }
-  }
-
-  // 3. Initial Base Appointment (if distinct from current)
-  const initialDesignation = (personnel.careerHistoryEntries && personnel.careerHistoryEntries.length > 0)
-    ? ((personnel.careerHistoryEntries[personnel.careerHistoryEntries.length - 1]?.detailsJson as any)?.previousDesignation || 'Teacher I')
-    : 'Teacher I';
-
-  if (currentDateFrom !== dateHiredStr || currentPosition !== initialDesignation) {
-    records.push({
-      id: recordIdCounter++,
-      designation: initialDesignation,
-      positionTitle: initialDesignation,
-      position_title: initialDesignation,
-      dateFrom: dateHiredStr,
-      dateTo: currentDateFrom,
-      status: 'PERMANENT',
-      salaryGrade: 11,
-      salary_grade: 11,
-      stepIncrement: 1,
-      step_increment: 1,
-      monthlySalary: getMonthlySalaryBySG(11),
-      monthly_salary: getMonthlySalaryBySG(11),
-      stationPlace: stationName,
-      station_place: stationName,
-      stationDepartment: stationName,
-      branch: 'NATIONAL',
-      separationCause: null,
-      remarks: 'Original DepEd Appointment Entry',
+  // Approved promotions/appointments in order: each one ends the previous post.
+  const steps = personnel.careerHistoryEntries.filter(e => (e.detailsJson as any)?.newDesignation);
+  const firstPosition = (steps[0]?.detailsJson as any)?.previousDesignation || personnel.designation || null;
+  const hired = day(personnel.dateHired);
+  if (hired) {
+    row({
+      dateFrom: hired,
+      dateTo: steps.length ? day(steps[0].eventDate) : null,
+      designation: firstPosition,
+      salaryGrade: steps.length ? null : personnel.plantillaItem?.salaryGrade ?? null,
+      status: steps.length ? null : status,
+      remarks: 'Original appointment',
     });
   }
+  steps.forEach((step, i) => {
+    const d = (step.detailsJson as any) || {};
+    const isCurrent = i === steps.length - 1;
+    row({
+      dateFrom: day(step.eventDate),
+      dateTo: isCurrent ? null : day(steps[i + 1].eventDate),
+      designation: d.newDesignation,
+      salaryGrade: isCurrent ? personnel.plantillaItem?.salaryGrade ?? null : num(d.salaryGrade),
+      status: isCurrent ? status : null,
+      remarks: step.eventType === 'PROMOTION' ? 'Promotion' : step.eventType === 'RECLASSIFICATION' ? 'Reclassification' : 'Appointment',
+    });
+  });
 
+  // Work experience as recorded on the sheet, with its own salary and status.
+  personnel.careerHistoryEntries
+    .filter(e => !(e.detailsJson as any)?.newDesignation && (e.detailsJson as any)?.title)
+    .forEach(e => {
+      const d = (e.detailsJson as any) || {};
+      row({
+        dateFrom: day(e.eventDate),
+        dateTo: d.dateTo && String(d.dateTo).toLowerCase() !== 'present' ? day(d.dateTo) : null,
+        designation: d.title,
+        salaryGrade: num(d.salaryGrade),
+        monthlySalary: num(d.salary),
+        status: d.status || null,
+        stationPlace: d.department || null,
+        branch: d.government === false ? 'PRIVATE' : 'NATIONAL',
+        remarks: 'Work experience',
+      });
+    });
+
+  records.sort((a, b) => String(b.dateFrom).localeCompare(String(a.dateFrom)));
   sendSuccess(res, records);
 };
 

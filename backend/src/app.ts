@@ -25,6 +25,7 @@ import personnelDocumentsRoutes from './routes/personnel-documents.routes';
 import { forwardAsyncErrors } from './middleware/async-routes';
 import { auditMiddleware } from './middleware/audit.middleware';
 import dashboardRoutes from './routes/dashboard.routes';
+import { appBuildOf, isPhoneApp } from './services/session.service';
 
 for (const router of [dashboardRoutes, authRoutes, usersRoutes, personnelRoutes, transactionsRoutes, documentsRoutes, promotionsRoutes, notificationsRoutes, auditRoutes, plantillaRoutes, formDraftRoutes, personnelDocumentsRoutes]) {
   forwardAsyncErrors(router);
@@ -110,6 +111,15 @@ app.get('/ready', async (_req, res) => {
 
 // ─── API Routes ────────────────────────────────────────────────────────────
 const API_PREFIX = '/api/v1';
+
+// Phone-app builds below MIN_APP_BUILD are asked to update (config.minAppBuild; 0 = off).
+app.use(API_PREFIX, (req, res, next) => {
+  if (config.minAppBuild > 0 && isPhoneApp(req) && appBuildOf(req) < config.minAppBuild) {
+    res.status(426).json({ status: 'error', message: 'A newer version of the Digital 201 app is required. Install the latest version to continue.', code: 'APP_UPDATE_REQUIRED' });
+    return;
+  }
+  next();
+});
 
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`, usersRoutes);

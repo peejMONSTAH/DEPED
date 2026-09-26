@@ -60,15 +60,20 @@ model User {
   @@map("users")
 }
 
+/// `token` holds a SHA-256 hash of the refresh token, never the token itself.
 model RefreshToken {
   id        Int      @id @default(autoincrement())
   token     String   @unique
+  /// "web" sessions end after webRefreshIdleMinutes unused; "app" ones do not.
+  client     String   @default("web")
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
   userId    Int      @map("user_id")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
   revoked   Boolean  @default(false)
   user      User     @relation(fields: [userId], references: [id])
 
+  @@index([userId])
   @@map("refresh_tokens")
 }
 
@@ -209,6 +214,8 @@ model Transaction {
   uploadedDocuments  UploadedDocument[]
   formDrafts         FormDraft[]
 
+  @@index([personnelId])
+  @@index([status])
   @@map("transactions")
 }
 
@@ -318,6 +325,7 @@ model Notification {
   relatedEntityType String?          @map("related_entity_type")
   user              User             @relation(fields: [userId], references: [id])
 
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -351,6 +359,7 @@ model PromotionApplication {
   promotionCycle   PromotionCycle             @relation(fields: [promotionCycleId], references: [id])
 
   @@unique([personnelId, promotionCycleId])
+  @@index([promotionCycleId])
   @@map("promotion_applications")
 }
 

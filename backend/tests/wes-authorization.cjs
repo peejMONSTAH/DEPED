@@ -104,9 +104,13 @@ test('the refusal covers the other office-maintained identity fields too', async
 test('personnel may fill an identity field the office left blank, once', async () => {
   // The creating AO II/HRMO left these out; the person may supply them.
   const blank = { id: 8, userId: 11, school: 'A', district: 'D', plantillaItemId: null, firstName: 'Ana', lastName: 'Cruz' };
-  for (const [field, value] of Object.entries({ birthDate: '1990-05-14', designation: 'Teacher III', dateHired: '2015-06-01', civilStatus: 'MARRIED' })) {
+  for (const [field, value] of Object.entries({ birthDate: '1990-05-14', civilStatus: 'MARRIED' })) {
     const res = await callUpdate(PERSONNEL, { [field]: value }, blank);
     assert.notEqual(res.statusCode, 403, `a blank ${field} may be filled by the person`);
+  }
+  // Position and first appointment decide promotion eligibility: never self-declared, even when blank.
+  for (const [field, value] of Object.entries({ designation: 'Master Teacher II', dateHired: '1995-06-01' })) {
+    assert.equal((await callUpdate(PERSONNEL, { [field]: value }, blank)).statusCode, 403, `a blank ${field} is recorded by staff only`);
   }
   // Names are never blank, so they are never personnel-editable.
   assert.equal((await callUpdate(PERSONNEL, { firstName: 'Other' }, blank)).statusCode, 403);

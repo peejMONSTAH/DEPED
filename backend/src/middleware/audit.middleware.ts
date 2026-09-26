@@ -114,7 +114,9 @@ export const auditMiddleware = (req: Request, res: Response, next: NextFunction)
         action = `${rootResource}_${lastMeaningfulPart.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}`;
       }
 
-      const clientIp = (req.headers['x-forwarded-for'] as string) || req.ip || req.socket?.remoteAddress || null;
+      // req.ip is resolved through the one trusted proxy hop (app 'trust proxy'); the raw
+      // X-Forwarded-For header is whatever the client chose to send.
+      const clientIp = req.ip || req.socket?.remoteAddress || null;
       const userAgent = (req.headers['user-agent'] as string) || null;
       const status = res.statusCode < 400 ? 'SUCCESS' : 'FAILED';
 
