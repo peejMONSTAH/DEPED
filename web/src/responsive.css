@@ -125,15 +125,30 @@ html, body, #root, .shell-viewport-root, .app-shell-frame {
   overflow-wrap: anywhere;
 }
 .personnel-records-table .personnel-records-action-cell {
-  width: 108px;
-  min-width: 108px;
+  width: 130px;
+  min-width: 130px;
+  text-align: right;
+  padding-right: 20px;
 }
 .personnel-view-details-btn {
-  width: 100%;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
   min-width: 0 !important;
-  padding-inline: 10px !important;
+  padding: 8px 12px 8px 16px !important;
+  border-radius: 9999px !important;
+  border: 1px solid var(--color-border) !important;
+  background: var(--color-bg-card) !important;
+  font-weight: 700;
   white-space: nowrap;
+  transition: border-color .15s, color .15s;
 }
+.personnel-view-details-btn:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary);
+}
+.personnel-view-details-btn svg { transition: transform .15s; }
+.personnel-view-details-btn:hover svg { transform: translateX(2px); }
 
 /* Preserve readable applicant identities in the promotion leaderboard. The
    table scrolls as a table at constrained widths instead of crushing words

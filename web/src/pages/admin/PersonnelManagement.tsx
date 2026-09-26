@@ -11,7 +11,7 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
 import { accessDeniedMessage, isAccessDenied } from '../../api/access';
 import { getAllPages } from '../../api/pagination';
-import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit } from 'lucide-react';
+import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit, ChevronRight } from 'lucide-react';
 import { usePending } from '../../hooks/usePending';
 import { assignableVacantPlantillas, schoolOptionsFor, schoolAfterDistrictChange, districtOfDivision } from '../../utils/plantillaFilters';
 import { generateInitialPassword } from '../../utils/password-issue';
@@ -580,7 +580,7 @@ export const PersonnelManagement: React.FC = () => {
                     </td>
                     <td data-label="Action" className="personnel-records-action-cell">
                       <button className="btn btn-ghost btn-sm personnel-view-details-btn" onClick={() => handleSelectPersonnel(p)}>
-                        View Details
+                        View <ChevronRight size={15} aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
