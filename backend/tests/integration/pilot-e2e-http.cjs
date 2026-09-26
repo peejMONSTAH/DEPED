@@ -22,7 +22,7 @@ Object.assign(process.env, {
   DATABASE_URL: isolated.href, DIRECT_URL: isolated.href, NODE_ENV: 'test',
   JWT_ACCESS_SECRET: 'pilot-http-access-secret-only', JWT_REFRESH_SECRET: 'pilot-http-refresh-secret-only',
   RATE_LIMIT_MAX_REQUESTS: '100000', CLIENT_URL: 'http://pilot.invalid', CORS_ORIGIN: 'http://pilot.invalid',
-  SMTP_HOST: '', SUPABASE_URL: '', SUPABASE_SERVICE_KEY: '', DOCUMENT_STORAGE: 'local', OCR_PROVIDER: '',
+  SMTP_HOST: '', DEVICE_CODE_FOR_TESTS: '424242', SUPABASE_URL: '', SUPABASE_SERVICE_KEY: '', DOCUMENT_STORAGE: 'local', OCR_PROVIDER: '',
 });
 
 const client = require('@prisma/client');
@@ -69,9 +69,15 @@ async function http(token, method, url, { body, form } = {}) {
 const ok = (res, status, label) => assert.equal(res.status, status, `${label}: ${res.status} ${JSON.stringify(res.json)?.slice(0, 400)}`);
 const pdfFile = (name) => new Blob([Buffer.from(`%PDF-1.4\n% ${name}\n`)], { type: 'application/pdf' });
 
+// Each account signs in from its own trusted device once it has passed an emailed code.
+const devices = new Map();
+const rawLogin = (email, password, deviceToken) => http(null, 'POST', '/auth/login', { body: { email, password, deviceToken } });
 async function login(email, password) {
-  const res = await http(null, 'POST', '/auth/login', { body: { email, password } });
-  return res;
+  const res = await rawLogin(email, password, devices.get(email));
+  if (res.status !== 200 || !res.json.data.requiresVerification) return res;
+  const verified = await http(null, 'POST', '/auth/verify-device', { body: { challengeToken: res.json.data.challengeToken, code: '424242' } });
+  if (verified.status === 200) devices.set(email, verified.json.data.deviceToken);
+  return verified;
 }
 /** Distribution emails a single-use setup link; the user sets a password and is signed in. */
 async function setUpAccount(email) {
@@ -81,6 +87,9 @@ async function setUpAccount(email) {
   const token = decodeURIComponent(new URL(mail.actionUrl).searchParams.get('token'));
   const res = await http(null, 'POST', '/auth/complete-setup', { body: { token, newPassword: PASSWORD } });
   ok(res, 200, `complete setup ${email}`);
+  // The setup link came to their inbox, so the device that used it is trusted.
+  assert.ok(res.json.data.deviceToken, 'complete setup trusts the device');
+  devices.set(email, res.json.data.deviceToken);
   const again = await http(null, 'POST', '/auth/complete-setup', { body: { token, newPassword: 'Another#Pass2026!' } });
   assert.notEqual(again.status, 200, 'a setup link works only once');
   const signedIn = await login(email, PASSWORD);
@@ -365,4 +374,55 @@ test('3. appointment: requirements, AO check, HR approval, official appointment'
   assert.ok(await db.notification.findFirst({ where: { userId: T.teacherUserId, relatedEntityId: T.txId, message: { contains: 'Approved' } } }),
     'the teacher is notified of the approval');
   ok(await http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true } }), 400, 'a repeat approval is refused');
+});
+
+test('4. sign-in from a new device needs the emailed code; a trusted device does not', async () => {
+  const email = 'teacher@pilot.invalid';
+
+  // A device the account has never used gets a challenge, never a session.
+  const fresh = await rawLogin(email, PASSWORD);
+  ok(fresh, 200, 'new device');
+  assert.equal(fresh.json.data.requiresVerification, true, 'a new device must enter a code');
+  assert.equal(fresh.json.data.accessToken, undefined, 'no session before the code');
+  assert.match(fresh.json.data.maskedEmail, /^te•+@pilot\.invalid$/, 'the email is shown masked');
+  const { challengeToken } = fresh.json.data;
+
+  // Wrong codes count down, then the challenge locks.
+  const wrong = await http(null, 'POST', '/auth/verify-device', { body: { challengeToken, code: '000001' } });
+  ok(wrong, 400, 'a wrong code is refused');
+  assert.match(wrong.json.message, /4 tries left/);
+  const tooSoon = await http(null, 'POST', '/auth/resend-code', { body: { challengeToken } });
+  ok(tooSoon, 429, 'a new code cannot be sent straight away');
+  for (let i = 0; i < 4; i++) await http(null, 'POST', '/auth/verify-device', { body: { challengeToken, code: '000001' } });
+  const locked = await http(null, 'POST', '/auth/verify-device', { body: { challengeToken, code: '424242' } });
+  ok(locked, 410, 'after five wrong codes even the right one is refused');
+
+  // A second attempt with the right code signs in and trusts the device, once.
+  const retry = await rawLogin(email, PASSWORD);
+  const verified = await http(null, 'POST', '/auth/verify-device', { body: { challengeToken: retry.json.data.challengeToken, code: '424242' } });
+  ok(verified, 200, 'the right code signs in');
+  assert.ok(verified.json.data.accessToken && verified.json.data.deviceToken, 'a session and a device token are issued');
+  const replay = await http(null, 'POST', '/auth/verify-device', { body: { challengeToken: retry.json.data.challengeToken, code: '424242' } });
+  ok(replay, 410, 'a code works only once');
+
+  // That device now signs in with the password alone.
+  const phone = verified.json.data.deviceToken;
+  const trusted = await rawLogin(email, PASSWORD, phone);
+  ok(trusted, 200, 'trusted device');
+  assert.ok(trusted.json.data.accessToken, 'a trusted device skips the code');
+  const wrongPassword = await rawLogin(email, 'Not#The#Password1', phone);
+  ok(wrongPassword, 401, 'a trusted device still needs the right password');
+  const otherAccount = await rawLogin('hr@pilot.invalid', PASSWORD, phone);
+  assert.equal(otherAccount.json.data.requiresVerification, true, 'a device trusted by one account is new to another');
+
+  // The owner sees the device and can remove it; it must then use a code again.
+  const token = trusted.json.data.accessToken;
+  const list = await fetch(`${baseUrl}/api/v1/auth/devices`, { headers: { authorization: `Bearer ${token}`, 'x-device-token': phone } }).then(r => r.json());
+  const mine = list.data.find(d => d.current);
+  assert.ok(mine, 'the device list marks this device');
+  const hrToken = T.hr;
+  ok(await http(hrToken, 'DELETE', `/auth/devices/${mine.id}`), 404, 'another account cannot remove it');
+  ok(await http(token, 'DELETE', `/auth/devices/${mine.id}`), 200, 'the owner removes it');
+  const afterRemoval = await rawLogin(email, PASSWORD, phone);
+  assert.equal(afterRemoval.json.data.requiresVerification, true, 'a removed device needs a code again');
 });

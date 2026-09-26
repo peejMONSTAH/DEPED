@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/eminence_logo.dart';
 import '../dashboard/home_dashboard_screen.dart';
 import 'change_password_dialog.dart';
+import 'verify_device_dialog.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -57,7 +58,21 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // Trim email string before login
       final cleanEmail = email.trim();
-      final user = await _authService.login(cleanEmail, pass);
+      UserModel user;
+      try {
+        user = await _authService.login(cleanEmail, pass);
+      } on DeviceVerificationRequired catch (challenge) {
+        // A new phone: finish with the code emailed to the account.
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        final verified = await showDialog<UserModel>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => VerifyDeviceDialog(authService: _authService, challenge: challenge),
+        );
+        if (verified == null) return;
+        user = verified;
+      }
 
       if (!mounted) return;
 

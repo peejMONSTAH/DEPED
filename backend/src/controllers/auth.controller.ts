@@ -6,6 +6,10 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMa
 import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound } from '../utils/response.util';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import {
+  isTrustedDevice, startChallenge, verifyChallenge, resendChallenge, trustDevice, notifyNewDevice,
+  listDevices, revokeDevice, revokeAllDevices, hashDeviceToken,
+} from '../services/device-trust.service';
 
 /**
  * POST /auth/login
@@ -117,6 +121,26 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  // A password alone is enough only on a device that earlier passed an emailed code.
+  if (!(await isTrustedDevice(user.id, req.body.deviceToken))) {
+    try {
+      const challenge = await startChallenge({ id: user.id, email: user.email, name: displayName(user) }, req);
+      sendSuccess(res, { requiresVerification: true, ...challenge }, 'Enter the code sent to your email.');
+    } catch (err) {
+      logger.error({ err }, 'Could not send the sign-in code');
+      sendError(res, 'The sign-in code could not be emailed. Try again in a minute.', 503, 'CODE_NOT_SENT');
+    }
+    return;
+  }
+
+  await completeSignIn(user, req, res);
+};
+
+const displayName = (user: any) =>
+  user.personnel ? `${user.personnel.firstName} ${user.personnel.lastName}` : user.email;
+
+/** Issues the session once the password (and, where needed, the device) is proven. */
+const completeSignIn = async (user: any, req: Request, res: Response, extra: Record<string, unknown> = {}): Promise<void> => {
   // Generate tokens
   const tokenPayload = { userId: user.id, email: user.email, role: user.role.name, pwdv: passwordTokenVersion(user.passwordHash) };
   // Surfaced so the client can go straight to the change screen; the API enforces
@@ -174,7 +198,65 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       personnelId: user.personnel?.id ?? null,
       mustChangePassword,
     },
+    ...extra,
   });
+};
+
+const signInInclude = {
+  role: true,
+  personnel: { select: { id: true, firstName: true, lastName: true, designation: true, address: true, school: true, district: true } },
+};
+
+/**
+ * POST /auth/verify-device  { challengeToken, code }
+ * Finishes a sign-in from a new device and trusts that device.
+ */
+export const verifyDevice = async (req: Request, res: Response): Promise<void> => {
+  const result = await verifyChallenge(req.body?.challengeToken, req.body?.code);
+  if (!result.ok) {
+    sendError(res, result.message, result.code === 'CODE_WRONG' ? 400 : 410, result.code);
+    return;
+  }
+  const user = await prisma.user.findUnique({ where: { id: result.userId }, include: signInInclude });
+  if (!user || user.accountStatus !== 'ACTIVE') {
+    sendError(res, 'This account cannot sign in. Contact your administrator.', 403, 'ACCOUNT_INACTIVE');
+    return;
+  }
+  const deviceToken = await trustDevice(user.id, req);
+  notifyNewDevice({ email: user.email, name: displayName(user) }, req);
+  await completeSignIn(user, req, res, { deviceToken });
+};
+
+/** POST /auth/resend-code  { challengeToken } */
+export const resendCode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await resendChallenge(req.body?.challengeToken);
+    if (!result.ok) {
+      sendError(res, result.message, 'retryAfterSeconds' in result ? 429 : 410, 'retryAfterSeconds' in result ? 'RESEND_TOO_SOON' : 'CHALLENGE_INVALID');
+      return;
+    }
+    sendSuccess(res, { resendAfterSeconds: result.resendAfterSeconds }, 'A new code was sent.');
+  } catch (err) {
+    logger.error({ err }, 'Could not resend the sign-in code');
+    sendError(res, 'The code could not be emailed. Try again in a minute.', 503, 'CODE_NOT_SENT');
+  }
+};
+
+/** GET /auth/devices — this account's trusted devices; `current` marks the caller's. */
+export const getDevices = async (req: Request, res: Response): Promise<void> => {
+  const current = req.headers['x-device-token'];
+  const currentHash = typeof current === 'string' && current ? hashDeviceToken(current) : null;
+  const devices = await listDevices(req.user!.userId);
+  sendSuccess(res, devices.map(({ tokenHash, ...d }) => ({ ...d, current: tokenHash === currentHash })));
+};
+
+/** DELETE /auth/devices/:id — the device will need a code at its next sign-in. */
+export const removeDevice = async (req: Request, res: Response): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { sendBadRequest(res, 'Invalid device.'); return; }
+  const result = await revokeDevice(req.user!.userId, id);
+  if (result.count === 0) { sendNotFound(res, 'Device not found.'); return; }
+  sendSuccess(res, null, 'Device removed.');
 };
 
 /**
@@ -302,6 +384,9 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   // compares tokens against and the mustChangePassword flag. Without this the
   // freshly issued token is rejected as stale for up to half a minute, right
   // after the change the user was forced to make.
+  // Other devices must prove themselves again; the one making the change stays trusted.
+  await revokeAllDevices(userId, req.headers['x-device-token']);
+
   invalidateAuthUserCache(userId);
 
   sendSuccess(res, { accountStatus: 'ACTIVE' }, 'Password changed successfully. Your account is now ACTIVE.');
@@ -392,6 +477,8 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
         detailsJson: { txId: payload.txId, jti },
       },
     });
+    // The link came to the account's own inbox, so this device is proven.
+    const deviceToken = await trustDevice(user.id, req);
     res.locals.auditLogged = true;
 
     sendSuccess(
@@ -399,6 +486,7 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
       {
         accessToken,
         refreshToken,
+        deviceToken,
         user: {
           id: user.id,
           email: user.email,
@@ -492,10 +580,14 @@ export const completeAccountSetup = async (req: Request, res: Response): Promise
   }
   res.locals.auditLogged = true;
   invalidateAuthUserCache(user.id);
+  // Set up from the emailed link: the new password starts with only this device trusted.
+  await revokeAllDevices(user.id);
+  const deviceToken = await trustDevice(user.id, req);
 
   sendSuccess(res, {
     accessToken,
     refreshToken: refreshTokenValue,
+    deviceToken,
     user: {
       id: user.id,
       email: user.email,

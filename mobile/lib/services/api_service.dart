@@ -46,6 +46,11 @@ class ApiService {
           if (accessToken != null && accessToken.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $accessToken';
           }
+          // Lets the server keep this device trusted across a password change.
+          final deviceToken = await _storage.read(key: 'key_device_token');
+          if (deviceToken != null && deviceToken.isNotEmpty) {
+            options.headers['X-Device-Token'] = deviceToken;
+          }
           return handler.next(options);
         },
         onError: (DioException error, handler) async {

@@ -1,3 +1,4 @@
+import { TrustedDevices } from '../../components/common/TrustedDevices';
 import React, { useCallback, useEffect, useState } from 'react';
 import apiClient from '../../api/client';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -268,6 +269,7 @@ export const ProfileCompletion: React.FC = () => {
           </div>
         </form>
       </section>
+      <TrustedDevices />
     </div>
   );
 };

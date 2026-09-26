@@ -41,6 +41,9 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Lets the server tell which trusted device is this one (Profile, password change).
+    const deviceToken = localStorage.getItem('deviceToken');
+    if (deviceToken) config.headers['X-Device-Token'] = deviceToken;
     // When sending FormData (file uploads), remove default Content-Type so Axios/browser
     // sets multipart/form-data with the correct boundary parameter.
     if (config.data instanceof FormData && config.headers) {
@@ -68,7 +71,9 @@ apiClient.interceptors.response.use(
       requestUrl.includes('/auth/refresh-token') ||
       // Link-based sign-ins: a 401 means the link is expired or used, not that a session needs refreshing.
       requestUrl.includes('/auth/magic-login') ||
-      requestUrl.includes('/auth/complete-setup');
+      requestUrl.includes('/auth/complete-setup') ||
+      requestUrl.includes('/auth/verify-device') ||
+      requestUrl.includes('/auth/resend-code');
 
     // If 401 occurred on an authentication endpoint (e.g. invalid credentials),
     // do NOT attempt token refresh and do NOT reload the page. Let the caller handle the error.

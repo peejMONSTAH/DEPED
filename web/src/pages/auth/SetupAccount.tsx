@@ -43,7 +43,7 @@ export const SetupAccount: React.FC = () => {
       const res = await authApi.completeSetup(token, password);
       const data = res.data.data;
       if (!data?.accessToken || !data.user) throw new Error('The server did not confirm the new password.');
-      loginWithTokens(data.accessToken, data.refreshToken, data.user);
+      loginWithTokens(data.accessToken, data.refreshToken, data.user, data.deviceToken);
       addToast('Your password is set. Welcome to Digital 201.', 'SUCCESS');
       navigate(homePathFor(data.user), { replace: true });
     } catch (err: any) {

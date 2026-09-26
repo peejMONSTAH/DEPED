@@ -21,6 +21,9 @@ class AuthService {
     await PersonnelDocumentService.clearLocalStore();
   }
 
+  /// Held by a device that passed an emailed sign-in code; survives sign-out.
+  static const keyDeviceToken = 'key_device_token';
+
   Future<UserModel> login(String email, String password) async {
     try {
       // Nothing cached by a previous account may be shown to this one, even if
@@ -32,49 +35,91 @@ class AuthService {
         data: {
           'email': email,
           'password': password,
+          'deviceToken': await _storage.read(key: keyDeviceToken),
+          'deviceName': 'Digital 201 app',
         },
       );
 
       final data = response.data['data'] as Map<String, dynamic>;
-      final String accessToken = data['accessToken'] as String;
-      final String refreshToken = data['refreshToken'] as String;
-      final userJson = data['user'] as Map<String, dynamic>;
-
-      // Save tokens & user session securely
-      await _storage.write(key: AppConfig.keyAccessToken, value: accessToken);
-      await _storage.write(key: AppConfig.keyRefreshToken, value: refreshToken);
-      await _storage.write(key: 'key_saved_user', value: jsonEncode(userJson));
-
-      final user = UserModel.fromJson(userJson);
-
-      // Whether the password must be replaced is the server's answer. The old
-      // check looked for a 'Temp@' prefix no issued password ever had, and for an
-      // isFirstLogin field the API never sent, so it never once fired. The API now
-      // refuses every route but change-password while this is set.
-      final rawMustChange = userJson['mustChangePassword'] ?? userJson['isFirstLogin'];
-      final bool requiresChange = rawMustChange is bool ? rawMustChange : rawMustChange == true;
-      
-      return UserModel(
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        personnelId: user.personnelId,
-        isFirstLogin: requiresChange,
-      );
-    } on DioException catch (e) {
-      String message = 'Login failed. Please check your credentials.';
-      final resData = e.response?.data;
-      if (resData is Map && resData['message'] != null) {
-        message = resData['message'].toString();
-      } else if (e.type == DioExceptionType.connectionTimeout || 
-                 e.type == DioExceptionType.connectionError ||
-                 e.type == DioExceptionType.receiveTimeout) {
-        message = 'Cannot connect to backend server (${ApiService.baseUrl}). Please ensure backend server is running.';
+      if (data['requiresVerification'] == true) {
+        throw DeviceVerificationRequired(
+          challengeToken: data['challengeToken'] as String,
+          maskedEmail: data['maskedEmail'] as String? ?? 'your email',
+          resendAfterSeconds: (data['resendAfterSeconds'] as num?)?.toInt() ?? 60,
+        );
       }
-      throw Exception(message);
+      return _startSession(data);
+    } on DioException catch (e) {
+      throw Exception(_messageFor(e, 'Login failed. Please check your credentials.'));
     }
+  }
+
+  /// Finishes a sign-in from a new device with the code from the email.
+  Future<UserModel> verifyDevice(String challengeToken, String code) async {
+    try {
+      final response = await _apiService.dio.post<dynamic>(
+        '/auth/verify-device',
+        data: {'challengeToken': challengeToken, 'code': code, 'deviceName': 'Digital 201 app'},
+      );
+      return _startSession(response.data['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw Exception(_messageFor(e, 'That code did not work. Try again.'));
+    }
+  }
+
+  /// Emails a fresh code; returns the seconds before another may be sent.
+  Future<int> resendCode(String challengeToken) async {
+    try {
+      final response = await _apiService.dio.post<dynamic>('/auth/resend-code', data: {'challengeToken': challengeToken});
+      return ((response.data['data'] as Map?)?['resendAfterSeconds'] as num?)?.toInt() ?? 60;
+    } on DioException catch (e) {
+      throw Exception(_messageFor(e, 'The code could not be sent. Try again.'));
+    }
+  }
+
+  String _messageFor(DioException e, String fallback) {
+    final resData = e.response?.data;
+    if (resData is Map && resData['message'] != null) return resData['message'].toString();
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.connectionError ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return 'Cannot connect to backend server (${ApiService.baseUrl}). Please ensure backend server is running.';
+    }
+    return fallback;
+  }
+
+  Future<UserModel> _startSession(Map<String, dynamic> data) async {
+    final String accessToken = data['accessToken'] as String;
+    final String refreshToken = data['refreshToken'] as String;
+    final userJson = data['user'] as Map<String, dynamic>;
+
+    // Save tokens & user session securely
+    await _storage.write(key: AppConfig.keyAccessToken, value: accessToken);
+    await _storage.write(key: AppConfig.keyRefreshToken, value: refreshToken);
+    await _storage.write(key: 'key_saved_user', value: jsonEncode(userJson));
+    final deviceToken = data['deviceToken'];
+    if (deviceToken is String && deviceToken.isNotEmpty) {
+      await _storage.write(key: keyDeviceToken, value: deviceToken);
+    }
+
+    final user = UserModel.fromJson(userJson);
+
+    // Whether the password must be replaced is the server's answer. The old
+    // check looked for a 'Temp@' prefix no issued password ever had, and for an
+    // isFirstLogin field the API never sent, so it never once fired. The API now
+    // refuses every route but change-password while this is set.
+    final rawMustChange = userJson['mustChangePassword'] ?? userJson['isFirstLogin'];
+    final bool requiresChange = rawMustChange is bool ? rawMustChange : rawMustChange == true;
+
+    return UserModel(
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      personnelId: user.personnelId,
+      isFirstLogin: requiresChange,
+    );
   }
 
   Future<void> changePassword(String currentPassword, String newPassword) async {
@@ -115,8 +160,23 @@ class AuthService {
         await _apiService.dio.post<dynamic>('/auth/logout', data: {'refreshToken': refreshToken});
       }
     } catch (_) {} finally {
+      // Sign-out ends the session, not the device's trust.
+      final deviceToken = await _storage.read(key: keyDeviceToken);
       await _storage.deleteAll();
+      if (deviceToken != null) await _storage.write(key: keyDeviceToken, value: deviceToken);
       await clearAccountCaches();
     }
   }
+}
+
+/// Thrown by [AuthService.login] when this device must enter an emailed code.
+class DeviceVerificationRequired implements Exception {
+  final String challengeToken;
+  final String maskedEmail;
+  final int resendAfterSeconds;
+
+  DeviceVerificationRequired({required this.challengeToken, required this.maskedEmail, required this.resendAfterSeconds});
+
+  @override
+  String toString() => 'Enter the code sent to $maskedEmail.';
 }

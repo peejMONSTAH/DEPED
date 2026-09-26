@@ -22,6 +22,10 @@ require.cache[prismaPath] = {
     },
     refreshToken: { updateMany: args => ({ op: 'rt.revoke', args }), create: args => ({ op: 'rt.create', args }) },
     validationLog: { create: args => ({ op: 'log', args }) },
+    trustedDevice: {
+      updateMany: async args => { state.writes.push({ op: 'device.revokeAll', args }); return { count: 0 }; },
+      create: async args => { state.writes.push({ op: 'device.trust', args }); return { id: 1, ...args.data }; },
+    },
     $transaction: async ops => {
       const used = ops.find(o => o.op === 'used.create');
       if (used && state.used.has(used.args.data.jti)) { const e = new Error('dup'); e.code = 'P2002'; throw e; }
@@ -41,7 +45,7 @@ const { completeAccountSetup, magicLogin } = require('../src/controllers/auth.co
 
 const call = async (handler, body) => {
   const res = { statusCode: 200, body: null, locals: {}, status(c) { this.statusCode = c; return this; }, json(b) { this.body = b; return this; } };
-  await handler({ body, ip: '127.0.0.1' }, res);
+  await handler({ body, ip: '127.0.0.1', headers: {} }, res);
   return res;
 };
 
@@ -88,6 +92,8 @@ test('setting a password signs the user in, clears the forced change and ends ol
   assert.equal(user.mustChangePassword, false);
   assert.ok(state.writes.some(o => o.op === 'rt.revoke'), 'temporary-password sessions revoked');
   assert.ok(state.writes.some(o => o.op === 'log' && o.args.data.action === 'ACCOUNT_SETUP_COMPLETED'), 'audited');
+  assert.ok(res.body.data.deviceToken, 'the device that used the emailed link is trusted');
+  assert.ok(state.writes.some(o => o.op === 'device.revokeAll'), 'devices trusted under the old password are forgotten');
 
   const again = await call(completeAccountSetup, { token, newPassword: 'AnotherPass2026' });
   assert.equal(again.statusCode, 401, 'the link works once');

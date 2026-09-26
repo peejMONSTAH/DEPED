@@ -41,7 +41,7 @@ export const MagicLogin: React.FC = () => {
         if (!isMounted) return;
 
         // Establish user session
-        loginWithTokens(data.accessToken, data.refreshToken, data.user as any);
+        loginWithTokens(data.accessToken, data.refreshToken, data.user as any, data.deviceToken);
 
         const fullName = data.user.personnel
           ? `${data.user.personnel.firstName} ${data.user.personnel.lastName}`

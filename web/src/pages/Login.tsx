@@ -1,5 +1,5 @@
 import { ModalOverlay } from '../components/common/ModalOverlay';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -10,6 +10,7 @@ import { AppIcon } from '../components/common/AppIcon';
 import '../components/login/login.css';
 import '../components/login/split-login.css';
 import type { AuthUser } from '../types';
+import { authApi, type VerificationChallenge } from '../api/auth.api';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,7 +19,17 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuthContext();
+  const { login, verifyDevice } = useAuthContext();
+
+  // Set when this device must first enter the code emailed to the account.
+  const [challenge, setChallenge] = useState<VerificationChallenge | null>(null);
+  const [code, setCode] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
   const { addToast } = useToast();
   const navigate = useNavigate();
 
@@ -48,38 +59,76 @@ export const LoginPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await login(email.trim(), password);
-
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const loggedUser = JSON.parse(storedUser) as AuthUser;
-
-        // Whether a password must be replaced is the server's answer, not a guess
-        // from the text the user typed. The old check looked for a 'Temp@' prefix,
-        // which no issued password actually used, so nobody was ever prompted.
-        // The API refuses every other route until this is done.
-        if ((loggedUser as AuthUser & { mustChangePassword?: boolean }).mustChangePassword) {
-          setPendingLogin({ email });
-          setShowFirstTimeModal(true);
-          return;
-        }
-
-        navigateToDashboard(loggedUser);
-      } else {
-        navigate('/admin/dashboard');
+      const needsCode = await login(email.trim(), password);
+      if (needsCode) {
+        setChallenge(needsCode);
+        setCode('');
+        setResendIn(needsCode.resendAfterSeconds);
+        return;
       }
+      afterSignIn();
     } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string; error?: string } } })
-          ?.response?.data?.message ||
-        (err as { response?: { data?: { message?: string; error?: string } } })
-          ?.response?.data?.error ||
-        (err as Error)?.message ||
-        'Login failed. Please check your credentials.';
-      setError(message);
+      setError(errorMessage(err, 'Login failed. Please check your credentials.'));
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const errorMessage = (err: unknown, fallback: string) => {
+    const data = (err as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+    return data?.message || data?.error || (err as Error)?.message || fallback;
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!challenge) return;
+    setError('');
+    if (!/^\d{6}$/.test(code)) { setError('Enter the 6-digit code from your email.'); return; }
+    setIsLoading(true);
+    try {
+      await verifyDevice(challenge.challengeToken, code);
+      setChallenge(null);
+      afterSignIn();
+    } catch (err) {
+      setError(errorMessage(err, 'That code did not work. Try again.'));
+      setCode('');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!challenge || resendIn > 0) return;
+    setError('');
+    try {
+      const res = await authApi.resendCode(challenge.challengeToken);
+      setResendIn(res.data.data?.resendAfterSeconds ?? 60);
+      addToast(`A new code was sent to ${challenge.maskedEmail}.`, 'SUCCESS');
+    } catch (err) {
+      setError(errorMessage(err, 'The code could not be sent. Try again.'));
+    }
+  };
+
+  // After the password (and any emailed code) is accepted.
+  const afterSignIn = () => {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      navigate('/admin/dashboard');
+      return;
+    }
+    const loggedUser = JSON.parse(storedUser) as AuthUser;
+
+    // Whether a password must be replaced is the server's answer, not a guess
+    // from the text the user typed. The old check looked for a 'Temp@' prefix,
+    // which no issued password actually used, so nobody was ever prompted.
+    // The API refuses every other route until this is done.
+    if ((loggedUser as AuthUser & { mustChangePassword?: boolean }).mustChangePassword) {
+      setPendingLogin({ email });
+      setShowFirstTimeModal(true);
+      return;
+    }
+
+    navigateToDashboard(loggedUser);
   };
 
   const handleFirstTimePasswordChange = async (e: React.FormEvent) => {
@@ -124,13 +173,48 @@ export const LoginPage: React.FC = () => {
               <img src="/depedlogo.png" alt="Department of Education" className="split-login-seal" />
               <Digital201Logo variant="wordmark" size="md" tone="light" showTag />
             </div>
-            <header className="split-login-header">
-              <h1 id="login-heading">Welcome back</h1>
-              <p>Sign in to your Digital 201 account.</p>
-            </header>
+            {challenge ? (
+              <header className="split-login-header">
+                <h1 id="login-heading">Check your email</h1>
+                <p>
+                  This device is new to your account, so we sent a 6-digit code to <strong>{challenge.maskedEmail}</strong>.
+                  You will not be asked again on this device for 30 days.
+                </p>
+              </header>
+            ) : (
+              <header className="split-login-header">
+                <h1 id="login-heading">Welcome back</h1>
+                <p>Sign in to your Digital 201 account.</p>
+              </header>
+            )}
 
             {error && <div className="split-login-error" role="alert">{error}</div>}
 
+            {challenge ? (
+              <form className="split-login-form" onSubmit={handleVerify} id="verify-form">
+                <div className="split-login-field">
+                  <label className="split-login-label" htmlFor="code">Sign-in code</label>
+                  <span className="split-login-input">
+                    <input id="code" className="split-login-code" inputMode="numeric" autoComplete="one-time-code"
+                      pattern="[0-9]*" maxLength={6} placeholder="000000" autoFocus
+                      value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      disabled={isLoading} required />
+                  </span>
+                </div>
+                <button className="split-login-submit" type="submit" disabled={isLoading || code.length !== 6}>
+                  {isLoading && <LoadingSpinner size="sm" />}
+                  {isLoading ? 'Checking…' : 'Verify and sign in'}
+                </button>
+                <div className="split-login-code-actions">
+                  <button type="button" className="split-login-link" onClick={handleResend} disabled={resendIn > 0}>
+                    {resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+                  </button>
+                  <button type="button" className="split-login-link" onClick={() => { setChallenge(null); setError(''); setPassword(''); }}>
+                    Use a different account
+                  </button>
+                </div>
+              </form>
+            ) : (
             <form className="split-login-form" onSubmit={handleSubmit} id="login-form">
               <div className="split-login-field">
                 <label className="split-login-label" htmlFor="email">Email address</label>
@@ -160,6 +244,7 @@ export const LoginPage: React.FC = () => {
                 {isLoading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
+            )}
             <p className="split-login-help">Accounts are issued by your school&apos;s AO II or the Division HR office.</p>
           </div>
         </section>

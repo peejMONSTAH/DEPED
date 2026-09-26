@@ -47,6 +47,15 @@ export const config = {
     loginMax: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || '10', 10),
   },
 
+  // Sign-in from an unrecognised device asks for a code emailed to the account.
+  deviceVerification: {
+    enabled: process.env.DEVICE_VERIFICATION_ENABLED !== 'false',
+    trustDays: parseInt(process.env.DEVICE_TRUST_DAYS || '30', 10),
+    codeMinutes: 10,
+    maxAttempts: 5,
+    resendSeconds: 60,
+  },
+
   session: {
     timeoutMinutes: 30,
     mobileTimeoutMinutes: 60,
