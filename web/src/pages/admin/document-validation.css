@@ -12,7 +12,7 @@
 .dv-empty { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 14px; padding: 24px; }
 
 .dv-list { list-style: none; margin: 0; padding: 0; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; }
-.dv-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 110px auto; align-items: center; gap: 24px; padding: 18px 24px; }
+.dv-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(170px, auto) auto; align-items: center; gap: 24px; padding: 18px 24px; }
 .dv-row + .dv-row { border-top: 1px solid var(--color-border); }
 
 .dv-row__who { display: flex; flex-direction: column; min-width: 0; }
@@ -41,3 +41,5 @@
   .dv-row__files, .dv-row__note { grid-column: 1 / -1; }
   .dv-row__act { justify-self: end; }
 }
+.dv-row__when { align-items: flex-start; }
+.dv-row__when .badge { white-space: nowrap; }

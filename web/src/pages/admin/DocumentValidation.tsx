@@ -263,7 +263,7 @@ export const DocumentValidation: React.FC = () => {
                     <strong className="dv-row__name">{tx.personnelName}</strong>
                     <span className="dv-row__move">
                       {tx.currentPosition || tx.personnelCategory}
-                      {tx.isPromotion && target && <> <span aria-hidden="true">›</span> <b>{target}</b></>}
+                      {tx.isPromotion && target && target !== tx.currentPosition && <> <span aria-hidden="true">›</span> <b>{target}</b></>}
                     </span>
                     <span className="dv-row__meta">
                       {tx.isPromotion ? 'Promotion' : tx.transactionType} · TRX-{tx.id} · {tx.employeeId}
