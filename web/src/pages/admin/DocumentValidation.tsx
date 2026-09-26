@@ -1,3 +1,4 @@
+import './document-validation.css';
 import { TransactionReviewModal } from './TransactionReviewModal';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -43,6 +44,8 @@ type Transaction = {
   promotionTrack?: 'NATURAL_VACANCY' | 'ECP' | 'OTHER';
   policyFramework?: string;
   dateSubmitted: string;
+  submittedAt?: string;
+  currentPosition?: string;
   complianceScore: number;
   submissionStatus: string;
   status: string;
@@ -87,6 +90,8 @@ const toReviewItem = (tx: any): Transaction => {
     policyFramework: policy,
     dateSubmitted: tx.submissionDate ? new Date(tx.submissionDate).toLocaleDateString() : new Date(tx.createdAt).toLocaleDateString(),
     complianceScore: tx.complianceScore ?? 0,
+    submittedAt: tx.submissionDate || tx.createdAt,
+    currentPosition: desig || undefined,
     submissionStatus: tx.status,
     status: tx.status,
     remarks: tx.remarks,
@@ -196,154 +201,101 @@ export const DocumentValidation: React.FC = () => {
 
   const currentList = activeTab === 'PENDING' ? pending : activeTab === 'DEFICIENCY' ? returnedList : processed;
 
+  const tabs = [
+    { key: 'PENDING' as const, label: 'To review', count: pending.length },
+    { key: 'DEFICIENCY' as const, label: 'Returned for correction', count: returnedList.length },
+    { key: 'HISTORY' as const, label: 'Done', count: processed.length },
+  ];
+
+  // "3 days" reads faster than a date when deciding what to open first.
+  const waitingFor = (iso?: string) => {
+    if (!iso) return '';
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    return days <= 0 ? 'today' : days === 1 ? '1 day' : `${days} days`;
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <h1 className="topbar-title" style={{ margin: 0 }}>AO II Document Validation & Initial Qualification</h1>
+        <div>
+          <h1 className="topbar-title" style={{ margin: 0 }}>Document validation</h1>
+          <p className="dv-lede">Check each person's uploaded files, then pass them to HR or return them for correction.</p>
         </div>
       </div>
 
       <div className="page-content">
-        {/* Tab Filter Bar for AO II */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <button
-            className={`btn btn-sm ${activeTab === 'PENDING' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('PENDING')}
-          >
-            Submissions Awaiting Validation ({pending.length})
-          </button>
-          <button
-            className={`btn btn-sm ${activeTab === 'DEFICIENCY' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('DEFICIENCY')}
-          >
-            Returned / Deficient ({returnedList.length})
-          </button>
-          <button
-            className={`btn btn-sm ${activeTab === 'HISTORY' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setActiveTab('HISTORY')}
-          >
-            Validated & Processed ({processed.length})
-          </button>
-        </div>
+        <nav className="dv-tabs" aria-label="Validation lists">
+          {tabs.map(t => (
+            <button key={t.key} type="button" aria-current={activeTab === t.key ? 'page' : undefined} onClick={() => setActiveTab(t.key)}>
+              {t.label}<span className="dv-tabs__count">{t.count}</span>
+            </button>
+          ))}
+        </nav>
 
-        {/* Dynamic Queue Table */}
-        <div className="card mb-6">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 className="card-title">
-              {activeTab === 'PENDING' ? `Awaiting Validation (${pending.length})` : activeTab === 'DEFICIENCY' ? `Returned for Correction / Deficiency (${returnedList.length})` : `Validated & Processed History (${processed.length})`}
-            </h3>
-            <span className={`badge ${activeTab === 'PENDING' ? 'badge-pending' : activeTab === 'DEFICIENCY' ? 'badge-deficiency' : 'badge-approved'}`}>
-              {currentList.length} Items
-            </span>
+        {loading ? (
+          <SkeletonTable rows={4} columns={4} />
+        ) : currentList.length === 0 ? (
+          <div className="dv-empty">
+            <SmartEmptyState
+              type={activeTab === 'PENDING' ? 'queue-cleared' : activeTab === 'DEFICIENCY' ? 'deficiency-cleared' : 'no-records'}
+              title={activeTab === 'PENDING' ? 'Nothing to review' : activeTab === 'DEFICIENCY' ? 'Nothing returned' : 'Nothing validated yet'}
+              description={
+                activeTab === 'PENDING'
+                  ? 'New submissions from your school appear here as soon as they are sent.'
+                  : activeTab === 'DEFICIENCY'
+                  ? 'Submissions you return for correction wait here until the person resubmits.'
+                  : 'Submissions you pass to HR are listed here.'
+              }
+              primaryAction={activeTab !== 'PENDING' && pending.length > 0
+                ? { label: `Review ${pending.length} waiting`, onClick: () => setActiveTab('PENDING'), icon: 'pending' }
+                : undefined}
+              secondaryAction={{ label: 'Refresh', onClick: fetchPendingTransactions }}
+            />
           </div>
+        ) : (
+          <ul className="dv-list">
+            {currentList.map(tx => {
+              const target = tx.promotionDetails?.targetPosition;
+              const complete = tx.complianceScore >= 100;
+              return (
+                <li key={tx.id} className="dv-row">
+                  <div className="dv-row__who">
+                    <strong className="dv-row__name">{tx.personnelName}</strong>
+                    <span className="dv-row__move">
+                      {tx.currentPosition || tx.personnelCategory}
+                      {tx.isPromotion && target && <> <span aria-hidden="true">›</span> <b>{target}</b></>}
+                    </span>
+                    <span className="dv-row__meta">
+                      {tx.isPromotion ? 'Promotion' : tx.transactionType} · TRX-{tx.id} · {tx.employeeId}
+                    </span>
+                  </div>
 
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {loading ? (
-            <SkeletonTable rows={5} columns={7} />
-          ) : currentList.length === 0 ? (
-            <div style={{ padding: '24px' }}>
-              <SmartEmptyState
-                type={activeTab === 'PENDING' ? 'queue-cleared' : activeTab === 'DEFICIENCY' ? 'deficiency-cleared' : 'no-records'}
-                title={
-                  activeTab === 'PENDING'
-                    ? 'No Pending Validation Requests'
-                    : activeTab === 'DEFICIENCY'
-                    ? 'Zero Deficiencies Recorded'
-                    : 'No Validated Transactions Yet'
-                }
-                description={
-                  activeTab === 'PENDING'
-                    ? 'All applicant and personnel submissions under your school jurisdiction have been evaluated.'
-                    : activeTab === 'DEFICIENCY'
-                    ? 'All submitted documents meet official DepEd Quality Standards. No deficient records found.'
-                    : 'Validated transactions forwarded to HRMO will be listed here.'
-                }
-                primaryAction={
-                  activeTab !== 'PENDING' && pending.length > 0
-                    ? {
-                        label: `Back to Pending Queue (${pending.length})`,
-                        onClick: () => setActiveTab('PENDING'),
-                        icon: 'pending',
-                      }
-                    : undefined
-                }
-                secondaryAction={{
-                  label: 'Refresh List',
-                  onClick: fetchPendingTransactions,
-                }}
-              />
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Ref ID</th>
-                    <th>Personnel Name</th>
-                    <th>Category & Track</th>
-                    {activeTab === 'DEFICIENCY' ? <th>Deficiency Remarks / Reason</th> : <th>Prescribed Policy Standard</th>}
-                    <th>Compliance</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentList.map(tx => (
-                    <tr key={tx.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#007bff' }}>TRX-{tx.id}</td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{tx.personnelName}</div>
-                        <div className="text-xs text-muted">{tx.employeeId}</div>
-                      </td>
-                      <td>
-                        <span className="badge badge-info">{tx.personnelCategory}</span>
-                        <div className="text-xs text-muted mt-1 font-semibold">
-                          • {tx.promotionTrack || tx.transactionType || 'Promotion'}
-                        </div>
-                        {tx.isPromotion && (
-                          <div className="mt-1.5">
-                            <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#c79a2e', border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <AppIcon name="promotions" size={11} color="#c79a2e" /> Selected for Promotion
-                            </span>
-                            {tx.promotionDetails?.targetPosition && (
-                              <div className="text-xs font-semibold mt-0.5" style={{ color: '#c79a2e' }}>
-                                Target: {tx.promotionDetails.targetPosition}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      {activeTab === 'DEFICIENCY' ? (
-                        <td style={{ fontSize: 'var(--text-xs)', color: 'var(--color-warning-text)', fontWeight: 600, maxWidth: 280 }}>
-                          {tx.remarks || 'Returned due to document deficiencies requiring re-upload.'}
-                        </td>
-                      ) : (
-                        <td style={{ fontSize: 'var(--text-xs)' }}>
-                          <span className="badge badge-secondary">
-                            {tx.promotionTrack === 'ECP' ? 'DO 19 & 24, s. 2025' : tx.personnelCategory === 'Teaching Personnel' ? 'DO 7, s. 2023 (QS)' : 'Division HRMO Scope'}
-                          </span>
-                        </td>
-                      )}
-                      <td>
-                        <div style={{ fontWeight: 700, color: tx.complianceScore >= 100 ? 'var(--color-success)' : 'var(--color-warning)' }}>
-                          {tx.complianceScore}%
-                        </div>
-                      </td>
-                      <td><StatusBadge status={tx.status} /></td>
-                      <td>
-                        <button className="btn btn-primary btn-sm" onClick={() => handleOpenTransactionDetails(tx)}>
-                          {activeTab === 'DEFICIENCY' ? 'View Deficiency & History' : 'Review & Evaluate'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-        </div>
+                  {activeTab === 'DEFICIENCY' ? (
+                    <p className="dv-row__note">{tx.remarks || 'Returned for correction.'}</p>
+                  ) : (
+                    <div className="dv-row__files" aria-label={`Files ${tx.complianceScore}% complete`}>
+                      <span className={`dv-row__pct ${complete ? 'is-complete' : ''}`}>{tx.complianceScore}%</span>
+                      <span className="dv-row__label">{complete ? 'All required files in' : 'Files missing'}</span>
+                      <span className="dv-meter"><span style={{ width: `${Math.min(100, tx.complianceScore)}%` }} /></span>
+                    </div>
+                  )}
+
+                  <div className="dv-row__when">
+                    {activeTab === 'HISTORY'
+                      ? <StatusBadge status={tx.status} />
+                      : <><span>Waiting</span><strong>{waitingFor(tx.submittedAt)}</strong></>}
+                  </div>
+
+                  <div className="dv-row__act">
+                    <button className={`btn btn-sm ${activeTab === 'PENDING' ? 'btn-primary' : 'btn-secondary'} dv-btn`} onClick={() => handleOpenTransactionDetails(tx)}>
+                      {activeTab === 'PENDING' ? 'Review files' : 'Open'}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
         {/* AO II review: the actual uploaded files, one verdict per document */}
         {selected && (
