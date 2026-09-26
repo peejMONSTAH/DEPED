@@ -944,30 +944,6 @@ export const TransactionApproval: React.FC = () => {
                 </button>
               </div>
 
-              {/* Promotion Candidate Selected Banner */}
-              {selected.isPromotion && (
-                <div style={{
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(59, 130, 246, 0.12) 100%)',
-                  border: '1px solid rgba(139, 92, 246, 0.4)',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  marginBottom: 16
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ padding: 6, borderRadius: '50%', background: 'rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <AppIcon name="promotions" size={18} color="#C79A2E" />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 12, color: '#C79A2E', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        Promotion Appointment Final Approval
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                        Candidate <strong>{selected.personnelName}</strong> has been certified for promotion under <strong>{selected.promotionDetails?.cycleName || 'DepEd Cycle'}</strong>. Approving officially promotes personnel to <strong>{selected.promotionDetails?.targetPosition || 'Promoted Rank'}</strong>.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Personnel Profile Card */}
               <div style={{

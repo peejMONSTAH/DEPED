@@ -1301,6 +1301,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
   }
 
   let updated: any;
+  let cycleAutoClosed = false;
   let notificationUserId: number | null = null;
   await prisma.$transaction(async db => {
   // Serialize selection within a cycle and across cycles for the same person.
@@ -1321,6 +1322,11 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     const selectedCount = await db.promotionApplication.count({ where: { promotionCycleId: cycleId, id: { not: appId }, status: 'APPROVED' } });
     if (!Number.isSafeInteger(vacancies) || vacancies < 1 || selectedCount >= vacancies) {
       throw workflowConflict('All available appointment slots have been selected.');
+    }
+    // The last open slot is being filled: close the cycle to new applicants.
+    if (selectedCount + 1 >= vacancies && currentApp.promotionCycle.status === 'ACTIVE') {
+      await db.promotionCycle.update({ where: { id: cycleId }, data: { status: 'CLOSED' } });
+      cycleAutoClosed = true;
     }
     if (configured.length && (!assignedPlantilla || !configured.includes(assignedPlantilla))) {
       throw workflowConflict('No available configured plantilla slot. Refresh the candidate selection.');
@@ -1515,11 +1521,12 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
   sendSuccess(
     res,
     updated,
-    isPromoted
+    (isPromoted
       ? (isTeacherOne
           ? 'Applicant selected for appointment! Newly Hired Appointment transaction created. Applicant notified to submit onboarding documents.'
           : 'Candidate selected for promotion! Active Promotion Appointment transaction created. Teacher notified to submit documents for HR approval.')
       : 'Selection removed.'
+      ) + (cycleAutoClosed ? ' All slots are filled, so the cycle is now closed.' : '')
   );
 };
 
