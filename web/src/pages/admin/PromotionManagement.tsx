@@ -1,3 +1,4 @@
+import './promo-create.css';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -4940,115 +4941,62 @@ export const PromotionManagement: React.FC = () => {
       {/* MODAL 4: CREATE PROMOTION CYCLE */}
       {showConfigModal && isHR && (
         <ModalOverlay onDismiss={() => setShowConfigModal(false)} className="modal-overlay">
-          <div className="modal animate-scale-in" style={{
-            maxWidth: '780px',
-            width: '92vw',
-            maxHeight: '90vh',
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            borderRadius: '16px',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)',
-            overflow: 'hidden',
-          }}>
-            <div className="modal-header" style={{
-              background: 'var(--color-bg-tertiary)',
-              borderBottom: '1px solid var(--color-border)',
-              padding: '16px 24px',
-              borderRadius: '16px 16px 0 0',
-              flexShrink: 0,
-            }}>
-              <h3 className="modal-title" style={{ color: 'var(--color-text-primary)', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AppIcon name="new-transaction" size={18} color="#2F7D52" />
-                Create New Promotion Cycle
-              </h3>
-              <button className="modal-close" onClick={() => setShowConfigModal(false)} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', width: '32px', height: '32px', borderRadius: '8px', color: 'var(--color-text-primary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+          <div className="modal animate-scale-in pc-create" role="dialog" aria-modal="true" aria-labelledby="pc-create-title">
+            <div className="pc-create__head">
+              <div>
+                <h3 id="pc-create-title" className="pc-create__title">New promotion cycle</h3>
+                <p className="pc-create__sub">Set the slots, pick the vacant item, then schedule it.</p>
+              </div>
+              <button type="button" className="pc-create__close" aria-label="Close" onClick={() => setShowConfigModal(false)}>×</button>
             </div>
 
-            <form onSubmit={handleCreateCycle} style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-              {/* TOP SECTION: Number of Applicants & Number of Chosen Applicants (Vacancies) */}
-              <div style={{
-                background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1',
-                border: theme === 'dark' ? '1.5px solid rgba(59, 130, 246, 0.4)' : '1.5px solid #CFE8D8',
-                borderRadius: '12px',
-                padding: '16px',
-                marginBottom: '16px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <AppIcon name="promotions" size={15} color="#ffffff" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                        Vacancy
-                      </div>
-                    </div>
+            <form onSubmit={handleCreateCycle} className="pc-create__form">
+              <div className="pc-create__body">
+              <section className="pc-sec">
+                <div className="pc-sec__num">1</div>
+                <div>
+                  <h4 className="pc-sec__title">Slots</h4>
+                  <p className="pc-sec__hint">The cycle closes by itself once every position is filled.</p>
+                  <div className="pc-grid">
+                    <label className="pc-field">
+                      <span>Positions to fill <span className="pc-req">*</span></span>
+                      <input
+                        aria-label="Applicants That Will Be Chosen"
+                        type="number" min={1} max={50}
+                        className="form-input"
+                        placeholder="e.g. 1"
+                        value={newVacantPositions}
+                        onChange={(e) => handleVacantPositionsChange(e.target.value)}
+                        onBlur={() => { if (newVacantPositions === '' || Number(newVacantPositions) < 1) handleVacantPositionsChange(1); }}
+                        required
+                      />
+                      <small>One plantilla item per position.</small>
+                    </label>
+                    <label className="pc-field">
+                      <span>Maximum applicants <span className="pc-req">*</span></span>
+                      <input
+                        aria-label="Max Applicants Capacity"
+                        type="number" min={1} max={500}
+                        className="form-input"
+                        placeholder="e.g. 10"
+                        value={newMaxApplicants}
+                        onChange={(e) => handleMaxApplicantsChange(e.target.value)}
+                        onBlur={() => { if (newMaxApplicants === '' || Number(newMaxApplicants) < 1) setNewMaxApplicants(10); }}
+                        required
+                      />
+                      <small>Applications stop at this number.</small>
+                    </label>
                   </div>
                 </div>
+              </section>
 
-                {/* 2-Column Grid at Top: Max Applicants Capacity & Applicants to be Chosen */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px', marginBottom: '14px' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <AppIcon name="users" size={13} color="var(--color-primary)" />
-                      Maximum applicants <span style={{ color: 'var(--color-danger)' }}>*</span>
-                    </label>
-                    <input
-                      aria-label="Max Applicants Capacity"
-                      type="number"
-                      min={1} max={500}
-                      className="form-input"
-                      placeholder="e.g. 10"
-                      value={newMaxApplicants}
-                      onChange={(e) => handleMaxApplicantsChange(e.target.value)}
-                      onBlur={() => {
-                        if (newMaxApplicants === '' || Number(newMaxApplicants) < 1) {
-                          setNewMaxApplicants(10);
-                        }
-                      }}
-                      style={{ fontWeight: 700, fontSize: '1.0625rem' }}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <AppIcon name="approved" size={13} color="#10B981" />
-                      Positions to fill <span style={{ color: 'var(--color-danger)' }}>*</span>
-                    </label>
-                    <input
-                      aria-label="Applicants That Will Be Chosen"
-                      type="number"
-                      min={1} max={50}
-                      className="form-input"
-                      placeholder="e.g. 5"
-                      value={newVacantPositions}
-                      onChange={(e) => handleVacantPositionsChange(e.target.value)}
-                      onBlur={() => {
-                        if (newVacantPositions === '' || Number(newVacantPositions) < 1) {
-                          handleVacantPositionsChange(1);
-                        }
-                      }}
-                      style={{ fontWeight: 700, fontSize: '1.0625rem', borderColor: '#10B981' }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Dynamic Plantilla Input Slots (If N applicants chosen => N plantillas inputted) */}
-                <div style={{ paddingTop: '12px', borderTop: theme === 'dark' ? '1px solid rgba(255,255,255,0.08)' : '1px solid #DDF0E3' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <AppIcon name="employment" size={14} color="var(--color-primary)" />
-                      Plantilla item{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}
-                    </label>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                      {designatedPlantillas.filter(Boolean).length} of {Number(newVacantPositions) || 1} selected
-                    </span>
-                  </div>
-
+              <section className="pc-sec">
+                <div className="pc-sec__num">2</div>
+                <div>
+                  <h4 className="pc-sec__title">Plantilla item{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</h4>
+                  <p className="pc-sec__hint">
+                    {designatedPlantillas.filter(Boolean).length} of {Number(newVacantPositions) || 1} chosen. The position, station and district come from the item.
+                  </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {Array.from({ length: Number(newVacantPositions) || 1 }).map((_, idx) => {
                       const currentValue = designatedPlantillas[idx] || '';
@@ -5547,137 +5495,86 @@ export const PromotionManagement: React.FC = () => {
                       );
                     })}
                   </div>
-                </div>
-              </div>
-
-              {/* Auto-Synchronized Plantilla Badge & Preview Strip */}
-              {linkedPlantilla ? (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: theme === 'dark' ? 'rgba(16, 185, 129, 0.08)' : '#ECFDF5',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                  borderRadius: '10px',
-                  padding: '12px 16px',
-                  marginBottom: '18px',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <CheckCircle2 size={18} color="#10B981" />
-                    <div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: '#059669' }}>
-                        From the plantilla item
-                      </div>
-                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        Position: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.positionTitle}</strong> (SG {linkedPlantilla.salaryGrade}) • District: <strong style={{ color: 'var(--color-text-primary)' }}>{newCycleDistrict}</strong> • Station: <strong style={{ color: 'var(--color-text-primary)' }}>{linkedPlantilla.department || 'All Schools in District'}</strong> • Track: <strong style={{ color: '#059669' }}>{newCycleTrack === 'TEACHING' ? 'Teaching' : 'Non-teaching'}</strong>
-                      </div>
+                  {linkedPlantilla && (
+                    <div className="pc-summary">
+                      <span className="pc-chip">{linkedPlantilla.positionTitle} · SG {linkedPlantilla.salaryGrade}</span>
+                      <span className="pc-chip">{newCycleDistrict}</span>
+                      <span className="pc-chip">{linkedPlantilla.department || 'All schools in district'}</span>
+                      <span className="pc-chip">{newCycleTrack === 'TEACHING' ? 'Teaching' : 'Non-teaching'}</span>
                     </div>
+                  )}
+                </div>
+              </section>
+
+              <section className="pc-sec">
+                <div className="pc-sec__num">3</div>
+                <div>
+                  <h4 className="pc-sec__title">Details</h4>
+                  <p className="pc-sec__hint">What applicants will see.</p>
+                  <div className="pc-grid">
+                    <label className="pc-field" style={{ gridColumn: '1 / -1' }}>
+                      <span>Cycle title <span className="pc-req">*</span></span>
+                      <input aria-label="Cycle Title"
+                        type="text"
+                        className="form-input"
+                        placeholder={newCycleTrack === 'TEACHING' ? 'e.g. 2026 Master Teacher I promotion' : 'e.g. 2026 Administrative Officer promotion'}
+                        value={newCycleName}
+                        onChange={(e) => { setNewCycleName(e.target.value); cycleErrors.clearField('name'); }}
+                        aria-invalid={Boolean(cycleErrors.errors.name)}
+                        required
+                      />
+                      <FieldError message={cycleErrors.errors.name} />
+                    </label>
+                    <label className="pc-field">
+                      <span>Promotion type</span>
+                      <select aria-label="Promotion Type" className="form-input" value={newCycleType} onChange={(e) => setNewCycleType(e.target.value)}>
+                        <option value="NATURAL_VACANCY">Natural vacancy (DO 19)</option>
+                        <option value="ECP">ECP reclassification (DO 24)</option>
+                      </select>
+                    </label>
+                    <label className="pc-field">
+                      <span>Open to</span>
+                      <select aria-label="Open to" className="form-input" value={newOpenTo} onChange={(e) => setNewOpenTo(e.target.value as 'DIVISION' | 'DISTRICT')}>
+                        <option value="DIVISION">Whole division</option>
+                        <option value="DISTRICT" disabled={!newCycleDistrict}>
+                          {newCycleDistrict ? `${newCycleDistrict} only` : 'One district (choose an item first)'}
+                        </option>
+                      </select>
+                    </label>
                   </div>
                 </div>
-              ) : null}
+              </section>
 
-              {/* Cycle Information & Schedule (Spacious 2-Column Grid) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '14px', marginBottom: '16px' }}>
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
-                    Cycle Title <span style={{ color: 'var(--color-danger)' }}>*</span>
-                  </label>
-                  <input aria-label="Cycle Title"
-                    type="text"
-                    className="form-input"
-                    placeholder={newCycleTrack === 'TEACHING' ? "e.g. 2026 Division Master Teacher Promotion" : "e.g. 2026 Administrative Officer Promotion"}
-                    value={newCycleName}
-                    onChange={(e) => { setNewCycleName(e.target.value); cycleErrors.clearField('name'); }}
-                    aria-invalid={Boolean(cycleErrors.errors.name)}
-                    required
-                  />
-                  <FieldError message={cycleErrors.errors.name} />
+              <section className="pc-sec">
+                <div className="pc-sec__num">4</div>
+                <div>
+                  <h4 className="pc-sec__title">Schedule</h4>
+                  <p className="pc-sec__hint">When personnel can apply.</p>
+                  <div className="pc-grid">
+                    <label className="pc-field">
+                      <span>Opens</span>
+                      <input aria-label="Application Start Date" type="date" className="form-input" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} required />
+                    </label>
+                    <label className="pc-field">
+                      <span>Deadline</span>
+                      <input aria-label="Application Deadline / End Date" type="date" className="form-input" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} required />
+                    </label>
+                  </div>
+                  <div className="pc-seg" role="group" aria-label="Initial Cycle Status" style={{ marginTop: 14 }}>
+                    <button type="button" aria-pressed={newCycleStatus === 'ACTIVE'} onClick={() => setNewCycleStatus('ACTIVE')}>
+                      <strong>Publish now</strong><span>Personnel can apply right away</span>
+                    </button>
+                    <button type="button" aria-pressed={newCycleStatus === 'PLANNING'} onClick={() => setNewCycleStatus('PLANNING')}>
+                      <strong>Save as planning</strong><span>Hidden until you activate it</span>
+                    </button>
+                  </div>
                 </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
-                    Promotion Type
-                  </label>
-                  <select
-                    aria-label="Promotion Type"
-                    className="form-input"
-                    value={newCycleType}
-                    onChange={(e) => setNewCycleType(e.target.value)}
-                  >
-                    <option value="NATURAL_VACANCY">Natural Vacancy (DepEd DO 19)</option>
-                    <option value="ECP">ECP Reclassification (DepEd DO 24)</option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
-                    Open to
-                  </label>
-                  <select
-                    aria-label="Open to"
-                    className="form-input"
-                    value={newOpenTo}
-                    onChange={(e) => setNewOpenTo(e.target.value as 'DIVISION' | 'DISTRICT')}
-                  >
-                    <option value="DIVISION">Whole division — anyone can view and apply</option>
-                    <option value="DISTRICT" disabled={!newCycleDistrict}>
-                      {newCycleDistrict ? `${newCycleDistrict} only` : 'District only (choose a plantilla item first)'}
-                    </option>
-                  </select>
-                </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
-                    Application Start Date
-                  </label>
-                  <input
-                    aria-label="Application Start Date"
-                    type="date"
-                    className="form-input"
-                    value={newStartDate}
-                    onChange={(e) => setNewStartDate(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
-                    Application Deadline / End Date
-                  </label>
-                  <input
-                    aria-label="Application Deadline / End Date"
-                    type="date"
-                    className="form-input"
-                    value={newEndDate}
-                    onChange={(e) => setNewEndDate(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ fontWeight: 700, color: 'var(--color-text-secondary)', fontSize: '0.9375rem' }}>
-                    Initial Cycle Status
-                  </label>
-                  <select
-                    aria-label="Initial Cycle Status"
-                    className="form-input"
-                    value={newCycleStatus}
-                    onChange={(e) => setNewCycleStatus(e.target.value)}
-                  >
-                    <option value="ACTIVE">ACTIVE (Open for Personnel Applications)</option>
-                    <option value="PLANNING">PLANNING (Upcoming / Opening Soon)</option>
-                    <option value="COMPLETED">COMPLETED (Closed)</option>
-                    <option value="CANCELLED">CANCELLED</option>
-                  </select>
-                </div>
+              </section>
               </div>
 
-              <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setShowConfigModal(false)} style={{ borderRadius: '9999px', fontWeight: 700 }}>Cancel</button>
-                <button type="submit" disabled={creatingCycle.pending} className="btn btn-primary" style={{ background: 'var(--color-primary)', color: '#ffffff', border: 'none', borderRadius: '9999px', padding: '9px 20px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 800 }}>
-                  <AppIcon name="new-transaction" size={14} color="#ffffff" /> Create Promotion Cycle
+              <div className="pc-create__foot">
+                <button type="submit" disabled={creatingCycle.pending} className="btn btn-primary">
+                  <AppIcon name="new-transaction" size={14} color="#ffffff" /> {creatingCycle.pending ? 'Creating…' : 'Create cycle'}
                 </button>
               </div>
             </form>
