@@ -1324,7 +1324,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       throw workflowConflict('All available appointment slots have been selected.');
     }
     // The last open slot is being filled: close the cycle to new applicants.
-    if (selectedCount + 1 >= vacancies && currentApp.promotionCycle.status === 'ACTIVE') {
+    if (selectedCount + 1 >= vacancies && ['PLANNING', 'CONFIGURED', 'ACTIVE', 'EVALUATION', 'COMPARATIVE_ASSESSMENT', 'RESULTS_READY'].includes(currentApp.promotionCycle.status)) {
       await db.promotionCycle.update({ where: { id: cycleId }, data: { status: 'CLOSED' } });
       cycleAutoClosed = true;
     }
