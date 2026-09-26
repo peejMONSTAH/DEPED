@@ -148,13 +148,15 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
           : (
           <div className="trv-body">
             <nav className="trv-list" aria-label="Submitted documents">
-              <div className="trv-progress text-xs">
-                <strong>{counts.verified}</strong> verified · <strong>{counts.deficient}</strong> deficient · <strong>{counts.pending}</strong> to review
+              <div className="trv-progress">
+                <strong>{counts.pending ? `${counts.pending} left to review` : 'All documents reviewed'}</strong>
+                <span>{counts.verified} verified, {counts.deficient} deficient</span>
+                <span className="trv-progress__bar"><span style={{ width: `${((tx.docs.length - counts.pending) / tx.docs.length) * 100}%` }} /></span>
               </div>
               {tx.docs.map(d => (
                 <button key={d.id} type="button" className={`trv-doc ${d.id === activeId ? 'active' : ''} v-${verdicts[d.id].toLowerCase()}`}
                   onClick={() => setActiveId(d.id)} aria-current={d.id === activeId}>
-                  <AppIcon name={verdicts[d.id] === 'VERIFIED' ? 'approved' : verdicts[d.id] === 'DEFICIENT' ? 'warning' : 'document'} size={15} />
+                  <span className="trv-mark" aria-hidden="true">{verdicts[d.id] === 'VERIFIED' ? '✓' : verdicts[d.id] === 'DEFICIENT' ? '!' : ''}</span>
                   <span className="trv-doc-text">
                     <span className="trv-doc-name">{d.name}</span>
                     <span className="trv-doc-state">{verdicts[d.id] === 'VERIFIED' ? 'Verified' : verdicts[d.id] === 'DEFICIENT' ? 'Deficient' : 'To review'}</span>
@@ -176,7 +178,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
                     {preview.status === 'ready' && preview.url ? (
                       preview.type === 'application/pdf'
                         ? <PdfPages url={preview.url} zoom={zoom} title={active.name} />
-                        : <div className="trv-img-wrap"><img src={preview.url} alt={active.name} style={{ width: `${zoom * 100}%` }} /></div>
+                        : <div className={`trv-img-wrap ${zoom === 1 ? 'is-fit' : ''}`}><img src={preview.url} alt={active.name} style={zoom === 1 ? undefined : { width: `${zoom * 100}%` }} /></div>
                     ) : preview.status === 'error' ? (
                       <div className="trv-center"><p style={{ color: 'var(--color-danger)' }}>{preview.error}</p><button type="button" className="btn btn-secondary btn-sm" onClick={retry}>Retry</button></div>
                     ) : <div className="trv-center text-muted">Loading the uploaded file…</div>}
