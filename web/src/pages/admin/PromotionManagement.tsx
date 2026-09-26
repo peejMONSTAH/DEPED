@@ -1,3 +1,4 @@
+import './promo-detail.css';
 import './promo-create.css';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -1529,337 +1530,114 @@ export const PromotionManagement: React.FC = () => {
           </div>
           {selectedCycle && (
             <>
-              {/* Selected Cycle Header */}
+              {/* Cycle header: the vacancy, its seats, and the facts HR needs. */}
               {(() => {
                 const cycleStatus = (selectedCycle.status || '').toUpperCase();
-                const isCycleOngoing = ['ACTIVE', 'EVALUATION', 'COMPARATIVE_ASSESSMENT'].includes(cycleStatus);
-                const isCyclePlanning = ['PLANNING', 'CONFIGURED'].includes(cycleStatus);
-                const isCycleFinished = ['CLOSED', 'FINALIZED', 'RESULTS_READY', 'PUBLISHED', 'RESOLVED'].includes(cycleStatus);
-                const isCycleCancelled = cycleStatus === 'CANCELLED';
-
-                const statusBadgeBg = isCycleOngoing
-                  ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5')
-                  : isCyclePlanning
-                    ? (theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB')
-                    : isCycleFinished
-                      ? (theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EEF7F1')
-                      : (theme === 'dark' ? 'rgba(244, 63, 94, 0.15)' : '#FFF1F2');
-
-                const statusBadgeColor = isCycleOngoing
-                  ? (theme === 'dark' ? '#34D399' : '#059669')
-                  : isCyclePlanning
-                    ? (theme === 'dark' ? '#FBBF24' : '#D97706')
-                    : isCycleFinished
-                      ? (theme === 'dark' ? '#8FD3A8' : '#2F7D52')
-                      : (theme === 'dark' ? '#FB7185' : '#E11D48');
-
-                const statusBadgeBorder = isCycleOngoing
-                  ? 'rgba(16, 185, 129, 0.3)'
-                  : isCyclePlanning
-                    ? 'rgba(245, 158, 11, 0.3)'
-                    : isCycleFinished
-                      ? 'rgba(59, 130, 246, 0.3)'
-                      : 'rgba(244, 63, 94, 0.3)';
+                const tone = ['ACTIVE', 'EVALUATION', 'COMPARATIVE_ASSESSMENT'].includes(cycleStatus) ? 'open'
+                  : ['PLANNING', 'CONFIGURED'].includes(cycleStatus) ? 'planning'
+                  : cycleStatus === 'CANCELLED' ? 'cancelled' : 'closed';
+                const statusLabel: Record<string, string> = {
+                  ACTIVE: 'Open for applications', PLANNING: 'Planning', CONFIGURED: 'Planning',
+                  EVALUATION: 'Under evaluation', COMPARATIVE_ASSESSMENT: 'Comparative assessment',
+                  RESULTS_READY: 'Results ready', CLOSED: 'Closed', FINALIZED: 'Finalized',
+                  PUBLISHED: 'Published', RESOLVED: 'Resolved', CANCELLED: 'Cancelled',
+                };
+                const rules = selectedCycle.rulesConfigurationJson || {};
+                const school = rules.school && rules.school !== 'All Schools in District' ? rules.school : null;
+                // Appointed people first, then those selected and awaiting documents.
+                const seated = [
+                  ...leaderboard.filter(isAppointed).map(item => ({ item, state: 'appointed' as const })),
+                  ...leaderboard.filter(item => !isAppointed(item) && isSelectedPendingAppointment(item)).map(item => ({ item, state: 'selected' as const })),
+                ];
+                const seats = Array.from({ length: Math.max(cycleVacantPositions, 1) }, (_, i) => seated[i] ?? null);
+                const filled = seats.filter(Boolean).length;
 
                 return (
-                  <div className="card" style={{ padding: '24px', borderRadius: '12px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)' }}>
-                    {/* Top Meta Bar */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '16px', paddingBottom: '14px', borderBottom: '1px solid var(--color-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          SDO Koronadal City • {selectedCycle.rulesConfigurationJson?.district || 'Division Proper'}
-                        </span>
-                        <span style={{ color: 'var(--color-border)' }}>•</span>
-                        <span style={{
-                          fontSize: '0.875rem',
-                          fontWeight: 700,
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          background: statusBadgeBg,
-                          color: statusBadgeColor,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusBadgeColor }} />
-                          {selectedCycle.status}
-                        </span>
-
-                        {isHR && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '6px' }}>
-                            <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>Status:</span>
+                  <section className="pcd-head">
+                    <div className="pcd-head__top">
+                      <div className="pcd-head__where">
+                        SDO Koronadal City, {rules.district || 'Division Proper'}
+                      </div>
+                      <div className="pcd-head__actions">
+                        {isHR ? (
+                          <label className={`pcd-status pcd-status--${tone}`}>
+                            <span className="pcd-status__dot" aria-hidden="true" />
                             <select
                               aria-label="Promotion cycle status"
                               value={selectedCycle.status}
                               onChange={(e) => handleUpdateCycleStatus(selectedCycle.id, e.target.value)}
-                              style={{
-                                padding: '2px 8px',
-                                fontSize: '14px',
-                                fontWeight: 700,
-                                borderRadius: '6px',
-                                background: 'var(--color-bg-tertiary)',
-                                color: 'var(--color-text-primary)',
-                                border: '1px solid var(--color-border)',
-                                cursor: 'pointer',
-                              }}
                             >
                               {!['ACTIVE', 'PLANNING', 'CLOSED', 'FINALIZED', 'CANCELLED'].includes(selectedCycle.status) && (
-                                <option value={selectedCycle.status} disabled>{selectedCycle.status}</option>
+                                <option value={selectedCycle.status} disabled>{statusLabel[cycleStatus] || selectedCycle.status}</option>
                               )}
-                              <option value="ACTIVE">ACTIVE</option>
-                              <option value="PLANNING">PLANNING</option>
-                              <option value="CLOSED">CLOSED</option>
-                              <option value="FINALIZED">FINALIZED</option>
-                              <option value="CANCELLED">CANCELLED</option>
+                              <option value="ACTIVE">Open for applications</option>
+                              <option value="PLANNING">Planning</option>
+                              <option value="CLOSED">Closed</option>
+                              <option value="FINALIZED">Finalized</option>
+                              <option value="CANCELLED">Cancelled</option>
                             </select>
-                          </div>
+                          </label>
+                        ) : (
+                          <span className={`pcd-status pcd-status--${tone}`}>
+                            <span className="pcd-status__dot" aria-hidden="true" />{statusLabel[cycleStatus] || selectedCycle.status}
+                          </span>
                         )}
-                      </div>
-
-                      {/* Header Actions */}
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button type="button" className="btn btn-secondary btn-sm pcd-btn" onClick={() => setShowAppModal(true)}>
+                          Register applicant
+                        </button>
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            setActiveTab('CAR');
-                            handleDownloadCarDocument(selectedCycle.id);
-                          }}
+                          className="btn btn-primary btn-sm pcd-btn"
+                          onClick={() => { setActiveTab('CAR'); handleDownloadCarDocument(selectedCycle.id); }}
                           disabled={isDownloadingCar}
-                          style={{
-                            background: 'var(--color-primary)',
-                            color: '#FFFFFF',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '7px 15px',
-                            fontSize: '0.9375rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            fontWeight: 700,
-                            cursor: isDownloadingCar ? 'not-allowed' : 'pointer',
-                          }}
                         >
-                          <AppIcon name="receipt" size={13} color="#FFFFFF" />
-                          {isDownloadingCar ? 'Generating CAR...' : 'Official CAR (.docx)'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setShowAppModal(true)}
-                          style={{
-                            border: '1px solid var(--color-border)',
-                            background: 'var(--color-bg-tertiary)',
-                            color: 'var(--color-text-primary)',
-                            borderRadius: '8px',
-                            padding: '7px 14px',
-                            fontSize: '0.9375rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            fontWeight: 600,
-                          }}
-                        >
-                          <AppIcon name="checklist" size={13} color="var(--color-text-secondary)" />
-                          + Register Applicant
+                          <AppIcon name="receipt" size={14} color="#FFFFFF" />
+                          {isDownloadingCar ? 'Preparing CAR…' : 'Download CAR'}
                         </button>
                       </div>
                     </div>
 
-                    {/* Promotion Core Title */}
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                          {selectedCycle.rulesConfigurationJson?.targetPosition || selectedCycle.name}
-                        </h2>
-                        {selectedCycle.rulesConfigurationJson?.school && selectedCycle.rulesConfigurationJson?.school !== 'All Schools in District' && (
-                          <span style={{ fontSize: '1rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
-                            @ {selectedCycle.rulesConfigurationJson.school}
+                    <h2 className="pcd-head__title">{rules.targetPosition || selectedCycle.name}</h2>
+                    {school && <p className="pcd-head__school">{school}</p>}
+
+                    <div className="pcd-seats" aria-label={`${filled} of ${seats.length} positions filled`}>
+                      {seats.map((seat, i) => (
+                        <div key={i} className={`pcd-seat pcd-seat--${seat ? seat.state : 'open'}`}>
+                          <span className="pcd-seat__mark" aria-hidden="true">
+                            {seat ? (seat.item.name || '?').split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('') : i + 1}
                           </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span>Cycle: <strong>{selectedCycle.name}</strong></span>
-                        <span>•</span>
-                        <span>{formatDateString(selectedCycle.startDate)} to {formatDateString(selectedCycle.endDate)}</span>
-                      </div>
+                          <span className="pcd-seat__text">
+                            <strong>{seat ? seat.item.name : 'Open position'}</strong>
+                            <span>{seat ? (seat.state === 'appointed' ? 'Appointed' : 'Selected, submitting documents') : 'No one selected yet'}</span>
+                          </span>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Important Highlights Strip (Bento Row) */}
-                    <div className="promotion-summary-grid" style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
-                      gap: '12px',
-                    }}>
-                      {/* Highlight 1: Quota Available */}
-                      <div className="promotion-summary-card promotion-summary-card--slots">
-                        <div className="promotion-summary-label">
-                          <span className="promotion-summary-icon"><AppIcon name="checklist" size={15} /></span>
-                          Available Openings
-                        </div>
-                        <div className="promotion-summary-value-row">
-                          <span className="promotion-summary-value promotion-summary-value--large">
-                            {cycleVacantPositions} {cycleVacantPositions === 1 ? 'Slot' : 'Slots'}
-                          </span>
-                          <span style={{
-                            fontSize: '0.875rem',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
-                            color: theme === 'dark' ? '#34D399' : '#059669',
-                            border: '1px solid rgba(16, 185, 129, 0.25)',
-                          }}>
-                            ● Available Quota
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Highlight 2: Plantilla Item */}
-                      <div className="promotion-summary-card promotion-summary-card--plantilla">
-                        <div className="promotion-summary-label">
-                          <span className="promotion-summary-icon"><AppIcon name="employment" size={15} /></span>
-                          Plantilla Item
-                        </div>
-                        <div className="promotion-summary-value promotion-summary-value--code">
-                          {cyclePlantillaNo || 'Division Pool'}
-                        </div>
-                      </div>
-
-                      {/* Highlight 3: Evaluation Track */}
-                      <div className="promotion-summary-card promotion-summary-card--track">
-                        <div className="promotion-summary-label">
-                          <span className="promotion-summary-icon"><AppIcon name="promotions" size={15} /></span>
-                          Evaluation Track
-                        </div>
-                        <div className="promotion-summary-value">
-                          {isCycleTeaching ? 'Teaching Personnel Track (100 pts)' : 'Non-Teaching Track (100 pts)'}
-                        </div>
-                      </div>
-
-                      {/* Highlight 4: Candidate Pool */}
-                      <div className="promotion-summary-card promotion-summary-card--candidates">
-                        <div className="promotion-summary-label">
-                          <span className="promotion-summary-icon"><AppIcon name="personnel" size={15} /></span>
-                          Candidate Pool
-                        </div>
-                        <div className="promotion-summary-value promotion-summary-value--large">
-                          {filteredLeaderboard.length} <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Applicants</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    <dl className="pcd-facts">
+                      <div><dt>Cycle</dt><dd>{selectedCycle.name}</dd></div>
+                      <div><dt>Applications</dt><dd>{formatDateString(selectedCycle.startDate)} to {formatDateString(selectedCycle.endDate)}</dd></div>
+                      <div><dt>Plantilla item</dt><dd className="pcd-facts__code">{cyclePlantillaNo || 'Division pool'}</dd></div>
+                      <div><dt>Scoring</dt><dd>{isCycleTeaching ? 'Teaching, 100 points' : 'Non-teaching, 100 points'}</dd></div>
+                      <div><dt>Applicants</dt><dd>{leaderboard.length}</dd></div>
+                    </dl>
+                  </section>
                 );
               })()}
 
-              {/* Navigation Subtabs (Minimalist Segmented Control) */}
-              <div style={{
-                display: 'flex',
-                gap: '4px',
-                padding: '4px',
-                background: 'var(--color-bg-tertiary)',
-                borderRadius: '10px',
-                border: '1px solid var(--color-border)',
-                width: 'fit-content',
-                flexWrap: 'wrap',
-                marginBottom: '4px',
-              }}>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('LEADERBOARD')}
-                  style={{
-                    padding: '7px 16px',
-                    borderRadius: '7px',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: activeTab === 'LEADERBOARD' ? 'var(--color-primary)' : 'transparent',
-                    color: activeTab === 'LEADERBOARD' ? '#ffffff' : 'var(--color-text-secondary)',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  Ranking
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('CAR')}
-                  style={{
-                    padding: '7px 16px',
-                    borderRadius: '7px',
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    border: 'none',
-                    cursor: 'pointer',
-                    background: activeTab === 'CAR' ? 'var(--color-primary)' : 'transparent',
-                    color: activeTab === 'CAR' ? '#ffffff' : 'var(--color-text-secondary)',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  CAR results
-                </button>
-
-                {isHR && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('AO_RATING')}
-                    style={{
-                      padding: '7px 16px',
-                      borderRadius: '7px',
-                      fontSize: '1rem',
-                      fontWeight: 700,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: activeTab === 'AO_RATING' ? 'var(--color-primary)' : 'transparent',
-                      color: activeTab === 'AO_RATING' ? '#ffffff' : 'var(--color-text-secondary)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    Requirements check
+              <nav className="pcd-tabs" aria-label="Cycle views">
+                {([
+                  ['LEADERBOARD', 'Ranking', true],
+                  ['CAR', 'CAR results', true],
+                  ['AO_RATING', 'Requirements check', isHR],
+                  ['HRMO_RANKING', 'Board deliberation', user?.role === 'HRMO'],
+                  ['HR_SELECTION', 'Candidate selection', user?.role === 'HRMO'],
+                ] as const).filter(([, , show]) => show).map(([key, label]) => (
+                  <button key={key} type="button" aria-current={activeTab === key ? 'page' : undefined} onClick={() => setActiveTab(key as any)}>
+                    {label}
                   </button>
-                )}
-
-                {(user?.role === 'HRMO') && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('HRMO_RANKING')}
-                    style={{
-                      padding: '7px 16px',
-                      borderRadius: '7px',
-                      fontSize: '1rem',
-                      fontWeight: 700,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: activeTab === 'HRMO_RANKING' ? 'var(--color-primary)' : 'transparent',
-                      color: activeTab === 'HRMO_RANKING' ? '#ffffff' : 'var(--color-text-secondary)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    Board deliberation
-                  </button>
-                )}
-
-                {(user?.role === 'HRMO') && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('HR_SELECTION')}
-                    style={{
-                      padding: '7px 16px',
-                      borderRadius: '7px',
-                      fontSize: '1rem',
-                      fontWeight: 700,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: activeTab === 'HR_SELECTION' ? 'var(--color-primary)' : 'transparent',
-                      color: activeTab === 'HR_SELECTION' ? '#ffffff' : 'var(--color-text-secondary)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    Candidate selection
-                  </button>
-                )}
-              </div>
+                ))}
+              </nav>
 
                 {/* TAB 1: REALTIME RANKING LEADERBOARD */}
                 {activeTab === 'LEADERBOARD' && (

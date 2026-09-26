@@ -1,0 +1,56 @@
+/* Promotion cycle detail header. The seat row is the page's one bold element;
+   everything around it stays plain. */
+.pcd-head { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 14px; padding: 22px 26px 20px; }
+.pcd-head__top { display: flex; justify-content: space-between; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.pcd-head__where { font-size: .9375rem; color: var(--color-text-secondary); font-weight: 600; }
+.pcd-head__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pcd-btn { display: inline-flex !important; align-items: center; gap: 6px; border-radius: 9999px !important; padding: 8px 16px !important; font-weight: 700; }
+
+.pcd-status { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 0 4px 0 12px; height: 36px; border-radius: 9999px; font-size: .9375rem; font-weight: 700; border: 1px solid transparent; }
+.pcd-status select { appearance: auto; border: 0; background: transparent; color: inherit; font: inherit; padding: 0 6px 0 0; cursor: pointer; }
+.pcd-status select:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 6px; }
+.pcd-status__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.pcd-status--open { color: #1F6B43; background: #E3F3E9; border-color: #BFE3CC; }
+.pcd-status--planning { color: #8A5A0B; background: #FDF3DC; border-color: #F1DCA6; }
+.pcd-status--closed { color: #3E4B55; background: #ECEFF1; border-color: #D5DBDF; }
+.pcd-status--cancelled { color: #A1263A; background: #FBE7EA; border-color: #F2C3CB; }
+span.pcd-status { padding-right: 14px; }
+
+.pcd-head__title { margin: 18px 0 0; font-size: clamp(1.75rem, 3vw, 2.25rem); line-height: 1.1; font-weight: 800; letter-spacing: -0.025em; color: var(--color-text-primary); }
+.pcd-head__school { margin: 4px 0 0; font-size: 1.0625rem; color: var(--color-text-secondary); }
+
+.pcd-seats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.pcd-seat { display: flex; align-items: center; gap: 12px; min-width: 240px; flex: 0 1 300px; padding: 10px 16px 10px 10px; border-radius: 9999px; border: 1.5px dashed var(--color-border); }
+.pcd-seat__mark { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .9375rem; flex-shrink: 0; background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.pcd-seat__text { display: flex; flex-direction: column; min-width: 0; }
+.pcd-seat__text strong { font-size: 1rem; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcd-seat__text span { font-size: .8125rem; color: var(--color-text-secondary); }
+.pcd-seat--appointed { border-style: solid; border-color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 8%, transparent); }
+.pcd-seat--appointed .pcd-seat__mark { background: var(--color-primary); color: #fff; }
+.pcd-seat--selected { border-style: solid; border-color: #D9A441; }
+.pcd-seat--selected .pcd-seat__mark { background: #FDF3DC; color: #8A5A0B; }
+
+.pcd-facts { display: flex; flex-wrap: wrap; gap: 10px 32px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.pcd-facts div { min-width: 0; }
+.pcd-facts dt { font-size: .8125rem; color: var(--color-text-secondary); font-weight: 600; }
+.pcd-facts dd { margin: 2px 0 0; font-size: .9375rem; font-weight: 700; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.pcd-facts__code { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+
+.pcd-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border); overflow-x: auto; scrollbar-width: none; }
+.pcd-tabs button { background: none; border: 0; border-bottom: 2.5px solid transparent; margin-bottom: -1px; padding: 12px 14px; font: inherit; font-size: 1rem; font-weight: 700; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
+.pcd-tabs button:hover { color: var(--color-text-primary); }
+.pcd-tabs button[aria-current="page"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.pcd-tabs button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; border-radius: 6px; }
+
+[data-theme="dark"] .pcd-status--open { color: #8FD3A8; background: rgba(47,125,82,.18); border-color: rgba(143,211,168,.3); }
+[data-theme="dark"] .pcd-status--planning { color: #F3C969; background: rgba(217,164,65,.15); border-color: rgba(243,201,105,.3); }
+[data-theme="dark"] .pcd-status--closed { color: #C4CDD3; background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); }
+[data-theme="dark"] .pcd-status--cancelled { color: #F59AA8; background: rgba(161,38,58,.2); border-color: rgba(245,154,168,.3); }
+[data-theme="dark"] .pcd-seat--selected .pcd-seat__mark { background: rgba(217,164,65,.2); color: #F3C969; }
+
+@media (max-width: 640px) {
+  .pcd-head { padding: 18px 16px; }
+  .pcd-seat { flex-basis: 100%; min-width: 0; }
+  .pcd-head__actions { width: 100%; }
+  .pcd-head__actions .pcd-btn { flex: 1; justify-content: center; }
+}
