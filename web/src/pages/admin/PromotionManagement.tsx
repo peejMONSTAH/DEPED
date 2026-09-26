@@ -1605,6 +1605,9 @@ export const PromotionManagement: React.FC = () => {
                                 cursor: 'pointer',
                               }}
                             >
+                              {!['ACTIVE', 'PLANNING', 'CLOSED', 'FINALIZED', 'CANCELLED'].includes(selectedCycle.status) && (
+                                <option value={selectedCycle.status} disabled>{selectedCycle.status}</option>
+                              )}
                               <option value="ACTIVE">ACTIVE</option>
                               <option value="PLANNING">PLANNING</option>
                               <option value="CLOSED">CLOSED</option>
