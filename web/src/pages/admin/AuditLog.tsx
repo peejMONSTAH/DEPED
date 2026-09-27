@@ -1,3 +1,4 @@
+import { humanizeEnum } from '../../constants/transactionStatus';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
@@ -379,7 +380,7 @@ export const AuditLog: React.FC = () => {
                     </td>
                     <td>
                       <span className={`audit-action-pill ${getActionBadgeClass(log.action)}`}>
-                        {log.action}
+                        {humanizeEnum(log.action)}
                       </span>
                     </td>
                     <td>

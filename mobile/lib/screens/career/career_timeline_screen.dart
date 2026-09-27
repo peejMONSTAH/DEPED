@@ -50,7 +50,8 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightBg,
-      body: _isLoading
+      // Opened on its own (from a notification) there is no shell above it.
+      body: SafeArea(bottom: false, child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryLight))
           : RefreshIndicator(
               color: AppTheme.primaryLight,
@@ -288,7 +289,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                 ],
               ),
             ),
-          ),
+          )),
     );
   }
 }

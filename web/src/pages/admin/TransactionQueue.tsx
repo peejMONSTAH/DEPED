@@ -1,3 +1,4 @@
+import { humanizeEnum } from '../../constants/transactionStatus';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
@@ -29,6 +30,10 @@ const FILTER_TABS: FilterTab[] = [
   { id: 'APPROVED', label: transactionStatusLabel('APPROVED'), dotClass: 'dot-approved' },
   { id: 'REJECTED', label: transactionStatusLabel('REJECTED'), dotClass: 'dot-rejected' },
 ];
+
+// Roles as people say them, not as stored (AO_II -> AO II).
+const ROLE_NAMES: Record<string, string> = { AO_II: 'AO II', HRMO: 'HRMO', SYSTEM_ADMIN: 'System Administrator', TEACHING_PERSONNEL: 'Teaching personnel', NON_TEACHING_PERSONNEL: 'Non-teaching personnel' };
+const roleLabel = (role?: string) => (role ? ROLE_NAMES[role] || humanizeEnum(role) : 'System');
 
 export const TransactionQueue: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -938,9 +943,9 @@ export const TransactionQueue: React.FC = () => {
                         }}
                       >
                         <div>
-                          <strong style={{ color: 'var(--color-text-primary)' }}>{h.action}</strong>
+                          <strong style={{ color: 'var(--color-text-primary)' }}>{humanizeEnum(h.action)}</strong>
                           <span style={{ color: 'var(--color-text-secondary)', marginLeft: '6px' }}>
-                            by {h.user?.email || 'System'} ({h.user?.role?.name || 'ADMIN'})
+                            by {h.user?.email || 'System'} ({roleLabel(h.user?.role?.name)})
                           </span>
                         </div>
                         <span style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
