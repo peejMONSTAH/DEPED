@@ -31,6 +31,7 @@ import { extractWithTesseract } from '../services/tesseract-ocr.service';
 import { mapTrustedOcrFields } from '../utils/document-extraction.util';
 import { discardUncommittedDocument, storeDocument } from '../services/document-storage.service';
 import { LAST_ADMIN_REFUSAL, wouldRemoveLastAdministrator } from '../utils/system-admin.util';
+import { humanizeRole } from '../utils/audit.util';
 
 /**
  * GET /users — List all users with pagination and filtering
@@ -494,6 +495,34 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     });
   }
   res.locals.auditLogged = true;
+
+  // A changed sign-in email is announced to both addresses, so the holder
+  // notices even if the change was a mistake or not theirs. Role, station and
+  // records are untouched: they belong to the account, not to the address.
+  if (updated.email !== existing.email) {
+    const actor = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { email: true, role: { select: { name: true } }, personnel: { select: { firstName: true, lastName: true } } },
+    });
+    const holder = await prisma.personnel.findFirst({ where: { userId }, select: { firstName: true, lastName: true } });
+    const actorName = actor?.personnel ? `${actor.personnel.firstName} ${actor.personnel.lastName}` : actor?.email || 'An administrator';
+    const actorRole = humanizeRole(actor?.role.name);
+    const holderName = holder ? `${holder.firstName} ${holder.lastName}` : existing.email;
+    const when = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' });
+    const message = `${actorName} (${actorRole}) changed the sign-in email of your Digital 201 account from ${existing.email} to ${updated.email} on ${when}. Your role, station and records did not change. From now on, sign in with ${updated.email}. If you did not expect this, contact the Division HR office right away.`;
+    const stamp = Date.now();
+    for (const [to, key] of [[existing.email, 'old'], [updated.email, 'new']] as const) {
+      await queueTransactionalEmail(`user:${userId}:email-changed:${stamp}:${key}`, {
+        recipientEmail: to, recipientName: holderName,
+        subject: 'Your Digital 201 sign-in email was changed',
+        heading: 'Sign-in email changed', message,
+        reference: `Changed by ${actorName}, ${actorRole}`,
+      });
+    }
+    await prisma.notification.create({ data: { userId, type: 'WARNING', message } });
+    notifyUserNotifications([userId]);
+    void processWorkflowOutbox();
+  }
 
   sendSuccess(res, { id: updated.id, email: updated.email, role: updated.role.name, accountStatus: updated.accountStatus }, 'User updated successfully.');
 };
