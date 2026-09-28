@@ -19,3 +19,7 @@
 .acd__list span, .acd__muted { color: var(--color-text-muted); font-size: .875rem; margin: 0; }
 .acd__foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 24px 20px; border-top: 1px solid var(--color-border); }
 .acd__danger { color: #A1263A !important; }
+.acd__right { margin-left: auto; }
+.acd__warn { margin: 0; padding: 10px 14px; border-radius: 10px; background: #FDF3DC; color: #8A5A0B; font-weight: 600; font-size: .9375rem; }
+.acr-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-radius: 14px; background: #FDF3DC; color: #8A5A0B; font-weight: 700; }
+.acr-history summary { cursor: pointer; font-weight: 700; color: var(--color-text-secondary); padding: 6px 0; }

@@ -34,7 +34,7 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { label: 'Personnel',          icon: 'personnel',    path: '/admin/personnel',    roles: ['AO_II', 'HRMO'] },
       { label: 'Plantilla Registry', icon: 'employment',   path: '/admin/plantilla',    roles: ['HRMO'] },
-      { label: 'Credentials',        icon: 'credentials',  path: '/admin/credentials',  roles: ['SYSTEM_ADMIN', 'AO_II'] },
+      { label: 'Accounts',           icon: 'credentials',  path: '/admin/credentials',  roles: ['SYSTEM_ADMIN', 'AO_II'] },
       { label: 'Compliance & YOS',   icon: 'compliance',   path: '/admin/compliance',   roles: ['HRMO'] },
       { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['AO_II', 'HRMO'] },
     ],

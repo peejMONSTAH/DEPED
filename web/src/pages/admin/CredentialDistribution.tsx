@@ -19,6 +19,7 @@ import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '.
 import './review-list.css';
 import { humanizeEnum } from '../../constants/transactionStatus';
 import { AccountDetail } from './AccountDetail';
+import { AccountRequestReview, PendingRequest } from './AccountRequestReview';
 
 /** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */
 const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -493,6 +494,84 @@ export const CredentialDistribution: React.FC = () => {
     fetchRequests();
   };
 
+  // --- Review dialog: the dialog itself is the confirmation, so no second prompt.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewStartId, setReviewStartId] = useState<number | null>(null);
+  const seenRequestIds = React.useRef<Set<number> | null>(null);
+  const pendingRequests = accountRequests.filter(r => r.status === 'PENDING') as PendingRequest[];
+
+  // Opens on arrival, from a notification (?request=ID), and whenever a request
+  // the administrator has not seen yet comes in. Closing it ("Later") keeps the
+  // strip on the page; it reopens only for a new request.
+  useEffect(() => {
+    if (!isSysAdmin) return;
+    const ids = pendingRequests.map(r => r.id);
+    const fromLink = Number(new URLSearchParams(window.location.search).get('request')) || null;
+    if (seenRequestIds.current === null) {
+      if (!ids.length && !fromLink) return;
+      seenRequestIds.current = new Set(ids);
+      if (ids.length) { setReviewStartId(fromLink); setReviewOpen(true); }
+      return;
+    }
+    const fresh = ids.filter(id => !seenRequestIds.current!.has(id));
+    fresh.forEach(id => seenRequestIds.current!.add(id));
+    if (fresh.length) { setReviewStartId(fresh[0]); setReviewOpen(true); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountRequests, isSysAdmin]);
+
+  const duplicateOf = (r: PendingRequest): string | null => {
+    const email = r.email.trim().toLowerCase();
+    const hit = usersList.find(u => u.email.toLowerCase() === email
+      || (!!r.employeeId && u.personnel?.employeeId === r.employeeId));
+    if (!hit) return null;
+    return hit.email.toLowerCase() === email
+      ? `An account with ${r.email} already exists (${accountName(hit)}). Approving will fail; decline this one.`
+      : `Employee ID ${r.employeeId} already belongs to ${accountName(hit)}.`;
+  };
+
+  const closeReview = React.useCallback(() => {
+    setReviewOpen(false);
+    // Drop ?request= so a refresh does not reopen the same request.
+    if (window.location.search.includes('request=')) window.history.replaceState(null, '', window.location.pathname);
+  }, []);
+
+  const approveFromReview =async (r: PendingRequest) => {
+    try {
+      const res = await apiClient.post(`/users/requests/${r.id}/approve`);
+      addToast(`${r.firstName} ${r.lastName} approved (${res.data?.data?.employeeId}). The setup email is on its way.`, 'SUCCESS');
+      setAccountRequests(list => list.map(x => (x.id === r.id ? { ...x, status: 'APPROVED' } : x)));
+      fetchUsers(); fetchRequests();
+      return true;
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Failed to approve request.', 'ERROR');
+      return false;
+    }
+  };
+
+  const declineFromReview = async (r: PendingRequest, reason: string) => {
+    try {
+      await apiClient.post(`/users/requests/${r.id}/reject`, { reason });
+      addToast(`Request for ${r.firstName} ${r.lastName} declined. The AO II has been told why.`, 'SUCCESS');
+      setAccountRequests(list => list.map(x => (x.id === r.id ? { ...x, status: 'REJECTED', rejectionReason: reason } : x)));
+      fetchRequests();
+      return true;
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Failed to decline request.', 'ERROR');
+      return false;
+    }
+  };
+
+  const approveAllFromReview = async () => {
+    let ok = 0;
+    const failed: string[] = [];
+    for (const r of pendingRequests) {
+      try { await apiClient.post(`/users/requests/${r.id}/approve`); ok++; setAccountRequests(list => list.map(x => (x.id === r.id ? { ...x, status: 'APPROVED' } : x))); }
+      catch (err: any) { failed.push(err.response?.data?.message || `${r.firstName} ${r.lastName} failed`); }
+    }
+    addToast(failed.length ? `${ok} approved. ${failed.length} not approved: ${failed[0]}` : `${ok} approved. Setup emails are on their way.`, failed.length ? 'WARNING' : 'SUCCESS');
+    fetchUsers(); fetchRequests();
+  };
+
   const handleRejectRequest = async (requestId: number, name: string) => {
     const { confirmed, reason } = await confirm({
       title: 'Reject account request',
@@ -681,7 +760,47 @@ export const CredentialDistribution: React.FC = () => {
 
       <div className="page-content">
 
+        {/* Administrators approve through the review dialog; the strip keeps
+            waiting requests visible after "Later". */}
+        {isSysAdmin && pendingRequests.length > 0 && (
+          <div className="acr-strip mb-6" role="status">
+            <span>{pendingRequests.length} account request{pendingRequests.length === 1 ? '' : 's'} waiting for approval</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => { setReviewStartId(null); setReviewOpen(true); }}>Review</button>
+          </div>
+        )}
+        {isSysAdmin && reviewOpen && pendingRequests.length > 0 && (
+          <AccountRequestReview
+            requests={pendingRequests}
+            startId={reviewStartId}
+            duplicateOf={duplicateOf}
+            onApprove={approveFromReview}
+            onDecline={declineFromReview}
+            onApproveAll={approveAllFromReview}
+            onClose={closeReview}
+          />
+        )}
+
         {/* Account creation requests (AO II -> System Administrator) */}
+        {isSysAdmin ? (accountRequests.some(r => r.status !== 'PENDING') && (
+          <details className="rv-panel mb-6 acr-history">
+            <summary>Past requests ({accountRequests.filter(r => r.status !== 'PENDING').length})</summary>
+            <ul className="rv-list">
+              {accountRequests.filter(r => r.status !== 'PENDING').map((req: any) => (
+                <li key={req.id} className="rv-row acr-row">
+                  <div className="rv-who">
+                    <strong>{req.lastName}, {req.firstName}</strong>
+                    <span>{req.designation} · {humanizeEnum(req.role)}</span>
+                    <span className="acr-mono">{req.email}</span>
+                    {req.status === 'REJECTED' && req.rejectionReason && <span className="rv-remark">{req.rejectionReason}</span>}
+                  </div>
+                  <span className={`rv-status ${req.status === 'APPROVED' ? 'is-ok' : 'is-bad'}`}>
+                    {req.status === 'APPROVED' ? (req.createdUser?.personnel?.employeeId ? `Created · ${req.createdUser.personnel.employeeId}` : 'Account created') : 'Declined'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )) : (
         <section className="rv-panel mb-6" aria-labelledby="acr-title">
           <div className="rv-toolbar">
             <div>
@@ -734,6 +853,7 @@ export const CredentialDistribution: React.FC = () => {
             </ul>
           )}
         </section>
+        )}
 
         {/* Accounts */}
         <section className="rv-panel" aria-labelledby="acc-title">

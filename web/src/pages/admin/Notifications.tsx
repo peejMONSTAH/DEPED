@@ -83,8 +83,8 @@ export const AdminNotifications: React.FC = () => {
     // 1. Account Creation Request
     if (entity === 'accountcreationrequest' || msg.includes('account creation') || msg.includes('creation request') || msg.includes('new account')) {
       return {
-        path: '/admin/credentials',
-        label: 'Review Account Request & Issue Credentials',
+        path: entity === 'accountcreationrequest' && n.relatedEntityId ? `/admin/credentials?request=${n.relatedEntityId}` : '/admin/credentials',
+        label: 'Review request',
         btnClass: 'btn-primary',
         badge: 'Account Request',
         iconName: 'checklist' as const,
