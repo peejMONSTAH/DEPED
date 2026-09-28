@@ -16,6 +16,8 @@ import { assignableVacantPlantillas } from '../../utils/plantillaFilters';
 import { Eye, Pencil, KeyRound, Ban, RotateCcw, X } from 'lucide-react';
 import { RowActionMenu, RowAction } from '../../components/common/RowActionMenu';
 import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
+import './review-list.css';
+import { humanizeEnum } from '../../constants/transactionStatus';
 
 /** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */
 const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -627,119 +629,45 @@ export const CredentialDistribution: React.FC = () => {
 
       <div className="page-content">
 
-        {/* Account Creation Requests Section (AO II -> SysAdmin Workflow) */}
-        <div className="card mb-6" style={{ borderTop: '4px solid var(--color-warning)' }}>
-          <div className="flex justify-between items-center mb-4">
+        {/* Account creation requests (AO II -> System Administrator) */}
+        <section className="rv-panel mb-6" aria-labelledby="acr-title">
+          <div className="rv-toolbar">
             <div>
-              <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <AppIcon name="checklist" size={18} />
-                Account Creation Requests {isSysAdmin ? '(System Admin Approval Queue)' : '(Submitted by AO II)'}
-              </h3>
-              <p className="text-xs text-muted">
-                {isSysAdmin
-                  ? 'Review, verify credentials, and approve account requests submitted by Administrative Officers (AO II).'
-                  : 'Track status of your submitted account creation requests for teachers and staff assigned under your division.'
-                }
-              </p>
+              <h3 id="acr-title" className="rv-title">Account creation requests</h3>
+              <p className="rv-sub">{isSysAdmin ? 'Submitted by AO II for your approval.' : 'Requests you submitted for teachers and staff.'}</p>
             </div>
-            {pendingRequestsCount > 0 && isSysAdmin && (
-              <span className="badge badge-warning" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <AppIcon name="quick-action" size={12} /> {pendingRequestsCount} Pending Approval
-              </span>
-            )}
+            {pendingRequestsCount > 0 && isSysAdmin && <span className="rv-status is-wait">{pendingRequestsCount} pending</span>}
           </div>
-
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Target Personnel Name</th>
-                  <th>Requested Position / Role</th>
-                  <th>Email Address</th>
-                  <th>Requested By (AO II)</th>
-                  <th>Status</th>
-                  <th>Action / Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accountRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-muted)' }}>
-                      {isSysAdmin
-                        ? 'No account creation requests submitted by AO IIs yet.'
-                        : 'You have not submitted any account creation requests yet. Click "Request Account Creation" above to submit one.'
-                      }
-                    </td>
-                  </tr>
-                ) : (
-                  accountRequests.map((req: any) => (
-                    <tr key={req.id}>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{req.lastName}, {req.firstName} {req.middleName || ''} {req.suffix || ''}</div>
-                        <div className="text-xs text-muted">Contact: {req.contactNumber || 'N/A'}</div>
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{req.designation}</div>
-                        <div className="text-xs text-muted">{req.role}</div>
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{req.email}</td>
-                      <td>
-                        <div className="text-xs font-semibold">{req.requestedByUser?.email}</div>
-                      </td>
-                      <td>
-                        {req.status === 'APPROVED' ? (
-                          <span className="badge badge-approved" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="check" size={12} /> Approved & Created
-                          </span>
-                        ) : req.status === 'REJECTED' ? (
-                          <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="close" size={12} /> Rejected
-                          </span>
-                        ) : (
-                          <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="pending" size={12} /> Pending SysAdmin Approval
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap', minWidth: 0 }}>
-                        {isSysAdmin && req.status === 'PENDING' ? (
-                          <div className="flex gap-2" style={{ flexWrap: 'nowrap' }}>
-                            <button
-                              className="btn btn-primary btn-sm"
-                              style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              onClick={() => handleApproveRequest(req.id, `${req.firstName} ${req.lastName}`)}
-                            >
-                              <AppIcon name="check" size={13} /> Approve & Create Credentials
-                            </button>
-                            <button
-                              className="btn btn-secondary btn-sm"
-                              style={{ color: 'var(--color-danger)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              onClick={() => handleRejectRequest(req.id, `${req.firstName} ${req.lastName}`)}
-                            >
-                              <AppIcon name="close" size={13} /> Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="text-xs text-muted">
-                            {req.status === 'APPROVED' && req.createdUser?.personnel?.employeeId ? (
-                              <span style={{ color: 'var(--color-success)', fontWeight: 700 }}>
-                                ID: {req.createdUser.personnel.employeeId}
-                              </span>
-                            ) : req.status === 'REJECTED' ? (
-                              <span style={{ color: 'var(--color-danger)' }}>{req.rejectionReason || 'Rejected'}</span>
-                            ) : (
-                              <span>Awaiting System Admin approval</span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          {accountRequests.length === 0 ? (
+            <p className="rv-empty">{isSysAdmin ? 'No requests yet.' : 'You have not submitted any requests yet.'}</p>
+          ) : (
+            <ul className="rv-list">
+              {accountRequests.map((req: any) => {
+                const name = `${req.lastName}, ${req.firstName}${req.middleName ? ` ${req.middleName}` : ''}${req.suffix ? ` ${req.suffix}` : ''}`;
+                return (
+                  <li key={req.id} className="rv-row acr-row">
+                    <div className="rv-who">
+                      <strong>{name}</strong>
+                      <span>{req.designation} · {humanizeEnum(req.role)}</span>
+                      <span className="acr-mono">{req.email}</span>
+                      <span>Requested by {req.requestedByUser?.email || 'AO II'}{req.contactNumber ? ` · ${req.contactNumber}` : ''}</span>
+                      {req.status === 'REJECTED' && req.rejectionReason && <span className="rv-remark">{req.rejectionReason}</span>}
+                    </div>
+                    <span className={`rv-status ${req.status === 'APPROVED' ? 'is-ok' : req.status === 'REJECTED' ? 'is-bad' : 'is-wait'}`}>
+                      {req.status === 'APPROVED' ? (req.createdUser?.personnel?.employeeId ? `Created · ${req.createdUser.personnel.employeeId}` : 'Account created') : req.status === 'REJECTED' ? 'Rejected' : 'Pending approval'}
+                    </span>
+                    <div className="rv-actions">
+                      {isSysAdmin && req.status === 'PENDING' && <>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleRejectRequest(req.id, `${req.firstName} ${req.lastName}`)}>Reject</button>
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApproveRequest(req.id, `${req.firstName} ${req.lastName}`)}>Approve</button>
+                      </>}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         {/* Master Accounts Table */}
         <div className="card">

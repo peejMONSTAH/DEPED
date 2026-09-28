@@ -45,3 +45,5 @@
 .car-head__facts dt { font-size: .875rem; font-weight: 600; color: var(--color-text-secondary); }
 .car-head__facts dd { margin: 2px 0 0; font-size: 1.0625rem; font-weight: 700; color: var(--color-text-primary); overflow-wrap: anywhere; }
 .car-head__facts .is-mono { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.acr-mono { font-family: var(--font-mono); font-size: .8125rem !important; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .acr-row .rv-actions { grid-column: 1 / -1; justify-content: flex-start; } }
