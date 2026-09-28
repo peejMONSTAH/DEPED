@@ -446,8 +446,8 @@ export const CredentialDistribution: React.FC = () => {
   const handleApproveRequest = async (requestId: number, name: string) => {
     const { confirmed } = await confirm({
       title: 'Approve account request',
-      message: `Approve the account request for ${name}? This creates their user account, generates an Employee ID and issues credentials.`,
-      confirmLabel: 'Approve & create account',
+      message: `Approve ${name}? Their account is created and the setup email is sent right away.`,
+      confirmLabel: 'Approve and send',
       tone: 'primary',
       icon: 'credentials',
     });
@@ -456,12 +456,40 @@ export const CredentialDistribution: React.FC = () => {
     try {
       const res = await apiClient.post(`/users/requests/${requestId}/approve`);
       const data = res.data?.data;
-      addToast(`Request Approved! User credentials & profile created for ${name} (Employee ID: ${data?.employeeId}). Notification sent to AO II.`, 'SUCCESS');
+      addToast(`${name} approved (${data?.employeeId}). The setup email is on its way.`, 'SUCCESS');
       fetchUsers();
       fetchRequests();
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Failed to approve request.', 'ERROR');
     }
+  };
+
+  // Approves each selected request in turn; one failure does not stop the rest.
+  const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const handleBulkApprove = async () => {
+    const ids = selectedRequests;
+    if (!ids.length || bulkBusy) return;
+    const { confirmed } = await confirm({
+      title: `Approve ${ids.length} request${ids.length === 1 ? '' : 's'}`,
+      message: 'Each account is created and its setup email sent right away.',
+      confirmLabel: 'Approve and send',
+      tone: 'primary',
+      icon: 'credentials',
+    });
+    if (!confirmed) return;
+    setBulkBusy(true);
+    let ok = 0;
+    const failed: string[] = [];
+    for (const id of ids) {
+      try { await apiClient.post(`/users/requests/${id}/approve`); ok++; }
+      catch (err: any) { failed.push(err.response?.data?.message || `Request ${id} failed`); }
+    }
+    setBulkBusy(false);
+    setSelectedRequests([]);
+    addToast(failed.length ? `${ok} approved. ${failed.length} not approved: ${failed[0]}` : `${ok} approved. Setup emails are on their way.`, failed.length ? 'WARNING' : 'SUCCESS');
+    fetchUsers();
+    fetchRequests();
   };
 
   const handleRejectRequest = async (requestId: number, name: string) => {
@@ -636,7 +664,14 @@ export const CredentialDistribution: React.FC = () => {
               <h3 id="acr-title" className="rv-title">Account creation requests</h3>
               <p className="rv-sub">{isSysAdmin ? 'Submitted by AO II for your approval.' : 'Requests you submitted for teachers and staff.'}</p>
             </div>
-            {pendingRequestsCount > 0 && isSysAdmin && <span className="rv-status is-wait">{pendingRequestsCount} pending</span>}
+            {pendingRequestsCount > 0 && isSysAdmin && (
+              <div className="rv-actions">
+                <span className="rv-status is-wait">{pendingRequestsCount} pending</span>
+                <button type="button" className="btn btn-primary btn-sm" disabled={!selectedRequests.length || bulkBusy} onClick={() => void handleBulkApprove()}>
+                  {bulkBusy ? 'Approving…' : `Approve selected (${selectedRequests.length})`}
+                </button>
+              </div>
+            )}
           </div>
           {accountRequests.length === 0 ? (
             <p className="rv-empty">{isSysAdmin ? 'No requests yet.' : 'You have not submitted any requests yet.'}</p>
@@ -647,7 +682,14 @@ export const CredentialDistribution: React.FC = () => {
                 return (
                   <li key={req.id} className="rv-row acr-row">
                     <div className="rv-who">
-                      <strong>{name}</strong>
+                      <strong>
+                        {isSysAdmin && req.status === 'PENDING' && (
+                          <input type="checkbox" className="acr-check" aria-label={`Select ${name}`}
+                            checked={selectedRequests.includes(req.id)}
+                            onChange={e => setSelectedRequests(s => e.target.checked ? [...s, req.id] : s.filter(x => x !== req.id))} />
+                        )}
+                        {name}
+                      </strong>
                       <span>{req.designation} · {humanizeEnum(req.role)}</span>
                       <span className="acr-mono">{req.email}</span>
                       <span>Requested by {req.requestedByUser?.email || 'AO II'}{req.contactNumber ? ` · ${req.contactNumber}` : ''}</span>

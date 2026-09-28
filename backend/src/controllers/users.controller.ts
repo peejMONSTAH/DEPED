@@ -664,6 +664,20 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
   }
   if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
 
+  await sendAccountSetup(user, req.user!.userId);
+  sendSuccess(res, null, `Credentials distribution initiated for user ${userId}.`);
+};
+
+/**
+ * Activates a pending account and emails its one-time setup link. Used by
+ * "Send setup email" and, so an approval is the only step, by approving an
+ * account request.
+ */
+async function sendAccountSetup(
+  user: { id: number; email: string; role: { name: string }; personnel: { firstName: string; lastName: string } | null },
+  actorId: number,
+): Promise<void> {
+  const userId = user.id;
   // Active, with a fresh temporary password that is emailed below (only a hash
   // of the one typed at creation is stored, so it cannot be sent). Signing in
   // with it leads straight to a forced change.
@@ -688,7 +702,7 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
       entityType: 'User',
       entityId: userId,
       action: 'CREDENTIALS_DISTRIBUTED',
-      userId: req.user!.userId,
+      userId: actorId,
       status: 'SUCCESS',
     },
   });
@@ -721,8 +735,7 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
     sensitive: true,
   });
   void processWorkflowOutbox();
-  sendSuccess(res, null, `Credentials distribution initiated for user ${userId}.`);
-};
+}
 
 /**
  * POST /users/:id/reset-password — System Admin resets user credentials
@@ -1215,7 +1228,7 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
     await tx.notification.create({
       data: {
         userId: accountRequest.requestedByUserId,
-        message: `Account Creation Request Approved! Credentials created for ${accountRequest.firstName} ${accountRequest.lastName} (Employee ID: ${employeeId}). Email: ${accountRequest.email}. Ready for distribution.`,
+        message: `Account approved for ${accountRequest.firstName} ${accountRequest.lastName} (${employeeId}). The setup email was sent to ${accountRequest.email}.`,
         type: 'SUCCESS',
         relatedEntityId: newUser.id,
         relatedEntityType: 'User',
@@ -1227,15 +1240,12 @@ export const approveAccountRequest = async (req: Request, res: Response): Promis
 
   notifyUserNotifications(accountRequest.requestedByUserId);
 
-  await queueTransactionalEmail(`account-request:${accountRequest.id}:approved`, {
-    recipientEmail: accountRequest.email,
-    recipientName: `${accountRequest.firstName} ${accountRequest.lastName}`,
-    subject: 'Your Digital 201 account has been created',
-    heading: 'Account created, pending distribution',
-    message: `Your Digital 201 personnel account has been created with employee ID ${result.employeeId}. Your authorized AO or System Administrator will distribute access when the account is ready.`,
-    reference: `Employee ID ${result.employeeId}`,
-  });
-  void processWorkflowOutbox();
+  // Approving is the one step: the account goes live and its setup email is
+  // sent now, instead of waiting for a separate "distribute" click.
+  await sendAccountSetup(
+    { id: result.newUser.id, email: result.newUser.email, role: { name: roleRecord.name }, personnel: { firstName: accountRequest.firstName, lastName: accountRequest.lastName } },
+    req.user!.userId,
+  );
 
   const { passwordHash: _hash, ...safeUser } = result.newUser;
   sendSuccess(res, { user: safeUser, personnel: result.newPersonnel, employeeId: result.employeeId }, 'Account request approved and user credentials created successfully.');
