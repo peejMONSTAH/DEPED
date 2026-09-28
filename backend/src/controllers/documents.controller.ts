@@ -15,6 +15,7 @@ import { canAccessTransaction } from '../utils/transaction-access.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 import { generateDocumentAccessToken } from '../utils/jwt.util';
 import { denyOutOfScope } from '../utils/access-denial.util';
+import { autoAttachFrom201 } from '../services/auto-attach.service';
 
 /**
  * A document is reachable exactly when its parent transaction is: the chain
@@ -247,6 +248,19 @@ export const uploadDocument = async (req: Request, res: Response, next: NextFunc
 };
 
 /** Copy a personnel-owned My Documents file into an editable appointment checklist. */
+/** POST /transactions/:id/documents/auto-attach: the owner's 201 files fill empty requirements. */
+export const autoAttachPersonnelDocuments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const transactionId = Number(req.params.id);
+    const personnelId = req.user?.personnelId;
+    if (!Number.isSafeInteger(transactionId) || transactionId <= 0 || !personnelId) { sendBadRequest(res, 'Invalid transaction.'); return; }
+    const owner = await prisma.transaction.findUnique({ where: { id: transactionId }, select: { personnelId: true } });
+    if (!owner || owner.personnelId !== personnelId) { sendNotFound(res, 'Transaction not found.'); return; }
+    const result = await autoAttachFrom201(transactionId, req.user!.userId);
+    sendSuccess(res, result, result.attached.length ? `Added ${result.attached.length} document(s) from your 201 file.` : 'Nothing to add from your 201 file.');
+  } catch (error) { next(error); }
+};
+
 export const attachExistingPersonnelDocument = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const transactionId = Number(req.params.id);

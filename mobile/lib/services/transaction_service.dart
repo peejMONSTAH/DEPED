@@ -172,6 +172,20 @@ class TransactionService {
     }
   }
 
+  /// Fills empty requirements with matching files already in the 201.
+  /// Returns the requirement names that were filled.
+  Future<List<String>> autoAttachFrom201(int transactionId) async {
+    try {
+      final res = await _apiService.dio.post<dynamic>('/transactions/$transactionId/documents/auto-attach', data: {});
+      final body = res.data;
+      final data = body is Map ? body['data'] : null;
+      final list = data is Map ? data['attached'] as List? : null;
+      return list?.map((e) => e.toString()).toList() ?? const [];
+    } on DioException {
+      return const [];
+    }
+  }
+
   /// Reopens a disqualified transaction so it can be corrected and submitted again.
   Future<void> reopenTransaction(int transactionId) async {
     try {

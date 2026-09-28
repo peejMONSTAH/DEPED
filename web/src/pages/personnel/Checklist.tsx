@@ -123,9 +123,20 @@ export const Checklist: React.FC = () => {
   }, [txId, rawTxId]);
 
   useEffect(() => {
-    if (txId) {
-      fetchTransactionData(txId);
-    }
+    if (!txId) return;
+    // Upload once, reuse everywhere: empty requirements are filled from the
+    // 201 file first, then the checklist is loaded.
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient.post(`/transactions/${txId}/documents/auto-attach`);
+        const added: string[] = res.data?.data?.attached || [];
+        if (!cancelled && added.length) addToast(`Added ${added.length} document${added.length === 1 ? '' : 's'} from your 201 file. Check them before submitting.`, 'SUCCESS');
+      } catch { /* nothing to add, or not editable: the checklist loads as usual */ }
+      if (!cancelled) fetchTransactionData(txId);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txId, fetchTransactionData]);
 
   // Real-time synchronization: immediately updates when AO II validates or HRMO approves

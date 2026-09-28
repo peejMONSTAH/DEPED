@@ -39,6 +39,21 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
     _currentTx = widget.transaction;
     _transactionService = TransactionService(ApiService());
     _refreshTransaction();
+    _autoAttach();
+  }
+
+  /// Upload once, reuse everywhere: empty requirements are filled from the
+  /// 201 file as soon as the checklist opens.
+  Future<void> _autoAttach() async {
+    final s = _currentTx.status;
+    if (s != TransactionStatus.DRAFT && s != TransactionStatus.RETURNED_BY_AO2) return;
+    final added = await _transactionService.autoAttachFrom201(_currentTx.id);
+    if (!mounted || added.isEmpty) return;
+    await _refreshTransaction();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            'Added ${added.length} document${added.length == 1 ? '' : 's'} from your 201 file. Check them before submitting.')));
   }
 
   Future<void> _refreshTransaction() async {
