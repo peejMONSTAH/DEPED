@@ -359,7 +359,7 @@ export const TransactionApproval: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <h1 className="topbar-title" style={{ margin: 0 }}>HRMO — Final Approval</h1>
+        <h1 className="topbar-title" style={{ margin: 0 }}>Approvals</h1>
         <div className="topbar-actions flex items-center gap-2">
           {selectedTxIds.length > 0 && canApprove && (
             <>
@@ -505,7 +505,7 @@ export const TransactionApproval: React.FC = () => {
             }}
           >
             <AppIcon name="pending" size={14} color={activeTab === 'FOR_APPROVAL' ? 'currentColor' : undefined} />
-            <span>Awaiting Approval ({forApprovalList.length})</span>
+            <span>To approve ({forApprovalList.length})</span>
           </button>
 
           <button
@@ -528,7 +528,7 @@ export const TransactionApproval: React.FC = () => {
             }}
           >
             <AppIcon name="approved" size={14} color={activeTab === 'APPROVED' ? 'currentColor' : undefined} />
-            <span>Approved History ({approvedList.length})</span>
+            <span>Approved ({approvedList.length})</span>
           </button>
 
           <button
@@ -551,7 +551,7 @@ export const TransactionApproval: React.FC = () => {
             }}
           >
             <AppIcon name="returned" size={14} color={activeTab === 'RETURNED' ? 'currentColor' : undefined} />
-            <span>Returned for Correction ({returnedList.length})</span>
+            <span>Returned ({returnedList.length})</span>
           </button>
 
           <button
@@ -857,7 +857,7 @@ export const TransactionApproval: React.FC = () => {
                       {/* Action Bar */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
-                          Click to inspect full 201 dossier & validation logs &rarr;
+                          Open to review &rarr;
                         </div>
 
                         <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
@@ -917,7 +917,7 @@ export const TransactionApproval: React.FC = () => {
                     Review Transaction #{selected.id}
                   </h3>
                   <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                    Official Digital 201 File Evaluation
+                    Check the documents, then approve or return
                   </span>
                 </div>
                 <button
@@ -940,7 +940,7 @@ export const TransactionApproval: React.FC = () => {
                 marginBottom: 14
               }}>
                 <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
-                  Personnel Profile
+                  Personnel
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px 12px', fontSize: 13 }}>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Name:</span> <strong style={{ color: 'var(--color-text-primary)' }}>{selected.personnelName}</strong></div>
@@ -962,7 +962,7 @@ export const TransactionApproval: React.FC = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <span style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
-                    Compliance & Validation Score
+                    Documents complete
                   </span>
                   <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-success)' }}>
                     {selected.complianceScore}%
@@ -986,7 +986,7 @@ export const TransactionApproval: React.FC = () => {
                     Submitted Requirements ({selected.detailedDocuments?.length ?? selected.documents.length})
                   </span>
                   <span className={`badge ${selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'badge-approved' : 'badge-info'}`} style={{ fontSize: 13 }}>
-                    {selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'AO II CERTIFIED' : 'LOADING REVIEW STATUS'}
+                    {selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'Verified by AO II' : 'Checking…'}
                   </span>
                 </div>
 
@@ -1033,7 +1033,7 @@ export const TransactionApproval: React.FC = () => {
                     onClick={() => handleApprove(selected)}
                     disabled={isSubmitting}
                   >
-                    Approve & Trigger 201 LifeCycle Update
+                    Approve
                   </button>
                   <button
                     type="button"

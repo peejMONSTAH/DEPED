@@ -860,7 +860,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'CHECKLIST OF REQUIREMENTS',
+              'Requirements',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
@@ -1565,7 +1565,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CERTIFICATION OF AUTHENTICITY AND VERACITY',
+                  'Certification of authenticity',
                   style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -1608,7 +1608,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'DATA PRIVACY CONSENT',
+                  'Data privacy consent',
                   style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,

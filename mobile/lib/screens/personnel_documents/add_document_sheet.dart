@@ -1450,7 +1450,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
                       size: 16, color: AppTheme.primaryLight),
                   const SizedBox(width: 6),
                   Text(
-                    'DOCUMENT PREVIEW',
+                    'Preview',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,

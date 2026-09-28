@@ -659,7 +659,7 @@ export const CredentialDistribution: React.FC = () => {
     <div className="animate-fade-in">
       <div className="topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h1 className="topbar-title" style={{ margin: 0 }}>Account Creation & Credential Handoff</h1>
+          <h1 className="topbar-title" style={{ margin: 0 }}>Accounts</h1>
           {!isSysAdmin && (
             <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
               <AppIcon name="school" size={13} /> {aoStationInfo?.schoolName || 'Assigned School'}
