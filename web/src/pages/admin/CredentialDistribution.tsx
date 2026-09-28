@@ -669,145 +669,48 @@ export const CredentialDistribution: React.FC = () => {
           )}
         </section>
 
-        {/* Master Accounts Table */}
-        <div className="card">
-          <h3 className="card-title mb-4">
-            Personnel Accounts & Credential Handoff Queue ({displayedUsers.length})
-          </h3>
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ whiteSpace: 'nowrap' }}>Employee ID</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Full Name & Position</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Email</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Personnel Category</th>
-                  <th style={{ whiteSpace: 'nowrap' }}>Account Status</th>
-                  <th style={{ whiteSpace: 'nowrap', minWidth: 280 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
-                      {isAo
-                        ? `No personnel accounts found for ${aoStationInfo?.schoolName || 'your assigned school'}. Click "Request Account Creation" above to submit account creation requests for teachers and staff.`
-                        : 'No personnel accounts created yet. Click "+ Create Personnel Account" above to initialize accounts for Teaching and Non-Teaching personnel.'}
-                    </td>
-                  </tr>
-                ) : (
-                  displayedUsers.map(u => (
-                    <tr key={u.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {u.personnel?.employeeId || <span className="text-muted text-xs">Generating...</span>}
-                      </td>
-                      <td>
-                        {u.role === 'AO_II' ? (
-                          <div>
-                            <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <AppIcon name="school" size={13} /> {u.personnel?.lastName || 'District School AO'}
-                              </span>
-                              <span className="badge badge-primary" style={{ fontSize: 13, fontWeight: 700 }}>AO II</span>
-                            </div>
-                            <div className="text-xs text-muted" style={{ marginTop: 2, fontWeight: 500 }}>
-                              {u.personnel?.designation || 'Administrative Officer II'}
-                            </div>
-                            {u.personnel?.address && (
-                              <div className="text-xs font-semibold" style={{ color: 'var(--color-primary-light)', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <AppIcon name="location" size={12} /> {u.personnel.address}
-                              </div>
-                            )}
-                          </div>
-                        ) : ['SYSTEM_ADMIN', 'HRMO'].includes(u.role) ? (
-                          <div>
-                            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span>{u.personnel ? `${u.personnel.lastName}, ${u.personnel.firstName}` : u.email}</span>
-                              <span className={`badge ${u.role === 'SYSTEM_ADMIN' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 13, fontWeight: 700 }}>
-                                {u.role === 'SYSTEM_ADMIN' ? 'SYS ADMIN' : 'HRMO'}
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted" style={{ marginTop: 2 }}>
-                              {u.personnel?.designation || (u.role === 'SYSTEM_ADMIN' ? 'System Administrator' : 'HRMO Approver / Manager')}
-                            </div>
-                            <div className="text-xs font-semibold" style={{ color: 'var(--color-primary-light)', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <AppIcon name="settings" size={12} /> SDO Koronadal City • Division Office
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div style={{ fontWeight: 600 }}>
-                              {u.personnel ? `${u.personnel.lastName}, ${u.personnel.firstName}` : u.email}
-                            </div>
-                            <div className="text-xs text-muted">{u.personnel?.designation || 'Personnel'}</div>
-                            {(u.personnel?.school || u.personnel?.address) && (
-                              <div className="text-xs font-semibold" style={{ color: 'var(--color-primary-light)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                  <AppIcon name="school" size={12} /> {u.personnel.school || u.personnel.address?.split(',')[0]}
-                                </span>
-                                {(u.personnel.district || u.personnel.address?.includes(',')) && (
-                                  <>
-                                    <span style={{ opacity: 0.6 }}>•</span>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                      <AppIcon name="location" size={12} /> {u.personnel.district || u.personnel.address?.split(',').slice(1).join(',').trim()}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ fontSize: 'var(--text-sm)' }}>{u.email}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {u.role === 'AO_II' ? (
-                          <span className="badge badge-primary" style={{ fontWeight: 700 }}>
-                            Administrative Officer
-                          </span>
-                        ) : u.role === 'HRMO' ? (
-                          <span className="badge badge-warning">HRMO</span>
-                        ) : u.role === 'SYSTEM_ADMIN' ? (
-                          <span className="badge badge-danger">System Admin</span>
-                        ) : (
-                          <span className="badge badge-info">
-                            {u.role === 'TEACHING_PERSONNEL' ? 'Teaching' : 'Non-Teaching'}
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <span className={`badge ${ACCOUNT_STATUS_BADGE[u.accountStatus] || 'badge-pending'}`}>
-                          {ACCOUNT_STATUS_LABEL[u.accountStatus] || 'Unknown'}
-                        </span>
-                      </td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        {(() => {
-                          const allowed = accountActionsFor({ role: user?.role, userId: user?.id }, u);
-                          const name = u.personnel ? `${u.personnel.firstName} ${u.personnel.lastName}` : u.email;
-                          const menu: RowAction[] = [];
-                          if (allowed.includes('view')) menu.push({ id: 'view', label: 'View details', icon: <Eye size={16} aria-hidden="true" />, onSelect: () => setSelectedAccount(u) });
-                          if (allowed.includes('edit')) menu.push({ id: 'edit', label: 'Edit account', icon: <Pencil size={16} aria-hidden="true" />, onSelect: () => { setEditAccount(u); setEditEmail(u.email); } });
-                          if (allowed.includes('resetPassword')) menu.push({ id: 'reset', label: 'Reset password', icon: <KeyRound size={16} aria-hidden="true" />, onSelect: () => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); } });
-                          if (allowed.includes('reactivate')) menu.push({ id: 'reactivate', label: 'Reactivate account', icon: <RotateCcw size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'ACTIVE') });
-                          if (allowed.includes('deactivate')) menu.push({ id: 'deactivate', label: 'Deactivate account', tone: 'danger', icon: <Ban size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'INACTIVE') });
-                          return (
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
-                              {allowed.includes('distribute') && (
-                                <button className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap' }} onClick={() => handleDistribute(u.id, u.email)}>
-                                  Distribute Credentials
-                                </button>
-                              )}
-                              <RowActionMenu label={`Actions for ${name}`} actions={menu} />
-                            </div>
-                          );
-                        })()}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        {/* Accounts */}
+        <section className="rv-panel" aria-labelledby="acc-title">
+          <div className="rv-toolbar">
+            <h3 id="acc-title" className="rv-title">Accounts <span className="rv-count">{displayedUsers.length}</span></h3>
           </div>
-        </div>
+          {displayedUsers.length === 0 ? (
+            <p className="rv-empty">{isAo ? `No accounts yet for ${aoStationInfo?.schoolName || 'your school'}.` : 'No accounts yet.'}</p>
+          ) : (
+            <ul className="rv-list">
+              {displayedUsers.map(u => {
+                const p = u.personnel;
+                const name = p ? `${p.lastName}, ${p.firstName}` : u.email;
+                const roleLabel = u.role === 'AO_II' ? 'AO II' : u.role === 'HRMO' ? 'HRMO' : u.role === 'SYSTEM_ADMIN' ? 'System Administrator' : u.role === 'TEACHING_PERSONNEL' ? 'Teaching' : 'Non-teaching';
+                const station = ['SYSTEM_ADMIN', 'HRMO'].includes(u.role) ? 'Division office'
+                  : [p?.school || p?.address?.split(',')[0], p?.district].filter(Boolean).join(' · ');
+                const allowed = accountActionsFor({ role: user?.role, userId: user?.id }, u);
+                const menu: RowAction[] = [];
+                if (allowed.includes('view')) menu.push({ id: 'view', label: 'View details', icon: <Eye size={16} aria-hidden="true" />, onSelect: () => setSelectedAccount(u) });
+                if (allowed.includes('edit')) menu.push({ id: 'edit', label: 'Edit account', icon: <Pencil size={16} aria-hidden="true" />, onSelect: () => { setEditAccount(u); setEditEmail(u.email); } });
+                if (allowed.includes('resetPassword')) menu.push({ id: 'reset', label: 'Reset password', icon: <KeyRound size={16} aria-hidden="true" />, onSelect: () => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); } });
+                if (allowed.includes('reactivate')) menu.push({ id: 'reactivate', label: 'Reactivate account', icon: <RotateCcw size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'ACTIVE') });
+                if (allowed.includes('deactivate')) menu.push({ id: 'deactivate', label: 'Deactivate account', tone: 'danger', icon: <Ban size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'INACTIVE') });
+                return (
+                  <li key={u.id} className="rv-row acr-row">
+                    <div className="rv-who">
+                      <strong>{name} <span className="acr-role">{roleLabel}</span></strong>
+                      <span>{p?.designation || roleLabel}{station ? ` · ${station}` : ''}</span>
+                      <span className="acr-mono">{p?.employeeId ? `${p.employeeId} · ` : ''}{u.email}</span>
+                    </div>
+                    <span className={`badge ${ACCOUNT_STATUS_BADGE[u.accountStatus] || 'badge-pending'}`}>{ACCOUNT_STATUS_LABEL[u.accountStatus] || 'Unknown'}</span>
+                    <div className="rv-actions">
+                      {allowed.includes('distribute') && (
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => handleDistribute(u.id, u.email)}>Send setup email</button>
+                      )}
+                      <RowActionMenu label={`Actions for ${name}`} actions={menu} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
 
       {/* Account Creation Modal */}

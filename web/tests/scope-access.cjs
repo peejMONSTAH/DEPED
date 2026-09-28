@@ -74,7 +74,7 @@ test('personnel station display uses school field and never relies solely on add
   assert.match(pmSource, /selected\.school\s*\|\|\s*selected\.plantillaItem\?\.department/, 'PersonnelManagement modal must prioritize selected.school and selected.plantillaItem.department');
 
   const cdSource = fs.readFileSync(path.join(__dirname, '../src/pages/admin/CredentialDistribution.tsx'), 'utf8');
-  assert.match(cdSource, /u\.personnel\.school/, 'CredentialDistribution must display u.personnel.school');
+  assert.match(cdSource, /(u\.personnel|p)\??\.school/, 'CredentialDistribution must display the personnel school');
 });
 
 test('PersonnelManagement has district and school filters and no division-wide text', () => {

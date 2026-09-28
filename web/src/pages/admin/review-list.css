@@ -47,3 +47,4 @@
 .car-head__facts .is-mono { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
 .acr-mono { font-family: var(--font-mono); font-size: .8125rem !important; overflow-wrap: anywhere; }
 @media (max-width: 720px) { .acr-row .rv-actions { grid-column: 1 / -1; justify-content: flex-start; } }
+.acr-role { font-size: .75rem; font-weight: 700; padding: 1px 8px; border-radius: 9999px; background: var(--color-bg-secondary); color: var(--color-text-secondary); margin-left: 6px; }
