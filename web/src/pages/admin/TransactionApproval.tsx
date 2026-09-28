@@ -122,7 +122,8 @@ export const TransactionApproval: React.FC = () => {
           validatedBy: (() => {
             const v = (tx.uploadedDocuments || []).find((d: any) => d.validatedBy)?.validatedBy;
             const p = v?.personnel;
-            return p ? `${p.firstName} ${p.lastName} (AO II)` : v?.email || 'AO II';
+            const name = p ? `${p.firstName} ${p.lastName}`.trim() : '';
+            return name ? (/bAOs*IIb/i.test(name) ? name : `${name} (AO II)`) : v?.email || 'AO II';
           })(),
           validatedDate: tx.validationDate ? new Date(tx.validationDate).toLocaleDateString() : new Date(tx.updatedAt || tx.createdAt).toLocaleDateString(),
           complianceScore: tx.complianceScore ?? 0,
@@ -392,7 +393,7 @@ export const TransactionApproval: React.FC = () => {
         {loading ? (
           <SkeletonStats count={4} columns={4} />
         ) : (
-          <div className="compliance-stats-grid" style={{ gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))', marginBottom: '20px' }}>
+          <div className="compliance-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', marginBottom: '20px' }}>
             <div className="compliance-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <div style={{
@@ -466,28 +467,6 @@ export const TransactionApproval: React.FC = () => {
               </div>
             </div>
 
-            <div className="compliance-stat-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '12px',
-                  background: 'rgba(139, 92, 246, 0.15)', border: '1px solid rgba(139, 92, 246, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C79A2E'
-                }}>
-                  <AppIcon name="repository" size={20} color="#C79A2E" />
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#C79A2E', background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
-                  REAL-TIME
-                </span>
-              </div>
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
-                  100%
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
-                  201 Vault Sync Health
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
