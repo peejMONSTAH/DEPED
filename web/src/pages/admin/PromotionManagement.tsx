@@ -1,3 +1,4 @@
+import './review-list.css';
 import './car-sheet.css';
 import { humanizeEnum } from '../../constants/transactionStatus';
 import './promo-detail.css';
@@ -2496,158 +2497,37 @@ export const PromotionManagement: React.FC = () => {
                 {/* TAB 2: DEDICATED COMPARATIVE ASSESSMENT RESULT (CAR) TAB */}
                 {activeTab === 'CAR' && (
                   <div className="card glass-surface" style={{ padding: '24px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)' }}>
-                    {/* DepEd CAR Official Header Banner */}
-                    <div style={{
-                      background: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: '16px',
-                      padding: '24px',
-                      marginBottom: '24px',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                    }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '16px',
-                        borderBottom: '1px solid var(--color-border)',
-                        paddingBottom: '18px',
-                        marginBottom: '18px',
-                      }}>
-                        <div>
-                          <div style={{
-                            fontSize: '0.875rem',
-                            fontWeight: 800,
-                            letterSpacing: '0.1em',
-                            color: 'var(--color-primary)',
-                            textTransform: 'uppercase',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            marginBottom: '4px',
-                          }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)' }} />
-                            Republic of the Philippines • Department of Education • Division of Koronadal City
+                    {/* CAR header: the facts printed on the official form, from the cycle itself. */}
+                    {(() => {
+                      const rules = selectedCycle?.rulesConfigurationJson || {};
+                      const items: string[] = rules.plantillaItemNumbers || (rules.plantillaItemNumber ? [rules.plantillaItemNumber] : []);
+                      const ratedDates = leaderboard.map(l => l.scoreDetailsJson?.finalRating?.ratedAt).filter(Boolean).sort();
+                      const lastRated = ratedDates.length ? ratedDates[ratedDates.length - 1] : null;
+                      const school = rules.school && rules.school !== 'All Schools in District' ? rules.school : null;
+                      return (
+                        <div className="car-head">
+                          <div className="car-head__top">
+                            <div>
+                              <h3 className="car-head__title">Comparative assessment result</h3>
+                              <p className="car-head__sub">{selectedCycle?.name}</p>
+                            </div>
+                            <div className="car-head__actions">
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.print()}>Print</button>
+                              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleDownloadCarDocument(selectedCycle.id)} disabled={isDownloadingCar}>
+                                {isDownloadingCar ? 'Preparing…' : 'Download CAR (.docx)'}
+                              </button>
+                            </div>
                           </div>
-                          <h3 style={{
-                            fontSize: '1.35rem',
-                            fontWeight: 800,
-                            color: 'var(--color-text-primary)',
-                            margin: 0,
-                            fontFamily: 'var(--font-sans)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            letterSpacing: '-0.02em',
-                          }}>
-                            <span style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '8px',
-                              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1',
-                              border: '1px solid rgba(59, 130, 246, 0.4)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}>
-                              <AppIcon name="receipt" size={18} color="var(--color-primary)" />
-                            </span>
-                            COMPARATIVE ASSESSMENT RESULT (CAR)
-                          </h3>
+                          <dl className="car-head__facts">
+                            <div><dt>Position</dt><dd>{rules.targetPosition || 'Not set'}</dd></div>
+                            <div><dt>Office where the vacancy exists</dt><dd>{[school, rules.district].filter(Boolean).join(', ') || 'Not recorded'}</dd></div>
+                            <div><dt>Plantilla item</dt><dd className="is-mono">{items.join(', ') || 'Not recorded'}</dd></div>
+                            <div><dt>Last deliberation</dt><dd>{lastRated ? formatDateString(lastRated) : 'Not yet rated'}</dd></div>
+                          </dl>
                         </div>
+                      );
+                    })()}
 
-                        {/* Official Actions */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <span className="badge" style={{
-                            background: isCycleTeaching
-                              ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5')
-                              : (theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB'),
-                            color: isCycleTeaching ? (theme === 'dark' ? '#34D399' : '#059669') : (theme === 'dark' ? '#FBBF24' : '#D97706'),
-                            fontSize: '0.9375rem',
-                            padding: '6px 14px',
-                            borderRadius: '9999px',
-                            fontWeight: 800,
-                            border: isCycleTeaching
-                              ? '1px solid rgba(5, 150, 105, 0.3)'
-                              : '1px solid rgba(245, 158, 11, 0.3)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                          }}>
-                            <AppIcon name={isCycleTeaching ? 'education' : 'employment'} size={14} color={isCycleTeaching ? (theme === 'dark' ? '#34D399' : '#059669') : (theme === 'dark' ? '#FBBF24' : '#D97706')} />
-                            {isCycleTeaching ? 'CAR — TEACHING POSITION' : 'CAR — NON-TEACHING POSITION'}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadCarDocument(selectedCycle.id)}
-                            disabled={isDownloadingCar}
-                            className="btn btn-primary btn-sm"
-                            style={{
-                              background: 'var(--color-primary)',
-                              color: '#FFFFFF',
-                              border: 'none',
-                              borderRadius: '9999px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontWeight: 700,
-                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                              cursor: isDownloadingCar ? 'wait' : 'pointer',
-                              padding: '8px 18px',
-                            }}
-                          >
-                            <AppIcon name="receipt" size={14} color="#FFFFFF" />
-                            {isDownloadingCar ? 'Generating CAR .docx...' : 'Download Official CAR (.docx)'}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => window.print()}
-                            className="btn btn-secondary btn-sm"
-                            style={{
-                              border: '1px solid var(--color-border)',
-                              background: 'var(--color-bg-card)',
-                              color: 'var(--color-text-primary)',
-                              borderRadius: '9999px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              padding: '8px 16px',
-                              fontWeight: 700,
-                              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
-                            }}
-                          >
-                            <AppIcon name="receipt" size={14} color="var(--color-primary)" /> Print Preview
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Official DepEd Metadata Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '12px', fontSize: '1rem' }}>
-                        <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Position:</span>
-                          <strong style={{ color: 'var(--color-text-primary)', fontSize: '1.0625rem', fontWeight: 800 }}>{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Teacher / Plantilla Post'}</strong>
-                        </div>
-                        <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Office / Unit where vacancy exists:</span>
-                          <strong style={{ color: 'var(--color-primary)', fontSize: '1.0625rem', fontWeight: 800 }}>{selectedCycle?.name || 'Schools Division Office — Koronadal'}</strong>
-                        </div>
-                        <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Plantilla Item Number:</span>
-                          <strong style={{ color: 'var(--color-text-primary)', fontFamily: 'var(--font-mono)', fontSize: '1.0625rem', fontWeight: 700 }}>{selectedCycle?.rulesConfigurationJson?.plantillaItemNo || `DEPEDB-TCHR1-${selectedCycle?.id || '2026'}-001`}</strong>
-                        </div>
-                        <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                          <span style={{ color: 'var(--color-text-secondary)', display: 'block', fontSize: '0.875rem', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '4px' }}>Date of Final Deliberation:</span>
-                          <strong style={{ color: '#059669', fontSize: '1.0625rem', fontWeight: 800 }}>
-                            {formatDateString(selectedCycle?.endDate)}
-                          </strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Official CAR Summary Deliberation Table */}
                     <div className="table-wrapper" style={{ border: '1px solid var(--color-border)', borderRadius: '10px', width: '100%', overflowX: 'auto', background: 'var(--color-bg-card)' }}>
                       <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '1rem' }}>
                         <thead>
@@ -2831,605 +2711,118 @@ export const PromotionManagement: React.FC = () => {
 
               {/* TAB 2: AO II DOCUMENTARY REQUIREMENTS VERIFICATION DESK */}
               {activeTab === 'AO_RATING' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* Hero Stats & KPI Header */}
-                  <div style={{
-                    background: 'var(--color-bg-tertiary)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
-                      <div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.4)', marginBottom: '8px' }}>
-                          <AppIcon name="checklist" size={13} color="var(--color-primary)" />
-                          Stage 1
-                        </div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                          Requirements check (Annex C)
-                        </h3>
-                        
-                        {/* District Jurisdiction Status Pill */}
-                        <div style={{ marginTop: '8px' }}>
-                          <span style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(37, 99, 235, 0.3)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                            <AppIcon name="location" size={12} color="var(--color-primary)" /> Division Scope: {cycleDistrict || 'All Districts'} ({cycleSchool || 'All Schools'})
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Filter Switcher Pills */}
-                      <div style={{ display: 'flex', background: 'var(--color-bg-card)', borderRadius: '10px', padding: '4px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                        <button
-                          type="button"
-                          onClick={() => setAoFilter('ALL')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: aoFilter === 'ALL' ? 'var(--color-primary)' : 'transparent',
-                            color: aoFilter === 'ALL' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          All ({hrmoStationApps.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAoFilter('PENDING')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: aoFilter === 'PENDING' ? '#D97706' : 'transparent',
-                            color: aoFilter === 'PENDING' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          Pending ({aoPendingApps.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAoFilter('VERIFIED')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: aoFilter === 'VERIFIED' ? '#059669' : 'transparent',
-                            color: aoFilter === 'VERIFIED' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          Complete ({aoVerifiedApps.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAoFilter('DEFICIENT')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: aoFilter === 'DEFICIENT' ? '#DC2626' : 'transparent',
-                            color: aoFilter === 'DEFICIENT' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          Deficient ({aoDeficientApps.length})
-                        </button>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18, alignItems: 'center' }}>
-                      <label htmlFor="hrmo-district-filter" style={{ fontSize: 14, fontWeight: 700 }}>District</label>
-                      <select id="hrmo-district-filter" value={hrmoDistrictFilter} onChange={e => { setHrmoDistrictFilter(e.target.value); setHrmoSchoolFilter('ALL'); }} className="form-input" style={{ width: 'auto', minWidth: 160 }}>
+                <section className="rv-panel" aria-labelledby="rv-req-title">
+                  <div className="rv-toolbar">
+                    <h3 id="rv-req-title" className="rv-title">Requirements check</h3>
+                    <div className="rv-filters">
+                      <select aria-label="District" className="form-input" value={hrmoDistrictFilter} onChange={e => { setHrmoDistrictFilter(e.target.value); setHrmoSchoolFilter('ALL'); }}>
                         <option value="ALL">All districts</option>
-                        {hrmoDistricts.map(district => <option key={district} value={district}>{district}</option>)}
+                        {hrmoDistricts.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
-                      <label htmlFor="hrmo-school-filter" style={{ fontSize: 14, fontWeight: 700 }}>School</label>
-                      <select id="hrmo-school-filter" value={hrmoSchoolFilter} onChange={e => setHrmoSchoolFilter(e.target.value)} className="form-input" style={{ width: 'auto', minWidth: 200 }}>
+                      <select aria-label="School" className="form-input" value={hrmoSchoolFilter} onChange={e => setHrmoSchoolFilter(e.target.value)}>
                         <option value="ALL">All schools</option>
-                        {hrmoSchools.map(school => <option key={school} value={school}>{school}</option>)}
+                        {hrmoSchools.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                      <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{displayedHrmoApps.length} applicants shown</span>
-                    </div>
-
-                    {/* KPI Metric Counter Strip */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
-                      <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total Applicants</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{hrmoStationApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
-                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Complete / Verified</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#34D399' : '#059669' }}>{aoVerifiedApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid #FECACA' }}>
-                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#F87171' : '#DC2626', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Incomplete / Deficient</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#F87171' : '#DC2626' }}>{aoDeficientApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A' }}>
-                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Verification</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#D97706' }}>{aoPendingApps.length}</div>
-                      </div>
-                    </div>
-
-                    {/* Criteria Reference Strip */}
-                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.9375rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 800, color: 'var(--color-primary)' }}>Official DepEd Mandate (DepEd Order No. 007, s. 2023 / DepEd Order No. 19, s. 2022):</span>
-                      <span>Administrative Officer II verifies completeness and authenticity of Annex C documentary requirements (items a–k). Score deliberation (100 pts) is conducted by the HRMPSB Board.</span>
                     </div>
                   </div>
+                  <nav className="rv-tabs" aria-label="Filter by status">
+                    {([
+                      ['ALL', 'All', filteredSubmittedApps.length],
+                      ['PENDING', 'To check', aoPendingApps.length],
+                      ['VERIFIED', 'Complete', aoVerifiedApps.length],
+                      ['DEFICIENT', 'Deficient', aoDeficientApps.length],
+                    ] as const).map(([key, label, count]) => (
+                      <button key={key} type="button" aria-current={aoFilter === key ? 'page' : undefined} onClick={() => setAoFilter(key)}>
+                        {label}<span className="rv-count">{count}</span>
+                      </button>
+                    ))}
+                  </nav>
 
-                  {/* Candidate Requirements Cards Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '18px' }}>
-                    {displayedAoApps.map((app) => {
-                      const reqCheck = app.scoreDetailsJson?.requirementsCheck;
-                      const isComplete = reqCheck?.status === 'COMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
-                      const isDeficient = reqCheck?.status === 'INCOMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
-                      const isPending = !isComplete && !isDeficient;
-                      const checklist = app.scoreDetailsJson?.annexCChecklist;
-                      const totalItems = checklist?.items?.length || 11;
-                      const attachedDocsCount = (checklist?.items || []).filter((it: any) => it.documentId || it.fileUrl || it.fileName).length;
-                      const swornStatement = checklist?.applicantInfo?.omnibusSwornStatement ? 'Certified' : 'Pending Certification';
-
-                      return (
-                        <div
-                          key={app.id}
-                          className="card glass-surface card-hover"
-                          style={{
-                            padding: '20px',
-                            borderRadius: '14px',
-                            background: 'var(--color-bg-card)',
-                            border: isComplete
-                              ? '1px solid rgba(5, 150, 105, 0.4)'
-                              : isDeficient
-                              ? '1px solid rgba(220, 38, 38, 0.4)'
-                              : '1px solid var(--color-border)',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                          }}
-                        >
-                          <div>
-                            {/* Candidate Header */}
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{
-                                  width: '42px',
-                                  height: '42px',
-                                  borderRadius: '10px',
-                                  background: isComplete
-                                    ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
-                                    : isDeficient
-                                    ? 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)'
-                                    : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: '#ffffff',
-                                  fontWeight: 800,
-                                  fontSize: '1.125rem',
-                                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                                }}>
-                                  {app.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'AP'}
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.2 }}>
-                                    {app.name}
-                                  </div>
-                                  <div style={{ fontSize: '0.9375rem', color: isCycleTeaching ? 'var(--color-primary)' : '#D97706', marginTop: '2px', fontWeight: 600 }}>
-                                    {app.designation || 'Teacher / Plantilla Candidate'}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <span style={{
-                                fontSize: '0.875rem',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontWeight: 700,
-                                background: isComplete
-                                  ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5')
-                                  : isDeficient
-                                  ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.2)' : '#FEF2F2')
-                                  : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FFFBEB'),
-                                color: isComplete
-                                  ? (theme === 'dark' ? '#34D399' : '#059669')
-                                  : isDeficient
-                                  ? (theme === 'dark' ? '#F87171' : '#DC2626')
-                                  : (theme === 'dark' ? '#FBBF24' : '#D97706'),
-                                border: isComplete
-                                  ? '1px solid rgba(5, 150, 105, 0.4)'
-                                  : isDeficient
-                                  ? '1px solid rgba(220, 38, 38, 0.4)'
-                                  : '1px solid rgba(217, 119, 6, 0.4)',
-                                whiteSpace: 'nowrap',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                              }}>
-                                {isComplete ? (
-                                  <><AppIcon name="check" size={10} color={theme === 'dark' ? '#34D399' : '#059669'} /> Reqs Complete</>
-                                ) : isDeficient ? (
-                                  <><AppIcon name="close" size={10} color={theme === 'dark' ? '#F87171' : '#DC2626'} /> Deficient</>
-                                ) : (
-                                  <><AppIcon name="pending" size={10} color={theme === 'dark' ? '#FBBF24' : '#D97706'} /> Pending Check</>
-                                )}
-                              </span>
+                  {displayedAoApps.length === 0 ? (
+                    <p className="rv-empty">No applicants in this list.</p>
+                  ) : (
+                    <ul className="rv-list">
+                      {displayedAoApps.map(app => {
+                        const complete = isApplicantReqVerified(app);
+                        const deficient = isApplicantReqDeficient(app);
+                        const remarks = app.scoreDetailsJson?.requirementsCheck?.remarks;
+                        return (
+                          <li key={app.id} className="rv-row">
+                            <div className="rv-who">
+                              <strong>{app.name}</strong>
+                              <span>{app.designation}{app.school ? ` · ${app.school}` : ''} · {app.applicantNumber || app.scoreDetailsJson?.applicantNumber}</span>
+                              {remarks && <span className="rv-remark">{remarks}</span>}
                             </div>
-
-                            {/* Application Code & Metadata */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--color-text-secondary)', padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--color-border)', fontFamily: 'var(--font-mono)' }}>
-                              <span>Code: <strong style={{ color: 'var(--color-primary)' }}>{app.scoreDetailsJson?.applicantNumber || app.employeeId}</strong></span>
-                              <span>Date: {app.dateSubmitted || '2026 Active'}</span>
+                            <span className={`rv-status ${complete ? 'is-ok' : deficient ? 'is-bad' : 'is-wait'}`}>
+                              {complete ? 'Complete' : deficient ? 'Deficient' : 'To check'}
+                            </span>
+                            <div className="rv-actions">
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(app); setShowApplicantInfoModal(true); }}>201 file</button>
+                              <button type="button" className={`btn btn-sm ${complete ? 'btn-secondary' : 'btn-primary'}`} onClick={() => handleOpenAoRating(app)}>
+                                {complete ? 'Review' : deficient ? 'Re-check' : 'Check requirements'}
+                              </button>
                             </div>
-
-                            {/* Annex C Requirements Summary Cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, 1fr))', gap: '8px', marginBottom: '14px' }}>
-                              <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Annex C Items</div>
-                                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{totalItems} items <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>(a to k)</span></div>
-                              </div>
-                              <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px' }}>
-                                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Scanned / Attached</div>
-                                <div style={{ fontSize: '1rem', fontWeight: 800, color: attachedDocsCount > 0 ? '#059669' : 'var(--color-text-muted)' }}>{attachedDocsCount} documents</div>
-                              </div>
-                              <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '8px 10px', borderRadius: '8px', gridColumn: 'span 2' }}>
-                                <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Omnibus Sworn Statement</div>
-                                <div style={{ fontSize: '1rem', fontWeight: 700, color: checklist?.applicantInfo?.omnibusSwornStatement ? '#059669' : '#D97706' }}>
-                                  {swornStatement}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Remarks Snippet */}
-                            {reqCheck?.remarks && (
-                              <div style={{ fontSize: '0.875rem', color: isDeficient ? '#DC2626' : 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', borderRadius: '6px', borderLeft: isDeficient ? '3px solid #DC2626' : '3px solid #059669' }}>
-                                "{reqCheck.remarks}"
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setSelectedApplicantInfo(app);
-                                setShowApplicantInfoModal(true);
-                              }}
-                              style={{ flex: 1, fontSize: '0.9375rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', borderRadius: '9999px', fontWeight: 700 }}
-                            >
-                              201 File
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => handleOpenAoRating(app)}
-                              style={{
-                                flex: 2,
-                                fontSize: '0.9375rem',
-                                background: isComplete ? '#059669' : isDeficient ? '#DC2626' : 'var(--color-primary)',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderRadius: '9999px',
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '6px',
-                              }}
-                            >
-                              <AppIcon name={isComplete ? 'check' : 'checklist'} size={14} color="#ffffff" />
-                              {isComplete ? 'Review Requirements' : isDeficient ? 'Re-check Requirements' : 'Check Requirements'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
               )}
 
-              {/* TAB 3: HRMO FINAL SCORING WORKSPACE */}
               {activeTab === 'HRMO_RANKING' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {/* Hero Stats & KPI Header */}
-                  <div style={{
-                    background: 'var(--color-bg-tertiary)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
-                      <div>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#059669', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(5, 150, 105, 0.4)', marginBottom: '8px' }}>
-                          <AppIcon name="approvals" size={13} color="#059669" />
-                          Stage 2
-                        </div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                          Board deliberation
-                        </h3>
-                      </div>
-
-                      {/* Filter Switcher Pills */}
-                      <div style={{ display: 'flex', background: 'var(--color-bg-card)', borderRadius: '10px', padding: '4px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                        <button
-                          type="button"
-                          onClick={() => setHrmoFilter('ALL')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: hrmoFilter === 'ALL' ? 'var(--color-primary)' : 'transparent',
-                            color: hrmoFilter === 'ALL' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          All ({filteredSubmittedApps.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHrmoFilter('PENDING')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: hrmoFilter === 'PENDING' ? '#D97706' : 'transparent',
-                            color: hrmoFilter === 'PENDING' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          Pending Board ({hrmoPendingApps.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHrmoFilter('FINALIZED')}
-                          style={{
-                            padding: '6px 14px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 700,
-                            borderRadius: '6px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: hrmoFilter === 'FINALIZED' ? '#059669' : 'transparent',
-                            color: hrmoFilter === 'FINALIZED' ? '#FFFFFF' : 'var(--color-text-secondary)',
-                          }}
-                        >
-                          Finalized ({hrmoFinalizedApps.length})
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* KPI Metric Counter Strip */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
-                      <div style={{ background: 'var(--color-bg-card)', padding: '14px 16px', borderRadius: '10px', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Total In Deliberation</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>{filteredSubmittedApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #A7F3D0' }}>
-                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#34D399' : '#059669', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Deliberated & Ranked</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#34D399' : '#059669' }}>{hrmoFinalizedApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A' }}>
-                        <div style={{ fontSize: '0.875rem', color: theme === 'dark' ? '#FBBF24' : '#D97706', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Pending Board Score</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#D97706' }}>{hrmoPendingApps.length}</div>
-                      </div>
-                      <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '14px 16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>Combined CAR Target</div>
-                        <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-primary)' }}>100.00 pts Master Score</div>
-                      </div>
-                    </div>
-
-                    {/* Criteria Reference Strip */}
-                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--color-border)', fontSize: '0.9375rem', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 800, color: '#059669' }}>Scoring:</span>
-                      {isCycleTeaching ? (
-                        <span>Education (10) + Training (10) + Experience (10) + Performance (30) + PPST COIs Demo (25) + PPST NCOIs (15) = <strong style={{ color: '#059669' }}>100 pts</strong></span>
-                      ) : (
-                        <span>Education (10) + Training (10) + Experience (10) + Performance (20) + Accomplishments (5) + App Edu (15) + App L&D (10) + Potential/Exams (20) = <strong style={{ color: '#D97706' }}>100 pts</strong></span>
-                      )}
-                    </div>
+                <section className="rv-panel" aria-labelledby="rv-board-title">
+                  <div className="rv-toolbar">
+                    <h3 id="rv-board-title" className="rv-title">Board deliberation</h3>
+                    <p className="rv-sub">Rated out of 100 by the HRMPSB.</p>
                   </div>
+                  <nav className="rv-tabs" aria-label="Filter by status">
+                    {([
+                      ['ALL', 'All', hrmoStationApps.length],
+                      ['PENDING', 'To rate', hrmoPendingApps.length],
+                      ['FINALIZED', 'Rated', hrmoFinalizedApps.length],
+                    ] as const).map(([key, label, count]) => (
+                      <button key={key} type="button" aria-current={hrmoFilter === key ? 'page' : undefined} onClick={() => setHrmoFilter(key)}>
+                        {label}<span className="rv-count">{count}</span>
+                      </button>
+                    ))}
+                  </nav>
 
-                  {/* Candidate Scoring Cards Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '18px' }}>
-                    {displayedHrmoApps.map((app) => {
-                      const finalRating = app.scoreDetailsJson?.finalRating || {};
-                      const isFinalized = Boolean(app.status === 'RANKED' || app.status === 'APPROVED' || finalRating.finalTotalScore !== undefined || finalRating.overallTotalScore !== undefined);
-                      
-                      const reqCheck = app.scoreDetailsJson?.requirementsCheck;
-                      const isReqComplete = reqCheck?.status === 'COMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
-                      const isReqDeficient = reqCheck?.status === 'INCOMPLETE' || app.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
-
-                      const overallScore = Number(finalRating.overallTotalScore ?? app.overallTotalScore ?? app.totalScore ?? 0);
-                      const biStatus = app.forBackgroundInvestigation || app.scoreDetailsJson?.forBackgroundInvestigation || 'YES';
-                      const probation = app.forProbation || app.scoreDetailsJson?.forProbation || '6 months';
-                      const appointment = app.forAppointment || app.scoreDetailsJson?.forAppointment || 'Recommended for Appointment';
-
-                      return (
-                        <div
-                          key={app.id}
-                          className="card glass-surface card-hover"
-                          style={{
-                            padding: '20px',
-                            borderRadius: '14px',
-                            border: isFinalized ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid var(--color-border)',
-                            background: 'var(--color-bg-card)',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                          }}
-                        >
-                          <div>
-                            {/* Candidate Header */}
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '14px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{
-                                  width: '42px',
-                                  height: '42px',
-                                  borderRadius: '10px',
-                                  background: isFinalized ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'linear-gradient(135deg, #2f7d52 0%, #3f9265 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: '#ffffff',
-                                  fontWeight: 800,
-                                  fontSize: '1.125rem',
-                                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                                }}>
-                                  {app.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'AP'}
-                                </div>
-                                <div>
-                                  <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.2 }}>
-                                    {app.name}
-                                  </div>
-                                  <div style={{ fontSize: '0.9375rem', color: isCycleTeaching ? 'var(--color-primary)' : '#D97706', marginTop: '2px', fontWeight: 600 }}>
-                                    {app.designation || 'Teacher / Plantilla Candidate'}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <span style={{
-                                fontSize: '0.875rem',
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                fontWeight: 700,
-                                background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1'),
-                                color: isFinalized ? (theme === 'dark' ? '#34D399' : '#059669') : 'var(--color-primary)',
-                                border: isFinalized ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(37, 99, 235, 0.4)',
-                                whiteSpace: 'nowrap',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                              }}>
-                                {isFinalized ? (
-                                  <><AppIcon name="promotions" size={10} color={theme === 'dark' ? '#34D399' : '#059669'} /> Deliberated: {overallScore.toFixed(2)}/100</>
-                                ) : (
-                                  <><AppIcon name="pending" size={10} color="var(--color-primary)" /> Awaiting Board</>
-                                )}
-                              </span>
+                  {displayedHrmoApps.length === 0 ? (
+                    <p className="rv-empty">No applicants in this list.</p>
+                  ) : (
+                    <ul className="rv-list">
+                      {displayedHrmoApps.map(app => {
+                        const details = app.scoreDetailsJson || {};
+                        const rated = Boolean(details.finalRating);
+                        const verified = isApplicantReqVerified(app);
+                        const score = Number(details.finalRating?.overallTotalScore ?? 0);
+                        const recs = [
+                          details.forBackgroundInvestigation && `Background investigation: ${details.forBackgroundInvestigation === 'YES' ? 'yes' : 'no'}`,
+                          details.forProbation && `Probation: ${details.forProbation}`,
+                        ].filter(Boolean).join(' · ');
+                        return (
+                          <li key={app.id} className="rv-row">
+                            <div className="rv-who">
+                              <strong>{app.name}</strong>
+                              <span>{app.designation}{app.school ? ` · ${app.school}` : ''}</span>
+                              {recs && <span className="rv-remark">{recs}</span>}
                             </div>
-
-                            {/* Requirements & Score Overview Card */}
-                            <div style={{ background: 'var(--color-bg-tertiary)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '10px', marginBottom: '14px' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px', marginBottom: '10px' }}>
-                                <div style={{ background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : isReqDeficient ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB'), padding: '8px 10px', borderRadius: '8px', border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.3)' : isReqDeficient ? '1px solid rgba(220, 38, 38, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)' }}>
-                                  <div style={{ fontSize: '0.875rem', color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', textTransform: 'uppercase', fontWeight: 700 }}>Stage 1 • AO Reqs</div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: isReqComplete ? '#059669' : isReqDeficient ? '#DC2626' : '#D97706', marginTop: '2px' }}>
-                                    {isReqComplete ? 'Verified Complete' : isReqDeficient ? 'Deficient' : 'Pending Check'}
-                                  </div>
-                                </div>
-                                <div style={{ background: isFinalized ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1'), padding: '8px 10px', borderRadius: '8px', border: isFinalized ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(37, 99, 235, 0.3)' }}>
-                                  <div style={{ fontSize: '0.875rem', color: isFinalized ? '#059669' : 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Stage 2 • HR Deliberation</div>
-                                  <div style={{ fontSize: '1rem', fontWeight: 800, color: isFinalized ? '#059669' : 'var(--color-primary)', marginTop: '2px' }}>
-                                    {isFinalized ? `${overallScore.toFixed(2)} / 100` : 'Pending Board'}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1', padding: '10px 14px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
-                                <span style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', fontWeight: 700 }}>Combined CAR Total:</span>
-                                <strong style={{ fontSize: '1.125rem', color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', fontWeight: 900 }}>
-                                  {isFinalized ? `${overallScore.toFixed(2)} / 100.00 pts` : 'Awaiting Deliberation'}
-                                </strong>
-                              </div>
+                            <div className="rv-score">
+                              {rated ? <><strong>{score.toFixed(2)}</strong><span>/ 100</span></> : <span className={verified ? '' : 'rv-muted'}>{verified ? 'Not rated' : 'Awaiting AO II check'}</span>}
                             </div>
-
-                            {/* Governance Tags */}
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px', fontSize: '0.875rem' }}>
-                              <span style={{ padding: '4px 10px', borderRadius: '6px', background: biStatus === 'YES' ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#FEF2F2'), color: biStatus === 'YES' ? '#059669' : '#DC2626', border: biStatus === 'YES' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(220, 38, 38, 0.3)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                BI: {biStatus === 'YES' ? <><AppIcon name="check" size={10} color="#059669" /> Passed</> : <><AppIcon name="close" size={10} color="#DC2626" /> Failed</>}
-                              </span>
-                              <span style={{ padding: '4px 10px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', color: 'var(--color-primary)', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8', fontWeight: 700 }}>
-                                Probation: {probation}
-                              </span>
-                            </div>
-
-                            {/* Remarks Snippet */}
-                            {finalRating.hrmoRemarks && (
-                              <div style={{ fontSize: '0.875rem', color: 'var(--color-text-primary)', fontStyle: 'italic', marginBottom: '14px', padding: '8px 12px', background: 'var(--color-bg-tertiary)', borderRadius: '8px', border: '1px solid var(--color-border)', borderLeft: '3px solid #059669' }}>
-                                "{finalRating.hrmoRemarks}"
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setSelectedApplicantInfo(app);
-                                setShowApplicantInfoModal(true);
-                              }}
-                              style={{ flex: 1, fontSize: '0.9375rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', borderRadius: '9999px', fontWeight: 700 }}
-                            >
-                              201 File
-                            </button>
-                            {isHR ? (
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleOpenHrmoRating(app)}
-                                style={{
-                                  flex: 2,
-                                  fontSize: '0.9375rem',
-                                  background: isFinalized ? 'var(--color-bg-tertiary)' : 'var(--color-primary)',
-                                  border: isFinalized ? '1px solid var(--color-border)' : 'none',
-                                  color: isFinalized ? 'var(--color-text-primary)' : '#FFFFFF',
-                                  fontWeight: 700,
-                                  borderRadius: '9999px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '6px',
-                                  boxShadow: isFinalized ? 'none' : '0 2px 6px rgba(0,0,0,0.1)',
-                                }}
-                              >
-                                <AppIcon name={isFinalized ? 'history' : 'approvals'} size={14} color={isFinalized ? 'var(--color-text-primary)' : '#FFFFFF'} />
-                                {isFinalized ? 'Update Board Score' : 'Evaluate & Score'}
+                            <div className="rv-actions">
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(app); setShowApplicantInfoModal(true); }}>201 file</button>
+                              <button type="button" className={`btn btn-sm ${rated ? 'btn-secondary' : 'btn-primary'}`} disabled={!verified || !isHR} onClick={() => handleOpenHrmoRating(app)}>
+                                {rated ? 'Revise rating' : 'Rate'}
                               </button>
-                            ) : (
-                              <div style={{
-                                flex: 2,
-                                fontSize: '0.875rem',
-                                color: 'var(--color-text-secondary)',
-                                background: 'var(--color-bg-tertiary)',
-                                padding: '6px 10px',
-                                borderRadius: '9999px',
-                                border: '1px solid var(--color-border)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '4px',
-                                fontWeight: 600,
-                              }}>
-                                <AppIcon name="lock" size={11} color="var(--color-text-secondary)" /> HR Deliberation Only
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
               )}
 
               {/* TAB 4: HR CANDIDATE SELECTION WORKSPACE */}
