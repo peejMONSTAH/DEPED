@@ -123,7 +123,7 @@ export const TransactionApproval: React.FC = () => {
             const v = (tx.uploadedDocuments || []).find((d: any) => d.validatedBy)?.validatedBy;
             const p = v?.personnel;
             const name = p ? `${p.firstName} ${p.lastName}`.trim() : '';
-            return name ? (/bAOs*IIb/i.test(name) ? name : `${name} (AO II)`) : v?.email || 'AO II';
+            return name ? (/\bAO\s*II\b/i.test(name) ? name : `${name} (AO II)`) : v?.email || 'AO II';
           })(),
           validatedDate: tx.validationDate ? new Date(tx.validationDate).toLocaleDateString() : new Date(tx.updatedAt || tx.createdAt).toLocaleDateString(),
           complianceScore: tx.complianceScore ?? 0,
