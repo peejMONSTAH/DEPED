@@ -128,6 +128,25 @@ export const markAsRead = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+export const markAsUnread = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ status: 'error', message: 'Invalid notification ID.' });
+      return;
+    }
+
+    await prisma.notification.updateMany({
+      where: { id, userId: req.user!.userId },
+      data: { isRead: false },
+    });
+    sendSuccess(res, { id, isRead: false }, 'Notification marked as unread.');
+  } catch (error: any) {
+    logger.error({ err: error }, 'Failed to mark notification as unread');
+    res.status(500).json({ status: 'error', message: 'Failed to mark notification as unread.' });
+  }
+};
+
 export const markAllRead = async (req: Request, res: Response): Promise<void> => {
   try {
     await prisma.notification.updateMany({

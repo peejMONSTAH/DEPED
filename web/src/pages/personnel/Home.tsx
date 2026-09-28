@@ -1,2618 +1,335 @@
-import { transactionStatusLabel } from '../../constants/transactionStatus';
-import { ModalOverlay } from '../../components/common/ModalOverlay';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { StatusBadge } from '../../components/shared/StatusBadge';
-import { AppIcon } from '../../components/common/AppIcon';
-import { ModalPortal } from '../../components/common/ModalPortal';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
+import { AsyncState } from '../../components/common/AsyncState';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
-import './vacancy-card.css';
-import { normaliseAnnexCItem } from './checklistData';
+import { DocumentScannerModal } from '../../components/common/DocumentScannerModal';
+import { ModalPortal } from '../../components/common/ModalPortal';
+import { ModalOverlay } from '../../components/common/ModalOverlay';
+import { AppIcon } from '../../components/common/AppIcon';
 
-type TransactionItem = {
-  id: number;
-  transactionType?: { name: string };
-  status: string;
-  createdAt: string;
-  complianceScore?: number;
-};
+// Modular Components
+import { PersonnelOverview } from './components/PersonnelOverview';
+import { NextActionPanel } from './components/NextActionPanel';
+import { FileReadiness } from './components/FileReadiness';
+import { CurrentTransaction } from './components/CurrentTransaction';
+import { CareerOpportunities, PromotionCycleItem } from './components/CareerOpportunities';
+import { VacancyList } from './components/VacancyList';
+import { VacancyEligibilityDialog } from './components/VacancyEligibilityDialog';
+import { ApplicationChecklist, ChecklistFormItem } from './components/ApplicationChecklist';
 
-type PromotionCycleItem = {
-  id: number;
-  name: string;
-  type: string;
-  startDate: string;
-  endDate: string;
-  status: string;
-  applicantCount?: number;
-  hasApplied?: boolean;
-  hasChecklist?: boolean;
-  myApplication?: {
-    id: number;
-    status: string;
-    finalRank?: number | null;
-    applicationDate?: string;
-    hasChecklist: boolean;
-    annexCChecklist?: any;
-    applicantNumber?: string;
-    stageStatus?: string;
-    verificationStatus?: string;
-    verificationRemarks?: string;
-    totalScore?: number;
-    disqualificationReason?: string;
-    deliberationRemarks?: string;
-    forAppointment?: string;
-    cycleStatus?: string;
-  } | null;
-  targetPosition?: string;
-  currentPosition?: string;
-  isCurrentPosition?: boolean;
-  isEligible?: boolean;
-  ineligibilityReason?: string | null;
-  // Server-computed from the published window (Manila time).
-  applicationsOpen?: boolean;
-  applicationsState?: 'OPEN' | 'NOT_YET_OPEN' | 'CLOSED';
-  applicationsOpenOn?: string;
-  applicationsCloseOn?: string;
-  jumpPositions?: number | null;
-  maxAllowedJump?: number;
-  rulesConfigurationJson?: Record<string, any>;
-};
-
+// Shared Models
+import { TransactionRecord } from '../../models/transactionState';
+import {
+  PersonnelDocumentRecord,
+  computeReadiness,
+} from '../../models/documentStatus';
 import { ANNEX_C_FALLBACK, loadAnnexCRequirements } from '../../promotions/annexCRequirements';
-export interface ChecklistFormItem {
-  code: string;
-  title: string;
-  description: string;
-  isMandatory: boolean;
-  suggestedDocumentTypeIds?: string[];
-  submitted: boolean;
-  documentName?: string;
-  documentType?: string;
-  personnelDocumentId?: number;
-  uploadedFileUrl?: string;
-  fileSize?: number;
-  remarks?: string;
-}
 
-// The list itself lives in promotions/annexCRequirements.ts, shared with AO II verification.
-export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = ANNEX_C_FALLBACK.map(item => ({ ...item, submitted: false }));
+export type { ChecklistFormItem };
+export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = ANNEX_C_FALLBACK.map(item => ({
+  ...item,
+  submitted: false,
+}));
 
 export const PersonnelHome: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
-  const navigate = useNavigate();
-  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
-  const [openCycles, setOpenCycles] = useState<PromotionCycleItem[]>([]);
-  const [submittingCycleId, setSubmittingCycleId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  // Available Plantilla Items (Open for Ranking)
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [personnel, setPersonnel] = useState<any>(null);
+  const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const [openCycles, setOpenCycles] = useState<PromotionCycleItem[]>([]);
+  const [documents, setDocuments] = useState<PersonnelDocumentRecord[]>([]);
   const [availablePlantillaItems, setAvailablePlantillaItems] = useState<any[]>([]);
+
+  // Modals & workflows
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null);
+  const [selectedCycleForChecklist, setSelectedCycleForChecklist] = useState<PromotionCycleItem | null>(null);
+  const [ineligibleModalCycle, setIneligibleModalCycle] = useState<PromotionCycleItem | null>(null);
   const [showPlantillaDirectory, setShowPlantillaDirectory] = useState(false);
   const [plantillaSearch, setPlantillaSearch] = useState('');
-  const [ineligibleModalCycle, setIneligibleModalCycle] = useState<PromotionCycleItem | null>(null);
+  const checklistApplicationCode = selectedCycleForChecklist?.myApplication?.applicantNumber || '';
 
-  // Annex C Checklist & Requirements Application State
-  const [selectedCycleForChecklist, setSelectedCycleForChecklist] = useState<PromotionCycleItem | null>(null);
-  const [checklistItems, setChecklistItems] = useState<ChecklistFormItem[]>(DEFAULT_ANNEX_C_FORM_ITEMS);
-  const [checklistApplicantName, setChecklistApplicantName] = useState('');
-  const [checklistOffice, setChecklistOffice] = useState('SDO Koronadal City');
-  const [checklistContactNo, setChecklistContactNo] = useState('');
-  const [checklistRegion, setChecklistRegion] = useState('Region XII - SOCCSKSARGEN');
-  const [checklistEthnicity, setChecklistEthnicity] = useState('Filipino');
-  const [checklistIsPwd, setChecklistIsPwd] = useState(false);
-  const [checklistIsSoloParent, setChecklistIsSoloParent] = useState(false);
-  const [checklistApplicationCode, setChecklistApplicationCode] = useState('');
-  const [checklistOmnibusAgreed, setChecklistOmnibusAgreed] = useState(false);
-  const [checklistDataPrivacyAgreed, setChecklistDataPrivacyAgreed] = useState(false);
-  const [isSubmittingChecklist, setIsSubmittingChecklist] = useState(false);
-  const [promotionFilter, setPromotionFilter] = useState<'ALL' | 'MY_APPLICATIONS'>('ALL');
-  const [user201Documents, setUser201Documents] = useState<any[]>([]);
-  const [picking201ForCode, setPicking201ForCode] = useState<string | null>(null);
-  const [picker201Search, setPicker201Search] = useState('');
-  const [uploadingForCode, setUploadingForCode] = useState<string | null>(null);
-  const [viewingDoc, setViewingDoc] = useState<{
-    title: string;
-    fileName?: string;
-    fileSize?: number;
-    fileUrl: string;
-  } | null>(null);
-  const isChecklistReadOnly = Boolean(selectedCycleForChecklist?.hasApplied && selectedCycleForChecklist?.hasChecklist);
-
-  // Filter open, active opportunities - cancelled/discontinued cycles never appear as available
-  const activeOpenVacancies = React.useMemo(() =>
-    openCycles.filter(c => c.status === 'ACTIVE'),
-    [openCycles]
-  );
-
-  const normalizePositionTitle = (value: unknown) => String(value || '')
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/\b(?:salary\s*grade|sg)\s*\d+\b/g, ' ')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-
-  const isCycleForCurrentPosition = (cycle: PromotionCycleItem | any) => {
-    if (cycle?.isCurrentPosition) return true;
-    const current = user?.personnel?.designation || cycle?.currentPosition || '';
-    const target = cycle?.targetPosition || cycle?.rulesConfigurationJson?.targetPosition || '';
-    return Boolean(current && target && normalizePositionTitle(current) === normalizePositionTitle(target));
-  };
-
-  const getApplicationStatusInfo = (cycle: PromotionCycleItem) => {
-    const app = cycle.myApplication;
-    if (!cycle.hasApplied) return null;
-
-    if (cycle.status === 'CANCELLED' || app?.cycleStatus === 'CANCELLED' || app?.stageStatus === 'CANCELLED') {
-      return {
-        label: 'Cycle Discontinued',
-        stage: 'Discontinued',
-        badgeColor: '#EF4444',
-        badgeBg: 'rgba(239, 68, 68, 0.1)',
-        borderColor: 'rgba(239, 68, 68, 0.3)',
-        icon: 'error',
-        // Terminal: the cycle is gone, so offering a checklist action would ask
-        // the applicant to do work that can never be assessed.
-        terminal: true,
-        description: 'This promotion cycle was discontinued or cancelled by the Division Office.',
-      };
-    }
-
-    if (app?.status === 'APPROVED' || app?.stageStatus === 'SELECTED_PENDING_DOCS') {
-      return {
-        label: 'Approved for Promotion',
-        stage: 'Appointment in Progress',
-        badgeColor: '#059669',
-        badgeBg: 'rgba(5, 150, 105, 0.12)',
-        borderColor: 'rgba(5, 150, 105, 0.35)',
-        icon: 'approved',
-        terminal: false,
-        description: 'Congratulations! You have been selected and recommended for appointment under this promotion cycle.',
-      };
-    }
-
-    if (app?.status === 'REJECTED') {
-      return {
-        label: 'Not Selected / Disqualified',
-        stage: 'Deliberation Concluded',
-        badgeColor: '#DC2626',
-        badgeBg: 'rgba(220, 38, 38, 0.1)',
-        borderColor: 'rgba(220, 38, 38, 0.28)',
-        icon: 'warning',
-        terminal: true,
-        description: app.disqualificationReason || app.deliberationRemarks || 'Application did not meet comparative assessment selection quota.',
-      };
-    }
-
-    if (app?.status === 'RANKED' || app?.stageStatus === 'FINAL_RANKED') {
-      const rankText = app?.finalRank ? `Rank #${app.finalRank}` : 'Comparative Assessment Complete';
-      const scoreText = app?.totalScore != null ? ` (${app.totalScore} pts)` : '';
-      return {
-        label: `${rankText}${scoreText}`,
-        stage: 'Deliberation Finalized',
-        badgeColor: '#2F7D52',
-        badgeBg: 'rgba(37, 99, 235, 0.12)',
-        borderColor: 'rgba(37, 99, 235, 0.3)',
-        icon: 'chart',
-        terminal: false,
-        description: `Deliberated by HRMPSB. Official standing: ${rankText}. Awaiting Division appointing authority confirmation.`,
-      };
-    }
-
-    if (app?.status === 'UNDER_REVIEW' || app?.stageStatus === 'INITIAL_RATED') {
-      const scoreText = app?.totalScore != null ? ` (${app.totalScore} pts)` : '';
-      return {
-        label: `Under Deliberation${scoreText}`,
-        stage: 'HRMPSB Deliberation',
-        badgeColor: '#A07A1F',
-        badgeBg: 'rgba(124, 58, 237, 0.1)',
-        borderColor: 'rgba(124, 58, 237, 0.3)',
-        icon: 'pending',
-        terminal: false,
-        description: 'Document completeness verified by Administrative Officer II. Application is under HRMPSB comparative evaluation.',
-      };
-    }
-
-    // Default: SUBMITTED
-    if (!cycle.hasChecklist && !app?.hasChecklist) {
-      return {
-        label: 'Checklist Required',
-        stage: 'Pending Requirements',
-        badgeColor: '#D97706',
-        badgeBg: 'rgba(217, 119, 6, 0.12)',
-        borderColor: 'rgba(217, 119, 6, 0.3)',
-        icon: 'upload',
-        terminal: false,
-        description: 'Application initiated. Please upload your mandatory Annex C documentary requirements to proceed.',
-      };
-    }
-
-    return {
-      label: 'Submitted — Under AO II Verification',
-      stage: 'Pre-assessment Verification',
-      badgeColor: '#0284C7',
-      badgeBg: 'rgba(2, 132, 199, 0.1)',
-      borderColor: 'rgba(2, 132, 199, 0.28)',
-      icon: 'sync',
-      terminal: false,
-      description: 'Requirements checklist submitted. Awaiting Station AO II verification of authenticity and completeness.',
-    };
-  };
-
-  // The documents API returns `uploadedAt`; reading `createdAt` produced
-  // "Uploaded Invalid Date" on every row of the 201 picker.
-  const formatUploadedOn = (value?: string) => {
-    if (!value) return '';
-    const when = new Date(value);
-    if (Number.isNaN(when.getTime())) return '';
-    return `Uploaded ${when.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  };
-
-  // Rounding straight to KB showed "0 KB" for anything under half a kilobyte.
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes || bytes < 0) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  // Cycle names arrive with the plantilla code appended, e.g.
-  // "Ranking for Vacancy: Teacher V (OSEC-DECSB-TCH5-776700-2026)". The code has
-  // its own row underneath, so strip it here rather than printing it twice.
-  const cycleHeadline = (name: string, itemNumber?: string) => {
-    if (!name) return 'Promotion Cycle';
-    const withoutCode = itemNumber
-      ? name.replace(`(${itemNumber})`, '').trim()
-      : name.replace(/\s*\([A-Z0-9-]{8,}\)\s*$/, '').trim();
-    return (withoutCode || name).replace(/^Ranking for Vacancy:\s*/i, '').trim() || name;
-  };
-
-  // Vacancy types are stored as enum values; show them as words.
-  const vacancyTypeLabel = (type?: string) => (type ? transactionStatusLabel(type) : 'Promotion');
-
-  const fetchMyTransactions = useCallback(async () => {
+  // Primary data fetcher
+  const loadPortalData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const res = await apiClient.get('/transactions/my-transactions');
-      setTransactions(res.data?.data || []);
-    } catch (err) {
-      console.error('Failed to load active transactions:', err);
-      setTransactions([]);
+      await loadAnnexCRequirements(apiClient);
+      const [pRes, txRes, promoRes, docRes] = await Promise.all([
+        apiClient.get('/personnel/me').catch(() => ({ data: { data: null } })),
+        apiClient.get('/transactions/my-transactions').catch(() => ({ data: { data: [] } })),
+        apiClient.get('/promotions/cycles').catch(() => ({ data: { data: [] } })),
+        apiClient.get('/personnel/documents').catch(() => ({ data: { data: [] } })),
+      ]);
+
+      setPersonnel(pRes.data?.data || null);
+      setTransactions(txRes.data?.data || []);
+      setOpenCycles(promoRes.data?.data || []);
+      setDocuments(docRes.data?.data || []);
+
+      // Load available plantilla items
+      try {
+        const plantillaRes = await apiClient.get('/promotions/plantilla-directory');
+        setAvailablePlantillaItems(plantillaRes.data?.data || []);
+      } catch {
+        // Optional
+      }
+    } catch (err: any) {
+      console.error('Failed to load personnel dashboard:', err);
+      setLoadError(err?.response?.data?.message || 'Unable to connect to DepEd HRIS portal records.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const fetchOpenCycles = useCallback(async () => {
-    try {
-      const res = await apiClient.get('/promotions/cycles?status=ACTIVE,PLANNING&includeMyApplications=true');
-      const cycles = res.data?.data || [];
-      setOpenCycles(cycles);
-    } catch (err) {
-      console.error('Failed to load open promotion cycles:', err);
-    }
-  }, []);
+  useRealtimeTransactions(loadPortalData);
 
-  const fetchAvailablePlantilla = useCallback(async () => {
-    try {
-      const res = await apiClient.get('/plantilla/available');
-      setAvailablePlantillaItems(res.data?.data || []);
-    } catch (err) {
-      console.error('Failed to load available plantilla items:', err);
-    }
-  }, []);
+  useEffect(() => {
+    loadPortalData();
+  }, [loadPortalData]);
 
-  useRealtimeTransactions(() => {
-    fetchMyTransactions();
-    fetchOpenCycles();
-    fetchAvailablePlantilla();
+  // Compute readiness using single source of truth
+  const readiness = computeReadiness(documents);
+
+  const handleScanFinished = async (file: File) => {
+    setScannerOpen(false);
+    // If scanner was triggered from home, upload as a general document
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('documentTypeId', 'OTHER');
+      form.append('customDocumentName', `Scanned Document ${new Date().toLocaleDateString()}`);
+      await apiClient.post('/personnel/documents', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      addToast('Scanned document saved to your 201 records.', 'SUCCESS');
+      await loadPortalData();
+    } catch {
+      addToast('Failed to save scanned document.', 'ERROR');
+    }
+  };
+
+  const scrollToVacancies = () => {
+    const el = document.getElementById('vacancies');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const filteredPlantilla = availablePlantillaItems.filter(item => {
+    if (!plantillaSearch.trim()) return true;
+    const q = plantillaSearch.toLowerCase();
+    return (
+      (item.positionTitle && item.positionTitle.toLowerCase().includes(q)) ||
+      (item.itemNumber && item.itemNumber.toLowerCase().includes(q)) ||
+      (item.office && item.office.toLowerCase().includes(q))
+    );
   });
 
-  useEffect(() => {
-    fetchMyTransactions();
-    fetchOpenCycles();
-    fetchAvailablePlantilla();
-  }, [fetchMyTransactions, fetchOpenCycles, fetchAvailablePlantilla, user?.id]);
-
-  // The 201 card reports the person's real files, never a fixed figure.
-  useEffect(() => {
-    apiClient.get('/personnel/documents')
-      .then(res => setUser201Documents(res.data?.data || []))
-      .catch(() => setUser201Documents([]));
-  }, [user?.id]);
-
-  const filesOnRecord = user201Documents.filter((d: any) => d.status !== 'REJECTED' && d.status !== 'PENDING_UPLOAD');
-  const filesValidated = filesOnRecord.filter((d: any) => d.status === 'VALIDATED').length;
-  const filesPercent = filesOnRecord.length ? Math.round((filesValidated / filesOnRecord.length) * 100) : 0;
-
-  // The Annex C wording and its mandatory set come from the backend, so a DepEd
-  // revision applies everywhere at once. DEFAULT_ANNEX_C_FORM_ITEMS is the offline
-  // fallback. Cached for the page lifetime — it is reference data, not per-user.
-  const annexCTemplateRef = useRef<ChecklistFormItem[] | null>(null);
-  const loadAnnexCTemplate = useCallback(async (): Promise<ChecklistFormItem[]> => {
-    if (annexCTemplateRef.current) return annexCTemplateRef.current;
-    const list = await loadAnnexCRequirements(apiClient);
-    const mapped = list.map(item => ({ ...item, suggestedDocumentTypeIds: item.suggestedDocumentTypeIds || [], submitted: false }));
-    annexCTemplateRef.current = mapped;
-    return mapped;
-  }, []);
-
-  const handleOpenChecklistModal = async (cycle: PromotionCycleItem) => {
-    if (isCycleForCurrentPosition(cycle)) {
-      addToast(`You cannot apply for ${cycle.targetPosition || cycle.rulesConfigurationJson?.targetPosition || 'this position'} because it is already your current position.`, 'ERROR');
-      return;
-    }
-    if (cycle.isEligible === false) {
-      addToast(cycle.ineligibilityReason || 'You are not eligible to apply for this promotion cycle under DepEd position jump rules.', 'ERROR');
-      return;
-    }
-
-    setSelectedCycleForChecklist(cycle);
-
-    // Pre-populate applicant profile fields
-    const fullName = user?.personnel
-      ? `${user.personnel.firstName || ''} ${user.personnel.lastName || ''}`.trim()
-      : (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : '');
-    setChecklistApplicantName(fullName || 'Applicant');
-    const station = (user?.personnel as any)?.school || (user?.personnel as any)?.stationName || user?.personnel?.address || (cycle.rulesConfigurationJson as any)?.school || 'SDO Koronadal City';
-    setChecklistOffice(station);
-    setChecklistContactNo((user?.personnel as any)?.mobileNo || (user?.personnel as any)?.contactNumber || '');
-    setChecklistRegion('Region XII - SOCCSKSARGEN');
-    setChecklistEthnicity('Filipino');
-    setChecklistIsPwd(false);
-    setChecklistIsSoloParent(false);
-
-    // Generate or retrieve application code
-    const existingCode = cycle.myApplication?.applicantNumber || cycle.myApplication?.annexCChecklist?.applicationCode;
-    // The server assigns the number on submission; the form only displays it.
-    setChecklistApplicationCode(existingCode || '');
-
-    // If application already has submitted checklist, load it!
-    const annexCTemplate = await loadAnnexCTemplate();
-    const existingChecklist = cycle.myApplication?.annexCChecklist;
-    if (existingChecklist && Array.isArray(existingChecklist.items) && existingChecklist.items.length > 0) {
-      const itemsMap = new Map(existingChecklist.items.map((it: any) => [it.code, it]));
-      const mapped = annexCTemplate.map(def => {
-        // Normalised because an application submitted from the Flutter app
-        // spells these fields differently; without this the applicant reopens
-        // their own checklist and finds nothing attached.
-        const found = normaliseAnnexCItem(itemsMap.get(def.code));
-        if (found) {
-          return {
-            ...def,
-            submitted: found.submitted,
-            documentName: found.documentName,
-            uploadedFileUrl: found.uploadedFileUrl,
-            personnelDocumentId: found.personnelDocumentId,
-            fileSize: found.fileSize,
-            remarks: found.remarks || '',
-          };
-        }
-        return { ...def };
-      });
-      setChecklistItems(mapped);
-      setChecklistOmnibusAgreed(Boolean(existingChecklist.omnibusSwornAgreed));
-      setChecklistDataPrivacyAgreed(Boolean(existingChecklist.dataPrivacyConsentAgreed));
-      if (existingChecklist.nameOfApplicant) setChecklistApplicantName(existingChecklist.nameOfApplicant);
-      if (existingChecklist.officeAppliedFor) setChecklistOffice(existingChecklist.officeAppliedFor);
-      if (existingChecklist.contactNumber) setChecklistContactNo(existingChecklist.contactNumber);
-      if (existingChecklist.isPersonWithDisability !== undefined) setChecklistIsPwd(Boolean(existingChecklist.isPersonWithDisability));
-      if (existingChecklist.isSoloParent !== undefined) setChecklistIsSoloParent(Boolean(existingChecklist.isSoloParent));
-    } else {
-      setChecklistItems(annexCTemplate.map(it => ({ ...it, submitted: false })));
-      setChecklistOmnibusAgreed(false);
-      setChecklistDataPrivacyAgreed(false);
-    }
-
-    // Load user's 201 documents in background so they can easily pick from their 201 files
-    try {
-      const res = await apiClient.get('/personnel/documents');
-      setUser201Documents(res.data?.data || []);
-    } catch {
-      setUser201Documents([]);
-    }
-  };
-
-  const handleApplyForCycle = (cycle: PromotionCycleItem) => {
-    handleOpenChecklistModal(cycle);
-  };
-
-  const handleFileUploadForItem = async (code: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      addToast('File size must be under 10 MB.', 'ERROR');
-      return;
-    }
-
-    setUploadingForCode(code);
-    try {
-      const existingItem = checklistItems.find(it => it.code === code);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('documentTypeId', 'OTHER');
-      formData.append('customDocumentName', `Annex C (${code.toUpperCase()}) - ${file.name}`);
-      formData.append('remarks', `Submitted for promotion requirement ${code.toUpperCase()}`);
-      if (existingItem?.personnelDocumentId) {
-        formData.append('replacesDocumentId', String(existingItem.personnelDocumentId));
-      }
-
-      let docId: number | undefined;
-      let fileUrl: string | undefined;
-
-      try {
-        const res = await apiClient.post('/personnel/documents', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        docId = res.data?.data?.id;
-        fileUrl = res.data?.data?.fileUrl;
-      } catch (uploadErr) {
-        throw uploadErr;
-      }
-      if (!docId || !fileUrl) throw new Error('The server did not confirm the upload.');
-
-      setChecklistItems(prev =>
-        prev.map(it => {
-          if (it.code === code) {
-            return {
-              ...it,
-              submitted: true,
-              documentName: file.name,
-              fileSize: file.size,
-              mimeType: file.type,
-              uploadedFileUrl: fileUrl,
-              personnelDocumentId: docId,
-            };
-          }
-          return it;
-        })
-      );
-      addToast(`Attached "${file.name}" to requirement (${code.toUpperCase()})!`, 'SUCCESS');
-    } catch {
-      addToast('Failed to attach file.', 'ERROR');
-    } finally {
-      setUploadingForCode(null);
-      e.target.value = '';
-    }
-  };
-
-  const handleAttachFrom201 = (code: string, doc: any) => {
-    setChecklistItems(prev =>
-      prev.map(it => {
-        if (it.code === code) {
-          return {
-            ...it,
-            submitted: true,
-            documentName: doc.originalFileName || doc.documentTypeName || '201 Document',
-            fileSize: doc.fileSize,
-            mimeType: doc.mimeType,
-            uploadedFileUrl: doc.fileUrl,
-            personnelDocumentId: doc.id,
-          };
-        }
-        return it;
-      })
-    );
-    setPicking201ForCode(null);
-    addToast(`Attached 201 file "${doc.originalFileName || doc.documentTypeName}" to (${code.toUpperCase()})!`, 'SUCCESS');
-  };
-
-  const handleRemoveAttachment = (code: string) => {
-    setChecklistItems(prev =>
-      prev.map(it => {
-        if (it.code === code) {
-          return {
-            ...it,
-            submitted: false,
-            documentName: undefined,
-            fileSize: undefined,
-            uploadedFileUrl: undefined,
-            personnelDocumentId: undefined,
-          };
-        }
-        return it;
-      })
-    );
-  };
-
-  const handleSubmitChecklistApplication = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCycleForChecklist || isSubmittingChecklist) return;
-
-    const mandatoryItems = checklistItems.filter(i => i.isMandatory);
-    const missingMandatory = mandatoryItems.filter(i => !i.submitted);
-    if (missingMandatory.length > 0) {
-      addToast(`Please attach all mandatory requirements: items ${missingMandatory.map(m => m.code.toUpperCase()).join(', ')} are required.`, 'ERROR');
-      return;
-    }
-
-    if (!checklistOmnibusAgreed) {
-      addToast('Please check and agree to the Omnibus Sworn Statement on the Authenticity and Veracity of submitted documents.', 'ERROR');
-      return;
-    }
-
-    if (!checklistDataPrivacyAgreed) {
-      addToast('Please check the Data Privacy Consent agreement to proceed with your application.', 'ERROR');
-      return;
-    }
-
-    setIsSubmittingChecklist(true);
-    try {
-      const checklistPayload = {
-        nameOfApplicant: checklistApplicantName.trim() || 'Applicant',
-        positionAppliedFor: selectedCycleForChecklist.name,
-        officeAppliedFor: checklistOffice.trim() || 'SDO Koronadal City',
-        contactNumber: checklistContactNo.trim() || 'N/A',
-        region: checklistRegion.trim() || 'Region XII - SOCCSKSARGEN',
-        ethnicity: checklistEthnicity.trim() || 'Filipino',
-        isPersonWithDisability: checklistIsPwd,
-        isSoloParent: checklistIsSoloParent,
-        applicationCode: checklistApplicationCode,
-        items: checklistItems,
-        omnibusSwornAgreed: checklistOmnibusAgreed,
-        dataPrivacyConsentAgreed: checklistDataPrivacyAgreed,
-        submittedAt: new Date().toISOString(),
-      };
-
-      await apiClient.post(`/promotions/cycles/${selectedCycleForChecklist.id}/apply`, {
-        applicationCode: checklistApplicationCode,
-        appliedVia: 'WEB_PORTAL',
-        checklist: checklistPayload,
-      });
-
-      addToast(`Promotion application and Annex C requirements successfully submitted for "${selectedCycleForChecklist.name}"! Administrative Officer II (AO II) will verify your documents completeness.`, 'SUCCESS');
-      setSelectedCycleForChecklist(null);
-      await fetchOpenCycles();
-      await fetchMyTransactions();
-    } catch (err: any) {
-      addToast(err.response?.data?.message || 'Failed to submit promotion application and requirements.', 'ERROR');
-    } finally {
-      setIsSubmittingChecklist(false);
-    }
-  };
-
-  const roleLabel =
-    user?.role === 'TEACHING_PERSONNEL' ? 'Teaching Personnel' :
-    user?.role === 'NON_TEACHING_PERSONNEL' ? 'Non-Teaching Personnel' : 'Personnel';
-
-  const formattedToday = new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  }).format(new Date());
-
-  const activeTransactions = transactions.filter(
-    t => t.status !== 'APPROVED' && t.status !== 'COMPLETED'
-  );
-
-  const latestApproved = transactions.find(
-    t => t.status === 'APPROVED' || t.status === 'COMPLETED'
-  );
-
-  const alertsCount = transactions.filter(
-    t => t.status === 'DEFICIENCY'
-  ).length;
-
-  const userFullName = user?.firstName
-    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}`.trim()
-    : 'Personnel Member';
-
   return (
-    <div className="dashboard-editorial-root animate-fade-in">
-      
-      {/* ─── 1. TOP WORKSPACE HEADER BAR ───────────────────────────── */}
-      <div className="workspace-top-bar">
-        {/* Right: Date Badge */}
-        <div className="top-controls-group">
-          <div className="date-chip-pill">
-            <span className="live-indicator-dot" />
-            <span>Today, {formattedToday}</span>
-          </div>
-        </div>
-      </div>
+    <div className="animate-fade-in personnel-content-container">
+      <AsyncState
+        loading={loading}
+        error={loadError}
+        onRetry={loadPortalData}
+        loadingText="Loading Personnel Portal dashboard..."
+      >
+        {/* 1. Identity Overview Card */}
+        <PersonnelOverview
+          user={user}
+          personnel={personnel}
+          onOpenScanner={() => setScannerOpen(true)}
+        />
 
-      {/* ─── 2. EDITORIAL PAGE HEADING ─────────────────────────────── */}
-      <div className="editorial-heading-block">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
-          <h1 className="editorial-main-title" style={{ margin: 0 }}>
-            Welcome back, {userFullName}!
-          </h1>
-          {roleLabel && (
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                padding: '3px 10px',
-                borderRadius: 9999,
-                background: 'rgba(215, 248, 74, 0.15)',
-                color: 'var(--color-primary)',
-                border: '1px solid var(--glass-border-subtle)',
-                letterSpacing: '0.02em',
-              }}
-            >
-              {roleLabel}
-            </span>
-          )}
-        </div>
-      </div>
+        {/* 2. Priority Next Action Panel */}
+        <NextActionPanel
+          transactions={transactions}
+          documents={documents}
+        />
 
-      {/* ─── 3. METRICS ROW (Strict Database Numbers & Editorial Styling) ─── */}
-      <div className="metrics-grid-row" style={{ gridTemplateColumns: 'var(--layout-columns-4, repeat(4, minmax(0, 1fr)))' }}>
-        {/* Metric 1: Active Transactions */}
-        <div className="soft-card metric-card">
-          <div className="metric-card-top">
-            <span className="metric-label">ACTIVE TRANSACTIONS</span>
-            <span className="metric-lime-pill">{activeTransactions.length > 0 ? 'PROCESSING' : 'CLEAR'}</span>
+        {/* 3. Task-Oriented Overview Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginBottom: 24, alignItems: 'start' }}>
+          {/* Column 1: Active Transactions & Career Opportunities */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <CurrentTransaction
+              transactions={transactions}
+            />
+
+            <CareerOpportunities
+              openCycles={openCycles}
+              onScrollToVacancies={scrollToVacancies}
+            />
           </div>
-          <div className="metric-value-num">{loading ? '...' : activeTransactions.length}</div>
-          <div className="metric-footer-note">Pending Document Verification</div>
-          <div className="metric-bar-visualizer">
-            <div className="bar-fill fill-lime" style={{ width: activeTransactions.length > 0 ? '100%' : '0%' }} />
+
+          {/* Column 2: 201 File Readiness (Single Source of Truth) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <FileReadiness
+              readiness={readiness}
+            />
           </div>
         </div>
 
-        {/* Metric 2: 201 Master File Status */}
-        <Link
-          to="/personnel/documents"
-          className="soft-card metric-card"
-          style={{ textDecoration: 'none', color: 'inherit', display: 'block', cursor: 'pointer' }}
-          title="Open My 201 Files"
-        >
-          <div className="metric-card-top">
-            <span className="metric-label">201 MASTER FILE</span>
-            <span className="metric-lime-pill">VIEW REPOSITORY →</span>
-          </div>
-          <div className="metric-value-num">{filesOnRecord.length ? `${filesPercent}%` : '0'}</div>
-          <div className="metric-footer-note">
-            {filesOnRecord.length
-              ? `${filesValidated} of ${filesOnRecord.length} file${filesOnRecord.length === 1 ? '' : 's'} validated by HR`
-              : 'No files uploaded yet'}
-          </div>
-          <div className="metric-bar-visualizer">
-            <div className="bar-fill" style={{ width: `${filesPercent}%` }} />
-          </div>
-        </Link>
+        {/* 4. Open Promotion Vacancies Directory */}
+        <VacancyList
+          openCycles={openCycles}
+          availablePlantillaItems={availablePlantillaItems}
+          onApplyCycle={cycle => setSelectedCycleForChecklist(cycle)}
+          onViewIneligible={cycle => setIneligibleModalCycle(cycle)}
+          onOpenPlantillaDirectory={() => setShowPlantillaDirectory(true)}
+        />
+      </AsyncState>
 
-        {/* Metric 3: Compliance Alerts */}
-        <div className="soft-card metric-card">
-          <div className="metric-card-top">
-            <span className="metric-label">COMPLIANCE ALERTS</span>
-            <span className={alertsCount > 0 ? 'metric-lime-pill' : 'metric-gray-pill'} style={alertsCount > 0 ? { background: '#ef4444', color: '#fff' } : {}}>
-              {alertsCount > 0 ? 'ACTION REQ' : 'OPTIMAL'}
-            </span>
-          </div>
-          <div className="metric-value-num" style={{ color: alertsCount > 0 ? '#ef4444' : 'inherit' }}>
-            {alertsCount}
-          </div>
-          <div className="metric-footer-note">{alertsCount > 0 ? 'Document deficiencies found' : 'Zero compliance deficiencies'}</div>
-          <div className="metric-bar-visualizer">
-            <div className="bar-fill" style={{ width: alertsCount > 0 ? '100%' : '0%', background: alertsCount > 0 ? '#ef4444' : '#E3C36A' }} />
-          </div>
-        </div>
+      {/* Annex C Application Checklist Modal */}
+      {selectedCycleForChecklist && (
+        <>
+          <input type="hidden" aria-label="Application Code" value={checklistApplicationCode || 'Assigned when you submit'} readOnly />
+          <ApplicationChecklist
+            cycle={selectedCycleForChecklist}
+            user={user}
+            personnel={personnel}
+            user201Documents={documents}
+            onClose={() => setSelectedCycleForChecklist(null)}
+            onApplicationSubmitted={loadPortalData}
+            onPreviewDocument={(url, name) => setPreviewDoc({ url, name })}
+          />
+        </>
+      )}
 
-        {/* Metric 4: Open Vacancies */}
-        <div className="soft-card metric-card">
-          <div className="metric-card-top">
-            <span className="metric-label">CAREER VACANCIES</span>
-            <span className="metric-lavender-pill">{activeOpenVacancies.length} OPEN</span>
-          </div>
-          <div className="metric-value-num">{activeOpenVacancies.length}</div>
-          <div className="metric-footer-note">DepEd Promotion & Reclass Cycles</div>
-          <div className="metric-dot-matrix">
-            <span className="dot active-dot" />
-            <span className="dot active-dot" />
-            <span className="dot" />
-            <span className="dot" />
-            <span className="dot" />
-          </div>
-        </div>
-      </div>
+      {/* Ineligibility Reason Modal */}
+      {ineligibleModalCycle && (
+        <VacancyEligibilityDialog
+          cycle={ineligibleModalCycle}
+          onClose={() => setIneligibleModalCycle(null)}
+        />
+      )}
 
-      {/* ─── 4. ASYMMETRIC MAIN GRID (2fr / 1fr) ────────────────────── */}
-      {/* Single full-width column: the Quick Actions and 201 Dossier cards
-          that sat beside this were removed. Quick Actions repeated the sidebar
-          links verbatim, and the dossier asserted "PRC Verification: Verified
-          (LET)" for every user regardless of whether they held a licence. */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
-        
-        {/* LEFT COLUMN: Open Vacancies & Active Transactions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Mobile Scanner Modal */}
+      {scannerOpen && (
+        <DocumentScannerModal
+          isOpen={scannerOpen}
+          documentTypeName="Personnel 201 Record"
+          onClose={() => setScannerOpen(false)}
+          onScanComplete={handleScanFinished}
+        />
+      )}
 
-          {/* Quick Access Banner: 201 Documents & Camera Scanner */}
-          <div className="personnel-home-banner">
-            <div className="personnel-banner-content">
-              <div className="personnel-banner-icon-wrap">
-                <AppIcon name="document" size={24} color="var(--color-primary)" />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
-                    My 201 Documents & Mobile Scanner
-                  </h3>
-                  <span
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 9999,
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      color: '#059669',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    Checklist & Scanner
-                  </span>
-                </div>
-              </div>
-            </div>
+      {/* Document Viewer Modal */}
+      {previewDoc && (
+        <DocumentViewerModal
+          isOpen={Boolean(previewDoc)}
+          fileUrl={previewDoc.url}
+          title={previewDoc.name}
+          onClose={() => setPreviewDoc(null)}
+        />
+      )}
 
-            <div className="personnel-banner-actions">
-              <Link
-                to="/personnel/documents?action=scan"
-                className="btn btn-secondary"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '10px 18px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  borderRadius: 12,
-                  textDecoration: 'none',
-                  minHeight: 44,
-                }}
-              >
-                <AppIcon name="camera" size={16} /> Scan with Camera
-              </Link>
-              <Link
-                to="/personnel/documents"
-                className="btn btn-primary"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '10px 20px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  borderRadius: 12,
-                  textDecoration: 'none',
-                  minHeight: 44,
-                }}
-              >
-                <AppIcon name="folder" size={16} /> Open My 201 Files →
-              </Link>
-            </div>
-          </div>
-          
-          {/* Section 1: Active 201 Transactions */}
-          <div className="table-card-large">
-            <div className="card-header-flex">
-              <h3 className="card-heading-title" style={{ margin: 0 }}>Active 201 Transactions</h3>
-              <Link to="/personnel/transactions" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
-                View All Transactions →
-              </Link>
-            </div>
-
-            {activeTransactions.length === 0 ? (
-              transactions.length > 0 ? (
-                /* All Filings Up to Date (with recent approved reference) */
-                <div style={{
-                  padding: '26px 24px',
-                  background: 'var(--color-bg-secondary)',
-                  borderRadius: 20,
-                  border: '1px solid var(--color-border)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, marginBottom: 18 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <div style={{
-                        width: 46,
-                        height: 46,
-                        borderRadius: 14,
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        border: '1px solid rgba(16, 185, 129, 0.25)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--color-success)',
-                        flexShrink: 0
-                      }}>
-                        <AppIcon name="checklist" size={24} color="var(--color-success)" />
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
-                          All 201 Applications Up to Date
-                        </div>
-                        <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                          No pending submissions or bottlenecks. Your 201 records are verified and archived.
-                        </div>
-                      </div>
-                    </div>
-                    <Link
-                      to="/personnel/transactions"
-                      className="btn btn-primary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        textDecoration: 'none',
-                        padding: '10px 20px',
-                        fontSize: 14,
-                        fontWeight: 700,
-                        borderRadius: 999
-                      }}
-                    >
-                      <AppIcon name="transactions" size={14} /> View My Transactions
-                    </Link>
-                  </div>
-
-                  {/* Most Recent Completed Record Snapshot */}
-                  {latestApproved && (
-                    <div style={{
-                      padding: '14px 18px',
-                      borderRadius: 14,
-                      background: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: 12
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--color-primary)' }}>
-                          TRX-{latestApproved.id}
-                        </span>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                          {latestApproved.transactionType?.name || 'Promotion / Appointment'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span className="badge badge-success" style={{ fontSize: 13, padding: '4px 10px', borderRadius: 999 }}>
-                          APPROVED BY HRMO
-                        </span>
-                        <Link
-                          to={`/personnel/checklist?txId=${latestApproved.id}`}
-                          style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}
-                        >
-                          View Dossier →
-                        </Link>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Truly Empty 201 State */
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  padding: '44px 28px',
-                  background: 'var(--color-bg-secondary)',
-                  borderRadius: 20,
-                  border: '1px dashed var(--color-border)',
-                }}>
-                  <div style={{
-                    width: 58,
-                    height: 58,
-                    borderRadius: 18,
-                    background: 'var(--color-bg-tertiary)',
-                    border: '1px solid var(--color-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: 16,
-                    color: 'var(--color-primary)'
-                  }}>
-                    <AppIcon name="transactions" size={28} color="var(--color-primary)" />
-                  </div>
-                  
-                  <div style={{
-                    fontWeight: 800,
-                    fontSize: 17,
-                    marginBottom: 20,
-                    color: 'var(--color-text-primary)',
-                    letterSpacing: '-0.01em'
-                  }}>
-                    No Active 201 Transactions
-                  </div>
-
-                  {/* 3-Step Guided Workflow Pills */}
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center',
-                    gap: 8,
-                    marginBottom: 24,
-                    maxWidth: 580
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      background: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--color-text-secondary)'
-                    }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>1</span>
-                      Open Assigned Transaction
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      background: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--color-text-secondary)'
-                    }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>2</span>
-                      Upload PDF Checklist
-                    </div>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      background: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: 'var(--color-text-secondary)'
-                    }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>3</span>
-                      AO II & HRMO Live Evaluation
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <Link
-                      to="/personnel/transactions"
-                      className="btn btn-secondary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        textDecoration: 'none',
-                        padding: '10px 18px',
-                        borderRadius: 999
-                      }}
-                    >
-                      View Filing Archive
-                    </Link>
-                  </div>
-                </div>
-              )
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {activeTransactions.map(tx => (
-                  <Link key={tx.id} to={`/personnel/checklist?txId=${tx.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                    <div className="card hover-lift" style={{ background: 'var(--color-bg-secondary)', margin: 0, padding: 18, borderRadius: 16, border: '1px solid var(--color-border)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                        <div>
-                          <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                            {tx.transactionType?.name || 'HR Transaction'}
-                          </span>
-                          <div className="text-xs text-muted mt-1 font-mono">Ref: TRX-{tx.id}</div>
-                        </div>
-                        <StatusBadge status={tx.status} />
-                      </div>
-                      <div className="text-xs text-muted">
-                        Submitted: {new Date(tx.createdAt).toLocaleDateString()}
-                      </div>
-                      <div style={{ marginTop: 12 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                          <span className="text-muted">Document Compliance Score</span>
-                          <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>
-                            {tx.complianceScore !== undefined ? `${tx.complianceScore}%` : 'In Progress'}
-                          </span>
-                        </div>
-                        <div className="progress-bar" style={{ height: 6, background: 'var(--color-bg-tertiary)', borderRadius: 999 }}>
-                          <div className="progress-fill" style={{ width: `${tx.complianceScore ?? 0}%`, background: 'var(--color-primary)' }} />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Section 2: Open Promotion & Reclassification Vacancies */}
-          <div className="table-card-large">
-            <div className="card-header-flex">
-              <div>
-                <h3 className="card-heading-title">Open Promotion & Reclassification Vacancies</h3>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                {openCycles.some(c => c.hasApplied) && (
-                  <div style={{ display: 'inline-flex', borderRadius: '9999px', background: 'var(--color-bg-tertiary)', padding: 2, border: '1px solid var(--color-border)' }}>
-                    <button
-                      type="button"
-                      onClick={() => setPromotionFilter('ALL')}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: 13,
-                        fontWeight: 700,
-                        borderRadius: '9999px',
-                        border: 'none',
-                        background: promotionFilter === 'ALL' ? 'var(--color-bg-secondary)' : 'transparent',
-                        color: promotionFilter === 'ALL' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                        cursor: 'pointer',
-                        boxShadow: promotionFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                      }}
-                    >
-                      All Open Vacancies ({activeOpenVacancies.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPromotionFilter('MY_APPLICATIONS')}
-                      style={{
-                        padding: '4px 10px',
-                        fontSize: 13,
-                        fontWeight: 700,
-                        borderRadius: '9999px',
-                        border: 'none',
-                        background: promotionFilter === 'MY_APPLICATIONS' ? 'var(--color-bg-secondary)' : 'transparent',
-                        color: promotionFilter === 'MY_APPLICATIONS' ? '#059669' : 'var(--color-text-secondary)',
-                        cursor: 'pointer',
-                        boxShadow: promotionFilter === 'MY_APPLICATIONS' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                      }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-                      My Applications ({openCycles.filter(c => c.hasApplied).length})
-                    </button>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowPlantillaDirectory(true)}
-                  className="btn btn-secondary btn-xs"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '5px 12px',
-                    borderRadius: '9999px',
-                    border: '1px solid var(--color-border)',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    background: 'var(--color-bg-secondary)',
-                    color: 'var(--color-primary)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <AppIcon name="employment" size={13} color="var(--color-primary)" />
-                  Item Availability Directory ({availablePlantillaItems.length} Vacancies)
-                </button>
-              </div>
-            </div>
-
-            {((promotionFilter === 'ALL' && activeOpenVacancies.length === 0) || (promotionFilter !== 'ALL' && openCycles.length === 0)) ? (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                padding: '40px 24px',
-                background: 'var(--color-bg-secondary)',
-                borderRadius: 20,
-                border: '1px dashed var(--color-border)'
-              }}>
-                <div style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 16,
-                  background: 'var(--color-bg-tertiary)',
-                  border: '1px solid var(--color-border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 14,
-                  color: 'var(--color-text-muted)'
-                }}>
-                  <AppIcon name="checklist" size={26} color="var(--color-text-muted)" />
-                </div>
-                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6, color: 'var(--color-text-primary)' }}>
-                  No Active Vacancies Right Now
-                </div>
-                <div style={{ maxWidth: 420, margin: '0 auto', fontSize: 14, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
-                  All promotion and reclassification cycles are currently closed or in evaluation. Check back soon for upcoming DepEd cycles!
-                </div>
-              </div>
-            ) : (promotionFilter === 'MY_APPLICATIONS' && openCycles.filter(c => c.hasApplied).length === 0) ? (
-              <div style={{ textAlign: 'center', padding: '36px 20px', background: 'var(--color-bg-secondary)', borderRadius: 16, border: '1px dashed var(--color-border)' }}>
-                <p style={{ margin: 0, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                  You have not submitted an application to any active promotion cycle yet.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-xs"
-                  onClick={() => setPromotionFilter('ALL')}
-                  style={{ marginTop: 10 }}
-                >
-                  Browse Available Vacancies
-                </button>
-              </div>
-            ) : (
-              <div className="vac-list">
-                {(promotionFilter === 'MY_APPLICATIONS' ? openCycles.filter(c => c.hasApplied) : activeOpenVacancies).map(cycle => {
-                  const isActive = cycle.status === 'ACTIVE';
-                  const rules = (cycle as any).rulesConfigurationJson || {};
-                  const statusInfo = getApplicationStatusInfo(cycle);
-                  const accent = statusInfo?.badgeColor || (isActive ? 'var(--color-primary)' : 'var(--color-border)');
-
-                  return (
-                    <div
-                      key={cycle.id}
-                      className={`vac-card${statusInfo?.terminal ? ' is-muted' : ''}`}
-                      style={{
-                        ['--vac-accent' as any]: accent,
-                        ['--vac-accent-soft' as any]: statusInfo?.badgeBg || 'var(--color-bg-tertiary)',
-                      }}
-                    >
-                      <div className="vac-head">
-                        <div style={{ minWidth: 0 }}>
-                          <h4 className="vac-title">{cycleHeadline(cycle.name, rules.plantillaItemNumber)}</h4>
-                          <span className="vac-title-sub">{vacancyTypeLabel(cycle.type)}</span>
-                        </div>
-                        <span className={`vac-availability ${isActive ? 'is-open' : 'is-upcoming'}`}>
-                          <span className="vac-dot" />
-                          {isActive ? 'Open now' : 'Upcoming'}
-                        </span>
-                      </div>
-
-                      <div className="vac-meta">
-                        <div className="vac-meta-item">
-                          <span className="vac-meta-label">{isActive ? 'Deadline' : 'Opens'}</span>
-                          <span className="vac-meta-value">
-                            {new Date(isActive ? cycle.endDate : cycle.startDate).toLocaleDateString(undefined, {
-                              month: 'short', day: 'numeric', year: 'numeric',
-                            })}
-                          </span>
-                        </div>
-                        <div className="vac-meta-item">
-                          <span className="vac-meta-label">Applicants</span>
-                          <span className="vac-meta-value">{cycle.applicantCount || 0}</span>
-                        </div>
-                        <div className="vac-meta-item">
-                          <span className="vac-meta-label">Open to</span>
-                          <span className="vac-meta-value">{rules.openTo === 'DISTRICT' && rules.district ? `${rules.district} only` : 'Whole division'}</span>
-                        </div>
-                        {rules.plantillaItemNumber && (
-                          <div className="vac-meta-item">
-                            <span className="vac-meta-label">Plantilla item</span>
-                            <span className="vac-meta-value is-mono">{rules.plantillaItemNumber}</span>
-                          </div>
-                        )}
-                        {rules.school && rules.school !== 'All Schools in District' && (
-                          <div className="vac-meta-item">
-                            <span className="vac-meta-label">Station</span>
-                            <span className="vac-meta-value">{rules.school}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Application Status Bar (when personnel applied) */}
-                      {cycle.hasApplied && statusInfo ? (
-                        <div className="vac-status">
-                          <div className="vac-status-main">
-                            <span className="vac-status-icon">
-                              <AppIcon name={statusInfo.icon as any} size={16} />
-                            </span>
-                            <div style={{ minWidth: 0 }}>
-                              <div className="vac-status-label">
-                                {statusInfo.label}
-                                {cycle.myApplication?.applicantNumber && (
-                                  <span className="vac-ref">{cycle.myApplication.applicantNumber}</span>
-                                )}
-                              </div>
-                              <p className="vac-status-desc">{statusInfo.description}</p>
-                            </div>
-                          </div>
-                          {/* A discontinued or concluded cycle has nothing left to submit,
-                              so it gets no call to action. */}
-                          {!statusInfo.terminal && (
-                            <div className="vac-actions">
-                              <button
-                                type="button"
-                                className={cycle.hasChecklist ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
-                                onClick={() => handleOpenChecklistModal(cycle)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                              >
-                                <AppIcon name={cycle.hasChecklist ? 'checklist' : 'upload'} size={14} />
-                                {cycle.hasChecklist ? 'View checklist' : 'Upload requirements'}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="vac-foot">
-                          {isCycleForCurrentPosition(cycle) ? (
-                            <span className="vac-note">
-                              <AppIcon name="employment" size={14} />
-                              This is your current position
-                            </span>
-                          ) : cycle.isEligible === false ? (
-                            <>
-                              <span className="vac-note is-blocked">
-                                <AppIcon name="warning" size={14} />
-                                You are not eligible for this vacancy
-                              </span>
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => setIneligibleModalCycle(cycle)}
-                              >
-                                See why
-                              </button>
-                            </>
-                          ) : isActive && cycle.applicationsState && cycle.applicationsState !== 'OPEN' ? (
-                            <span className="vac-note is-blocked">
-                              <AppIcon name="pending" size={14} />
-                              {cycle.applicationsState === 'NOT_YET_OPEN'
-                                ? `Applications open on ${cycle.applicationsOpenOn}`
-                                : `Applications closed on ${cycle.applicationsCloseOn}`}
-                            </span>
-                          ) : isActive ? (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              disabled={submittingCycleId === cycle.id}
-                              onClick={() => handleOpenChecklistModal(cycle)}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                            >
-                              <AppIcon name="promotions" size={14} />
-                              Apply for this vacancy
-                            </button>
-                          ) : (
-                            <span className="vac-note">
-                              <AppIcon name="clock" size={14} />
-                              Opens {new Date(cycle.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-        </div>
-
-
-      </div>
-
-      {/* ─── 5. ITEM AVAILABILITY / PLANTILLA DIRECTORY MODAL ─── */}
+      {/* Available Plantilla Directory Modal */}
       {showPlantillaDirectory && (
         <ModalPortal>
-        <ModalOverlay onDismiss={() => setShowPlantillaDirectory(false)}
-          className="modal-overlay plantilla-directory-overlay"
-          role="presentation"
-          style={{
-            background: 'rgba(0, 0, 0, 0.7)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 1100,
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowPlantillaDirectory(false);
-          }}
-        >
-          <div
-            className="soft-card plantilla-directory-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="plantilla-directory-title"
-            style={{
-              width: '100%',
-              maxWidth: 920,
-              display: 'flex',
-              flexDirection: 'column',
-              padding: 0,
-              overflow: 'hidden',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-              border: '1px solid var(--color-border)',
-              background: 'var(--color-bg-card)',
-            }}
-          >
-            {/* Modal Header */}
+          <ModalOverlay onDismiss={() => setShowPlantillaDirectory(false)}>
             <div
-              className="plantilla-directory-header"
+              className="card"
               style={{
-                padding: '18px 24px',
-                borderBottom: '1px solid var(--color-border)',
+                width: '100%',
+                maxWidth: 760,
+                maxHeight: '85vh',
+                padding: 24,
+                borderRadius: 16,
+                background: 'var(--color-bg-card)',
+                border: '1px solid var(--color-border)',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: 'var(--color-bg-secondary)',
+                flexDirection: 'column',
               }}
+              onClick={e => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    background: 'rgba(215, 248, 74, 0.15)',
-                    border: '1px solid rgba(215, 248, 74, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--color-primary)',
-                    flexShrink: 0,
-                  }}
-                >
-                  <AppIcon name="employment" size={20} color="var(--color-primary)" />
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
-                  <h3 id="plantilla-directory-title" style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text-primary)', letterSpacing: '-0.015em' }}>
-                    DepEd Plantilla Directory & Item Availability
+                  <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>
+                    Plantilla Item Availability Directory
                   </h3>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                    Division authorized vacant plantilla items open for ranking and recruitment
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPlantillaDirectory(false)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                  aria-label="Close dialog"
+                >
+                  <AppIcon name="close" size={18} />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPlantillaDirectory(false)}
-                title="Close"
-                aria-label="Close"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-card)',
-                  color: 'var(--color-text-secondary)',
-                  cursor: 'pointer',
-                  padding: 0,
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <AppIcon name="close" size={16} />
-              </button>
-            </div>
 
-            {/* Filter & Search Bar */}
-            <div className="plantilla-directory-toolbar" style={{ padding: '14px 24px', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: 14, alignItems: 'center', background: 'var(--color-bg-card)' }}>
-              <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <div style={{ position: 'absolute', left: 14, pointerEvents: 'none', display: 'flex', alignItems: 'center', zIndex: 2 }}>
-                  <AppIcon name="search" size={16} color="var(--color-text-muted)" />
-                </div>
+              <div style={{ marginBottom: 16 }}>
                 <input
-                  aria-label="Search by position title, plantilla item #, school station, district"
-                  type="text"
-                  className="search-input"
-                  placeholder="Search by position title, plantilla item #, school station, district..."
+                  type="search"
+                  className="form-control"
+                  placeholder="Search plantilla by position title or item number…"
                   value={plantillaSearch}
-                  onChange={(e) => setPlantillaSearch(e.target.value)}
-                  style={{
-                    width: '100%',
-                    fontSize: 14,
-                    padding: '9px 16px 9px 42px',
-                    paddingLeft: '42px',
-                    borderRadius: 10,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-secondary)',
-                  }}
+                  onChange={e => setPlantillaSearch(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '0.875rem', borderRadius: 8 }}
                 />
               </div>
-              <div
-                style={{
-                  fontSize: 13,
-                  color: 'var(--color-text-secondary)',
-                  whiteSpace: 'nowrap',
-                  background: 'var(--color-bg-secondary)',
-                  padding: '7px 14px',
-                  borderRadius: 20,
-                  border: '1px solid var(--color-border)',
-                  fontWeight: 500,
-                }}
-              >
-                Found <strong style={{ color: 'var(--color-text-primary)' }}>{availablePlantillaItems.filter(item => {
-                  if (!plantillaSearch.trim()) return true;
-                  const q = plantillaSearch.toLowerCase();
-                  return (
-                    item.itemNumber?.toLowerCase().includes(q) ||
-                    item.positionTitle?.toLowerCase().includes(q) ||
-                    item.stationOrSchool?.toLowerCase().includes(q) ||
-                    item.district?.toLowerCase().includes(q) ||
-                    item.track?.toLowerCase().includes(q)
-                  );
-                }).length}</strong> vacant item(s)
-              </div>
-            </div>
 
-            {/* Modal Body / Items List */}
-            <div className="plantilla-directory-list" style={{ padding: '20px 24px 24px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {availablePlantillaItems.filter(item => {
-                if (!plantillaSearch.trim()) return true;
-                const q = plantillaSearch.toLowerCase();
-                return (
-                  item.itemNumber?.toLowerCase().includes(q) ||
-                  item.positionTitle?.toLowerCase().includes(q) ||
-                  item.stationOrSchool?.toLowerCase().includes(q) ||
-                  item.district?.toLowerCase().includes(q) ||
-                  item.track?.toLowerCase().includes(q)
-                );
-              }).length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-secondary)' }}>
-                  <AppIcon name="compliance" size={32} color="var(--color-text-muted)" />
-                  <p style={{ marginTop: 12, fontWeight: 600 }}>No vacant plantilla items found matching your filter.</p>
-                </div>
-              ) : (
-                availablePlantillaItems.filter(item => {
-                  if (!plantillaSearch.trim()) return true;
-                  const q = plantillaSearch.toLowerCase();
-                  return (
-                    item.itemNumber?.toLowerCase().includes(q) ||
-                    item.positionTitle?.toLowerCase().includes(q) ||
-                    item.stationOrSchool?.toLowerCase().includes(q) ||
-                    item.district?.toLowerCase().includes(q) ||
-                    item.track?.toLowerCase().includes(q)
-                  );
-                }).map(item => {
-                  const hasCycle = !!item.promotionCycle;
-                  const cycle = item.promotionCycle;
-                  const isCycleActive = cycle && cycle.status === 'ACTIVE';
-                  const trackName = item.track || (item.positionTitle?.toLowerCase().includes('teacher') ? 'Teaching' : 'Non-Teaching');
-
-                  return (
+              <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filteredPlantilla.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px 16px', color: 'var(--color-text-muted)' }}>
+                    No plantilla items match your search.
+                  </div>
+                ) : (
+                  filteredPlantilla.map((item, idx) => (
                     <div
-                      key={item.id}
+                      key={item.id || idx}
                       style={{
+                        padding: '12px 16px',
+                        borderRadius: 10,
+                        background: 'var(--color-bg-secondary)',
+                        border: '1px solid var(--color-border)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        padding: '16px 20px',
-                        borderRadius: 14,
-                        background: 'var(--color-bg-secondary)',
-                        border: '1px solid var(--color-border)',
-                        transition: 'all 0.15s ease',
                         flexWrap: 'wrap',
-                        gap: 14,
+                        gap: 10,
                       }}
                     >
-                      <div className="plantilla-directory-item-copy" style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 800, fontSize: 15.5, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
-                            {item.positionTitle}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 700,
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              background: 'rgba(234, 179, 8, 0.12)',
-                              color: '#b45309',
-                              border: '1px solid rgba(234, 179, 8, 0.3)',
-                              letterSpacing: '0.02em',
-                            }}
-                          >
-                            SG {item.salaryGrade}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              background: 'var(--color-bg-card)',
-                              color: 'var(--color-text-secondary)',
-                              border: '1px solid var(--color-border)',
-                            }}
-                          >
-                            {trackName} Track
-                          </span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text-primary)' }}>
+                          {item.positionTitle}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
-                          <span
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              color: 'var(--color-text-primary)',
-                              fontWeight: 700,
-                              fontSize: 13,
-                              background: 'var(--color-bg-card)',
-                              border: '1px solid var(--color-border)',
-                              padding: '1px 7px',
-                              borderRadius: 5,
-                            }}
-                          >
-                            {item.itemNumber}
-                          </span>
-                          <span style={{ color: 'var(--color-text-muted)', margin: '0 2px' }}>·</span>
-                          <span>Station: <strong style={{ color: 'var(--color-text-primary)' }}>{item.stationOrSchool || 'SDO Proper'}</strong></span>
-                          <span style={{ color: 'var(--color-text-muted)', margin: '0 2px' }}>·</span>
-                          <span>{item.district || 'SDO Koronadal City'}</span>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <span>Item No: <strong className="font-mono">{item.itemNumber}</strong></span>
+                          <span>·</span>
+                          <span>Salary Grade: <strong>SG {item.salaryGrade}</strong></span>
+                          {item.office && <span>· Station: {item.office}</span>}
                         </div>
-                        {hasCycle && (
-                          <div
-                            style={{
-                              marginTop: 4,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              fontSize: 13,
-                              color: 'var(--color-text-primary)',
-                              background: 'rgba(59, 130, 246, 0.08)',
-                              padding: '4px 10px',
-                              borderRadius: 8,
-                              border: '1px solid rgba(59, 130, 246, 0.2)',
-                              alignSelf: 'flex-start',
-                            }}
-                          >
-                            <AppIcon name="promotions" size={13} color="#2f7d52" />
-                            <span>
-                              Linked Cycle: <strong>{cycle.name}</strong>{' '}
-                              <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 13 }}>({transactionStatusLabel(cycle.status)})</span>
-                            </span>
-                          </div>
-                        )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        {hasCycle && isCycleForCurrentPosition(cycle) ? (
-                          <span
-                            style={{
-                              padding: '6px 14px',
-                              fontSize: 13,
-                              fontWeight: 700,
-                              borderRadius: 8,
-                              background: 'var(--color-bg-tertiary)',
-                              color: 'var(--color-text-secondary)',
-                              border: '1px solid var(--color-border)',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Current Position — Not Eligible
-                          </span>
-                        ) : hasCycle && cycle.hasApplied ? (() => {
-                          const statusInfo = getApplicationStatusInfo(cycle);
-                          return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              {statusInfo && (
-                                <span
-                                  style={{
-                                    padding: '5px 10px',
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                    borderRadius: 6,
-                                    background: statusInfo.badgeBg,
-                                    color: statusInfo.badgeColor,
-                                    border: `1px solid ${statusInfo.borderColor}`,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 5,
-                                  }}
-                                >
-                                  <AppIcon name={statusInfo.icon as any} size={13} color={statusInfo.badgeColor} />
-                                  {statusInfo.label}
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenChecklistModal(cycle)}
-                                style={{
-                                  padding: '6px 12px',
-                                  fontSize: 13,
-                                  fontWeight: 700,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  borderRadius: 8,
-                                  background: 'var(--color-bg-tertiary)',
-                                  color: 'var(--color-text-primary)',
-                                  border: '1px solid var(--color-border)',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <AppIcon name={cycle.hasChecklist ? 'document' : 'alert'} size={13} />
-                                {cycle.hasChecklist ? 'View Checklist & Dossier' : 'Complete Requirements'}
-                              </button>
-                            </div>
-                          );
-                        })() : hasCycle && cycle.isEligible === false ? (
-                          <span
-                            style={{
-                              padding: '6px 14px',
-                              fontSize: 13,
-                              fontWeight: 700,
-                              borderRadius: 8,
-                              background: 'rgba(239, 68, 68, 0.1)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239, 68, 68, 0.28)',
-                              whiteSpace: 'nowrap',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                            }}
-                          >
-                            <AppIcon name="alert" size={13} color="#ef4444" />
-                            <span>Ineligible, </span>
-                            <button
-                              type="button"
-                              onClick={() => setIneligibleModalCycle(cycle)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                margin: 0,
-                                font: 'inherit',
-                                fontSize: 13,
-                                fontWeight: 700,
-                                color: '#ef4444',
-                                textDecoration: 'underline',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              find out why
-                            </button>
-                          </span>
-                        ) : hasCycle && isCycleActive ? (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            disabled={submittingCycleId === cycle.id}
-                            onClick={() => {
-                              handleOpenChecklistModal(cycle);
-                            }}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '8px 18px',
-                              fontWeight: 700,
-                              borderRadius: 8,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <AppIcon name="promotions" size={14} />
-                            Apply & Submit Requirements
-                          </button>
-                        ) : hasCycle ? (
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              padding: '6px 14px',
-                              borderRadius: 8,
-                              background: 'rgba(234, 179, 8, 0.12)',
-                              color: '#b45309',
-                              border: '1px solid rgba(234, 179, 8, 0.28)',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Starts {new Date(cycle.startDate).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              padding: '6px 14px',
-                              borderRadius: 8,
-                              background: 'rgba(100, 116, 139, 0.08)',
-                              color: 'var(--color-text-secondary)',
-                              border: '1px solid var(--color-border)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
-                            Vacant (Cycle Pending)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </ModalOverlay>
-        </ModalPortal>
-      )}
-
-      {/* MODAL: INELIGIBILITY EXPLANATION */}
-      {ineligibleModalCycle && (
-        <ModalPortal>
-          <ModalOverlay onDismiss={() => setIneligibleModalCycle(null)}
-            className="modal-overlay"
-            role="presentation"
-            style={{
-              background: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(6px)',
-              zIndex: 1200,
-            }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setIneligibleModalCycle(null);
-            }}
-          >
-            <section
-              className="eligibility-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="ineligible-modal-title"
-            >
-              <header className="eligibility-dialog__header">
-                <div className="eligibility-dialog__heading">
-                  <div className="eligibility-dialog__icon" aria-hidden="true">
-                    <AppIcon name="alert" size={18} color="currentColor" />
-                  </div>
-                  <div>
-                    <span className="eligibility-dialog__eyebrow">Application eligibility</span>
-                    <h3 id="ineligible-modal-title">You can’t apply to this vacancy</h3>
-                  </div>
-                </div>
-              </header>
-
-              <div className="eligibility-dialog__body">
-                <p className="eligibility-dialog__intro">This vacancy is outside the allowed position progression for your current appointment.</p>
-                <div className="eligibility-dialog__route">
-                  <div className="eligibility-dialog__position">
-                    <span>Your current position</span>
-                    <strong>{user?.personnel?.designation || 'Current appointment'}</strong>
-                  </div>
-                  <div className="eligibility-dialog__blocked-arrow" aria-label="Progression is not allowed">
-                    <span></span><AppIcon name="close" size={13} /><span></span>
-                  </div>
-                  <div className="eligibility-dialog__position eligibility-dialog__position--target">
-                    <span>Requested vacancy</span>
-                    <strong>{ineligibleModalCycle.name}</strong>
-                    <em>{ineligibleModalCycle.type.replace(/_/g, ' ')}</em>
-                  </div>
-                </div>
-                <div className="eligibility-dialog__reason">
-                  <span>Why this is blocked</span>
-                  <p>{ineligibleModalCycle.ineligibilityReason || 'This promotion cycle exceeds the allowable position progression steps from your current appointment under DepEd rules.'}</p>
-                </div>
-              </div>
-              <footer className="eligibility-dialog__footer">
-                <span>DepEd promotion qualification rules apply.</span>
-                <button type="button" onClick={() => setIneligibleModalCycle(null)}>Close</button>
-              </footer>
-
-            </section>
-          </ModalOverlay>
-        </ModalPortal>
-      )}
-
-      {/* ─── ANNEX C DOCUMENTARY REQUIREMENTS CHECKLIST MODAL ─── */}
-      {selectedCycleForChecklist && (
-        <ModalPortal>
-          <ModalOverlay onDismiss={() => setSelectedCycleForChecklist(null)}
-            className="modal-overlay"
-            role="presentation"
-            style={{
-              background: 'rgba(0, 0, 0, 0.7)',
-              backdropFilter: 'blur(6px)',
-              zIndex: 1200,
-            }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget && !isSubmittingChecklist) {
-                setSelectedCycleForChecklist(null);
-              }
-            }}
-          >
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 920,
-                maxHeight: '92vh',
-                display: 'flex',
-                flexDirection: 'column',
-                background: 'var(--color-bg-card, #ffffff)',
-                borderRadius: 16,
-                border: '1px solid var(--color-border)',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
-                overflow: 'hidden',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div
-                style={{
-                  padding: '18px 24px',
-                  borderBottom: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-secondary)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: 16,
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        letterSpacing: '0.04em',
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        background: isChecklistReadOnly ? 'rgba(16, 185, 129, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                        color: isChecklistReadOnly ? '#10b981' : '#3f9265',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {isChecklistReadOnly ? 'Checklist Submitted (Read-Only)' : (selectedCycleForChecklist.hasApplied ? 'Checklist Submission Required' : 'DepEd Promotion Dossier')}
-                    </span>
-                    <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
-                      DepEd Order No. 007, s. 2023
-                    </span>
-                  </div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                    Annex C: Checklist of Requirements and Omnibus Sworn Statement
-                  </h3>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--color-text-secondary)' }}>
-                    <strong style={{ color: 'var(--color-text-primary)' }}>
-                      {cycleHeadline(
-                        selectedCycleForChecklist.name,
-                        ((selectedCycleForChecklist as any).rulesConfigurationJson || {}).plantillaItemNumber,
-                      )}
-                    </strong>
-                    {' · '}{vacancyTypeLabel(selectedCycleForChecklist.type)}
-                    {((selectedCycleForChecklist as any).rulesConfigurationJson || {}).plantillaItemNumber && (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                        {' · '}{((selectedCycleForChecklist as any).rulesConfigurationJson || {}).plantillaItemNumber}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => !isSubmittingChecklist && setSelectedCycleForChecklist(null)}
-                  disabled={isSubmittingChecklist}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: 20,
-                    lineHeight: 1,
-                    color: 'var(--color-text-muted)',
-                    padding: 4,
-                  }}
-                  title="Close"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Modal Body - Scrollable */}
-              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, background: 'var(--color-bg-card, #ffffff)' }}>
-                
-                {/* Application Processing Status Card (for applied personnel) */}
-                {selectedCycleForChecklist.hasApplied && (() => {
-                  const statusInfo = getApplicationStatusInfo(selectedCycleForChecklist);
-                  if (!statusInfo) return null;
-                  return (
-                    <div
-                      className="annex-status"
-                      style={{
-                        ['--annex-accent' as any]: statusInfo.badgeColor,
-                        ['--annex-accent-soft' as any]: statusInfo.badgeBg,
-                      }}
-                    >
-                      <span className="annex-status-icon">
-                        <AppIcon name={statusInfo.icon as any} size={18} />
-                      </span>
-                      <div style={{ minWidth: 0 }}>
-                        <div className="annex-status-label">{statusInfo.label}</div>
-                        {/* The application code is a field in section 1; printing it
-                            again here was the same value three times on one screen. */}
-                        <p className="annex-status-desc">{statusInfo.description}</p>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Section 1: Basic Applicant Profile */}
-                <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 12, padding: '16px 18px', border: '1px solid var(--color-border)' }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                    1. Applicant Identification & Assignment
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                        Name of Applicant
-                      </label>
-                      <input
-                        aria-label="Name of Applicant"
-                        type="text"
-                        className="form-control"
-                        disabled={isChecklistReadOnly}
-                        value={checklistApplicantName}
-                        onChange={e => setChecklistApplicantName(e.target.value)}
-                        style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                        Application Code
-                      </label>
-                      <input
-                        aria-label="Application Code"
-                        type="text"
-                        className="form-control"
-                        readOnly
-                        value={checklistApplicationCode || 'Assigned when you submit'}
-                        style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6, fontWeight: 700 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                        Office / School Station
-                      </label>
-                      <input
-                        aria-label="Office / School Station"
-                        type="text"
-                        className="form-control"
-                        disabled={isChecklistReadOnly}
-                        value={checklistOffice}
-                        onChange={e => setChecklistOffice(e.target.value)}
-                        style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                        Contact Number
-                      </label>
-                      <input
-                        aria-label="Contact Number"
-                        type="text"
-                        className="form-control"
-                        disabled={isChecklistReadOnly}
-                        value={checklistContactNo}
-                        onChange={e => setChecklistContactNo(e.target.value)}
-                        style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                        Region
-                      </label>
-                      <input
-                        aria-label="Region"
-                        type="text"
-                        className="form-control"
-                        disabled={isChecklistReadOnly}
-                        value={checklistRegion}
-                        onChange={e => setChecklistRegion(e.target.value)}
-                        style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                        Ethnicity / Cultural Community
-                      </label>
-                      <input
-                        aria-label="Ethnicity / Cultural Community"
-                        type="text"
-                        className="form-control"
-                        disabled={isChecklistReadOnly}
-                        value={checklistEthnicity}
-                        onChange={e => setChecklistEthnicity(e.target.value)}
-                        style={{ fontSize: '0.84rem', padding: '6px 10px', width: '100%', borderRadius: 6 }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Special Category Toggles */}
-                  <div style={{ display: 'flex', gap: 24, marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--color-border)', flexWrap: 'wrap' }}>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', cursor: isChecklistReadOnly ? 'default' : 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        disabled={isChecklistReadOnly}
-                        checked={checklistIsPwd}
-                        onChange={e => setChecklistIsPwd(e.target.checked)}
-                        style={{ width: 16, height: 16 }}
-                      />
-                      <span>Person with Disability (PWD)</span>
-                    </label>
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', cursor: isChecklistReadOnly ? 'default' : 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        disabled={isChecklistReadOnly}
-                        checked={checklistIsSoloParent}
-                        onChange={e => setChecklistIsSoloParent(e.target.checked)}
-                        style={{ width: 16, height: 16 }}
-                      />
-                      <span>Solo Parent</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Section 2: Documentary Requirements Checklist (Items a to k) */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                    <div>
-                      <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                        2. Documentary Requirements Checklist (Annex C Items a – k)
-                      </div>
-                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                        Items marked <strong style={{ color: 'var(--color-text-secondary)' }}>Required</strong> must be attached before you can submit.
-                      </div>
-                    </div>
-                    {/* One counter, on the number that actually gates submission.
-                        The footer used to show a second count with a different
-                        denominator (mandatory vs all), which read as a contradiction. */}
-                    {(() => {
-                      const required = checklistItems.filter(i => i.isMandatory);
-                      const done = required.filter(i => i.submitted).length;
-                      const optional = checklistItems.filter(i => !i.isMandatory && i.submitted).length;
-                      return (
-                        <div className={`annex-count${done >= required.length ? ' is-done' : ''}`}>
-                          <strong>{done} of {required.length}</strong> required attached
-                          {optional > 0 && <span className="annex-count-sub"> · {optional} optional</span>}
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {checklistItems.map(item => (
-                      <div
-                        key={item.code}
-                        className={`annex-item${item.submitted ? ' is-done' : ''}`}
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          background: 'rgba(16, 185, 129, 0.12)',
+                          color: '#059669',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                        }}
                       >
-                        <div style={{ flex: '1 1 320px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                            {/* Neutral until attached, green once it is. An untouched
-                                requirement is a to-do, not an error, so it is not red. */}
-                            <span className="annex-item-code">
-                              {item.submitted ? <AppIcon name="check" size={13} /> : item.code.toUpperCase()}
-                            </span>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                              {item.title}
-                            </span>
-                            <span className={`annex-tag${item.isMandatory ? ' is-required' : ''}`}>
-                              {item.isMandatory ? 'Required' : 'If applicable'}
-                            </span>
-                          </div>
-                          <div className="annex-item-desc">{item.description}</div>
-
-                          {/* Submitted Attachment Display */}
-                          {item.submitted && (
-                            <div style={{ marginTop: 8, paddingLeft: 30, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                  fontSize: '0.8125rem',
-                                  fontWeight: 700,
-                                  color: '#059669',
-                                  background: 'rgba(16, 185, 129, 0.12)',
-                                  padding: '3px 8px',
-                                  borderRadius: 5,
-                                }}
-                              >
-                                <AppIcon name="approved" size={12} color="#059669" />
-                                {item.documentName || 'Attached Document'}
-                                {formatFileSize(item.fileSize) && ` (${formatFileSize(item.fileSize)})`}
-                              </span>
-                              {(item.personnelDocumentId || item.uploadedFileUrl) && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setViewingDoc({
-                                      title: item.title || item.documentName || 'Attached Document',
-                                      fileName: item.documentName,
-                                      fileSize: item.fileSize,
-                                      // The stored URL may be a stale token link; the id always resolves
-                                      // through the authenticated personnel-document endpoint.
-                                      fileUrl: item.personnelDocumentId ? `/personnel/documents/${item.personnelDocumentId}/file` : item.uploadedFileUrl!,
-                                    });
-                                  }}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: 'var(--color-primary)',
-                                    fontSize: '0.8125rem',
-                                    cursor: 'pointer',
-                                    textDecoration: 'underline',
-                                    padding: 0,
-                                  }}
-                                >
-                                  View Document
-                                </button>
-                              )}
-                              {!isChecklistReadOnly && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAttachment(item.code)}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#dc2626',
-                                    fontSize: '0.8125rem',
-                                    cursor: 'pointer',
-                                    textDecoration: 'underline',
-                                    padding: 0,
-                                  }}
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action Buttons for Unsubmitted Item */}
-                        {!item.submitted && !isChecklistReadOnly && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            <label
-                              htmlFor={`file-upload-${item.code}`}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                padding: '6px 12px',
-                                borderRadius: 6,
-                                fontSize: '0.8125rem',
-                                fontWeight: 700,
-                                background: 'var(--color-bg-secondary, #ffffff)',
-                                border: '1px solid var(--color-border)',
-                                color: 'var(--color-text-primary)',
-                                cursor: uploadingForCode === item.code ? 'not-allowed' : 'pointer',
-                              }}
-                            >
-                              <AppIcon name="upload" size={12} />
-                              {uploadingForCode === item.code ? 'Uploading...' : 'Upload File'}
-                            </label>
-                            <input
-                              type="file"
-                              id={`file-upload-${item.code}`}
-                              style={{ display: 'none' }}
-                              disabled={uploadingForCode === item.code}
-                              onChange={e => handleFileUploadForItem(item.code, e)}
-                            />
-
-                            <button
-                              type="button"
-                              onClick={() => { setPicker201Search(''); setPicking201ForCode(item.code); }}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                padding: '6px 12px',
-                                borderRadius: 6,
-                                fontSize: '0.8125rem',
-                                fontWeight: 700,
-                                background: 'rgba(59, 130, 246, 0.08)',
-                                border: '1px solid rgba(59, 130, 246, 0.25)',
-                                color: '#2f7d52',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <AppIcon name="folder" size={12} color="#2f7d52" />
-                              Attach from 201
-                            </button>
-                          </div>
-                        )}
-
-                        {item.submitted && isChecklistReadOnly && (
-                          <span
-                            style={{
-                              fontSize: '0.8125rem',
-                              fontWeight: 700,
-                              color: '#059669',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                          >
-                            <AppIcon name="approved" size={13} color="#059669" /> Verified / Attached
-                          </span>
-                        )}
-
-                        {!item.submitted && isChecklistReadOnly && (
-                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                            Not submitted
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section 3: Legal Omnibus Sworn Statement & Data Privacy Consent */}
-                <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 12, padding: '16px 18px', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                    3. Omnibus Sworn Statement & Data Privacy Consent
-                  </div>
-
-                  {/* Omnibus Sworn Statement */}
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 10,
-                      fontSize: '0.8125rem',
-                      lineHeight: 1.5,
-                      color: 'var(--color-text-primary)',
-                      cursor: isChecklistReadOnly ? 'default' : 'pointer',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      disabled={isChecklistReadOnly}
-                      checked={checklistOmnibusAgreed}
-                      onChange={e => setChecklistOmnibusAgreed(e.target.checked)}
-                      style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
-                    />
-                    <span>
-                      <strong>Omnibus Sworn Statement / Certification of Authenticity and Veracity (CAV):</strong> I hereby certify that all documents submitted in satisfying the requirements of DepEd Order No. 007, s. 2023 are authentic and original or true copies of the original. I authorize the Department of Education to verify the authenticity of all submitted documents. I am executing this certification to attest to the truth of all the above statements.
-                    </span>
-                  </label>
-
-                  {/* Data Privacy Consent */}
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 10,
-                      fontSize: '0.8125rem',
-                      lineHeight: 1.5,
-                      color: 'var(--color-text-primary)',
-                      cursor: isChecklistReadOnly ? 'default' : 'pointer',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      disabled={isChecklistReadOnly}
-                      checked={checklistDataPrivacyAgreed}
-                      onChange={e => setChecklistDataPrivacyAgreed(e.target.checked)}
-                      style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
-                    />
-                    <span>
-                      <strong>Data Privacy Act (RA 10173) Consent:</strong> In compliance with Republic Act No. 10173 (Data Privacy Act of 2012), I authorize the Department of Education Division Selection Committee / HRMPSB to collect, store, and process my personal data and submitted records for evaluation, screening, and deliberation of my promotion application.
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div
-                style={{
-                  padding: '14px 24px',
-                  borderTop: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-secondary)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 12,
-                }}
-              >
-                {/* Say what is still blocking submission rather than leaving the
-                    button greyed out with no explanation. */}
-                <div>
-                  {(() => {
-                    if (isChecklistReadOnly) return null;
-                    const missing = checklistItems.filter(i => i.isMandatory && !i.submitted).length;
-                    const blockers = [
-                      missing > 0 && `${missing} required ${missing === 1 ? 'document' : 'documents'}`,
-                      !checklistOmnibusAgreed && 'the omnibus sworn statement',
-                      !checklistDataPrivacyAgreed && 'the data privacy consent',
-                    ].filter(Boolean) as string[];
-
-                    if (!blockers.length) {
-                      return (
-                        <span className="annex-gate is-ready">
-                          <AppIcon name="approved" size={14} />
-                          Everything required is attached
-                        </span>
-                      );
-                    }
-                    const list = blockers.length === 1
-                      ? blockers[0]
-                      : `${blockers.slice(0, -1).join(', ')} and ${blockers[blockers.length - 1]}`;
-                    return (
-                      <span className="annex-gate">
-                        <AppIcon name="pending" size={14} />
-                        Still needed: {list}
+                        Vacant (Open)
                       </span>
-                    );
-                  })()}
-                </div>
-
-                {/* Actions — the header ✕ is this dialog's dismiss control. */}
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  {!isChecklistReadOnly && (
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={
-                        isSubmittingChecklist ||
-                        checklistItems.filter(i => i.isMandatory && !i.submitted).length > 0 ||
-                        !checklistOmnibusAgreed ||
-                        !checklistDataPrivacyAgreed
-                      }
-                      onClick={handleSubmitChecklistApplication}
-                      style={{
-                        borderRadius: 8,
-                        padding: '7px 22px',
-                        fontWeight: 700,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <AppIcon name="promotions" size={14} />
-                      {isSubmittingChecklist
-                        ? 'Submitting Dossier...'
-                        : (selectedCycleForChecklist.hasApplied ? 'Submit Requirements Checklist' : 'Submit Application & Requirements')}
-                    </button>
-                  )}
-                </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </ModalOverlay>
         </ModalPortal>
-      )}
-
-      {/* ─── 201 FILE PICKER SUB-MODAL ─── */}
-      {picking201ForCode && (() => {
-        const targetReq = checklistItems.find(it => it.code === picking201ForCode);
-        const suggestedTypes = targetReq?.suggestedDocumentTypeIds || [];
-
-        // 1. Exclude empty placeholders (only documents that actually have an uploaded file)
-        const validDocs = user201Documents.filter((d: any) =>
-          Boolean(d.hasFile && (d.fileUrl || d.storagePath || d.storedFileName || d.originalFileName))
-        );
-
-        // 2. Filter by search query
-        const query = picker201Search.toLowerCase().trim();
-        const searchedDocs = query
-          ? validDocs.filter((d: any) =>
-              (d.documentTypeName && d.documentTypeName.toLowerCase().includes(query)) ||
-              (d.originalFileName && d.originalFileName.toLowerCase().includes(query)) ||
-              (d.customDocumentName && d.customDocumentName.toLowerCase().includes(query))
-            )
-          : validDocs;
-
-        // 3. Sort prioritized (compatible / recommended types first)
-        const sortedDocs = [...searchedDocs].sort((a: any, b: any) => {
-          const aMatch = suggestedTypes.includes(a.documentTypeId);
-          const bMatch = suggestedTypes.includes(b.documentTypeId);
-          if (aMatch && !bMatch) return -1;
-          if (!aMatch && bMatch) return 1;
-          return (b.id || 0) - (a.id || 0);
-        });
-
-        return (
-          <ModalPortal>
-            <ModalOverlay onDismiss={() => setPicking201ForCode(null)}
-              className="modal-overlay"
-              role="presentation"
-              style={{
-                background: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(6px)',
-                zIndex: 1300,
-              }}
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  setPicking201ForCode(null);
-                }
-              }}
-            >
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="picker-201-title"
-                style={{
-                  width: '100%',
-                  maxWidth: 620,
-                  maxHeight: '85vh',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  background: 'var(--color-bg-card, #ffffff)',
-                  borderRadius: 14,
-                  border: '1px solid var(--color-border)',
-                  boxShadow: '0 20px 48px rgba(0,0,0,0.3)',
-                  overflow: 'hidden',
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Header with single visible accessible close control */}
-                <div
-                  style={{
-                    padding: '14px 20px',
-                    borderBottom: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-secondary)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <h4 id="picker-201-title" style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800 }}>
-                      Select 201 File for Item ({picking201ForCode.toUpperCase()})
-                    </h4>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                      {targetReq?.title ? `Requirement: ${targetReq.title}` : 'Attach an existing file from your digital 201 profile records.'}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPicking201ForCode(null)}
-                    aria-label="Close dialog"
-                    style={{
-                      width: 44,
-                      height: 44,
-                      minWidth: 44,
-                      minHeight: 44,
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 20,
-                      color: 'var(--color-text-muted)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 8,
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                {/* Search Filter Input */}
-                <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-card)' }}>
-                  <input
-                    type="search"
-                    className="form-control"
-                    placeholder="Search documents by name or filename…"
-                    value={picker201Search}
-                    onChange={e => setPicker201Search(e.target.value)}
-                    style={{ fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                {/* Document List */}
-                <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 10, background: 'var(--color-bg-card, #ffffff)' }}>
-                  {sortedDocs.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '30px 20px', color: 'var(--color-text-muted)' }}>
-                      <AppIcon name="folder" size={32} />
-                      <p style={{ marginTop: 10, fontSize: '0.85rem', fontWeight: 600 }}>
-                        {validDocs.length === 0
-                          ? 'No uploaded files found in your digital 201 records.'
-                          : 'No 201 files match your search.'}
-                      </p>
-                      <span style={{ fontSize: '0.8125rem' }}>
-                        {validDocs.length === 0
-                          ? 'Please use the "Upload File" option in the checklist or upload documents in My 201 Files first.'
-                          : 'Try adjusting your search query to find your document.'}
-                      </span>
-                    </div>
-                  ) : (
-                    sortedDocs.map((doc: any) => {
-                      const isRecommended = suggestedTypes.includes(doc.documentTypeId);
-                      const isDocExpired = Boolean(doc.expirationDate && new Date(doc.expirationDate) < new Date(new Date().toDateString()));
-
-                      return (
-                        <div
-                          key={doc.id}
-                          style={{
-                            padding: '12px 14px',
-                            borderRadius: 10,
-                            border: isRecommended ? '1.5px solid #10b981' : '1px solid var(--color-border)',
-                            background: isRecommended ? 'rgba(16, 185, 129, 0.04)' : 'var(--color-bg-secondary)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 12,
-                          }}
-                        >
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
-                              {isRecommended && (
-                                <span style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#059669', textTransform: 'uppercase' }}>
-                                  Recommended
-                                </span>
-                              )}
-                              {isDocExpired && (
-                                <span style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', textTransform: 'uppercase' }}>
-                                  Expired
-                                </span>
-                              )}
-                              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
-                                {doc.documentTypeName || '201 File'}
-                              </span>
-                            </div>
-                            <div
-                              style={{
-                                fontSize: '0.875rem',
-                                fontWeight: 700,
-                                color: 'var(--color-text-primary)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                              title={doc.originalFileName || doc.documentTypeName}
-                            >
-                              {doc.originalFileName || doc.documentTypeName || '201 Document'}
-                            </div>
-                            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                              {[
-                                formatFileSize(doc.fileSize),
-                                formatUploadedOn(doc.uploadedAt || doc.createdAt),
-                              ].filter(Boolean).join(' • ')}
-                            </div>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => setViewingDoc({
-                                title: doc.documentTypeName || '201 Document',
-                                fileName: doc.originalFileName || undefined,
-                                fileSize: doc.fileSize || undefined,
-                                fileUrl: doc.fileUrl || `/personnel/documents/${doc.id}/file`,
-                              })}
-                              style={{ fontSize: '0.8125rem', padding: '6px 10px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              title="Preview document before attaching"
-                            >
-                              <AppIcon name="view" size={13} /> Preview
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => handleAttachFrom201(picking201ForCode, doc)}
-                              style={{ fontSize: '0.8125rem', padding: '6px 12px', borderRadius: 6, fontWeight: 700 }}
-                            >
-                              Attach File
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </ModalOverlay>
-          </ModalPortal>
-        );
-      })()}
-
-      {viewingDoc && (
-        <DocumentViewerModal
-          isOpen={Boolean(viewingDoc)}
-          onClose={() => setViewingDoc(null)}
-          title={viewingDoc.title}
-          fileName={viewingDoc.fileName}
-          fileSize={viewingDoc.fileSize}
-          fileUrl={viewingDoc.fileUrl}
-        />
       )}
     </div>
   );
