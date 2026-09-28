@@ -1821,10 +1821,6 @@ export const PromotionManagement: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', color: 'var(--color-text-secondary)' }}>
                         <span>Total: <strong style={{ color: 'var(--color-text-primary)' }}>100.00 pts</strong></span>
                         <span style={{ color: 'var(--color-border)' }}>•</span>
-                        <span>Stage 1 (AO II): <strong style={{ color: 'var(--color-text-primary)' }}>{isCycleTeaching ? '60.00 pts' : '80.00 pts'}</strong></span>
-                        <span style={{ color: 'var(--color-border)' }}>•</span>
-                        <span>Stage 2 (HRMO): <strong style={{ color: 'var(--color-text-primary)' }}>{isCycleTeaching ? '40.00 pts' : '20.00 pts'}</strong></span>
-                        <span style={{ color: 'var(--color-border)' }}>•</span>
                         <span>Authorized Vacancy: <strong style={{ color: '#059669' }}>{cycleVacantPositions} {cycleVacantPositions === 1 ? 'Slot' : 'Slots'}</strong></span>
                       </div>
                     </div>
@@ -2327,7 +2323,7 @@ export const PromotionManagement: React.FC = () => {
                                                 Stage 2 • HRMO Deliberation
                                               </span>
                                               <span style={{ fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: hasHrmoRating ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
-                                                {hasHrmoRating ? `${hrmoSubtotal.toFixed(2)} / ${isCycleTeaching ? '40.00' : '20.00'}` : 'Pending Deliberation'}
+                                                {hasHrmoRating ? `${hrmoSubtotal.toFixed(2)} / 100.00` : 'Pending Deliberation'}
                                               </span>
                                             </div>
 
@@ -2659,8 +2655,6 @@ export const PromotionManagement: React.FC = () => {
                             <th style={{ padding: '10px 12px', textAlign: 'center', width: '55px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Rank</th>
                             <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Candidate Name</th>
                             <th style={{ padding: '10px 14px', textAlign: 'center', width: '160px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Plantilla Item</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '130px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Stage 1 (AO)</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'center', width: '130px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Stage 2 (HRMO)</th>
                             <th style={{ padding: '10px 16px', textAlign: 'center', width: '150px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Total CAR Score</th>
                             <th style={{ padding: '10px 14px', textAlign: 'right', width: '140px', color: 'var(--color-text-secondary)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.875rem', letterSpacing: '0.04em' }}>Board Status</th>
                           </tr>
@@ -2669,7 +2663,7 @@ export const PromotionManagement: React.FC = () => {
                         <tbody>
                           {filteredLeaderboard.length === 0 ? (
                             <tr>
-                              <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                              <td colSpan={6} style={{ padding: '36px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                                 No candidates finalized for official Comparative Assessment Result.
                               </td>
                             </tr>
@@ -2743,12 +2737,6 @@ export const PromotionManagement: React.FC = () => {
                                     <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>
                                       {item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber || selectedCycle?.rulesConfigurationJson?.plantillaItemNo || 'Pending Allocation'}
                                     </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                                      {aoSubtotal.toFixed(2)} pts
-                                    </td>
-                                    <td style={{ padding: '12px 14px', textAlign: 'center', fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                                      {hrmoSubtotal.toFixed(2)} pts
-                                    </td>
                                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                                       <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '3px' }}>
                                         <span style={{
@@ -2806,7 +2794,7 @@ export const PromotionManagement: React.FC = () => {
                                   {/* Minimal Vacancy Quota Cutoff Divider Line */}
                                   {index === cycleVacantPositions - 1 && index < filteredLeaderboard.length - 1 && (
                                     <tr key="car-quota-cutoff-divider">
-                                      <td colSpan={7} style={{
+                                      <td colSpan={6} style={{
                                         padding: '7px 14px',
                                         textAlign: 'center',
                                         background: 'var(--color-bg-tertiary)',

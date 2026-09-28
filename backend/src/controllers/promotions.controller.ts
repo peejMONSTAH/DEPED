@@ -1088,7 +1088,7 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
       await prisma.notification.create({
         data: {
           userId: applicantUserId,
-          message: `HRMPSB Rating Finalized: Your comparative assessment score for "${app.promotionCycle.name}" has been deliberated and finalized (${overallTotalScore}/100 pts).`,
+          message: `HRMPSB Rating Finalized: Your comparative assessment score for "${app.promotionCycle.name}" has been deliberated and finalized.`,
           type: 'INFO',
           relatedEntityId: cycleId,
           relatedEntityType: 'PromotionCycle',

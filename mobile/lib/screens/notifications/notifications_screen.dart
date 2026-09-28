@@ -157,7 +157,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         final message =
                             stripLeadingSymbols(item['message']).isEmpty
                                 ? 'Notification'
-                                : stripLeadingSymbols(item['message']);
+                                : stripLeadingSymbols(item['message'])
+                                    // Scores are not shown in notifications (older ones carried "(78/100 pts)").
+                                    .replaceAll(RegExp(r'\s*\(\s*[\d.]+\s*/\s*100\s*pts?\s*\)', caseSensitive: false), '');
                         final entityType =
                             item['relatedEntityType']?.toString() ?? '';
 
