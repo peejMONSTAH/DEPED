@@ -76,6 +76,30 @@ interface CandidatePersonnel {
   plantillaItem?: { id: number; itemNumber: string; positionTitle: string; department?: string } | null;
 }
 
+const ROMAN: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10 };
+const POSITION_CODES: Record<string, string> = {
+  teacher: 'TCH', 'master teacher': 'MT', 'head teacher': 'HT', principal: 'PRIN', 'school principal': 'PRIN',
+};
+
+/** "Teacher VII" → "TCH7", "Master Teacher II" → "MT2", "Administrative Officer II" → "AO2". */
+const positionCode = (title: string): string => {
+  const words = title.trim().split(/\s+/).filter(Boolean);
+  const last = (words[words.length - 1] || '').toUpperCase();
+  const rank = ROMAN[last] ?? (/^\d+$/.test(last) ? Number(last) : null);
+  const base = rank ? words.slice(0, -1) : words;
+  const code = POSITION_CODES[base.join(' ').toLowerCase()] ?? base.map(w => w[0]).join('').toUpperCase();
+  return `${code || 'POS'}${rank ?? ''}`;
+};
+
+/** A draft item number from the position, unique among registered items. HR replaces it with the DBM-issued one if different. */
+const suggestItemNumber = (title: string, taken: Set<string>): string => {
+  const year = new Date().getFullYear();
+  for (;;) {
+    const candidate = `OSEC-DECSB-${positionCode(title)}-${Math.floor(100000 + Math.random() * 900000)}-${year}`;
+    if (!taken.has(candidate.toUpperCase())) return candidate;
+  }
+};
+
 export const PlantillaManagement: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
@@ -139,6 +163,9 @@ export const PlantillaManagement: React.FC = () => {
 
   // Add/Edit Form State
   const [formItemNumber, setFormItemNumber] = useState('');
+  // False while the number is the position-based suggestion; typing takes it over.
+  const [itemNumberEdited, setItemNumberEdited] = useState(false);
+  const takenItemNumbers = () => new Set(plantillas.map(p => p.itemNumber.toUpperCase()));
   const [formPositionTitle, setFormPositionTitle] = useState('Teacher I');
   const [formSalaryGrade, setFormSalaryGrade] = useState<number>(11);
   const [formDepartment, setFormDepartment] = useState('');
@@ -277,8 +304,8 @@ export const PlantillaManagement: React.FC = () => {
       return;
     }
     setEditingItem(null);
-    // Item numbers are issued by DBM; HR types the real one, never a generated guess.
-    setFormItemNumber('');
+    setFormItemNumber(suggestItemNumber('Teacher I', takenItemNumbers()));
+    setItemNumberEdited(false);
     setFormPositionTitle('Teacher I');
     setFormSalaryGrade(getAutoSalaryGrade('Teacher I'));
     setFormDepartment('');
@@ -297,6 +324,7 @@ export const PlantillaManagement: React.FC = () => {
     }
     setEditingItem(item);
     setFormItemNumber(item.itemNumber);
+    setItemNumberEdited(true);
     setFormPositionTitle(item.positionTitle);
     setFormSalaryGrade(item.salaryGrade || getAutoSalaryGrade(item.positionTitle));
     setFormDepartment(item.department);
@@ -1125,11 +1153,11 @@ export const PlantillaManagement: React.FC = () => {
                     className="form-control"
                     placeholder="e.g. OSEC-DECSB-TCH3-420015-2026"
                     value={formItemNumber}
-                    onChange={(e) => setFormItemNumber(e.target.value)}
+                    onChange={(e) => { setFormItemNumber(e.target.value); setItemNumberEdited(true); }}
                     style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
                   />
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                    Must follow standard DepEd Plantilla format matching DBM National Inventory.
+                    Suggested from the position. Replace it with the DBM-issued number if it differs.
                   </div>
                 </div>
 
@@ -1146,6 +1174,7 @@ export const PlantillaManagement: React.FC = () => {
                         const title = e.target.value;
                         setFormPositionTitle(title);
                         setFormSalaryGrade(getAutoSalaryGrade(title));
+                        if (!itemNumberEdited) setFormItemNumber(suggestItemNumber(title, takenItemNumbers()));
                       }}
                       style={{ fontSize: '0.8125rem' }}
                     >
