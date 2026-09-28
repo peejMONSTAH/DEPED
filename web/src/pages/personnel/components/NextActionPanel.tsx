@@ -126,9 +126,9 @@ export const NextActionPanel: React.FC<NextActionPanelProps> = ({
     return {
       level: 'complete',
       badge: 'ALL UP TO DATE',
-      title: 'No Action Required — 201 Records Up to Date',
+      title: 'Nothing to do right now',
       description:
-        'All your required 201 files are verified and current filings are progressing smoothly through the DepEd review queue.',
+        'Your required 201 files are uploaded. They are checked when you use them for a promotion application or appointment.',
       actionText: 'Browse Open Vacancies',
       actionRoute: '/personnel/home#vacancies',
     };

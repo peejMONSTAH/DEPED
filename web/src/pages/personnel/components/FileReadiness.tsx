@@ -36,7 +36,7 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <AppIcon name="security" size={18} color="var(--color-primary)" />
           <h2 style={{ fontSize: '0.875rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-primary)' }}>
-            201 File Readiness & Dossier Status
+            201 Files
           </h2>
         </div>
 
@@ -65,11 +65,11 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
               {readiness.percent}%
             </span>
             <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginLeft: 8 }}>
-              Readiness Score
+              complete
             </span>
           </div>
           <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-            {readiness.verified} of {readiness.total} mandatory records verified
+            {readiness.verified} of {readiness.total} required files uploaded
           </span>
         </div>
 
@@ -96,7 +96,7 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
 
       {/* Status Breakdown Pills */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-        {/* Verified */}
+        {/* Uploaded: files on hand. They are checked when used for a promotion. */}
         <div
           style={{
             padding: '8px 12px',
@@ -105,21 +105,8 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
             border: '1px solid rgba(16, 185, 129, 0.25)',
           }}
         >
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669' }}>Verified</div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#059669' }}>Uploaded</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#059669' }}>{readiness.verified}</div>
-        </div>
-
-        {/* Under Review */}
-        <div
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.25)',
-          }}
-        >
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#d97706' }}>Under Review</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#d97706' }}>{readiness.underReview}</div>
         </div>
 
         {/* Missing */}
@@ -136,23 +123,6 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
           </div>
           <div style={{ fontSize: '1.25rem', fontWeight: 800, color: readiness.missing > 0 ? '#dc2626' : 'var(--color-text-primary)' }}>
             {readiness.missing}
-          </div>
-        </div>
-
-        {/* Returned */}
-        <div
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            background: readiness.returned > 0 ? 'rgba(239, 68, 68, 0.12)' : 'var(--color-bg-secondary)',
-            border: readiness.returned > 0 ? '1px solid #ef4444' : '1px solid var(--color-border)',
-          }}
-        >
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: readiness.returned > 0 ? '#dc2626' : 'var(--color-text-muted)' }}>
-            Returned
-          </div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: readiness.returned > 0 ? '#dc2626' : 'var(--color-text-primary)' }}>
-            {readiness.returned}
           </div>
         </div>
 

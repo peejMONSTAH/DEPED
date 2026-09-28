@@ -18,14 +18,13 @@ extension PersonnelDocumentStatusExt on PersonnelDocumentStatus {
     switch (this) {
       case PersonnelDocumentStatus.NOT_SUBMITTED:
         return 'Not Submitted';
+      // 201 files are not reviewed on their own; they are checked only when
+      // used for a promotion application or appointment. On file = Uploaded.
       case PersonnelDocumentStatus.PENDING:
-        return 'Pending';
       case PersonnelDocumentStatus.SUBMITTED:
-        return 'Submitted';
       case PersonnelDocumentStatus.UNDER_REVIEW:
-        return 'Under Review';
       case PersonnelDocumentStatus.APPROVED:
-        return 'Approved';
+        return 'Uploaded';
       case PersonnelDocumentStatus.REJECTED:
         return 'Rejected';
       case PersonnelDocumentStatus.EXPIRED:
@@ -40,13 +39,10 @@ extension PersonnelDocumentStatusExt on PersonnelDocumentStatus {
       case PersonnelDocumentStatus.NOT_SUBMITTED:
         return const Color(0xFF5B6B60); // Slate
       case PersonnelDocumentStatus.PENDING:
-        return const Color(0xFFD97706); // Amber
       case PersonnelDocumentStatus.SUBMITTED:
-        return const Color(0xFF2F7D52); // Royal Blue
       case PersonnelDocumentStatus.UNDER_REVIEW:
-        return const Color(0xFFA07A1F); // Purple
       case PersonnelDocumentStatus.APPROVED:
-        return const Color(0xFF10B981); // Emerald Green
+        return const Color(0xFF2F7D52); // Green: on file
       case PersonnelDocumentStatus.REJECTED:
       case PersonnelDocumentStatus.REPLACEMENT_REQUIRED:
         return const Color(0xFFDC2626); // Red

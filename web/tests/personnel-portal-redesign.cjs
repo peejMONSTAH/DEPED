@@ -34,11 +34,12 @@ test('Dashboard (Home) and Repository (My 201 Files) readiness counts match with
   const readiness = computeReadiness(sampleDocs);
 
   assert.equal(readiness.total, 6);
-  assert.equal(readiness.verified, 3); // 1, 2, 6
+  // 201 files are not reviewed on their own: anything on file counts as uploaded.
+  assert.equal(readiness.verified, 4); // 1, 2, 5, 6
   assert.equal(readiness.missing, 1);  // 3
   assert.equal(readiness.returned, 1); // 4
-  assert.equal(readiness.underReview, 1); // 5
-  assert.equal(readiness.percent, 50); // 3 of 6 = 50%
+  assert.equal(readiness.underReview, 0);
+  assert.equal(readiness.percent, 67); // 4 of 6
   assert.equal(readiness.statusLevel, 'critical'); // because returned > 0
 
   // Verify that both Home.tsx and MyDocuments.tsx invoke computeReadiness

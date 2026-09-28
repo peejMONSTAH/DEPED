@@ -176,22 +176,9 @@ export function resolveDocumentLifecycle(doc: PersonnelDocumentRecord): Document
     return 'EXPIRING_SOON';
   }
 
-  // Review states
-  if (
-    rawStatus === 'SUBMITTED' ||
-    rawStatus === 'PENDING_VALIDATION' ||
-    rawStatus === 'UNDER_REVIEW' ||
-    rawStatus === 'PENDING'
-  ) {
-    return 'UNDER_REVIEW';
-  }
-
-  // Verified / Approved states
-  if (rawStatus === 'VERIFIED' || rawStatus === 'APPROVED' || rawStatus === 'VALIDATED') {
-    return 'VERIFIED';
-  }
-
-  // Default uploaded state
+  // 201 files are not reviewed on their own. A file is checked only when it is
+  // used as a requirement in a promotion application or appointment, and that
+  // check belongs to the transaction. Any file on hand is simply "Uploaded".
   return 'UPLOADED';
 }
 
@@ -338,6 +325,7 @@ export function computeReadiness(documents: PersonnelDocumentRecord[]): Readines
         break;
       case 'UPLOADED':
         uploaded++;
+        verified++; // on file counts toward readiness
         break;
       case 'SUPERSEDED':
         break;

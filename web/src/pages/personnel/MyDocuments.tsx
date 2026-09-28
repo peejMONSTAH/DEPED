@@ -551,10 +551,10 @@ export const MyDocuments: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Master 201 File Readiness & Compliance
+              Your 201 files
             </div>
             <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginTop: 2 }}>
-              {readiness.percent}% Complete ({readiness.verified} of {readiness.total} records verified)
+              {readiness.percent}% complete ({readiness.verified} of {readiness.total} required files uploaded)
             </div>
           </div>
 
@@ -570,7 +570,7 @@ export const MyDocuments: React.FC = () => {
                 border: '1px solid rgba(16, 185, 129, 0.25)',
               }}
             >
-              {readiness.verified} Verified
+              {readiness.verified} Uploaded
             </span>
             {readiness.underReview > 0 && (
               <span
