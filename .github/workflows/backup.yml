@@ -13,7 +13,7 @@ jobs:
     if: vars.ENABLE_DAILY_BACKUPS == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment: backups
+    environment: Digital-201 / production
     env:
       DIGITAL201_BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
       DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
