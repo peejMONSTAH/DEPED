@@ -12,7 +12,16 @@ type Device = { id: number; label: string; ipAddress: string | null; createdAt: 
 type Page<T> = { rows: T[]; total: number; extra: any };
 
 const when = (d: string) => new Date(d).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
-const role = (r: string) => r.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase()).replace('Ao Ii', 'AO II').replace('Hrmo', 'HRMO');
+/** One row per account: an administrator acts on a person, not on each browser tab. */
+const byAccount = (rows: Session[]) => {
+  const map = new Map<number, { account: Session['account']; list: Session[] }>();
+  for (const s of rows) {
+    const g = map.get(s.account.id) ?? { account: s.account, list: [] };
+    g.list.push(s); map.set(s.account.id, g);
+  }
+  return [...map.values()];
+};
+const role =(r: string) => r.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase()).replace('Ao Ii', 'AO II').replace('Hrmo', 'HRMO');
 
 /** Sessions and trusted devices. Tokens and hashes never reach this page. */
 export const AccessSessions: React.FC = () => {
@@ -29,7 +38,7 @@ export const AccessSessions: React.FC = () => {
   const load = useCallback(async () => {
     setError('');
     try {
-      const res = await apiClient.get(`/admin/${tab}`, { params: { page, limit: 25, ...(tab === 'sessions' && client && { client }) } });
+      const res = await apiClient.get(`/admin/${tab}`, { params: { page, limit: tab === 'sessions' ? 100 : 25,...(tab === 'sessions' && client && { client }) } });
       setData({ rows: res.data.data, total: res.data.pagination?.totalItems ?? 0, extra: res.data });
     } catch (err: any) { setData(null); setError(err?.response?.data?.message || 'Could not load.'); }
   }, [tab, client, page]);
@@ -49,7 +58,7 @@ export const AccessSessions: React.FC = () => {
   };
 
   const overLimit: { userId: number; sessions: number }[] = data?.extra?.accountsOverLimit || [];
-  const pages = Math.max(1, Math.ceil((data?.total || 0) / 25));
+  const pages = Math.max(1, Math.ceil((data?.total || 0) / (tab === 'sessions' ? 100 : 25)));
 
   return <div className="animate-fade-in sysops-page">
     <header className="sysops-header"><div><p className="sysops-eyebrow">Access management</p><h1>Sessions & devices</h1><p>Who is signed in, from which devices. Signing someone out takes effect on the server immediately.</p></div>
@@ -71,12 +80,16 @@ export const AccessSessions: React.FC = () => {
     : !data ? <div className="sysops-loading" aria-busy="true">Loading…</div>
     : data.rows.length === 0 ? <div className="sysops-empty">{tab === 'sessions' ? 'No active sessions.' : 'No trusted devices.'}</div>
     : <section className="sysops-panel"><ul className="adm-list">
-      {tab === 'sessions' ? (data.rows as Session[]).map(s => <li key={s.id}>
-        <div className="adm-list__main"><strong>{s.account.email}</strong><span>{role(s.account.role)} · {s.client === 'app' ? 'Phone app' : 'Web'} · signed in {when(s.createdAt)}</span><span>Last used {when(s.lastUsedAt)} · expires {when(s.expiresAt)}</span></div>
+      {tab === 'sessions' ? byAccount(data.rows as Session[]).map(({ account, list }) => {
+        const own = account.id === user?.id;
+        const web = list.filter(s => s.client !== 'app').length, app = list.length - web;
+        const where = [web && `${web} web browser${web === 1 ? '' : 's'}`, app && `${app} phone app${app === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+        const last = list.reduce((a, s) => (s.lastUsedAt > a ? s.lastUsedAt : a), list[0].lastUsedAt);
+        return <li key={account.id}>
+        <div className="adm-list__main"><strong>{account.email}</strong><span>{role(account.role)} · {where}</span><span>Last used {when(last)}</span></div>
         <div className="adm-list__actions">
-          <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => void act('Sign out this session', `End this ${s.client === 'app' ? 'phone' : 'web'} session for ${s.account.email}?`, reason => apiClient.delete(`/admin/sessions/${s.id}`, { data: { reason, confirmOwn: s.account.id === user?.id } }), s.account.id === user?.id)}>Sign out</button>
-          <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => void act('Sign out everywhere', `End every session for ${s.account.email}?`, reason => apiClient.delete(`/admin/accounts/${s.account.id}/sessions`, { data: { reason, confirmOwn: s.account.id === user?.id } }), s.account.id === user?.id)}>All sessions</button>
-        </div></li>)
+          <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => void act('Sign out everywhere', `End every session for ${account.email} (${where})?`, reason => apiClient.delete(`/admin/accounts/${account.id}/sessions`, { data: { reason, confirmOwn: own } }), own)}>Sign out</button>
+        </div></li>; })
       : (data.rows as Device[]).map(d => <li key={d.id}>
         <div className="adm-list__main"><strong>{d.label}</strong><span>{d.account.email}{d.ipAddress ? ` · ${d.ipAddress}` : ''}</span><span>Trusted {when(d.createdAt)} · last used {when(d.lastUsedAt)}</span></div>
         <div className="adm-list__actions">

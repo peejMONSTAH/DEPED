@@ -336,7 +336,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       // Index 3 is the Service Record tab; notifications open it in place.
       NotificationsScreen(
           onOpenServiceRecord: () => setState(() => _currentIndex = 3),
-          onOpenApplications: () => setState(() => _currentIndex = _applicationsTabIndex)),
+          onOpenApplications: () =>
+              setState(() => _currentIndex = _applicationsTabIndex)),
       MyApplicationsScreen(user: widget.user, profile: _profile),
     ];
 
@@ -420,7 +421,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOutCubic,
-                  height: _isStretched ? 70 : 64,
+                  // Tall enough for a two-line label ("Service Record").
+                  height: _isStretched ? 76 : 72,
                   decoration: BoxDecoration(
                     color: AppTheme.lightBgCard,
                     borderRadius: BorderRadius.circular(_isStretched ? 36 : 32),
@@ -443,7 +445,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           icon: LucideIcons.clipboardList,
                           label: 'Applications'),
                       _buildNavTabItem(
-                          index: 3, icon: LucideIcons.award, label: 'Service'),
+                          index: 3,
+                          icon: LucideIcons.award,
+                          label: 'Service Record'),
                       // Profile sits at the far right. The index is the page
                       // it opens, not its position in this row.
                       _buildNavTabItem(
@@ -532,7 +536,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               // scaleDown is kept as the floor for the longest single word.
               Text(
                 label,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(
@@ -959,25 +963,36 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
   /// Returned, disqualified or unfinished transactions, each one tap from its fix.
   Widget _buildActionNeeded() {
-    final items = <({String title, String detail, TransactionModel tx, bool urgent})>[];
+    final items =
+        <({String title, String detail, TransactionModel tx, bool urgent})>[];
     for (final tx in _transactions) {
       final name = '${humanizeEnum(tx.type.name)} · ${tx.referenceNo}';
       if (tx.status == TransactionStatus.RETURNED_BY_AO2 ||
           tx.status == TransactionStatus.RETURNED_BY_HRMO) {
         final n = tx.requirements
-            .where((r) => r.fileStatus == 'REJECTED' || r.fileStatus == 'DEFICIENT')
+            .where((r) =>
+                r.fileStatus == 'REJECTED' || r.fileStatus == 'DEFICIENT')
             .length;
         items.add((
-          title: n > 0 ? 'Replace $n document${n == 1 ? '' : 's'}' : 'Fix and resubmit',
+          title: n > 0
+              ? 'Replace $n document${n == 1 ? '' : 's'}'
+              : 'Fix and resubmit',
           detail: name,
           tx: tx,
           urgent: true,
         ));
       } else if (tx.status == TransactionStatus.REJECTED) {
-        items.add((title: 'Correct and resubmit', detail: name, tx: tx, urgent: true));
+        items.add((
+          title: 'Correct and resubmit',
+          detail: name,
+          tx: tx,
+          urgent: true
+        ));
       } else if (tx.status == TransactionStatus.DRAFT) {
         items.add((
-          title: tx.complianceScore >= 100 ? 'Ready to submit' : 'Add your documents',
+          title: tx.complianceScore >= 100
+              ? 'Ready to submit'
+              : 'Add your documents',
           detail: '$name · ${tx.complianceScore.toInt()}% complete',
           tx: tx,
           urgent: false,
@@ -999,27 +1014,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 borderRadius: AppRadius.mdAll,
                 onTap: () => Navigator.of(context)
                     .push(MaterialPageRoute<void>(
-                        builder: (_) => ChecklistUploadScreen(transaction: it.tx)))
+                        builder: (_) =>
+                            ChecklistUploadScreen(transaction: it.tx)))
                     .then((_) => _loadData()),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
                   child: Row(
                     children: [
-                      Icon(it.urgent ? LucideIcons.alertCircle : LucideIcons.fileUp,
+                      Icon(
+                          it.urgent
+                              ? LucideIcons.alertCircle
+                              : LucideIcons.fileUp,
                           size: 18,
-                          color: it.urgent ? AppTheme.statusReturned : AppTheme.statusPending),
+                          color: it.urgent
+                              ? AppTheme.statusReturned
+                              : AppTheme.statusPending),
                       const SizedBox(width: AppSpace.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(it.title,
-                                style: AppText.body.copyWith(fontWeight: FontWeight.w700)),
+                                style: AppText.body
+                                    .copyWith(fontWeight: FontWeight.w700)),
                             Text(it.detail, style: AppText.caption),
                           ],
                         ),
                       ),
-                      const Icon(LucideIcons.chevronRight, size: 18, color: AppTheme.textMuted),
+                      const Icon(LucideIcons.chevronRight,
+                          size: 18, color: AppTheme.textMuted),
                     ],
                   ),
                 ),

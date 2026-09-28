@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { StatusBadge } from '../../components/shared/StatusBadge';
+import { humanizeEnum } from '../../constants/transactionStatus';
 import { AppIcon } from '../../components/common/AppIcon';
 import { ModalPortal } from '../../components/common/ModalPortal';
 import { personnelDisplayName } from '../../utils/personnel-display';
@@ -1008,7 +1009,7 @@ export const PersonnelManagement: React.FC = () => {
                             <span>{row.label}</span>
                           </span>
                           <span className={`badge ${verified ? 'badge-approved' : row.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`} style={{ fontSize: 13 }}>
-                            {row.status.replace(/_/g, ' ')}
+                            {({ VALIDATED: 'Checked', APPROVED: 'Checked', REJECTED: 'Needs fixing', PENDING: 'Waiting for check', MISSING: 'Not uploaded' } as Record<string, string>)[row.status] || humanizeEnum(row.status)}
                           </span>
                         </div>;
                       })}

@@ -174,6 +174,16 @@ export const AdminNotifications: React.FC = () => {
       });
   }, [notifications, activeFilter, isSysAdmin]);
 
+  // Unread notices that need someone to act come first; the rest is information.
+  const needsAction = (n: typeof notifications[number]) => !n.isRead && (
+    n.type === 'WARNING' || n.type === 'ERROR'
+    || /request|for validation|for approval|awaiting|pending|resubmit|failed/i.test(n.message));
+  const { groupedNotifications, actionCount } = useMemo(() => {
+    const act = filteredNotifications.filter(needsAction);
+    const rest = filteredNotifications.filter(n => !needsAction(n));
+    return { groupedNotifications: [...act, ...rest], actionCount: act.length };
+  }, [filteredNotifications]);
+
   return (
     <div className="animate-fade-in">
       <div className="topbar">
@@ -232,10 +242,14 @@ export const AdminNotifications: React.FC = () => {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            {filteredNotifications.map(n => {
+            {groupedNotifications.map((n, i) => {
               const action = getActionConfig(n);
+              const heading = i === 0 && actionCount > 0 ? `Action needed (${actionCount})`
+                : i === actionCount && actionCount > 0 ? 'Other updates' : null;
               return (
-                <div 
+                <React.Fragment key={n.id}>
+                {heading && <h2 style={{ margin: i === 0 ? 0 : '12px 0 0', fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-secondary)' }}>{heading}</h2>}
+                <div
                   key={n.id} 
                   className="card"
                   {...(n.isRead ? {} : clickable<HTMLDivElement>(() => handleMarkAsRead(n.id), 'Mark notification as read'))}
@@ -320,6 +334,7 @@ export const AdminNotifications: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                </React.Fragment>
               );
             })}
           </div>

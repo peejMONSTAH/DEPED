@@ -22,7 +22,9 @@ class NotificationsScreen extends StatefulWidget {
   final VoidCallback? onOpenServiceRecord;
   final VoidCallback? onOpenApplications;
 
-  const NotificationsScreen({Key? key, this.onOpenServiceRecord, this.onOpenApplications}) : super(key: key);
+  const NotificationsScreen(
+      {Key? key, this.onOpenServiceRecord, this.onOpenApplications})
+      : super(key: key);
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -32,7 +34,13 @@ class NotificationsScreen extends StatefulWidget {
 ///
 /// Kept separate from the button label so the two cannot drift: a label with
 /// no destination is what produced "Redirecting to:" followed by nothing.
-enum _NotificationDestination { transaction, password, serviceRecord, applications, none }
+enum _NotificationDestination {
+  transaction,
+  password,
+  serviceRecord,
+  applications,
+  none
+}
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late final ApiService _apiService;
@@ -40,6 +48,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   StreamSubscription? _notifSub;
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
+
   /// A second tap while the first is still resolving would push the same screen
   /// twice, leaving a duplicate to back out of.
   bool _isNavigating = false;
@@ -147,304 +156,375 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         ),
                       ],
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(AppSpace.lg),
-                      itemCount: _notifications.length,
-                      itemBuilder: (ctx, index) {
-                        final item = _notifications[index];
-                        final type = item['type']?.toString() ?? 'INFO';
-                        final isRead =
-                            item['read'] == true || item['isRead'] == true;
-                        final message =
-                            stripLeadingSymbols(item['message']).isEmpty
-                                ? 'Notification'
-                                : stripLeadingSymbols(item['message'])
-                                    // Scores are not shown in notifications (older ones carried "(78/100 pts)").
-                                    .replaceAll(RegExp(r'\s*\(\s*[\d.]+\s*/\s*100\s*pts?\s*\)', caseSensitive: false), '');
-                        final entityType =
-                            item['relatedEntityType']?.toString() ?? '';
+                  : Builder(builder: (_) {
+                      final rows = _groupedRows();
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(AppSpace.lg),
+                        itemCount: rows.length,
+                        itemBuilder: (ctx, index) {
+                          final row = rows[index];
+                          if (row is String) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                  top: index == 0 ? 0 : AppSpace.md,
+                                  bottom: AppSpace.sm),
+                              child: Text(row,
+                                  style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.textSecondary)),
+                            );
+                          }
+                          final item = row as Map<String, dynamic>;
+                          final type = item['type']?.toString() ?? 'INFO';
+                          final isRead =
+                              item['read'] == true || item['isRead'] == true;
+                          final message = stripLeadingSymbols(item['message'])
+                                  .isEmpty
+                              ? 'Notification'
+                              : stripLeadingSymbols(item['message'])
+                                  // Scores are not shown in notifications (older ones carried "(78/100 pts)").
+                                  .replaceAll(
+                                      RegExp(
+                                          r'\s*\(\s*[\d.]+\s*/\s*100\s*pts?\s*\)',
+                                          caseSensitive: false),
+                                      '');
+                          final entityType =
+                              item['relatedEntityType']?.toString() ?? '';
 
-                        Color iconColor = AppTheme.primaryLight;
-                        IconData iconData = LucideIcons.bell;
+                          Color iconColor = AppTheme.primaryLight;
+                          IconData iconData = LucideIcons.bell;
 
-                        if (type == 'SUCCESS') {
-                          iconColor = AppTheme.emeraldGreen;
-                          iconData = LucideIcons.checkCircle;
-                        } else if (type == 'WARNING') {
-                          iconColor = AppTheme.accentGold;
-                          iconData = LucideIcons.alertTriangle;
-                        } else if (type == 'ERROR') {
-                          iconColor = AppTheme.statusReturned;
-                          iconData = LucideIcons.xCircle;
-                        }
+                          if (type == 'SUCCESS') {
+                            iconColor = AppTheme.emeraldGreen;
+                            iconData = LucideIcons.checkCircle;
+                          } else if (type == 'WARNING') {
+                            iconColor = AppTheme.accentGold;
+                            iconData = LucideIcons.alertTriangle;
+                          } else if (type == 'ERROR') {
+                            iconColor = AppTheme.statusReturned;
+                            iconData = LucideIcons.xCircle;
+                          }
 
-                        // Determine action button label based on notification intent
-                        String actionLabel = 'View Details';
-                        IconData actionIcon = LucideIcons.arrowRight;
-                        var destination = _NotificationDestination.none;
-                        final lowerMsg = message.toLowerCase();
+                          // Determine action button label based on notification intent
+                          String actionLabel = 'View Details';
+                          IconData actionIcon = LucideIcons.arrowRight;
+                          var destination = _NotificationDestination.none;
+                          final lowerMsg = message.toLowerCase();
 
-                        // The record a notice is about decides where it opens;
-                        // the wording is only a fallback for older notices.
-                        if (entityType == 'Transaction') {
-                          final fix = lowerMsg.contains('deficienc') || lowerMsg.contains('return') || lowerMsg.contains('reopen') || lowerMsg.contains('disqualif');
-                          actionLabel = fix ? 'Fix requirements' : 'Open transaction';
-                          actionIcon = fix ? LucideIcons.fileWarning : LucideIcons.fileText;
-                          destination = _NotificationDestination.transaction;
-                        } else if (entityType == 'PromotionApplication' || entityType == 'PromotionCycle') {
-                          actionLabel = 'Open my applications';
-                          actionIcon = LucideIcons.clipboardList;
-                          destination = _NotificationDestination.applications;
-                        } else if (entityType == 'AccountCreationRequest' ||
-                            lowerMsg.contains('account creation') ||
-                            lowerMsg.contains('creation request')) {
-                          // Approving account requests is an administrator's
-                          // job. Personnel receive this only as information, so
-                          // the card carries no action button at all rather
-                          // than one that cannot lead anywhere.
-                          actionLabel = '';
-                          actionIcon = LucideIcons.userPlus;
-                        } else if (lowerMsg.contains('password') ||
-                            lowerMsg.contains('credential') ||
-                            lowerMsg.contains('reset')) {
-                          // Not "Manage credentials": that is the admin
-                          // console. What this person can do is set a new
-                          // password.
-                          actionLabel = 'Change password';
-                          actionIcon = LucideIcons.keyRound;
-                          destination = _NotificationDestination.password;
-                        } else if (lowerMsg.contains('deficienc') ||
-                            lowerMsg.contains('reject') ||
-                            lowerMsg.contains('return')) {
-                          actionLabel = 'Fix Requirements';
-                          actionIcon = LucideIcons.fileWarning;
-                          destination = _NotificationDestination.transaction;
-                        } else if (lowerMsg.contains('approved') ||
-                            lowerMsg.contains('transaction')) {
-                          actionLabel = 'Open Transaction';
-                          actionIcon = LucideIcons.fileText;
-                          destination = _NotificationDestination.transaction;
-                        } else if (lowerMsg.contains('promotion') ||
-                            lowerMsg.contains('career')) {
-                          actionLabel = 'View Service Record';
-                          actionIcon = LucideIcons.award;
-                          destination = _NotificationDestination.serviceRecord;
-                        }
+                          // The record a notice is about decides where it opens;
+                          // the wording is only a fallback for older notices.
+                          if (entityType == 'Transaction') {
+                            final fix = lowerMsg.contains('deficienc') ||
+                                lowerMsg.contains('return') ||
+                                lowerMsg.contains('reopen') ||
+                                lowerMsg.contains('disqualif');
+                            actionLabel =
+                                fix ? 'Fix requirements' : 'Open transaction';
+                            actionIcon = fix
+                                ? LucideIcons.fileWarning
+                                : LucideIcons.fileText;
+                            destination = _NotificationDestination.transaction;
+                          } else if (entityType == 'PromotionApplication' ||
+                              entityType == 'PromotionCycle') {
+                            actionLabel = 'Open my applications';
+                            actionIcon = LucideIcons.clipboardList;
+                            destination = _NotificationDestination.applications;
+                          } else if (entityType == 'AccountCreationRequest' ||
+                              lowerMsg.contains('account creation') ||
+                              lowerMsg.contains('creation request')) {
+                            // Approving account requests is an administrator's
+                            // job. Personnel receive this only as information, so
+                            // the card carries no action button at all rather
+                            // than one that cannot lead anywhere.
+                            actionLabel = '';
+                            actionIcon = LucideIcons.userPlus;
+                          } else if (lowerMsg.contains('password') ||
+                              lowerMsg.contains('credential') ||
+                              lowerMsg.contains('reset')) {
+                            // Not "Manage credentials": that is the admin
+                            // console. What this person can do is set a new
+                            // password.
+                            actionLabel = 'Change password';
+                            actionIcon = LucideIcons.keyRound;
+                            destination = _NotificationDestination.password;
+                          } else if (lowerMsg.contains('deficienc') ||
+                              lowerMsg.contains('reject') ||
+                              lowerMsg.contains('return')) {
+                            actionLabel = 'Fix Requirements';
+                            actionIcon = LucideIcons.fileWarning;
+                            destination = _NotificationDestination.transaction;
+                          } else if (lowerMsg.contains('approved') ||
+                              lowerMsg.contains('transaction')) {
+                            actionLabel = 'Open Transaction';
+                            actionIcon = LucideIcons.fileText;
+                            destination = _NotificationDestination.transaction;
+                          } else if (lowerMsg.contains('promotion') ||
+                              lowerMsg.contains('career')) {
+                            actionLabel = 'View Service Record';
+                            actionIcon = LucideIcons.award;
+                            destination =
+                                _NotificationDestination.serviceRecord;
+                          }
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: AppSpace.md),
-                          decoration: BoxDecoration(
-                            color: AppTheme.lightBgCard,
-                            borderRadius: AppRadius.lgAll,
-                            border: Border.all(
-                              color: isRead
-                                  ? AppTheme.lightBorder
-                                  : AppTheme.primaryLight
-                                      .withValues(alpha: 0.35),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: AppSpace.md),
+                            decoration: BoxDecoration(
+                              color: AppTheme.lightBgCard,
+                              borderRadius: AppRadius.lgAll,
+                              border: Border.all(
+                                color: isRead
+                                    ? AppTheme.lightBorder
+                                    : AppTheme.primaryLight
+                                        .withValues(alpha: 0.35),
+                              ),
                             ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpace.lg),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 1),
-                                      child: Icon(iconData,
-                                          color: iconColor, size: 18),
-                                    ),
-                                    const SizedBox(width: AppSpace.md),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            message,
-                                            style: AppText.body.copyWith(
-                                              fontWeight: isRead
-                                                  ? FontWeight.w400
-                                                  : FontWeight.w600,
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpace.lg),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 1),
+                                        child: Icon(iconData,
+                                            color: iconColor, size: 18),
+                                      ),
+                                      const SizedBox(width: AppSpace.md),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              message,
+                                              style: AppText.body.copyWith(
+                                                fontWeight: isRead
+                                                    ? FontWeight.w400
+                                                    : FontWeight.w600,
+                                              ),
                                             ),
+                                            const SizedBox(height: AppSpace.xs),
+                                            Text(
+                                              formatDate(item['createdAt'],
+                                                  fallback: ''),
+                                              style: AppText.micro,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  // An account-request notice is information only for
+                                  // this role, so it gets no button rather than one that
+                                  // leads nowhere.
+                                  if (actionLabel.isNotEmpty) ...[
+                                    const SizedBox(height: AppSpace.md),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        style: TextButton.styleFrom(
+                                          foregroundColor:
+                                              AppTheme.primaryLight,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: AppSpace.md,
+                                              vertical: AppSpace.sm),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: AppRadius.mdAll,
                                           ),
-                                          const SizedBox(height: AppSpace.xs),
-                                          Text(
-                                            formatDate(item['createdAt'],
-                                                fallback: ''),
-                                            style: AppText.micro,
+                                        ),
+                                        onPressed: _isNavigating
+                                            ? null
+                                            : () async {
+                                                final navigator =
+                                                    Navigator.of(context);
+                                                final messenger =
+                                                    ScaffoldMessenger.of(
+                                                        context);
+                                                setState(
+                                                    () => _isNavigating = true);
+                                                try {
+                                                  switch (destination) {
+                                                    case _NotificationDestination
+                                                          .password:
+                                                      // The app offers this dialog at
+                                                      // first login and nowhere else, so
+                                                      // this notification is the only
+                                                      // route to it. An empty
+                                                      // temporaryPassword leaves the
+                                                      // current-password field blank for
+                                                      // the holder to type.
+                                                      await showDialog<void>(
+                                                        context: context,
+                                                        builder: (ctx) =>
+                                                            ChangePasswordDialog(
+                                                          temporaryPassword: '',
+                                                          onSubmit: (curr,
+                                                                  next) =>
+                                                              AuthService(
+                                                                      ApiService())
+                                                                  .changePassword(
+                                                                      curr,
+                                                                      next),
+                                                        ),
+                                                      );
+                                                      return;
+
+                                                    case _NotificationDestination
+                                                          .serviceRecord:
+                                                      if (widget
+                                                              .onOpenServiceRecord !=
+                                                          null) {
+                                                        widget
+                                                            .onOpenServiceRecord!();
+                                                        return;
+                                                      }
+                                                      await navigator.push(
+                                                        MaterialPageRoute(
+                                                          builder: (ctx) =>
+                                                              const CareerTimelineScreen(),
+                                                        ),
+                                                      );
+                                                      return;
+
+                                                    case _NotificationDestination
+                                                          .applications:
+                                                      widget.onOpenApplications
+                                                          ?.call();
+                                                      return;
+
+                                                    case _NotificationDestination
+                                                          .transaction:
+                                                    case _NotificationDestination
+                                                          .none:
+                                                      break;
+                                                  }
+
+                                                  final rawTxId = item[
+                                                          'relatedEntityId'] ??
+                                                      item['related_entity_id'];
+                                                  final txId = rawTxId is int
+                                                      ? rawTxId
+                                                      : (int.tryParse(rawTxId
+                                                                  ?.toString() ??
+                                                              '') ??
+                                                          0);
+
+                                                  if (txId <= 0) {
+                                                    messenger.showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                            'This notice has no record attached to open.'),
+                                                      ),
+                                                    );
+                                                    return;
+                                                  }
+
+                                                  try {
+                                                    final txs =
+                                                        await TransactionService(
+                                                                ApiService())
+                                                            .getMyTransactions();
+                                                    TransactionModel? foundTx;
+                                                    for (final transaction
+                                                        in txs) {
+                                                      if (transaction.id ==
+                                                          txId) {
+                                                        foundTx = transaction;
+                                                        break;
+                                                      }
+                                                    }
+
+                                                    if (!mounted) return;
+                                                    if (foundTx == null) {
+                                                      messenger.showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                            'This transaction is no longer available. Your transaction list has been refreshed.',
+                                                          ),
+                                                        ),
+                                                      );
+                                                      return;
+                                                    }
+
+                                                    await navigator.push(
+                                                      MaterialPageRoute(
+                                                        builder: (ctx) =>
+                                                            ChecklistUploadScreen(
+                                                                transaction:
+                                                                    foundTx!),
+                                                      ),
+                                                    );
+                                                  } catch (error) {
+                                                    if (!mounted) return;
+                                                    // Say what went wrong rather than
+                                                    // claiming a redirect that did not
+                                                    // happen.
+                                                    messenger.showSnackBar(
+                                                      SnackBar(
+                                                        content: Text(friendlyError(
+                                                            error,
+                                                            fallback:
+                                                                'This could not be opened. Check your connection and try again.')),
+                                                        backgroundColor:
+                                                            AppTheme
+                                                                .statusReturned,
+                                                      ),
+                                                    );
+                                                  }
+                                                } finally {
+                                                  if (mounted) {
+                                                    setState(() =>
+                                                        _isNavigating = false);
+                                                  }
+                                                }
+                                              },
+                                        icon: Icon(actionIcon, size: 14),
+                                        label: Text(
+                                          '$actionLabel →',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ],
-                                ),
-                                // An account-request notice is information only for
-                                // this role, so it gets no button rather than one that
-                                // leads nowhere.
-                                if (actionLabel.isNotEmpty) ...[
-                                const SizedBox(height: AppSpace.md),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton.icon(
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: AppTheme.primaryLight,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: AppSpace.md,
-                                          vertical: AppSpace.sm),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: AppRadius.mdAll,
-                                      ),
-                                    ),
-                                    onPressed: _isNavigating
-                                        ? null
-                                        : () async {
-                                      final navigator = Navigator.of(context);
-                                      final messenger =
-                                          ScaffoldMessenger.of(context);
-                                      setState(() => _isNavigating = true);
-                                      try {
-                                        switch (destination) {
-                                          case _NotificationDestination
-                                                .password:
-                                            // The app offers this dialog at
-                                            // first login and nowhere else, so
-                                            // this notification is the only
-                                            // route to it. An empty
-                                            // temporaryPassword leaves the
-                                            // current-password field blank for
-                                            // the holder to type.
-                                            await showDialog<void>(
-                                              context: context,
-                                              builder: (ctx) =>
-                                                  ChangePasswordDialog(
-                                                temporaryPassword: '',
-                                                onSubmit: (curr, next) =>
-                                                    AuthService(ApiService())
-                                                        .changePassword(
-                                                            curr, next),
-                                              ),
-                                            );
-                                            return;
-
-                                          case _NotificationDestination
-                                                .serviceRecord:
-                                            if (widget.onOpenServiceRecord != null) {
-                                              widget.onOpenServiceRecord!();
-                                              return;
-                                            }
-                                            await navigator.push(
-                                              MaterialPageRoute(
-                                                builder: (ctx) =>
-                                                    const CareerTimelineScreen(),
-                                              ),
-                                            );
-                                            return;
-
-                                          case _NotificationDestination
-                                                .applications:
-                                            widget.onOpenApplications?.call();
-                                            return;
-
-                                          case _NotificationDestination
-                                                .transaction:
-                                          case _NotificationDestination.none:
-                                            break;
-                                        }
-
-                                        final rawTxId =
-                                            item['relatedEntityId'] ??
-                                                item['related_entity_id'];
-                                        final txId = rawTxId is int
-                                            ? rawTxId
-                                            : (int.tryParse(rawTxId
-                                                        ?.toString() ??
-                                                    '') ??
-                                                0);
-
-                                        if (txId <= 0) {
-                                          messenger.showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                  'This notice has no record attached to open.'),
-                                            ),
-                                          );
-                                          return;
-                                        }
-
-                                        try {
-                                          final txs = await TransactionService(
-                                                  ApiService())
-                                              .getMyTransactions();
-                                          TransactionModel? foundTx;
-                                          for (final transaction in txs) {
-                                            if (transaction.id == txId) {
-                                              foundTx = transaction;
-                                              break;
-                                            }
-                                          }
-
-                                          if (!mounted) return;
-                                          if (foundTx == null) {
-                                            messenger.showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'This transaction is no longer available. Your transaction list has been refreshed.',
-                                                ),
-                                              ),
-                                            );
-                                            return;
-                                          }
-
-                                          await navigator.push(
-                                            MaterialPageRoute(
-                                              builder: (ctx) =>
-                                                  ChecklistUploadScreen(
-                                                      transaction: foundTx!),
-                                            ),
-                                          );
-                                        } catch (error) {
-                                          if (!mounted) return;
-                                          // Say what went wrong rather than
-                                          // claiming a redirect that did not
-                                          // happen.
-                                          messenger.showSnackBar(
-                                            SnackBar(
-                                              content: Text(friendlyError(error,
-                                                  fallback:
-                                                      'This could not be opened. Check your connection and try again.')),
-                                              backgroundColor:
-                                                  AppTheme.statusReturned,
-                                            ),
-                                          );
-                                        }
-                                      } finally {
-                                        if (mounted) {
-                                          setState(
-                                              () => _isNavigating = false);
-                                        }
-                                      }
-                                    },
-                                    icon: Icon(actionIcon, size: 14),
-                                    label: Text(
-                                      '$actionLabel →',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      );
+                    }),
             ),
     );
+  }
+
+  /// Unread notices that ask the person to do something come first under
+  /// "Action needed"; everything else is information under "Other updates".
+  bool _needsAction(Map<String, dynamic> item) {
+    if (item['read'] == true || item['isRead'] == true) return false;
+    final type = item['type']?.toString() ?? '';
+    final msg = (item['message']?.toString() ?? '').toLowerCase();
+    return type == 'WARNING' ||
+        type == 'ERROR' ||
+        RegExp(r'deficienc|return|reopen|disqualif|resubmit|password')
+            .hasMatch(msg);
+  }
+
+  List<Object> _groupedRows() {
+    final action = _notifications.where(_needsAction).toList();
+    final other = _notifications.where((n) => !_needsAction(n)).toList();
+    return [
+      if (action.isNotEmpty) ...['Action needed (${action.length})', ...action],
+      if (other.isNotEmpty) ...[
+        if (action.isNotEmpty) 'Other updates',
+        ...other,
+      ],
+    ];
   }
 }

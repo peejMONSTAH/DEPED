@@ -28,7 +28,7 @@ test('each admin page reads its own API and shows loading, error and empty state
 test('destructive admin actions ask for confirmation and a reason', () => {
   const page = src('pages/admin/AccessSessions.tsx');
   assert.match(page, /confirm\(\{ title, message, confirmLabel: title, tone: 'danger', reason:/);
-  assert.match(page, /confirmOwn: s\.account\.id === user\?\.id/, 'own sessions are flagged, not silently revoked');
+  assert.match(page, /const own = account\.id === user\?\.id[\s\S]*confirmOwn: own/, 'own sessions are flagged, not silently revoked');
 });
 
 test('health distinguishes every status and never claims more than a check proved', () => {

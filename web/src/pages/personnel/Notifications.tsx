@@ -576,7 +576,7 @@ export const PersonnelNotifications: React.FC = () => {
                   }}
                 />
                 <h2 style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#dc2626', margin: 0 }}>
-                  Urgent Attention Required ({actionRequiredItems.length})
+                  Action needed ({actionRequiredItems.length})
                 </h2>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
