@@ -14,12 +14,13 @@ export type TransactionStatus = typeof TRANSACTION_STATUSES[number];
 // empty states all read it, so a status is never called two different names.
 const TEXT: Record<TransactionStatus, { label: string; phrase: string }> = {
   DRAFT: { label: 'Draft', phrase: 'in draft' },
-  PENDING_VALIDATION: { label: 'Under AO II Review', phrase: 'pending validation' },
-  FOR_APPROVAL: { label: 'Under HRMO Review', phrase: 'awaiting HRMO approval' },
-  APPROVED: { label: 'Approved by HRMO', phrase: 'approved' },
-  REJECTED: { label: 'Rejected', phrase: 'rejected' },
-  DEFICIENCY: { label: 'Returned by AO II', phrase: 'returned for correction' },
-  ESCALATED: { label: 'Escalated to HRMO', phrase: 'escalated' },
+  // The same short words as the phone app (mobile/lib/widgets/status_badge.dart).
+  PENDING_VALIDATION: { label: 'With AO II', phrase: 'with AO II' },
+  FOR_APPROVAL: { label: 'With HRMO', phrase: 'with HRMO' },
+  APPROVED: { label: 'Approved', phrase: 'approved' },
+  REJECTED: { label: 'Disqualified', phrase: 'disqualified' },
+  DEFICIENCY: { label: 'Returned', phrase: 'returned for correction' },
+  ESCALATED: { label: 'With HRMO', phrase: 'with HRMO' },
   ABANDONED: { label: 'Withdrawn', phrase: 'withdrawn' },
   COMPLETED: { label: 'Completed', phrase: 'completed' },
   ARCHIVED: { label: 'Archived', phrase: 'archived' },
@@ -30,7 +31,7 @@ const TEXT: Record<TransactionStatus, { label: string; phrase: string }> = {
 const KEEP_UPPER = new Set(['ECP', 'AO', 'HR', 'HRMO', 'HRMPSB', 'CAR', 'SDO', 'PDS', 'WES', 'NBI', 'PRC', 'PSA', 'CSC', 'DBM', 'OCR', 'II', 'III', 'IV', 'VI', 'VII', 'VIII']);
 
 export const humanizeEnum = (value: string): string => {
-  const words = String(value || '').replace(/[_-]+/g, ' ').trim().split(/s+/).filter(Boolean);
+  const words = String(value || '').replace(/[_-]+/g, ' ').trim().split(/\s+/).filter(Boolean);
   return words.map((w, i) => {
     if (KEEP_UPPER.has(w.toUpperCase())) return w.toUpperCase();
     const lower = w.toLowerCase();

@@ -71,10 +71,10 @@ test('Annex C wording has one web source that matches the server exactly', () =>
 
 test('status labels come from one table', () => {
   const { transactionStatusLabel } = require('../src/constants/transactionStatus.ts');
-  assert.equal(transactionStatusLabel('PENDING_VALIDATION'), 'Under AO II Review');
+  assert.equal(transactionStatusLabel('PENDING_VALIDATION'), 'With AO II');
   const badge = src('components/shared/StatusBadge.tsx');
   assert.match(badge, /label: transactionStatusLabel\(status\)/);
-  assert.doesNotMatch(badge, /label: 'Under AO II Review'/, 'no second copy of the label');
+  assert.doesNotMatch(badge, /label: 'With AO II'/, 'no second copy of the label');
   assert.match(src('pages/admin/TransactionQueue.tsx'), /label: transactionStatusLabel\('PENDING_VALIDATION'\)/);
 });
 
