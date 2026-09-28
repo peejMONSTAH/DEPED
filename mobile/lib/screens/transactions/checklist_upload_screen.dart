@@ -96,49 +96,108 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: AppTheme.lightBgCard,
       builder: (ctx) => SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(
               maxHeight: MediaQuery.of(ctx).size.height * 0.7),
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(item.documentName,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary)),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(LucideIcons.upload),
-                title: const Text('Upload a new file'),
-                onTap: () => Navigator.pop(ctx, 'upload'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: Text(item.documentName,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary)),
               ),
-              const Divider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(ctx, 'upload'),
+                  icon: const Icon(LucideIcons.upload, size: 16),
+                  label: const Text('Upload a new file',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    side: const BorderSide(color: AppTheme.lightBorder),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Attach from your 201 files',
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Text('FROM YOUR 201 FILES',
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondary)),
+                        fontSize: 11,
+                        letterSpacing: 0.6,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMuted)),
               ),
               if (docs.isEmpty)
-                const Text('No 201 files available to attach.',
-                    style: TextStyle(color: AppTheme.textMuted)),
-              for (final d in docs)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(LucideIcons.fileText),
-                  title: Text(d.documentTypeName),
-                  subtitle: Text(d.originalFileName,
-                      overflow: TextOverflow.ellipsis),
-                  trailing: const Text('Attach',
-                      style: TextStyle(
-                          color: AppTheme.primaryLight,
-                          fontWeight: FontWeight.bold)),
-                  onTap: () => Navigator.pop(ctx, d),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: Text('No 201 files available to attach.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    itemCount: docs.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final d = docs[i];
+                      return Material(
+                        color: AppTheme.lightSurface,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => Navigator.pop(ctx, d),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            child: Row(
+                              children: [
+                                const Icon(LucideIcons.fileText,
+                                    size: 18, color: AppTheme.textSecondary),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(d.documentTypeName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.textPrimary)),
+                                      const SizedBox(height: 2),
+                                      Text(d.originalFileName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textMuted)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(LucideIcons.plus,
+                                    size: 18, color: AppTheme.primaryLight),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
             ],
           ),
