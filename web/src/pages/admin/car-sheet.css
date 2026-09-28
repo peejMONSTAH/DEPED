@@ -1,0 +1,50 @@
+/* Comparative assessment score sheet: laid out like the official CAR form,
+   one row per criterion, with a running total beside it. */
+.car-sheet { width: min(1080px, calc(100vw - 32px)); max-height: 92dvh; display: flex; flex-direction: column; padding: 0 !important; overflow: hidden; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 16px; }
+.car-sheet__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 20px 28px; border-bottom: 1px solid var(--color-border); }
+.car-sheet__kicker { margin: 0; font-size: .875rem; font-weight: 700; color: var(--color-primary); }
+.car-sheet__title { margin: 4px 0 0; font-size: 1.5rem; font-weight: 800; color: var(--color-text-primary); }
+.car-sheet__sub { margin: 4px 0 0; font-size: 1rem; color: var(--color-text-secondary); }
+.car-sheet__close { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-card); color: var(--color-text-primary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.car-sheet__form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.car-sheet__body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; padding: 20px 28px 28px; overflow-y: auto; }
+.car-sheet__main { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+.car-sheet__req { margin: 0; padding: 10px 14px; border-radius: 10px; font-size: .9375rem; font-weight: 600; }
+.car-sheet__req.is-ok { background: color-mix(in srgb, var(--color-primary) 9%, transparent); color: var(--color-primary); }
+.car-sheet__req.is-warn { background: #FDF3DC; color: #8A5A0B; }
+
+.car-sheet__table { width: 100%; border-collapse: collapse; }
+.car-sheet__table caption { text-align: left; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); padding-bottom: 8px; }
+.car-sheet__table th, .car-sheet__table td { padding: 10px 12px; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: middle; }
+.car-sheet__table thead th { font-size: .875rem; font-weight: 700; color: var(--color-text-secondary); background: var(--color-bg-secondary); }
+.car-sheet__table tbody th { font-size: 1rem; font-weight: 600; color: var(--color-text-primary); }
+.car-sheet__table .num { text-align: right; width: 110px; font-variant-numeric: tabular-nums; font-size: 1rem; }
+.car-sheet__hint { display: block; font-size: .875rem; font-weight: 400; color: var(--color-text-secondary); margin-top: 2px; }
+.car-sheet__input { width: 96px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-bg-card); color: var(--color-text-primary); font: inherit; font-size: 1.0625rem; font-weight: 700; text-align: right; }
+.car-sheet__input:focus { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.car-sheet__input.is-invalid { border-color: #C23B4E; background: #FDF0F1; }
+
+.car-sheet__recs { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+.car-sheet__recs legend { font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); padding: 0 0 8px; }
+.car-sheet__recs label { display: flex; flex-direction: column; gap: 6px; }
+.car-sheet__recs label > span { font-size: .9375rem; font-weight: 600; color: var(--color-text-secondary); }
+.car-sheet__remarks { grid-column: 1 / -1; }
+
+.car-sheet__summary { position: sticky; top: 0; align-self: start; padding: 20px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-secondary); display: flex; flex-direction: column; gap: 12px; }
+.car-sheet__summary-label { margin: 0; font-size: .9375rem; font-weight: 700; color: var(--color-text-secondary); }
+.car-sheet__total { margin: 0; font-size: 1.125rem; color: var(--color-text-secondary); }
+.car-sheet__total strong { font-size: 2.5rem; font-weight: 800; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.car-sheet__summary dl { margin: 0; display: grid; gap: 8px; }
+.car-sheet__summary dl div { display: flex; justify-content: space-between; gap: 8px; font-size: .9375rem; }
+.car-sheet__summary dt { color: var(--color-text-secondary); }
+.car-sheet__summary dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.car-sheet__progress { margin: 0; font-size: .9375rem; color: var(--color-text-secondary); }
+.car-sheet__save { width: 100%; border-radius: 9999px !important; padding: 12px 18px !important; font-size: 1rem !important; }
+
+@media (max-width: 860px) {
+  .car-sheet__body { grid-template-columns: 1fr; padding: 16px; }
+  .car-sheet__head { padding: 16px; }
+  .car-sheet__recs { grid-template-columns: 1fr; }
+  .car-sheet__summary { position: static; }
+}

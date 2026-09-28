@@ -1,3 +1,4 @@
+import './car-sheet.css';
 import { humanizeEnum } from '../../constants/transactionStatus';
 import './promo-detail.css';
 import './promo-create.css';
@@ -391,26 +392,26 @@ export const PromotionManagement: React.FC = () => {
   const [aoRemarks, setAoRemarks] = useState<string>('Qualifications verified against DepEd CAR standards.');
 
   // HRMO Staff Final Deliberation Form State (Official DepEd CAR Criteria - 100 pts Deliberation)
-  const [hrmoEduScore, setHrmoEduScore] = useState<number | ''>(10); // Max 10
-  const [hrmoTrainScore, setHrmoTrainScore] = useState<number | ''>(10); // Max 10
-  const [hrmoExpScore, setHrmoExpScore] = useState<number | ''>(10); // Max 10
-  const [hrmoPerfScore, setHrmoPerfScore] = useState<number | ''>(30); // Max 30 for Teaching, 20 for Non-Teaching
+  const [hrmoEduScore, setHrmoEduScore] = useState<number | ''>(''); // Max 10
+  const [hrmoTrainScore, setHrmoTrainScore] = useState<number | ''>(''); // Max 10
+  const [hrmoExpScore, setHrmoExpScore] = useState<number | ''>(''); // Max 10
+  const [hrmoPerfScore, setHrmoPerfScore] = useState<number | ''>(''); // Max 30 for Teaching, 20 for Non-Teaching
   // Non-Teaching Specific HRMPSB Criteria
-  const [hrmoAccomplishmentsScore, setHrmoAccomplishmentsScore] = useState<number | ''>(5); // Max 5
-  const [hrmoAppEduScore, setHrmoAppEduScore] = useState<number | ''>(15); // Max 15
-  const [hrmoAppLdScore, setHrmoAppLdScore] = useState<number | ''>(10); // Max 10
-  const [hrmoWrittenScore, setHrmoWrittenScore] = useState<number | ''>(5); // Max 5
-  const [hrmoBeiScore, setHrmoBeiScore] = useState<number | ''>(5); // Max 5
-  const [hrmoSkillsScore, setHrmoSkillsScore] = useState<number | ''>(10); // Max 10
-  const [hrmoPotentialScore, setHrmoPotentialScore] = useState<number | ''>(20); // Max 20 Total Potential
+  const [hrmoAccomplishmentsScore, setHrmoAccomplishmentsScore] = useState<number | ''>(''); // Max 5
+  const [hrmoAppEduScore, setHrmoAppEduScore] = useState<number | ''>(''); // Max 15
+  const [hrmoAppLdScore, setHrmoAppLdScore] = useState<number | ''>(''); // Max 10
+  const [hrmoWrittenScore, setHrmoWrittenScore] = useState<number | ''>(''); // Max 5
+  const [hrmoBeiScore, setHrmoBeiScore] = useState<number | ''>(''); // Max 5
+  const [hrmoSkillsScore, setHrmoSkillsScore] = useState<number | ''>(''); // Max 10
+  const [hrmoPotentialScore, setHrmoPotentialScore] = useState<number | ''>(''); // Max 20 Total Potential
   // Teaching Specific HRMPSB Criteria
-  const [hrmoPpstCoiScore, setHrmoPpstCoiScore] = useState<number | ''>(25); // Max 25 (Classroom Observation / Demo Teaching)
-  const [hrmoPpstNcoiScore, setHrmoPpstNcoiScore] = useState<number | ''>(15); // Max 15 (Teacher Reflection / Portfolio)
+  const [hrmoPpstCoiScore, setHrmoPpstCoiScore] = useState<number | ''>(''); // Max 25 (Classroom Observation / Demo Teaching)
+  const [hrmoPpstNcoiScore, setHrmoPpstNcoiScore] = useState<number | ''>(''); // Max 15 (Teacher Reflection / Portfolio)
   // CAR Governance Fields
-  const [hrmoRemarks, setHrmoRemarks] = useState<string>('Deliberated and qualified for appointment.');
-  const [forBackgroundInvestigation, setForBackgroundInvestigation] = useState<'YES' | 'NO'>('YES');
-  const [forAppointment, setForAppointment] = useState<string>('Recommended for Appointment');
-  const [forProbation, setForProbation] = useState<string>('6 months');
+  const [hrmoRemarks, setHrmoRemarks] = useState<string>('');
+  const [forBackgroundInvestigation, setForBackgroundInvestigation] = useState<'YES' | 'NO' | ''>('');
+  const [forAppointment, setForAppointment] = useState<string>('');
+  const [forProbation, setForProbation] = useState<string>('');
 
   // Application Form Input State
   const [appFormApplicantId, setAppFormApplicantId] = useState<string>('');
@@ -889,32 +890,63 @@ export const PromotionManagement: React.FC = () => {
     const existingFinal = app.scoreDetailsJson?.finalRating || {};
     const existingInitial = app.scoreDetailsJson?.initialRating || {};
 
-    // Common qualification criteria (HRMPSB Deliberation)
-    setHrmoEduScore(Number(existingFinal.educationScore ?? existingInitial.educationScore ?? 10));
-    setHrmoTrainScore(Number(existingFinal.trainingScore ?? existingInitial.trainingScore ?? 10));
-    setHrmoExpScore(Number(existingFinal.experienceScore ?? existingInitial.experienceScore ?? 10));
-    setHrmoPerfScore(Number(existingFinal.performanceScore ?? existingInitial.performanceScore ?? (isNonTeaching ? 20 : 30)));
-
-    // Non-Teaching Specific Criteria
-    setHrmoAccomplishmentsScore(Number(existingFinal.outstandingAccomplishmentsScore ?? existingInitial.outstandingAccomplishmentsScore ?? 5));
-    setHrmoAppEduScore(Number(existingFinal.applicationOfEducationScore ?? existingInitial.applicationOfEducationScore ?? 15));
-    setHrmoAppLdScore(Number(existingFinal.applicationOfLdScore ?? existingInitial.applicationOfLdScore ?? 10));
-    setHrmoWrittenScore(Number(existingFinal.potentialWrittenScore ?? 5));
-    setHrmoBeiScore(Number(existingFinal.potentialBeiScore ?? 5));
-    setHrmoSkillsScore(Number(existingFinal.potentialSkillsScore ?? 10));
-    setHrmoPotentialScore(Number(existingFinal.potentialScore ?? 20));
-
-    // Teaching Specific Criteria
-    setHrmoPpstCoiScore(Number(existingFinal.ppstCoiScore ?? 25));
-    setHrmoPpstNcoiScore(Number(existingFinal.ppstNcoiScore ?? 15));
-
-    // CAR Governance
-    setHrmoRemarks(existingFinal.hrmoRemarks || 'Deliberated and qualified in accordance with DepEd CAR standards.');
-    setForBackgroundInvestigation(app.forBackgroundInvestigation || app.scoreDetailsJson?.forBackgroundInvestigation || 'YES');
-    setForAppointment(app.forAppointment || app.scoreDetailsJson?.forAppointment || 'Recommended for Appointment');
-    setForProbation(app.forProbation || app.scoreDetailsJson?.forProbation || '6 months');
+    // A revision starts from the saved rating; a first rating starts empty.
+    // Nothing is pre-filled with a maximum or a stock remark.
+    const prior = (value: unknown): number | '' => (value === undefined || value === null || value === '' ? '' : Number(value));
+    setHrmoEduScore(prior(existingFinal.educationScore ?? existingInitial.educationScore));
+    setHrmoTrainScore(prior(existingFinal.trainingScore ?? existingInitial.trainingScore));
+    setHrmoExpScore(prior(existingFinal.experienceScore ?? existingInitial.experienceScore));
+    setHrmoPerfScore(prior(existingFinal.performanceScore ?? existingInitial.performanceScore));
+    setHrmoAccomplishmentsScore(prior(existingFinal.outstandingAccomplishmentsScore ?? existingInitial.outstandingAccomplishmentsScore));
+    setHrmoAppEduScore(prior(existingFinal.applicationOfEducationScore ?? existingInitial.applicationOfEducationScore));
+    setHrmoAppLdScore(prior(existingFinal.applicationOfLdScore ?? existingInitial.applicationOfLdScore));
+    setHrmoWrittenScore(prior(existingFinal.potentialWrittenScore));
+    setHrmoBeiScore(prior(existingFinal.potentialBeiScore));
+    setHrmoSkillsScore(prior(existingFinal.potentialSkillsScore));
+    setHrmoPotentialScore(prior(existingFinal.potentialScore));
+    setHrmoPpstCoiScore(prior(existingFinal.ppstCoiScore));
+    setHrmoPpstNcoiScore(prior(existingFinal.ppstNcoiScore));
+    setHrmoRemarks(existingFinal.hrmoRemarks || '');
+    const bi = app.forBackgroundInvestigation || app.scoreDetailsJson?.forBackgroundInvestigation;
+    setForBackgroundInvestigation(bi === 'YES' || bi === 'NO' ? bi : '');
+    setForAppointment(app.forAppointment || app.scoreDetailsJson?.forAppointment || '');
+    setForProbation(app.forProbation || app.scoreDetailsJson?.forProbation || '');
     setShowHrmoModal(true);
   };
+
+  // One list of criteria drives the score sheet, its totals and the save check.
+  type RatingRow = { key: string; label: string; hint?: string; max: number; value: number | ''; set: (v: number | '') => void };
+  const isScoreEntered = (value: number | '', max: number) => value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= max;
+  const ratingGroups = (track: 'TEACHING' | 'NON_TEACHING'): { title: string; rows: RatingRow[] }[] => [
+    {
+      title: 'Basic qualifications',
+      rows: [
+        { key: 'edu', label: 'Education', max: 10, value: hrmoEduScore, set: setHrmoEduScore },
+        { key: 'train', label: 'Training', max: 10, value: hrmoTrainScore, set: setHrmoTrainScore },
+        { key: 'exp', label: 'Experience', max: 10, value: hrmoExpScore, set: setHrmoExpScore },
+        { key: 'perf', label: 'Performance', max: track === 'NON_TEACHING' ? 20 : 30, value: hrmoPerfScore, set: setHrmoPerfScore },
+      ],
+    },
+    track === 'NON_TEACHING'
+      ? {
+          title: 'Merit and potential',
+          rows: [
+            { key: 'acc', label: 'Outstanding accomplishments', max: 5, value: hrmoAccomplishmentsScore, set: setHrmoAccomplishmentsScore },
+            { key: 'appEdu', label: 'Application of education', max: 15, value: hrmoAppEduScore, set: setHrmoAppEduScore },
+            { key: 'appLd', label: 'Application of learning and development', max: 10, value: hrmoAppLdScore, set: setHrmoAppLdScore },
+            { key: 'written', label: 'Potential: written test', max: 5, value: hrmoWrittenScore, set: setHrmoWrittenScore },
+            { key: 'bei', label: 'Potential: behavioral event interview', max: 5, value: hrmoBeiScore, set: setHrmoBeiScore },
+            { key: 'skills', label: 'Potential: skills test', max: 10, value: hrmoSkillsScore, set: setHrmoSkillsScore },
+          ],
+        }
+      : {
+          title: 'Teaching merit (PPST)',
+          rows: [
+            { key: 'coi', label: 'Classroom observable indicators', hint: 'Demonstration teaching, COT rubric', max: 25, value: hrmoPpstCoiScore, set: setHrmoPpstCoiScore },
+            { key: 'ncoi', label: 'Non-classroom observable indicators', hint: 'Portfolio and BEI', max: 15, value: hrmoPpstNcoiScore, set: setHrmoPpstNcoiScore },
+          ],
+        },
+  ];
 
     const savingHrmoRating = usePending();
   // Double-clicking used to send this twice, creating duplicate records.
@@ -926,6 +958,11 @@ export const PromotionManagement: React.FC = () => {
   const handleSubmitHrmoRatingUnguarded = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAppForModal || !selectedCycle) return;
+    // A blank would be sent as 0; every criterion must be scored first.
+    if (ratingGroups(modalTrack).some(g => g.rows.some(r => !isScoreEntered(r.value, r.max)))) {
+      addToast('Enter every score, within its maximum, before saving.', 'ERROR');
+      return;
+    }
     if (!isHR) {
       addToast('Forbidden: Only HRMO staff can finalize promotion ratings.', 'ERROR');
       return;
@@ -3637,678 +3674,121 @@ export const PromotionManagement: React.FC = () => {
         isPending={savingAoRating.pending}
       />
 
-      {/* MODAL 2: HRMO STAFF FINAL RATING FORM (OFFICIAL DEPED CAR DELIBERATION) */}
-      {showHrmoModal && selectedAppForModal && isHR && createPortal((
-        <ModalOverlay onDismiss={() => setShowHrmoModal(false)} className="modal-overlay hrmo-deliberation-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1050 }}>
-          <div className="modal animate-scale-in hrmo-deliberation-modal" style={{
-            maxWidth: '1240px',
-            width: 'calc(100vw - 48px)',
-            borderRadius: '16px',
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
-            maxHeight: '92vh',
-            display: 'flex',
-            flexDirection: 'column',
-            padding: 0,
-            overflow: 'hidden',
-          }}>
-            {/* Modal Header */}
-            <div className="hrmo-deliberation-header" style={{
-              background: 'var(--color-bg-tertiary)',
-              borderBottom: '1px solid var(--color-border)',
-              padding: '20px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{
-                    fontSize: '0.875rem',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5',
-                    color: theme === 'dark' ? '#34D399' : '#059669',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(5, 150, 105, 0.4)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    <AppIcon name="approvals" size={12} color={theme === 'dark' ? '#34D399' : '#059669'} />
-                    Stage 2 • Merit Promotion Selection Board (MPSB)
-                  </span>
-                  <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                    DepEd SDO Koronadal City
-                  </span>
-                </div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  HRMO Board Final Deliberation & CAR Rating
-                </h3>
-              </div>
-              <button
-                className="modal-close"
-                onClick={() => setShowHrmoModal(false)}
-                style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', width: '32px', height: '32px', borderRadius: '8px', color: 'var(--color-text-primary)', cursor: 'pointer', fontSize: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                ×
-              </button>
-            </div>
-
-            <form className="hrmo-deliberation-form" onSubmit={handleSubmitHrmoRating} style={{ padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Candidate Info Profile Card */}
-              <div style={{
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '12px',
-                padding: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '14px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '1.125rem',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  }}>
-                    {selectedAppForModal.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'AP'}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '1.1875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                      {selectedAppForModal.name}
-                    </div>
-                    <div style={{ fontSize: '0.9375rem', color: 'var(--color-primary)', fontWeight: 600 }}>
-                      {selectedAppForModal.designation || 'Plantilla Candidate'} • <span style={{ color: 'var(--color-text-secondary)' }}>{selectedAppForModal.station || 'Division of Koronadal City'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.9375rem', fontFamily: 'var(--font-mono)', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', color: 'var(--color-primary)', padding: '4px 10px', borderRadius: '6px', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8', fontWeight: 600 }}>
-                    {selectedAppForModal.applicantNumber || `APP-${String(selectedAppForModal.id).padStart(4, '0')}`}
-                  </span>
-                  <span style={{ fontSize: '0.9375rem', background: modalTrack === 'NON_TEACHING' ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB') : (theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5'), color: modalTrack === 'NON_TEACHING' ? '#D97706' : '#059669', padding: '4px 10px', borderRadius: '6px', border: modalTrack === 'NON_TEACHING' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid rgba(5, 150, 105, 0.3)', fontWeight: 700 }}>
-                    {modalTrack === 'NON_TEACHING' ? 'Non-Teaching Track' : 'Teaching Track'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Stage 1 AO II Requirements Completeness Verification Card */}
-              {(() => {
-                const reqCheck = selectedAppForModal.scoreDetailsJson?.requirementsCheck;
-                const isReqComplete = reqCheck?.status === 'COMPLETE' || selectedAppForModal.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_VERIFIED';
-                const isReqDeficient = reqCheck?.status === 'INCOMPLETE' || selectedAppForModal.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT';
-
-                return (
-                  <div style={{
-                    background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.12)' : '#ECFDF5') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.12)' : '#FFFBEB'),
-                    border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)',
-                    borderRadius: '10px',
-                    padding: '14px 18px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '12px',
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '0.875rem', color: isReqComplete ? '#059669' : '#D97706', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
-                        Stage 1 • AO II Documentary Requirements Check
-                      </div>
-                      <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        {reqCheck?.remarks || (isReqComplete ? 'All Annex C documentary requirements verified complete and authentic.' : isReqDeficient ? 'Requirements incomplete / deficient.' : 'Awaiting AO II completeness verification.')}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        background: isReqComplete ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7'),
-                        color: isReqComplete ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#D97706'),
-                        fontSize: '0.9375rem',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontWeight: 800,
-                        border: isReqComplete ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(217, 119, 6, 0.4)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}>
-                        <AppIcon name={isReqComplete ? 'check' : 'pending'} size={12} color={isReqComplete ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#D97706')} />
-                        {isReqComplete ? 'Requirements Complete' : isReqDeficient ? 'Requirements Deficient' : 'Pending Verification'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* HRMPSB Core Qualifications Deliberation (Education, Training, Experience, Performance) */}
-              <div style={{
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '12px',
-                padding: '16px',
-              }}>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                  HRMPSB Deliberation • Basic Qualification Criteria ({modalTrack === 'NON_TEACHING' ? '50.00 pts Max' : '60.00 pts Max'})
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Education (Max 10)</label>
-                    <input
-                      aria-label="Education (Max 10)"
-                      type="number"
-                      max={10} min={0} step="0.25"
-                      className="form-input"
-                      style={{ textAlign: 'center', fontWeight: 700 }}
-                      value={hrmoEduScore}
-                      onChange={(e) => setHrmoEduScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                      required
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Training (Max 10)</label>
-                    <input
-                      aria-label="Training (Max 10)"
-                      type="number"
-                      max={10} min={0} step="0.25"
-                      className="form-input"
-                      style={{ textAlign: 'center', fontWeight: 700 }}
-                      value={hrmoTrainScore}
-                      onChange={(e) => setHrmoTrainScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                      required
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Experience (Max 10)</label>
-                    <input
-                      aria-label="Experience (Max 10)"
-                      type="number"
-                      max={10} min={0} step="0.25"
-                      className="form-input"
-                      style={{ textAlign: 'center', fontWeight: 700 }}
-                      value={hrmoExpScore}
-                      onChange={(e) => setHrmoExpScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                      required
-                    />
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                      Performance ({modalTrack === 'NON_TEACHING' ? 'Max 20' : 'Max 30'})
-                    </label>
-                    <input aria-label="Performance Score"
-                      type="number"
-                      max={modalTrack === 'NON_TEACHING' ? 20 : 30} min={0} step="0.25"
-                      className="form-input"
-                      style={{ textAlign: 'center', fontWeight: 700 }}
-                      value={hrmoPerfScore}
-                      onChange={(e) => setHrmoPerfScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {modalTrack === 'NON_TEACHING' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '12px' }}>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Accomplishments (Max 5)</label>
-                      <input
-                        aria-label="Accomplishments (Max 5)"
-                        type="number"
-                        max={5} min={0} step="0.25"
-                        className="form-input"
-                        style={{ textAlign: 'center', fontWeight: 700 }}
-                        value={hrmoAccomplishmentsScore}
-                        onChange={(e) => setHrmoAccomplishmentsScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of Education (Max 15)</label>
-                      <input
-                        aria-label="App of Education (Max 15)"
-                        type="number"
-                        max={15} min={0} step="0.25"
-                        className="form-input"
-                        style={{ textAlign: 'center', fontWeight: 700 }}
-                        value={hrmoAppEduScore}
-                        onChange={(e) => setHrmoAppEduScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>App of L&D (Max 10)</label>
-                      <input
-                        aria-label="App of L&D (Max 10)"
-                        type="number"
-                        max={10} min={0} step="0.25"
-                        className="form-input"
-                        style={{ textAlign: 'center', fontWeight: 700 }}
-                        value={hrmoAppLdScore}
-                        onChange={(e) => setHrmoAppLdScore(e.target.value === '' ? '' as any : Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Stage 2 HRMO Evaluation Section */}
-              {modalTrack === 'TEACHING' ? (
-                <div style={{
-                  background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#F0FDF4',
-                  border: theme === 'dark' ? '1px solid rgba(5, 150, 105, 0.3)' : '1px solid #BBF7D0',
-                  borderRadius: '12px',
-                  padding: '18px',
-                }}>
-                  <div className="hrmo-criteria-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Teaching Merit Criteria (40.00 pts Max)
-                    </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                      Evaluated via Classroom Observation Tool (COT) & Portfolio MOVs
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {/* Criteria 1: PPST COIs Demo Teaching (25 pts) */}
-                    <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '14px', borderRadius: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                        <div>
-                          <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                            1. PPST COIs — Demonstration Teaching / Classroom Observation
-                          </label>
-                          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                            Max 25.00 pts (COT Rubric Level 3-7 ratings calibrated to 25 pts)
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button type="button" onClick={() => setHrmoPpstCoiScore(25)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.4)', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', cursor: 'pointer', fontWeight: 700 }}>Max (25)</button>
-                          <button type="button" onClick={() => setHrmoPpstCoiScore(23.5)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>23.50</button>
-                          <button type="button" onClick={() => setHrmoPpstCoiScore(20)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>20.00</button>
-                        </div>
-                      </div>
-                      <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input
-                          aria-label="1. PPST COIs — Demonstration Teaching / Classroom Observation"
-                          type="range"
-                          min={0} max={25} step="0.25"
-                          value={hrmoPpstCoiScore}
-                          onChange={(e) => setHrmoPpstCoiScore(Number(e.target.value))}
-                          style={{ flex: 1, accentColor: '#059669', cursor: 'pointer' }}
-                        />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
-                            aria-label="PPST COIs score"
-                            type="number"
-                            max={25} min={0} step="0.01"
-                            className="form-input"
-                            style={{ width: '85px', textAlign: 'center', fontWeight: 800, color: '#059669', fontSize: '1.0625rem', fontFamily: 'var(--font-mono)' }}
-                            value={hrmoPpstCoiScore}
-                            onChange={(e) => setHrmoPpstCoiScore(Number(e.target.value))}
-                            required
-                          />
-                          <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>/ 25</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Criteria 2: PPST NCOIs Portfolio & BEI (15 pts) */}
-                    <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '14px', borderRadius: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                        <div>
-                          <label className="form-label" style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                            2. PPST NCOIs — Portfolio Annotation & Behavioral Event Interview (BEI)
-                          </label>
-                          <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                            Max 15.00 pts (Means of Verification, Portfolio Evidence & Interview)
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <button type="button" onClick={() => setHrmoPpstNcoiScore(15)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(5, 150, 105, 0.4)', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', cursor: 'pointer', fontWeight: 700 }}>Max (15)</button>
-                          <button type="button" onClick={() => setHrmoPpstNcoiScore(13.5)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>13.50</button>
-                          <button type="button" onClick={() => setHrmoPpstNcoiScore(12)} style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '4px', border: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', color: 'var(--color-text-primary)', cursor: 'pointer', fontWeight: 600 }}>12.00</button>
-                        </div>
-                      </div>
-                      <div className="hrmo-score-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <input
-                          aria-label="2. PPST NCOIs — Portfolio Annotation & Behavioral Event Interview (BEI)"
-                          type="range"
-                          min={0} max={15} step="0.25"
-                          value={hrmoPpstNcoiScore}
-                          onChange={(e) => setHrmoPpstNcoiScore(Number(e.target.value))}
-                          style={{ flex: 1, accentColor: '#059669', cursor: 'pointer' }}
-                        />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
-                            aria-label="PPST NCOIs score"
-                            type="number"
-                            max={15} min={0} step="0.01"
-                            className="form-input"
-                            style={{ width: '85px', textAlign: 'center', fontWeight: 800, color: '#059669', fontSize: '1.0625rem', fontFamily: 'var(--font-mono)' }}
-                            value={hrmoPpstNcoiScore}
-                            onChange={(e) => setHrmoPpstNcoiScore(Number(e.target.value))}
-                            required
-                          />
-                          <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>/ 15</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* Non-Teaching Criteria Section */
-                <div style={{
-                  background: theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB',
-                  border: theme === 'dark' ? '1px solid rgba(217, 119, 6, 0.3)' : '1px solid #FDE68A',
-                  borderRadius: '12px',
-                  padding: '18px',
-                }}>
-                  <div className="hrmo-criteria-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Non-Teaching Potential Criteria (20.00 pts Max)
-                    </div>
-                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                      Written Exam + Behavioral Event Interview + Skills Test
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '12px' }}>
-                    <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Written Examination (Max 5)</label>
-                      <input
-                        aria-label="Written Examination (Max 5)"
-                        type="number"
-                        max={5} min={0} step="0.25"
-                        className="form-input"
-                        style={{ textAlign: 'center', fontWeight: 700, color: '#D97706' }}
-                        value={hrmoWrittenScore}
-                        onChange={(e) => setHrmoWrittenScore(Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>BEI Interview (Max 5)</label>
-                      <input
-                        aria-label="BEI Interview (Max 5)"
-                        type="number"
-                        max={5} min={0} step="0.25"
-                        className="form-input"
-                        style={{ textAlign: 'center', fontWeight: 700, color: '#D97706' }}
-                        value={hrmoBeiScore}
-                        onChange={(e) => setHrmoBeiScore(Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '12px', borderRadius: '8px' }}>
-                      <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Skills Test (Max 10)</label>
-                      <input
-                        aria-label="Skills Test (Max 10)"
-                        type="number"
-                        max={10} min={0} step="0.25"
-                        className="form-input"
-                        style={{ textAlign: 'center', fontWeight: 700, color: '#D97706' }}
-                        value={hrmoSkillsScore}
-                        onChange={(e) => setHrmoSkillsScore(Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Combined Total Live Score Display Gauge */}
-              {(() => {
-                const edu = Number(hrmoEduScore) || 0;
-                const train = Number(hrmoTrainScore) || 0;
-                const exp = Number(hrmoExpScore) || 0;
-                const perf = Number(hrmoPerfScore) || 0;
-
-                let combined = 0;
-                if (modalTrack === 'NON_TEACHING') {
-                  const outAcc = Number(hrmoAccomplishmentsScore) || 0;
-                  const appEdu = Number(hrmoAppEduScore) || 0;
-                  const appLd = Number(hrmoAppLdScore) || 0;
-                  const written = Number(hrmoWrittenScore) || 0;
-                  const bei = Number(hrmoBeiScore) || 0;
-                  const skills = Number(hrmoSkillsScore) || 0;
-                  combined = parseFloat((edu + train + exp + perf + outAcc + appEdu + appLd + written + bei + skills).toFixed(2));
-                } else {
-                  const coi = Number(hrmoPpstCoiScore) || 0;
-                  const ncoi = Number(hrmoPpstNcoiScore) || 0;
-                  combined = parseFloat((edu + train + exp + perf + coi + ncoi).toFixed(2));
-                }
-
-                const isOutstanding = combined >= 90;
-
-                return (
-                  <div style={{
-                    background: theme === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5',
-                    border: theme === 'dark' ? '1.5px solid rgba(5, 150, 105, 0.3)' : '1.5px solid #A7F3D0',
-                    borderRadius: '12px',
-                    padding: '16px 20px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
-                      <div>
-                        <div style={{ fontSize: '0.875rem', color: '#059669', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.05em' }}>
-                          HRMPSB Deliberated Comparative Assessment Result (CAR) Total
-                        </div>
-                        <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>
-                          {modalTrack === 'NON_TEACHING'
-                            ? `Education (${edu}) + Training (${train}) + Experience (${exp}) + Perf (${perf}) + Accomp (${hrmoAccomplishmentsScore}) + AppEdu (${hrmoAppEduScore}) + AppLD (${hrmoAppLdScore}) + Potential (${(Number(hrmoWrittenScore) + Number(hrmoBeiScore) + Number(hrmoSkillsScore)).toFixed(1)})`
-                            : `Education (${edu}) + Training (${train}) + Experience (${exp}) + Perf (${perf}) + PPST COT (${hrmoPpstCoiScore}) + Portfolio (${hrmoPpstNcoiScore})`}
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                        <span style={{ fontSize: '1.75rem', fontWeight: 900, color: '#059669', fontFamily: 'var(--font-mono)' }}>
-                          {combined.toFixed(2)}
-                        </span>
-                        <span style={{ fontSize: '1rem', color: 'var(--color-text-secondary)', fontWeight: 700 }}>/ 100.00 pts</span>
-                      </div>
-                    </div>
-
-                    <div style={{ width: '100%', height: '8px', background: 'var(--color-border)', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
-                      <div style={{ width: `${Math.min(100, combined)}%`, height: '100%', background: isOutstanding ? 'linear-gradient(90deg, #10b981 0%, #d97706 100%)' : 'linear-gradient(90deg, #2f7d52 0%, #10b981 100%)', borderRadius: '4px', transition: 'width 0.3s ease' }} />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                      <span>Grade: <strong style={{ color: isOutstanding ? '#059669' : 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{isOutstanding ? <><AppIcon name="award" size={12} color="#059669" /> Highly Qualified / Superior Merit</> : <><AppIcon name="check" size={12} color="var(--color-primary)" /> Qualified for Deliberation</>}</strong></span>
-                      <span>Cut-off Threshold: 50.00 pts</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Official DepEd Governance Fields Section */}
-              <div style={{
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '12px',
-                padding: '18px',
-              }}>
-                <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <AppIcon name="approvals" size={14} color="var(--color-primary)" />
-                  Official DepEd CAR Governance & Appointing Fields
-                </div>
-
-                {/* BI, Appointment, Probation Grid */}
-                <div className="hrmo-governance-grid" style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '14px', marginBottom: '14px', minWidth: 0 }}>
-                  {/* Background Investigation Segment */}
-                  <div style={{ minWidth: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                      1. Background Investigation (BI)
-                    </label>
-                    <div className="hrmo-bi-options" style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '6px' }}>
-                      <button
-                        type="button"
-                        onClick={() => setForBackgroundInvestigation('YES')}
-                        style={{
-                          padding: '7px 10px',
-                          borderRadius: '8px',
-                          fontSize: '0.9375rem',
-                          fontWeight: 700,
-                          border: forBackgroundInvestigation === 'YES' ? '1.5px solid #10b981' : '1px solid var(--color-border)',
-                          background: forBackgroundInvestigation === 'YES' ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : 'var(--color-bg-card)',
-                          color: forBackgroundInvestigation === 'YES' ? '#059669' : 'var(--color-text-secondary)',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <AppIcon name="check" size={12} color={forBackgroundInvestigation === 'YES' ? '#059669' : 'var(--color-text-secondary)'} /> YES (Passed)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setForBackgroundInvestigation('NO')}
-                        style={{
-                          padding: '7px 10px',
-                          borderRadius: '8px',
-                          fontSize: '0.9375rem',
-                          fontWeight: 700,
-                          border: forBackgroundInvestigation === 'NO' ? '1.5px solid #ef4444' : '1px solid var(--color-border)',
-                          background: forBackgroundInvestigation === 'NO' ? (theme === 'dark' ? 'rgba(220, 38, 38, 0.2)' : '#FEE2E2') : 'var(--color-bg-card)',
-                          color: forBackgroundInvestigation === 'NO' ? '#DC2626' : 'var(--color-text-secondary)',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <AppIcon name="close" size={12} color={forBackgroundInvestigation === 'NO' ? '#DC2626' : 'var(--color-text-secondary)'} /> NO (Failed)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Probation Selection */}
-                  <div style={{ minWidth: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                      2. Probation Period
-                    </label>
-                    <select
-                      aria-label="2. Probation Period"
-                      className="form-input"
-                      value={forProbation}
-                      onChange={(e) => setForProbation(e.target.value)}
-                      style={{ fontSize: '0.9375rem', fontWeight: 600, width: '100%', minWidth: 0 }}
-                    >
-                      <option value="6 months">6 months (Sec. F of DO 019, s. 2022)</option>
-                      <option value="1 year">1 year (Sec. F of DO 019, s. 2022)</option>
-                      <option value="Not Applicable">Not Applicable / Permanent</option>
-                    </select>
-                  </div>
-
-                  {/* For Appointment Status */}
-                  <div style={{ minWidth: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>
-                      3. For Appointment Status
-                    </label>
-                    <input
-                      aria-label="3. For Appointment Status"
-                      type="text"
-                      className="form-input"
-                      value={forAppointment}
-                      onChange={(e) => setForAppointment(e.target.value)}
-                      placeholder="e.g. Recommended for Appointment"
-                      style={{ fontSize: '0.9375rem' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Remarks & Quick Preset Prompts */}
+      {/* MODAL 2: COMPARATIVE ASSESSMENT (HRMPSB RATING) */}
+      {showHrmoModal && selectedAppForModal && isHR && createPortal((() => {
+        const groups = ratingGroups(modalTrack);
+        const all = groups.flatMap(g => g.rows);
+        const filled = all.filter(r => isScoreEntered(r.value, r.max));
+        const total = filled.reduce((sum, r) => sum + Number(r.value), 0);
+        const requirements = selectedAppForModal.scoreDetailsJson?.requirementsCheck;
+        const target = selectedCycle?.rulesConfigurationJson?.targetPosition;
+        return (
+          <ModalOverlay onDismiss={() => setShowHrmoModal(false)} className="modal-overlay" style={{ zIndex: 1050 }}>
+            <div className="modal animate-scale-in car-sheet" role="dialog" aria-modal="true" aria-labelledby="car-sheet-title">
+              <header className="car-sheet__head">
                 <div>
-                  <div className="hrmo-remarks-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <label className="form-label" style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)', margin: 0 }}>
-                      4. Board Final Remarks / Deliberation Summary
-                    </label>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => setHrmoRemarks('Demonstrated proficient pedagogical mastery during demonstration teaching; recommended for plantilla appointment.')}
-                        style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
-                      >
-                        + Superior Demo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setHrmoRemarks('Meets all DepEd CAR standards with complete authenticated credentials.')}
-                        style={{ fontSize: '0.875rem', padding: '3px 8px', borderRadius: '6px', background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 700 }}
-                      >
-                        + Meets Standards
-                      </button>
-                    </div>
-                  </div>
-                  <textarea
-                    aria-label="Enter board deliberation notes and findings"
-                    className="form-input"
-                    rows={2}
-                    placeholder="Enter board deliberation notes and findings..."
-                    value={hrmoRemarks}
-                    onChange={(e) => setHrmoRemarks(e.target.value)}
-                    style={{ fontSize: '0.9375rem', resize: 'vertical' }}
-                  />
+                  <p className="car-sheet__kicker">Comparative assessment · DO 7, s. 2023</p>
+                  <h3 id="car-sheet-title" className="car-sheet__title">{selectedAppForModal.name}</h3>
+                  <p className="car-sheet__sub">
+                    {selectedAppForModal.designation || 'Position not recorded'}{target ? ` → ${target}` : ''}
+                    {selectedAppForModal.station ? ` · ${selectedAppForModal.station}` : ''}
+                    {selectedAppForModal.applicantNumber ? ` · ${selectedAppForModal.applicantNumber}` : ''}
+                  </p>
                 </div>
-              </div>
+                <button type="button" className="car-sheet__close" aria-label="Close" onClick={() => setShowHrmoModal(false)}>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </header>
 
-              {/* Modal Footer */}
-              <div className="hrmo-modal-footer" style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                gap: '10px',
-                paddingTop: '16px',
-                borderTop: '1px solid var(--color-border)',
-              }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setShowHrmoModal(false)}
-                  style={{ fontSize: '1rem', borderRadius: '9999px', fontWeight: 700 }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit" disabled={savingHrmoRating.pending}
-                  className="btn btn-primary"
-                  style={{
-                    background: 'var(--color-primary)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    padding: '10px 22px',
-                    borderRadius: '9999px',
-                    fontWeight: 800,
-                    fontSize: '1rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 16px rgba(37, 99, 235, 0.25)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <AppIcon name="approvals" size={16} color="#FFFFFF" />
-                  Finalize & Sync Official CAR Result
-                </button>
-              </div>
-            </form>
-          </div>
-        </ModalOverlay>
-      ), document.body)}
+              <form className="car-sheet__form" onSubmit={handleSubmitHrmoRating}>
+                <div className="car-sheet__body">
+                  <div className="car-sheet__main">
+                    <p className={`car-sheet__req ${requirements?.status === 'COMPLETE' ? 'is-ok' : 'is-warn'}`}>
+                      {requirements?.status === 'COMPLETE'
+                        ? 'Documentary requirements verified complete by the AO II.'
+                        : 'Documentary requirements are not verified complete.'}
+                    </p>
+
+                    {groups.map(group => (
+                      <table key={group.title} className="car-sheet__table">
+                        <caption>{group.title}</caption>
+                        <thead>
+                          <tr><th scope="col">Criterion</th><th scope="col" className="num">Maximum</th><th scope="col" className="num">Score</th></tr>
+                        </thead>
+                        <tbody>
+                          {group.rows.map(row => {
+                            const invalid = row.value !== '' && !isScoreEntered(row.value, row.max);
+                            return (
+                              <tr key={row.key}>
+                                <th scope="row">
+                                  {row.label}
+                                  {row.hint && <span className="car-sheet__hint">{row.hint}</span>}
+                                </th>
+                                <td className="num">{row.max}</td>
+                                <td className="num">
+                                  <input
+                                    type="number" inputMode="decimal" min={0} max={row.max} step="0.01"
+                                    className={`car-sheet__input ${invalid ? 'is-invalid' : ''}`}
+                                    aria-label={`${row.label} score, maximum ${row.max}`}
+                                    aria-invalid={invalid}
+                                    value={row.value}
+                                    onChange={e => row.set(e.target.value === '' ? '' : Number(e.target.value))}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    ))}
+
+                    <fieldset className="car-sheet__recs">
+                      <legend>Board recommendation</legend>
+                      <label>
+                        <span>For background investigation</span>
+                        <select className="form-input" value={forBackgroundInvestigation} onChange={e => setForBackgroundInvestigation(e.target.value as 'YES' | 'NO' | '')}>
+                          <option value="">Not stated</option>
+                          <option value="YES">Yes</option>
+                          <option value="NO">No</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>For appointment</span>
+                        <input className="form-input" value={forAppointment} onChange={e => setForAppointment(e.target.value)} maxLength={500} />
+                      </label>
+                      <label>
+                        <span>Probation</span>
+                        <input className="form-input" value={forProbation} onChange={e => setForProbation(e.target.value)} maxLength={200} />
+                      </label>
+                      <label className="car-sheet__remarks">
+                        <span>Remarks</span>
+                        <textarea className="form-input" rows={3} value={hrmoRemarks} onChange={e => setHrmoRemarks(e.target.value)} maxLength={2000} />
+                      </label>
+                    </fieldset>
+                  </div>
+
+                  <aside className="car-sheet__summary" aria-live="polite">
+                    <p className="car-sheet__summary-label">Total</p>
+                    <p className="car-sheet__total"><strong>{total.toFixed(2)}</strong> / 100</p>
+                    <dl>
+                      {groups.map(g => {
+                        const sub = g.rows.filter(r => isScoreEntered(r.value, r.max)).reduce((s, r) => s + Number(r.value), 0);
+                        return <div key={g.title}><dt>{g.title}</dt><dd>{sub.toFixed(2)} / {g.rows.reduce((s, r) => s + r.max, 0)}</dd></div>;
+                      })}
+                    </dl>
+                    <p className="car-sheet__progress">
+                      {filled.length === all.length ? 'All criteria scored.' : `${all.length - filled.length} of ${all.length} criteria still blank.`}
+                    </p>
+                    <button type="submit" className="btn btn-primary car-sheet__save" disabled={savingHrmoRating.pending || filled.length !== all.length}>
+                      {savingHrmoRating.pending ? 'Saving…' : 'Save rating'}
+                    </button>
+                  </aside>
+                </div>
+              </form>
+            </div>
+          </ModalOverlay>
+        );
+      })(), document.body)}
 
       {/* MODAL 3: APPLICATION FORM FILL (COMPLETE PDS FORM 212) */}
       {showAppModal && (
