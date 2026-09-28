@@ -21,6 +21,8 @@ export const transactionsApi = {
 
   approve: (id: number, isApproved: boolean, notes?: string) =>
     apiClient.post<ApiResponse<Transaction>>(`/transactions/${id}/approve`, { isApproved, notes }),
+  reopen: (id: number, reason: string) =>
+    apiClient.post<ApiResponse<Transaction>>(`/transactions/${id}/reopen`, { reason }),
 
   getRequirements: (id: number) =>
     apiClient.get<ApiResponse<ChecklistItem[]>>(`/transactions/${id}/requirements`),

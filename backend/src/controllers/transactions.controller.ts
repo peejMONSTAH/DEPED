@@ -1269,3 +1269,45 @@ export const getTransactionRequirements = async (req: Request, res: Response) =>
   const { complianceScore, isComplete } = transactionCompliance(transaction.transactionType.requirementTemplates, transaction.uploadedDocuments);
   sendSuccess(res, { complianceScore, isComplete, status: isComplete ? 'Ready for Validation' : 'Incomplete Submission', recommendation: isComplete ? 'All required documents uploaded. You may submit this transaction for AO II validation.' : 'Please upload all missing required documents before submitting.', checklist });
 };
+
+/**
+ * POST /transactions/:id/reopen
+ * HRMO undoes a disqualification made in error: the transaction goes back to
+ * the personnel as returned, so deficient documents can be replaced.
+ */
+export const reopenTransaction = async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
+  const reason = String(req.body?.reason || '').trim();
+  if (reason.length < 10) { sendBadRequest(res, 'Give a reason for reopening (at least 10 characters).', 'REOPEN_REASON_REQUIRED'); return; }
+  if (!(await canAccessTransaction(req.user, id))) { sendNotFound(res, 'Transaction not found.'); return; }
+
+  const personnelUserId = await prisma.$transaction(async (tx) => {
+    await lockTransaction(tx, id);
+    const current = await tx.transaction.findUnique({
+      where: { id },
+      select: { status: true, personnel: { select: { user: { select: { id: true } } } } },
+    });
+    if (!current) throw Object.assign(new Error('Transaction not found.'), { statusCode: 404 });
+    if (current.status !== 'REJECTED') throw workflowConflict('Only a disqualified transaction can be reopened.');
+    await tx.transaction.update({
+      where: { id },
+      data: { status: 'DEFICIENCY', remarks: `Reopened by HRMO: ${reason}`, currentAssigneeId: req.user!.userId },
+    });
+    await tx.validationLog.create({
+      data: { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_REOPENED', detailsJson: { from: 'REJECTED', to: 'DEFICIENCY', reason }, userId: req.user!.userId, status: 'SUCCESS' },
+    });
+    const userId = current.personnel?.user?.id;
+    if (userId) {
+      await tx.notification.create({
+        data: { userId, type: 'INFO', relatedEntityId: id, relatedEntityType: 'Transaction',
+          message: `TRX-${id} was reopened by HRMO. Replace the documents marked deficient and submit again. Note: ${reason}` },
+      });
+    }
+    return userId;
+  });
+  res.locals.auditLogged = true;
+  if (personnelUserId) notifyUserNotifications([personnelUserId]);
+  notifyTransactionChange({ type: 'TRANSACTION_REOPENED', transactionId: id, status: 'DEFICIENCY' });
+  sendSuccess(res, { id, status: 'DEFICIENCY' }, 'Transaction reopened.');
+};

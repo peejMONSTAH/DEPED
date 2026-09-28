@@ -86,6 +86,22 @@ export const TransactionQueue: React.FC = () => {
     }
   }, [addToast, navigate]);
 
+  // HRMO can undo a disqualification made in error.
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopening, setReopening] = useState(false);
+  const reopenSelected = async () => {
+    if (!selectedTx || reopenReason.trim().length < 10) return;
+    setReopening(true);
+    try {
+      await transactionsApi.reopen(selectedTx.id, reopenReason.trim());
+      addToast(`TRX-${selectedTx.id} reopened. The personnel can now replace the deficient documents.`, 'SUCCESS');
+      setReopenReason('');
+      await loadTransactionDetail(selectedTx.id);
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Could not reopen this transaction.', 'ERROR');
+    } finally { setReopening(false); }
+  };
+
   // Read through a ref so a list reload (realtime, paging) does not re-run
   // the effect below and re-fetch or blank the open record.
   const transactionsRef = useRef(transactions);
@@ -809,6 +825,19 @@ export const TransactionQueue: React.FC = () => {
                   }}
                 >
                   <strong style={{ color: 'var(--color-text-primary)' }}>Remarks / Notes:</strong> {selectedTx.remarks}
+                </div>
+              )}
+
+              {canApprove && selectedTx.status === 'REJECTED' && (
+                <div style={{ display: 'grid', gap: 8, padding: '14px 16px', border: '1px solid var(--color-border)', borderRadius: 10 }}>
+                  <label htmlFor="reopen-reason" style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>Disqualified by mistake?</label>
+                  <textarea id="reopen-reason" className="form-input" rows={2} maxLength={500}
+                    placeholder="Reason for reopening (at least 10 characters)"
+                    value={reopenReason} onChange={e => setReopenReason(e.target.value)} disabled={reopening} />
+                  <button type="button" className="btn btn-primary btn-sm" style={{ justifySelf: 'end' }}
+                    disabled={reopening || reopenReason.trim().length < 10} onClick={() => void reopenSelected()}>
+                    {reopening ? 'Reopening…' : 'Reopen for correction'}
+                  </button>
                 </div>
               )}
 

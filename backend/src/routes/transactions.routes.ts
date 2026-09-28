@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import {
   getTransactions, createTransaction, getTransactionById, getMyTransactions,
-  submitTransaction, validateTransaction, approveTransaction,
+  submitTransaction, validateTransaction, approveTransaction, reopenTransaction,
   getTransactionRequirements, streamTransactions,
 } from '../controllers/transactions.controller';
 import { uploadDocument, attachExistingPersonnelDocument } from '../controllers/documents.controller';
@@ -51,6 +51,7 @@ router.post('/:id/upload', upload.single('file'), uploadDocument);
 // Administrator runs the system and is excluded here, as in promotion selection.
 router.post('/:id/validate', authorize('AO_II'), validateTransaction);
 router.post('/:id/approve', authorize('HRMO'), approveTransaction);
+router.post('/:id/reopen', authorize('HRMO'), reopenTransaction);
 router.get('/:id/requirements', getTransactionRequirements);
 
 export default router;
