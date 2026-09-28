@@ -173,8 +173,10 @@ test('1. accounts: creation, distribution, setup link, temporary password and ro
   const approved = await http(T.sa, 'POST', `/users/requests/${requestId}/approve`);
   ok(approved, 200, 'system admin approves the request');
   const teacherUserId = approved.json.data.user.id;
-  ok(await http(T.matAo, 'POST', `/users/${teacherUserId}/distribute-credentials`), 404, 'another station\'s AO II cannot distribute');
-  ok(await http(T.morAo, 'POST', `/users/${teacherUserId}/distribute-credentials`), 200, 'own AO II distributes');
+  // Approval is the only step: the account is live and its setup email queued.
+  assert.equal((await db.user.findUnique({ where: { id: teacherUserId } })).accountStatus, 'ACTIVE', 'approval activates the account');
+  ok(await http(T.matAo, 'POST', `/users/${teacherUserId}/distribute-credentials`), 404, 'another station\'s AO II cannot touch it');
+  assert.equal((await http(T.morAo, 'POST', `/users/${teacherUserId}/distribute-credentials`)).status, 400, 'nothing left to distribute');
   T.teacher = await setUpAccount('teacher@pilot.invalid');
   T.teacherUserId = teacherUserId;
   T.teacherPersonnelId = (await db.personnel.findFirst({ where: { userId: teacherUserId } })).id;
