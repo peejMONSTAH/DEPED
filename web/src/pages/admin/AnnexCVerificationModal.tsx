@@ -254,10 +254,6 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                 <span className="annex-c-progress-dot deficient" />
                 <strong>{deficientCount}</strong> Deficient
               </span>
-              <span className="annex-c-progress-pill">
-                <span className="annex-c-progress-dot na" />
-                <strong>{naCount}</strong> N/A
-              </span>
             </div>
             <span style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
               {verifiedCount + deficientCount + naCount} of {totalCount} evaluated
@@ -419,21 +415,6 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                           <span>Deficient</span>
                         </button>
 
-                        <button
-                          type="button"
-                          className={`annex-c-decision-btn ${isNA ? 'is-selected na' : ''}`}
-                          onClick={() => {
-                            setItems(prev => {
-                              const next = [...prev];
-                              next[idx] = { ...next[idx], status: 'NOT_APPLICABLE' };
-                              return next;
-                            });
-                          }}
-                          aria-pressed={isNA}
-                          title={`Mark item (${item.code}) as Not Applicable`}
-                        >
-                          <span>N/A</span>
-                        </button>
                       </div>
                     </div>
 
