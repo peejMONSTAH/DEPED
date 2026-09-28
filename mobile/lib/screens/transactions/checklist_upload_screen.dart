@@ -287,22 +287,65 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
     if (mounted) {
       showDialog(
         context: context,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(LucideIcons.checkCircle2,
-              color: AppTheme.emeraldGreen, size: 48),
-          title: const Text('Transaction Submitted!'),
-          content: Text(
-            'Your 201 transaction (${_currentTx.referenceNo}) has been submitted to your AO II for initial validation.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                Navigator.of(context).pop();
-              },
-              child: const Text('Return to Home'),
+        barrierDismissible: false,
+        builder: (ctx) => Dialog(
+          backgroundColor: AppTheme.lightBgCard,
+          surfaceTintColor: Colors.transparent,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 26, 22, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppTheme.emeraldGreen.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(LucideIcons.check,
+                      color: AppTheme.emeraldGreen, size: 26),
+                ),
+                const SizedBox(height: 14),
+                const Text('Submitted',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary)),
+                const SizedBox(height: 6),
+                Text(
+                  '${_currentTx.referenceNo} is now with your AO II for review.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 13, height: 1.4, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.brandDark,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('Done',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       );
     }
