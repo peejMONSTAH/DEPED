@@ -13,7 +13,7 @@ import { personnelDisplayName } from '../../utils/personnel-display';
 import { generateInitialPassword } from '../../utils/password-issue';
 import { usePending } from '../../hooks/usePending';
 import { assignableVacantPlantillas } from '../../utils/plantillaFilters';
-import { Eye, Pencil, KeyRound, Ban, RotateCcw, X } from 'lucide-react';
+import { Eye, Pencil, KeyRound, Ban, RotateCcw, X, LogOut, ShieldCheck } from 'lucide-react';
 import { RowActionMenu, RowAction } from '../../components/common/RowActionMenu';
 import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
 import './review-list.css';
@@ -521,6 +521,29 @@ export const CredentialDistribution: React.FC = () => {
 
   const accountName = (u: AccountRecord) => (u.personnel ? `${u.personnel.firstName} ${u.personnel.lastName}` : u.email);
 
+  // Session and device actions live on the account too, so everything about
+  // one person is in one menu (System Administrator only; the API enforces it).
+  const handleAccessAction = async (u: AccountRecord, kind: 'signout' | 'codes') => {
+    const name = u.personnel ? `${u.personnel.firstName} ${u.personnel.lastName}` : u.email;
+    const { confirmed, reason } = await confirm({
+      title: kind === 'signout' ? 'Sign out everywhere' : 'Require sign-in codes',
+      message: kind === 'signout'
+        ? `End every session for ${name}? They will need to sign in again on each device.`
+        : `Forget all trusted devices for ${name}? Each new sign-in will need an emailed code.`,
+      confirmLabel: kind === 'signout' ? 'Sign out everywhere' : 'Require codes',
+      tone: 'danger',
+      reason: { label: 'Reason (recorded in the audit trail)', required: true },
+    } as any);
+    if (!confirmed) return;
+    try {
+      if (kind === 'signout') await apiClient.delete(`/admin/accounts/${u.id}/sessions`, { data: { reason, confirmOwn: u.id === user?.id } });
+      else await apiClient.post(`/admin/accounts/${u.id}/require-device-verification`, { reason });
+      addToast(kind === 'signout' ? `${name} was signed out everywhere.` : `${name} will need a code on every new device.`, 'SUCCESS');
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'The action failed.', 'ERROR');
+    }
+  };
+
   const handleSetAccountStatus = async (u: AccountRecord, next: 'ACTIVE' | 'INACTIVE') => {
     const deactivating = next === 'INACTIVE';
     const { confirmed } = await confirm({
@@ -732,6 +755,10 @@ export const CredentialDistribution: React.FC = () => {
                 if (allowed.includes('edit')) menu.push({ id: 'edit', label: 'Edit account', icon: <Pencil size={16} aria-hidden="true" />, onSelect: () => { setEditAccount(u); setEditEmail(u.email); } });
                 if (allowed.includes('resetPassword')) menu.push({ id: 'reset', label: 'Reset password', icon: <KeyRound size={16} aria-hidden="true" />, onSelect: () => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); } });
                 if (allowed.includes('reactivate')) menu.push({ id: 'reactivate', label: 'Reactivate account', icon: <RotateCcw size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'ACTIVE') });
+                if (isSysAdmin && u.accountStatus === 'ACTIVE') {
+                  menu.push({ id: 'signout', label: 'Sign out everywhere', icon: <LogOut size={16} aria-hidden="true" />, onSelect: () => void handleAccessAction(u, 'signout') });
+                  menu.push({ id: 'codes', label: 'Require sign-in codes', icon: <ShieldCheck size={16} aria-hidden="true" />, onSelect: () => void handleAccessAction(u, 'codes') });
+                }
                 if (allowed.includes('deactivate')) menu.push({ id: 'deactivate', label: 'Deactivate account', tone: 'danger', icon: <Ban size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'INACTIVE') });
                 return (
                   <li key={u.id} className="rv-row acr-row">
