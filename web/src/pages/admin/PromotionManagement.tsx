@@ -32,6 +32,13 @@ import { ANNEX_C_FALLBACK, AnnexCRequirement, loadAnnexCRequirements } from '../
 import { EMPTY_FILTERS, GROUP_ACTION, GROUP_LABEL, applyFilters, cycleGroup, filterOptions, formatClose, groupCycles, plural, scopeLabel, splitCycleName, stationLabel, summarize } from '../../promotions/cycleIndex';
 import type { CycleFilters } from '../../promotions/cycleIndex';
 import './cycle-index.css';
+import { cycleBlockReason, cycleMoves, isCancelled, isCycleReadOnly, nextCycleAction, workflowStages, STAGE_STATE_LABEL, canRegisterApplicant, canGenerateCar } from '../../promotions/cycleCapability';
+import type { CycleCounts, CycleMove, StageKey } from '../../promotions/cycleCapability';
+import './cycle-detail.css';
+
+const STAGE_TAB: Record<StageKey, 'LEADERBOARD' | 'AO_RATING' | 'HRMO_RANKING' | 'HR_SELECTION' | 'CAR'> = {
+  APPLICANTS: 'LEADERBOARD', REQUIREMENTS: 'AO_RATING', DELIBERATION: 'HRMO_RANKING', SELECTION: 'HR_SELECTION', CAR: 'CAR',
+};
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -85,6 +92,8 @@ export const PromotionManagement: React.FC = () => {
   const [cycleFilters, setCycleFilters] = useState<CycleFilters>(EMPTY_FILTERS);
   const [showCycleFilters, setShowCycleFilters] = useState(false);
   const [cyclesError, setCyclesError] = useState('');
+  const [showCycleMenu, setShowCycleMenu] = useState(false);
+  const [cycleMoveBusy, setCycleMoveBusy] = useState(false);
   const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'CAR' | 'AO_RATING' | 'HRMO_RANKING' | 'HR_SELECTION' | 'APPLICATIONS'>('LEADERBOARD');
   
   // Realtime Leaderboard Expandable Participants State
@@ -293,6 +302,29 @@ export const PromotionManagement: React.FC = () => {
   const isApplicantReqDeficient = (a: any) =>
     a.scoreDetailsJson?.stageStatus === 'REQUIREMENTS_DEFICIENT' ||
     a.scoreDetailsJson?.requirementsCheck?.status === 'INCOMPLETE';
+
+  // Live counts behind the workflow stages and the next action. Discontinued
+  // or rejected applications are out of the contest and are not counted.
+  const cycleCounts: CycleCounts = useMemo(() => {
+    const inContest = submittedApps.filter(a => a.status !== 'REJECTED' && a.scoreDetailsJson?.stageStatus !== 'CANCELLED' && !a.scoreDetailsJson?.cycleCancelled);
+    const qualified = inContest.filter(a => isApplicantReqVerified(a));
+    return {
+      applicants: inContest.length,
+      checked: inContest.filter(a => isApplicantReqVerified(a) || isApplicantReqDeficient(a)).length,
+      qualified: qualified.length,
+      rated: qualified.filter(a => Boolean(a.scoreDetailsJson?.finalRating)).length,
+      selected: leaderboard.filter(i => isAppointed(i) || isSelectedPendingAppointment(i)).length,
+      slots: cycleVacantPositions,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submittedApps, leaderboard, cycleVacantPositions]);
+
+  // A deep link or stale tab must not land on a stage this cycle or role cannot open.
+  useEffect(() => {
+    if (!selectedCycle) return;
+    const stage = workflowStages(selectedCycle.status, cycleCounts, user?.role).find(s => STAGE_TAB[s.key] === activeTab);
+    if (stage && !stage.available) setActiveTab('LEADERBOARD');
+  }, [selectedCycle, cycleCounts, activeTab, user?.role]);
 
   const aoVerifiedApps = filteredSubmittedApps.filter(a => isApplicantReqVerified(a));
   const aoDeficientApps = filteredSubmittedApps.filter(a => isApplicantReqDeficient(a));
@@ -504,6 +536,29 @@ export const PromotionManagement: React.FC = () => {
       addToast(err.response?.data?.message || 'Failed to update candidate promotion selection.', 'ERROR');
       return false;
     }
+  };
+
+  // Status changes go through the cycle actions menu only; the server
+  // re-checks the move (INVALID_CYCLE_TRANSITION) and records it.
+  const handleCycleMove = async (move: CycleMove) => {
+    if (!selectedCycle || cycleMoveBusy) return;
+    const { confirmed, reason } = await confirm({
+      title: move.label,
+      message: move.confirm,
+      confirmLabel: move.label,
+      tone: move.danger ? 'danger' : undefined,
+      ...(move.needsReason && { reason: { label: 'Reason', placeholder: 'At least 10 characters', required: true } }),
+    } as any);
+    if (!confirmed) return;
+    if (move.needsReason && (!reason || reason.trim().length < 10)) { addToast('Enter a reason of at least 10 characters.', 'ERROR'); return; }
+    setCycleMoveBusy(true);
+    try {
+      await apiClient.patch(`/promotions/cycles/${selectedCycle.id}`, { status: move.to, ...(reason && { reason: reason.trim(), cancellationReason: reason.trim() }) });
+      addToast(`${move.label}: done.`, 'SUCCESS');
+      await fetchCycles();
+    } catch (err: any) {
+      addToast(err.response?.data?.message || 'Could not change the cycle status.', 'ERROR');
+    } finally { setCycleMoveBusy(false); }
   };
 
   const handleUpdateCycleStatus = async (cycleId: number, newStatus: string) => {
@@ -1241,18 +1296,14 @@ export const PromotionManagement: React.FC = () => {
     <div className="page-content animate-fade-in ci-page">
       
       {/* Page header */}
+      {!selectedCycle && (
       <header className="ci-head">
         <div className="ci-head__text">
           <h2>Promotion cycles</h2>
           <p>Manage vacancy, reclassification and career progression cycles.</p>
         </div>
         <div className="ci-head__actions">
-          {selectedCycle && (selectedCycle.rulesConfigurationJson?.targetPosition || 'Teacher I') === 'Teacher I' && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAppModal(true)}>
-              <AppIcon name="checklist" size={14} /> Register applicant (Teacher I)
-            </button>
-          )}
-          {!selectedCycle && (
+          {(
             <button type="button" className="ci-icon-btn" onClick={() => fetchCycles(true)} disabled={loading}
               aria-label="Refresh cycles" title="Refresh cycles">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -1265,6 +1316,7 @@ export const PromotionManagement: React.FC = () => {
           )}
         </div>
       </header>
+      )}
 
       {/* Main Container Layout */}
       <div className="promotion-stage" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '20px' }}>
@@ -1429,253 +1481,143 @@ export const PromotionManagement: React.FC = () => {
         {/* Right Area: Workspace, Tabs & Leaderboard */}
         {selectedCycle && (
         <div className="promotion-cycle-detail" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="promotion-detail-navigation">
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm promotion-back-button"
-              onClick={() => setSelectedCycle(null)}
-            >
-              <AppIcon name="chevron-left" size={14} /> Back to promotion cycles
-            </button>
-          </div>
           {selectedCycle && (
             <>
-              {/* Cycle header: the vacancy, its seats, and the facts HR needs. */}
+              {/* Cycle header, read-only notice, vacancy summary and workflow. */}
               {(() => {
-                const cycleStatus = (selectedCycle.status || '').toUpperCase();
-                const tone = ['ACTIVE', 'EVALUATION', 'COMPARATIVE_ASSESSMENT'].includes(cycleStatus) ? 'open'
-                  : ['PLANNING', 'CONFIGURED'].includes(cycleStatus) ? 'planning'
-                  : cycleStatus === 'CANCELLED' ? 'cancelled' : 'closed';
-                const statusLabel: Record<string, string> = {
-                  ACTIVE: 'Open for applications', PLANNING: 'Planning', CONFIGURED: 'Planning',
-                  EVALUATION: 'Under evaluation', COMPARATIVE_ASSESSMENT: 'Comparative assessment',
-                  RESULTS_READY: 'Results ready', CLOSED: 'Closed', FINALIZED: 'Finalized',
-                  PUBLISHED: 'Published', RESOLVED: 'Resolved', CANCELLED: 'Cancelled',
-                };
+                const status = selectedCycle.status;
                 const rules = selectedCycle.rulesConfigurationJson || {};
                 const school = rules.school && rules.school !== 'All Schools in District' ? rules.school : null;
-                // Appointed people first, then those selected and awaiting documents.
-                const seated = [
-                  ...leaderboard.filter(isAppointed).map(item => ({ item, state: 'appointed' as const })),
-                  ...leaderboard.filter(item => !isAppointed(item) && isSelectedPendingAppointment(item)).map(item => ({ item, state: 'selected' as const })),
-                ];
-                const seats = Array.from({ length: Math.max(cycleVacantPositions, 1) }, (_, i) => seated[i] ?? null);
-                const filled = seats.filter(Boolean).length;
-
+                const { title, item } = splitCycleName(selectedCycle);
+                const group = cycleGroup(status);
+                const blockReason = cycleBlockReason(status, selectedCycle);
+                const next = nextCycleAction(status, cycleCounts, user?.role, selectedCycle);
+                const moves = cycleMoves(status, user?.role);
+                const stages = workflowStages(status, cycleCounts, user?.role);
+                const cancelledNote = selectedCycle.rulesConfigurationJson?.cancellationReason || selectedCycle.cancellationReason;
+                const runNext = () => {
+                  if (!next) return;
+                  if (next.kind === 'REGISTER') setShowAppModal(true);
+                  else if (next.stage) setActiveTab(STAGE_TAB[next.stage]);
+                };
                 return (
-                  <section className="pcd-head">
-                    <div className="pcd-head__top">
-                      <div className="pcd-head__where">
-                        SDO Koronadal City, {rules.district || 'Division Proper'}
-                      </div>
-                      <div className="pcd-head__actions">
-                        {isHR ? (
-                          <label className={`pcd-status pcd-status--${tone}`}>
-                            <span className="pcd-status__dot" aria-hidden="true" />
-                            <select
-                              aria-label="Promotion cycle status"
-                              value={selectedCycle.status}
-                              onChange={(e) => handleUpdateCycleStatus(selectedCycle.id, e.target.value)}
-                            >
-                              {!['ACTIVE', 'PLANNING', 'CLOSED', 'FINALIZED', 'CANCELLED'].includes(selectedCycle.status) && (
-                                <option value={selectedCycle.status} disabled>{statusLabel[cycleStatus] || selectedCycle.status}</option>
-                              )}
-                              <option value="ACTIVE">Open for applications</option>
-                              <option value="PLANNING">Planning</option>
-                              <option value="CLOSED">Closed</option>
-                              <option value="FINALIZED">Finalized</option>
-                              <option value="CANCELLED">Cancelled</option>
-                            </select>
-                          </label>
-                        ) : (
-                          <span className={`pcd-status pcd-status--${tone}`}>
-                            <span className="pcd-status__dot" aria-hidden="true" />{statusLabel[cycleStatus] || selectedCycle.status}
-                          </span>
-                        )}
-                        <button type="button" className="btn btn-secondary btn-sm pcd-btn" onClick={() => setShowAppModal(true)}>
-                          Register applicant
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm pcd-btn"
-                          onClick={() => { setActiveTab('CAR'); handleDownloadCarDocument(selectedCycle.id); }}
-                          disabled={isDownloadingCar}
-                        >
-                          <AppIcon name="receipt" size={14} color="#FFFFFF" />
-                          {isDownloadingCar ? 'Preparing CAR…' : 'Download CAR'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <h2 className="pcd-head__title">{rules.targetPosition || selectedCycle.name}</h2>
-                    {school && <p className="pcd-head__school">{school}</p>}
-
-                    <div className="pcd-seats" aria-label={`${filled} of ${seats.length} positions filled`}>
-                      {seats.map((seat, i) => (
-                        <div key={i} className={`pcd-seat pcd-seat--${seat ? seat.state : 'open'}`}>
-                          <span className="pcd-seat__mark" aria-hidden="true">
-                            {seat ? (seat.item.name || '?').split(/\s+/).map((w: string) => w[0]).slice(0, 2).join('') : i + 1}
-                          </span>
-                          <span className="pcd-seat__text">
-                            <strong>{seat ? seat.item.name : 'Open position'}</strong>
-                            <span>{seat ? (seat.state === 'appointed' ? 'Appointed' : 'Selected, submitting documents') : 'No one selected yet'}</span>
-                          </span>
+                  <>
+                    <header className="cd-head">
+                      <nav className="cd-crumbs" aria-label="Breadcrumb">
+                        <button type="button" onClick={() => setSelectedCycle(null)}>Promotion cycles</button>
+                        <span aria-hidden="true">/</span>
+                        <span aria-current="page">{title}</span>
+                      </nav>
+                      <div className="cd-head__row">
+                        <div className="cd-head__id">
+                          <h2>{title}</h2>
+                          {item && <p className="cd-head__item" title={item}>{item}</p>}
                         </div>
-                      ))}
-                    </div>
+                        <div className="cd-head__actions">
+                          <span className={`ci-status is-${group.toLowerCase()}`}>{GROUP_LABEL[group]}</span>
+                          {moves.length > 0 && (
+                            <div className="cd-menu">
+                              <button type="button" className="btn btn-secondary btn-sm" aria-haspopup="menu" aria-expanded={showCycleMenu}
+                                onClick={() => setShowCycleMenu(v => !v)} disabled={cycleMoveBusy}>
+                                Cycle actions <ChevronDown size={14} aria-hidden="true" />
+                              </button>
+                              {showCycleMenu && (
+                                <ul role="menu" className="cd-menu__list" onKeyDown={e => { if (e.key === 'Escape') setShowCycleMenu(false); }}>
+                                  {moves.map(m => (
+                                    <li key={m.to} role="none">
+                                      <button type="button" role="menuitem" className={m.danger ? 'is-danger' : ''}
+                                        onClick={() => { setShowCycleMenu(false); void handleCycleMove(m); }}>{m.label}</button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                          {next && (
+                            <button type="button" className="btn btn-primary btn-sm cd-primary" onClick={runNext}>{next.label}</button>
+                          )}
+                        </div>
+                      </div>
+                      <dl className="cd-facts">
+                        <div><dt>Type</dt><dd>{humanizeEnum(String(selectedCycle.type || 'NATURAL_VACANCY'))}</dd></div>
+                        <div><dt>District</dt><dd>{rules.district || 'Division proper'}</dd></div>
+                        {school && <div><dt>School</dt><dd>{school}</dd></div>}
+                        <div><dt>Applications</dt><dd className="ci-num">{formatDateString(selectedCycle.startDate)} – {formatDateString(selectedCycle.endDate)}</dd></div>
+                        <div><dt>Scoring</dt><dd>{isCycleTeaching ? 'Teaching track' : 'Non-teaching track'}, 100 points</dd></div>
+                      </dl>
+                    </header>
 
-                    <dl className="pcd-facts">
-                      <div><dt>Cycle</dt><dd>{selectedCycle.name}</dd></div>
-                      <div><dt>Applications</dt><dd>{formatDateString(selectedCycle.startDate)} to {formatDateString(selectedCycle.endDate)}</dd></div>
-                      <div><dt>Plantilla item</dt><dd className="pcd-facts__code">{cyclePlantillaNo || 'Division pool'}</dd></div>
-                      <div><dt>Scoring</dt><dd>{isCycleTeaching ? 'Teaching, 100 points' : 'Non-teaching, 100 points'}</dd></div>
-                      <div><dt>Applicants</dt><dd>{leaderboard.length}</dd></div>
+                    {blockReason && (
+                      <div className={`cd-alert${isCancelled(status) ? ' is-cancelled' : ''}`} role="status">
+                        <strong>{blockReason}</strong>
+                        {isCancelled(status) && cancelledNote && <span>Reason: {cancelledNote}</span>}
+                      </div>
+                    )}
+
+                    <dl className="cd-summary" aria-label="Vacancy summary">
+                      <div><dt>Authorized slots</dt><dd>{cycleCounts.slots}</dd></div>
+                      <div><dt>Applicants</dt><dd>{cycleCounts.applicants}</dd></div>
+                      <div><dt>Qualified</dt><dd>{cycleCounts.qualified}</dd></div>
+                      <div><dt>Selected</dt><dd>{cycleCounts.selected}<span> / {cycleCounts.slots}</span></dd></div>
                     </dl>
-                  </section>
+
+                    <nav className="cd-steps" aria-label="Promotion workflow">
+                      <ol>
+                        {stages.map((st, i) => {
+                          const current = STAGE_TAB[st.key] === activeTab;
+                          return (
+                            <li key={st.key}>
+                              <button type="button" className={`cd-step is-${st.state.toLowerCase()}${current ? ' is-current' : ''}`}
+                                aria-current={current ? 'step' : undefined} disabled={!st.available}
+                                title={st.reason || undefined} aria-describedby={st.reason ? `cd-step-why-${st.key}` : undefined}
+                                onClick={() => setActiveTab(STAGE_TAB[st.key])}>
+                                <span className="cd-step__n" aria-hidden="true">{st.state === 'COMPLETED' ? '✓' : i + 1}</span>
+                                <span className="cd-step__text">
+                                  <strong>{st.label}</strong>
+                                  <small>{STAGE_STATE_LABEL[st.state]}</small>
+                                </span>
+                              </button>
+                              {st.reason && !st.available && <span id={`cd-step-why-${st.key}`} className="sr-only">{st.reason}</span>}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </nav>
+                    {(() => {
+                      const cur = stages.find(st => STAGE_TAB[st.key] === activeTab);
+                      return cur?.reason && cur.state !== 'COMPLETED' ? <p className="cd-step-note">{cur.reason}</p> : null;
+                    })()}
+                  </>
                 );
               })()}
-
-              <nav className="pcd-tabs" aria-label="Cycle views">
-                {([
-                  ['LEADERBOARD', 'Ranking', true],
-                  ['CAR', 'CAR results', true],
-                  ['AO_RATING', 'Requirements check', isHR],
-                  ['HRMO_RANKING', 'Board deliberation', user?.role === 'HRMO'],
-                  ['HR_SELECTION', 'Candidate selection', user?.role === 'HRMO'],
-                ] as const).filter(([, , show]) => show).map(([key, label]) => (
-                  <button key={key} type="button" aria-current={activeTab === key ? 'page' : undefined} onClick={() => setActiveTab(key as any)}>
-                    {label}
-                  </button>
-                ))}
-              </nav>
 
                 {/* TAB 1: REALTIME RANKING LEADERBOARD */}
                 {activeTab === 'LEADERBOARD' && (
                   <div className="card promotion-leaderboard-card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)' }}>
-                    {/* Header Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-                            Ranking
-                          </h3>
-                          <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '2px 7px',
-                            borderRadius: '9999px',
-                            background: theme === 'dark' ? 'rgba(16, 185, 129, 0.12)' : '#ECFDF5',
-                            border: '1px solid rgba(16, 185, 129, 0.25)',
-                            fontSize: '0.875rem',
-                            fontWeight: 700,
-                            color: theme === 'dark' ? '#34D399' : '#059669',
-                          }}>
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />
-                            Live
-                          </span>
-                        </div>
+                    {leaderboard.length === 0 ? (
+                      <div className="cd-empty">
+                        <strong>{isCancelled(selectedCycle?.status) ? 'No applicants were registered before this cycle was cancelled.' : 'No applicants yet'}</strong>
+                        {!isCancelled(selectedCycle?.status) && (
+                          <p>{canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {}) ? 'Register the first applicant to start the review.' : 'Applicants appear here once they apply or are registered.'}</p>
+                        )}
+                        {canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {}) && (
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAppModal(true)}>Register applicant</button>
+                        )}
                       </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        {/* Integrated Candidate Filter Input */}
-                        <div style={{ position: 'relative', width: '210px' }}>
-                          <input
-                            aria-label="Filter applicants"
-                            type="text"
-                            className="has-icon-left"
-                            placeholder="Filter applicants..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{
-                              width: '100%',
-                              padding: '6px 12px 6px 28px',
-                              fontSize: '0.9375rem',
-                              borderRadius: '7px',
-                              border: '1px solid var(--color-border)',
-                              background: 'var(--color-bg-tertiary)',
-                              color: 'var(--color-text-primary)',
-                              outline: 'none',
-                            }}
-                          />
-                          <span style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, pointerEvents: 'none' }}>
-                            <AppIcon name="search" size={12} color="var(--color-text-muted)" />
-                          </span>
-                          {searchQuery && (
-                            <button
-                              type="button"
-                              onClick={() => setSearchQuery('')}
-                              style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '14px', color: 'var(--color-text-muted)' }}
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Expand All / Collapse All Button */}
-                        <button
-                          type="button"
-                          onClick={handleToggleExpandAll}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '7px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 600,
-                            border: '1px solid var(--color-border)',
-                            background: 'var(--color-bg-tertiary)',
-                            color: 'var(--color-text-primary)',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                          }}
-                        >
-                          {expandAll ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                          {expandAll ? 'Collapse All' : 'Expand All'}
+                    ) : (<>
+                    <div className="cd-tabhead">
+                      <h3>Ranking</h3>
+                      <div className="cd-tabhead__tools">
+                        <label className="ci-search cd-search">
+                          <Search size={15} aria-hidden="true" />
+                          <input type="search" aria-label="Filter applicants" placeholder="Filter applicants" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        </label>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={handleToggleExpandAll}>
+                          {expandAll ? <ChevronUp size={13} /> : <ChevronDown size={13} />} {expandAll ? 'Collapse all' : 'Expand all'}
                         </button>
-
-                        {/* Switch to Official CAR Tab Shortcut */}
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('CAR')}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '7px',
-                            fontSize: '0.9375rem',
-                            fontWeight: 600,
-                            border: '1px solid var(--color-border)',
-                            background: 'var(--color-bg-tertiary)',
-                            color: 'var(--color-text-secondary)',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                          }}
-                        >
-                          <AppIcon name="receipt" size={13} color="var(--color-text-secondary)" />
-                          Official CAR Tab
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Criteria & Vacancy Quota Notice Strip */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '14px',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      background: 'var(--color-bg-tertiary)',
-                      border: '1px solid var(--color-border)',
-                      flexWrap: 'wrap',
-                      gap: '8px',
-                      fontSize: '0.9375rem',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', color: 'var(--color-text-secondary)' }}>
-                        <span>Total: <strong style={{ color: 'var(--color-text-primary)' }}>100.00 pts</strong></span>
-                        <span style={{ color: 'var(--color-border)' }}>•</span>
-                        <span>Authorized Vacancy: <strong style={{ color: '#059669' }}>{cycleVacantPositions} {cycleVacantPositions === 1 ? 'Slot' : 'Slots'}</strong></span>
+                        {canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {}) && (
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAppModal(true)}>Register applicant</button>
+                        )}
                       </div>
                     </div>
 
@@ -1697,32 +1639,9 @@ export const PromotionManagement: React.FC = () => {
                           {filteredLeaderboard.length === 0 ? (
                             <tr>
                               <td colSpan={6} style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                                  <div style={{ fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                                    {searchQuery ? 'No applicants match your search' : 'No candidates registered in this cycle yet'}
-                                  </div>
-                                  <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', maxWidth: '400px', margin: 0 }}>
-                                    {searchQuery ? 'Try clearing or changing your search terms.' : 'Submit applicant dossiers using the Register Applicant button to begin deliberations.'}
-                                  </p>
-                                  {searchQuery ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSearchQuery('')}
-                                      className="btn btn-secondary btn-sm"
-                                      style={{ marginTop: '8px', fontSize: '0.9375rem' }}
-                                    >
-                                      Clear Search Filter
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => setShowAppModal(true)}
-                                      className="btn btn-primary btn-sm"
-                                      style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.9375rem' }}
-                                    >
-                                      <AppIcon name="checklist" size={13} /> Submit Applicant Form
-                                    </button>
-                                  )}
+                                <div className="cd-empty">
+                                  <strong>No applicants match the current filters.</strong>
+                                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSearchQuery('')}>Clear filters</button>
                                 </div>
                               </td>
                             </tr>
@@ -2344,6 +2263,7 @@ export const PromotionManagement: React.FC = () => {
                         </tbody>
                       </table>
                     </div>
+                    </>)}
                   </div>
                 )}
 
@@ -2366,9 +2286,13 @@ export const PromotionManagement: React.FC = () => {
                             </div>
                             <div className="car-head__actions">
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => window.print()}>Print</button>
-                              <button type="button" className="btn btn-primary btn-sm" onClick={() => handleDownloadCarDocument(selectedCycle.id)} disabled={isDownloadingCar}>
-                                {isDownloadingCar ? 'Preparing…' : 'Download CAR (.docx)'}
-                              </button>
+                              {canGenerateCar(selectedCycle?.status, user?.role) && cycleCounts.rated > 0 ? (
+                                <button type="button" className="btn btn-primary btn-sm" onClick={() => handleDownloadCarDocument(selectedCycle.id)} disabled={isDownloadingCar}>
+                                  {isDownloadingCar ? 'Preparing…' : 'Download CAR (.docx)'}
+                                </button>
+                              ) : (
+                                <span className="cd-muted">{isCancelled(selectedCycle?.status) ? 'No CAR: this cycle was cancelled.' : 'The CAR is available once the board has rated an applicant.'}</span>
+                              )}
                             </div>
                           </div>
                           <dl className="car-head__facts">
@@ -2611,7 +2535,7 @@ export const PromotionManagement: React.FC = () => {
                             </span>
                             <div className="rv-actions">
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(app); setShowApplicantInfoModal(true); }}>201 file</button>
-                              <button type="button" className={`btn btn-sm ${complete ? 'btn-secondary' : 'btn-primary'}`} onClick={() => handleOpenAoRating(app)}>
+                              <button type="button" className={`btn btn-sm ${complete ? 'btn-secondary' : 'btn-primary'}`} disabled={isCycleReadOnly(selectedCycle?.status)} onClick={() => handleOpenAoRating(app)}>
                                 {complete ? 'Review' : deficient ? 'Re-check' : 'Check requirements'}
                               </button>
                             </div>
@@ -2666,7 +2590,7 @@ export const PromotionManagement: React.FC = () => {
                             </div>
                             <div className="rv-actions">
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(app); setShowApplicantInfoModal(true); }}>201 file</button>
-                              <button type="button" className={`btn btn-sm ${rated ? 'btn-secondary' : 'btn-primary'}`} disabled={!verified || !isHR} onClick={() => handleOpenHrmoRating(app)}>
+                              <button type="button" className={`btn btn-sm ${rated ? 'btn-secondary' : 'btn-primary'}`} disabled={!verified || !isHR || isCycleReadOnly(selectedCycle?.status)} onClick={() => handleOpenHrmoRating(app)}>
                                 {rated ? 'Revise rating' : 'Rate'}
                               </button>
                             </div>
@@ -2713,7 +2637,7 @@ export const PromotionManagement: React.FC = () => {
                             </div>
                             <div className="rv-actions">
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(item); setShowApplicantInfoModal(true); }}>201 file</button>
-                              {isHR && (appointed || pending ? (
+                              {isHR && !isCycleReadOnly(selectedCycle?.status) && (appointed || pending ? (
                                 <>
                                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleOpenConfirmSelection(item)}>Reassign</button>
                                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleTogglePromotionCandidate(item, false)}>Revoke</button>

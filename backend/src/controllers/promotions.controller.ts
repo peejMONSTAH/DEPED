@@ -31,6 +31,7 @@ import { computeCycleRanking, higherRankedUnselected, resolveApplicationScore } 
 import { cycleSelectionBlockReason, deliberationBlockReason, selectionBlockReason } from '../utils/promotion-stage.util';
 import { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } from '../utils/annex-c.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
+import { canChangeSelection, canEditCycle, canGenerateCar, canRegisterApplicants, canReviewApplicants, isReopening, readOnlyReason, transitionBlockReason } from '../utils/cycle-capability.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
 
@@ -403,6 +404,15 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
     return;
   }
 
+  const blocked = targetStatus ? transitionBlockReason(previousCycle.status, targetStatus) : null;
+  if (blocked) { sendBadRequest(res, blocked, 'INVALID_CYCLE_TRANSITION'); return; }
+  if (!targetStatus && !canEditCycle(previousCycle.status)) {
+    sendBadRequest(res, readOnlyReason(previousCycle.status), 'CYCLE_READ_ONLY'); return;
+  }
+  if (isReopening(previousCycle.status, targetStatus) && String(req.body.reason || cancellationReason || '').trim().length < 10) {
+    sendBadRequest(res, 'A reason of at least 10 characters is required to reopen a cycle.', 'REOPEN_REASON_REQUIRED'); return;
+  }
+
   const isCancelling = Boolean(targetStatus) && targetStatus !== previousCycle.status && targetStatus === 'CANCELLED';
   const reason = typeof cancellationReason === 'string' ? cancellationReason.trim() : '';
   if (isCancelling && reason.length < 10) {
@@ -555,6 +565,15 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
     }
   }
 
+  if (targetStatus && targetStatus !== previousCycle.status) {
+    await prisma.validationLog.create({
+      data: {
+        entityType: 'PromotionCycle', entityId: id, action: 'CYCLE_STATUS_CHANGED', userId: req.user!.userId, status: 'SUCCESS',
+        detailsJson: { from: previousCycle.status, to: targetStatus, reason: String(req.body.reason || cancellationReason || '').trim() || null },
+      },
+    }).catch(err => logger.error({ err }, 'Could not record the cycle status change'));
+  }
+
   notifyTransactionChange();
   sendSuccess(res, updated, 'Promotion cycle updated.');
 };
@@ -567,6 +586,7 @@ export const generateRanking = async (req: Request, res: Response): Promise<void
   if (isNaN(id)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
   const cycle = await prisma.promotionCycle.findUnique({ where: { id } });
   if (!cycle) { sendNotFound(res, 'Promotion cycle not found.'); return; }
+  if (!canReviewApplicants(cycle.status) && cycle.status !== 'CLOSED') { sendBadRequest(res, readOnlyReason(cycle.status), 'CYCLE_READ_ONLY'); return; }
 
   const ranked = await computeCycleRankingInternal(id);
   if (ranked === null) {
@@ -720,8 +740,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
       return;
     }
 
-    if (cycle.status === 'CANCELLED' || (app.scoreDetailsJson as Record<string, any> | null)?.stageStatus === 'CANCELLED') {
-      sendBadRequest(res, 'This promotion cycle was cancelled. Its applications can no longer be verified.', 'CYCLE_CANCELLED');
+    if (!canReviewApplicants(cycle.status) && cycle.status !== 'CLOSED' || (app.scoreDetailsJson as Record<string, any> | null)?.stageStatus === 'CANCELLED') {
+      sendBadRequest(res, (app.scoreDetailsJson as Record<string, any> | null)?.stageStatus === 'CANCELLED' ? 'This application was discontinued with its cycle.' : readOnlyReason(cycle.status), 'CYCLE_READ_ONLY');
       return;
     }
 
@@ -932,7 +952,7 @@ export const submitFinalRating = async (req: Request, res: Response): Promise<vo
     const currentDetails = (app.scoreDetailsJson as Record<string, any>) || {};
 
     // A rating decides the ranking, so it cannot change once the result is acted on.
-    if (['FINALIZED', 'PUBLISHED', 'RESOLVED', 'CANCELLED'].includes(app.promotionCycle.status)) {
+    if (!canReviewApplicants(app.promotionCycle.status) && app.promotionCycle.status !== 'CLOSED') {
       sendBadRequest(res, `This cycle is ${app.promotionCycle.status.toLowerCase()}; its ratings can no longer be changed.`, 'CYCLE_RATINGS_LOCKED');
       return;
     }
@@ -1291,6 +1311,10 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
 
   if (!app) {
     sendNotFound(res, 'Promotion application not found for this cycle.');
+    return;
+  }
+  if (!canChangeSelection(app.promotionCycle.status)) {
+    sendBadRequest(res, readOnlyReason(app.promotionCycle.status), 'CYCLE_READ_ONLY');
     return;
   }
 
@@ -1655,6 +1679,10 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
   const cycle = await prisma.promotionCycle.findUnique({ where: { id: cycleId } });
   if (!cycle) {
     sendNotFound(res, 'Promotion cycle not found.');
+    return;
+  }
+  if (!canRegisterApplicants(cycle.status)) {
+    sendBadRequest(res, readOnlyReason(cycle.status) + ' Applicants can only be registered while the cycle is open.', 'CYCLE_NOT_OPEN');
     return;
   }
 
@@ -2485,6 +2513,12 @@ export const generateCarDocument = async (req: Request, res: Response): Promise<
     const cycleId = parseInt(req.params.id, 10);
     if (isNaN(cycleId)) {
       sendBadRequest(res, 'Invalid promotion cycle ID.');
+      return;
+    }
+
+    const carCycle = await prisma.promotionCycle.findUnique({ where: { id: cycleId }, select: { status: true } });
+    if (carCycle && !canGenerateCar(carCycle.status)) {
+      sendBadRequest(res, readOnlyReason(carCycle.status) + ' No CAR can be generated for it.', 'CAR_NOT_AVAILABLE');
       return;
     }
 
