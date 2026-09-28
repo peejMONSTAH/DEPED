@@ -13,6 +13,7 @@ import '../../widgets/ui_kit.dart';
 import '../../utils/display.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/transaction_tracker_card.dart';
+import '../../widgets/resume_splash.dart';
 
 class ChecklistUploadScreen extends StatefulWidget {
   final TransactionModel transaction;
@@ -229,10 +230,10 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
 
   void _pickAndUploadDocument(RequirementItemModel item) async {
     if (_isUploading || _isSubmitting) return;
-    final result = await FilePicker.platform.pickFiles(
+    final result = await ExternalActivity.run(() => FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-    );
+    ));
     if (result == null || !mounted) return;
     final filePath = result.files.single.path;
     if (filePath == null) return;

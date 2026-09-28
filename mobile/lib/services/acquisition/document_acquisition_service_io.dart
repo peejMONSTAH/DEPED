@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_document_scanner/google_mlkit_document_scanner.dart';
 import '../../models/personnel_document_model.dart';
 import 'document_acquisition_service.dart';
+import '../../widgets/resume_splash.dart';
 
 DocumentAcquisitionService createDocumentAcquisitionService() => MlKitDocumentAcquisitionService();
 
@@ -35,7 +36,8 @@ class MlKitDocumentAcquisitionService implements DocumentAcquisitionService {
       );
 
       scanner = DocumentScanner(options: options);
-      final result = await scanner.scanDocument();
+      final active = scanner;
+      final result = await ExternalActivity.run(() => active.scanDocument());
 
       final pdf = result.pdf;
       final images = result.images ?? [];
@@ -122,11 +124,11 @@ class MlKitDocumentAcquisitionService implements DocumentAcquisitionService {
   @override
   Future<AcquiredDocument?> pickDocument({List<String> allowedExtensions = const ['pdf', 'jpg', 'jpeg', 'png']}) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await ExternalActivity.run(() => FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: allowedExtensions,
         withData: true,
-      );
+      ));
 
       if (result == null || result.files.isEmpty) {
         return null;
@@ -164,10 +166,10 @@ class MlKitDocumentAcquisitionService implements DocumentAcquisitionService {
   @override
   Future<AcquiredDocument?> captureCameraPhoto() async {
     try {
-      final xFile = await _imagePicker.pickImage(
+      final xFile = await ExternalActivity.run(() => _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 92,
-      );
+      ));
 
       if (xFile == null) return null;
 

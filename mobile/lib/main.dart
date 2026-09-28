@@ -5,6 +5,7 @@ import 'screens/auth/splash_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/resume_splash.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +50,8 @@ class EminenceMobileApp extends StatelessWidget {
         final media = MediaQuery.of(context);
         return MediaQuery(
           data: media.copyWith(textScaler: TextScaler.linear(media.textScaler.scale(1) * 1.1)),
-          child: child!,
+          // Replays the splash over the current screen after a trip to the background.
+          child: ResumeSplash(child: child!),
         );
       },
       title: 'Digital 201 Mobile',

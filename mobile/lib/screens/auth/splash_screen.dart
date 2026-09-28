@@ -1,14 +1,71 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/eminence_logo.dart';
+import '../../widgets/resume_splash.dart';
 import '../dashboard/home_dashboard_screen.dart';
 import 'login_screen.dart';
 
-/// A short, quiet brand moment: the mark settles in, the wordmark rises,
-/// a hairline draws underneath, then the app opens. No fake loading steps.
+/// The brand moment shown on every launch and, briefly, when the app returns
+/// from the background: "DIGITAL 201 · HRMIS" rises in, a hairline draws
+/// underneath. [t] runs 0 → 1.
+class SplashBrand extends StatelessWidget {
+  const SplashBrand({super.key, required this.t});
+
+  final double t;
+
+  double _seg(double a, double b) =>
+      Curves.easeOutCubic.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
+
+  @override
+  Widget build(BuildContext context) {
+    final word = _seg(0.0, 0.55);
+    final line = _seg(0.35, 1.0);
+    return ColoredBox(
+      color: AppTheme.lightBg,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Opacity(
+              opacity: word,
+              child: Transform.translate(
+                offset: Offset(0, 12 * (1 - word)),
+                child: const EminenceLogo(
+                  variant: EminenceLogoVariant.full,
+                  size: EminenceLogoSize.xl,
+                  showSubtitle: false,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpace.lg),
+            SizedBox(
+              width: 120,
+              height: 2,
+              child: Center(
+                child: FractionallySizedBox(
+                  widthFactor: line,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight,
+                      borderRadius: AppRadius.pillAll,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// First screen on every fresh launch. The saved session is restored while the
+/// animation plays; then the app opens on the dashboard or the sign-in screen.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
@@ -20,15 +77,9 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1400),
+    duration: const Duration(milliseconds: 1300),
   );
-
-  late final Animation<double> _mark =
-      CurvedAnimation(parent: _c, curve: const Interval(0.0, 0.45, curve: Curves.easeOutCubic));
-  late final Animation<double> _word =
-      CurvedAnimation(parent: _c, curve: const Interval(0.25, 0.7, curve: Curves.easeOutCubic));
-  late final Animation<double> _line =
-      CurvedAnimation(parent: _c, curve: const Interval(0.55, 1.0, curve: Curves.easeInOutCubic));
+  bool _left = false;
 
   @override
   void initState() {
@@ -37,20 +88,24 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _start() async {
-    // The session check runs while the animation plays; whichever is slower
-    // decides when the app opens.
-    final userFuture = AuthService(ApiService()).getCurrentUser();
+    // Never hang on the splash: a slow or failing session check falls back to
+    // the sign-in screen, which works offline and explains itself.
+    final userFuture = AuthService(ApiService())
+        .getCurrentUser()
+        .timeout(const Duration(seconds: 8))
+        .catchError((Object _) => null);
     await _c.forward();
     final user = await userFuture;
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    if (!mounted) return;
+    if (!mounted || _left) return;
+    _left = true;
+    ResumeSplash.launchFinished();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) =>
             user != null ? HomeDashboardScreen(user: user) : const LoginScreen(),
         transitionsBuilder: (_, animation, __, child) =>
             FadeTransition(opacity: animation, child: child),
-        transitionDuration: const Duration(milliseconds: 400),
+        transitionDuration: const Duration(milliseconds: 350),
       ),
     );
   }
@@ -65,60 +120,9 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightBg,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, _) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Opacity(
-                opacity: _mark.value,
-                child: Transform.scale(
-                  scale: 0.85 + 0.15 * _mark.value,
-                  child: const EminenceLogo(
-                    variant: EminenceLogoVariant.mark,
-                    size: EminenceLogoSize.xl,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpace.xl),
-              Opacity(
-                opacity: _word.value,
-                child: Transform.translate(
-                  offset: Offset(0, 12 * (1 - _word.value)),
-                  child: const EminenceLogo(
-                    variant: EminenceLogoVariant.full,
-                    size: EminenceLogoSize.lg,
-                    showSubtitle: false,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              SizedBox(
-                width: 120,
-                height: 2,
-                child: Align(
-                  alignment: Alignment.center,
-                  child: FractionallySizedBox(
-                    widthFactor: _line.value,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryLight,
-                        borderRadius: AppRadius.pillAll,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              Opacity(
-                opacity: _line.value,
-                child: Text('City Schools Division of Koronadal',
-                    style: AppText.caption),
-              ),
-            ],
-          ),
-        ),
+      body: AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) => SplashBrand(t: _c.value),
       ),
     );
   }
