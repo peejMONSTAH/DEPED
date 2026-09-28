@@ -7,6 +7,7 @@ import { canAccessTransaction } from '../utils/transaction-access.util';
 import { canAccessPersonnel } from '../utils/scope.util';
 import { precheckDocument, PrecheckResult } from '../utils/document-precheck.util';
 import { logger } from '../utils/logger';
+import { notifyUserNotifications } from './notifications.controller';
 
 /**
  * Reviewer pre-check for a document the AO II is about to verify: right
@@ -69,3 +70,41 @@ export const precheckPersonnelDocument = async (req: Request, res: Response): Pr
     : record.documentTypeId;
   await respond(res, record.storagePath, record.mimeType, requirement, record.personnel);
 };
+
+/**
+ * Runs after a 201 upload, in the background (the upload has already been
+ * answered). Records a printed expiry date when none was entered, and tells the
+ * owner at once when the file looks like a different document. Never throws.
+ */
+export async function afterPersonnelUpload(fileId: number): Promise<void> {
+  try {
+    const record = await prisma.personnelFile.findUnique({
+      where: { id: fileId },
+      include: { personnel: { select: { firstName: true, lastName: true, userId: true } } },
+    });
+    if (!record?.storagePath || record.deletedAt) return;
+    const text = await textOf(record.storagePath, record.mimeType);
+    if (!text) return;
+    const result = precheckDocument(text, record.documentTypeName || record.documentTypeId, record.personnel);
+
+    if (result.expiresOn && !record.expirationDate) {
+      await prisma.personnelFile.update({ where: { id: record.id }, data: { expirationDate: new Date(`${result.expiresOn}T00:00:00Z`) } });
+    }
+
+    const messages: string[] = [];
+    if (result.looksLike) {
+      messages.push(`The file you uploaded as ${record.documentTypeName} looks like a ${result.looksLike}. If it is the wrong file, replace it in 201 Files.`);
+    }
+    if (result.expiresOn && new Date(`${result.expiresOn}T23:59:59`) < new Date()) {
+      messages.push(`Your ${record.documentTypeName} expired on ${new Date(result.expiresOn).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}. Upload the renewed one when you have it.`);
+    }
+    if (messages.length) {
+      await prisma.notification.createMany({
+        data: messages.map(message => ({ userId: record.personnel.userId, message, type: 'WARNING' as const, relatedEntityType: 'PersonnelDocument', relatedEntityId: record.id })),
+      });
+      notifyUserNotifications(record.personnel.userId);
+    }
+  } catch (err: any) {
+    logger.warn({ err: err?.message, fileId }, 'Post-upload document check skipped');
+  }
+}

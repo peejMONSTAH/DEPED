@@ -11,6 +11,10 @@ export interface PrecheckResult {
   checks: PrecheckItem[];
   facts: string[];
   readable: boolean;
+  /** Expiry or validity date printed on the document (YYYY-MM-DD). */
+  expiresOn?: string;
+  /** Set when the page clearly looks like another kind of document. */
+  looksLike?: string;
 }
 
 type Kind = { id: string; label: string; match: RegExp; keywords: RegExp[] };
@@ -83,6 +87,8 @@ export function precheckDocument(
   const readable = words.filter(w => w.length > 2).length >= 15;
   const checks: PrecheckItem[] = [];
   const facts: string[] = [];
+  let expiresOn: string | undefined;
+  let looksLike: string | undefined;
 
   if (!readable) {
     return { readable: false, facts, checks: [{ key: 'type', state: 'unknown', label: 'The text could not be read. Check this one by eye.' }] };
@@ -93,6 +99,7 @@ export function precheckDocument(
   if (kind) {
     const looksRight = kind.keywords.some(k => k.test(flat));
     const other = !looksRight ? KINDS.find(k => k.id !== kind.id && k.keywords[0].test(flat)) : null;
+    if (other) looksLike = other.label;
     checks.push(looksRight
       ? { key: 'type', state: 'ok', label: `Looks like a ${kind.label}` }
       : other
@@ -119,6 +126,7 @@ export function precheckDocument(
   if (expiry) {
     const d = parseLooseDate(expiry[2]);
     if (d && !Number.isNaN(d.getTime())) {
+      expiresOn = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const days = Math.floor((d.getTime() - today.getTime()) / 86_400_000);
       checks.push(days < 0
         ? { key: 'validity', state: 'warn', label: `Expired on ${fmt(d)}` }
@@ -141,5 +149,5 @@ export function precheckDocument(
   const license = /(registration|license|licence)\s*(?:no\.?|number)\W{0,3}(\d{5,8})/i.exec(flat);
   if (license) facts.push(`License no. ${license[2]}`);
 
-  return { readable, checks, facts: facts.slice(0, 4) };
+  return { readable, checks, facts: facts.slice(0, 4), expiresOn, looksLike };
 }

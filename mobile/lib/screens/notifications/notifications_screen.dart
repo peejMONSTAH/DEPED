@@ -21,9 +21,13 @@ class NotificationsScreen extends StatefulWidget {
   /// instead of opening a second, shell-less copy of the screen.
   final VoidCallback? onOpenServiceRecord;
   final VoidCallback? onOpenApplications;
+  final VoidCallback? onOpenDocuments;
 
   const NotificationsScreen(
-      {Key? key, this.onOpenServiceRecord, this.onOpenApplications})
+      {Key? key,
+      this.onOpenServiceRecord,
+      this.onOpenApplications,
+      this.onOpenDocuments})
       : super(key: key);
 
   @override
@@ -39,6 +43,7 @@ enum _NotificationDestination {
   password,
   serviceRecord,
   applications,
+  documents,
   none
 }
 
@@ -225,6 +230,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ? LucideIcons.fileWarning
                                 : LucideIcons.fileText;
                             destination = _NotificationDestination.transaction;
+                          } else if (entityType == 'PersonnelDocument') {
+                            actionLabel = 'Open 201 Files';
+                            actionIcon = LucideIcons.folderOpen;
+                            destination = _NotificationDestination.documents;
                           } else if (entityType == 'PromotionApplication' ||
                               entityType == 'PromotionCycle') {
                             actionLabel = 'Open my applications';
@@ -388,6 +397,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                               const CareerTimelineScreen(),
                                                         ),
                                                       );
+                                                      return;
+
+                                                    case _NotificationDestination
+                                                          .documents:
+                                                      widget.onOpenDocuments
+                                                          ?.call();
                                                       return;
 
                                                     case _NotificationDestination

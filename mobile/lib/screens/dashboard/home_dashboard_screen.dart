@@ -337,7 +337,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       NotificationsScreen(
           onOpenServiceRecord: () => setState(() => _currentIndex = 3),
           onOpenApplications: () =>
-              setState(() => _currentIndex = _applicationsTabIndex)),
+              setState(() => _currentIndex = _applicationsTabIndex),
+          onOpenDocuments: () => setState(() => _currentIndex = 2)),
       MyApplicationsScreen(user: widget.user, profile: _profile),
     ];
 

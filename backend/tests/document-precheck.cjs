@@ -59,3 +59,16 @@ test('dates in the common Philippine formats parse', () => {
   assert.equal(parseLooseDate('Mar. 5, 2027').getFullYear(), 2027);
   assert.equal(parseLooseDate('5 March 2027').getMonth(), 2);
 });
+
+test('the printed expiry date and a mismatched document are reported for the upload step', () => {
+  const lic = precheckDocument(`Professional Regulation Commission ESCOVIDAL MARVIN Valid Until 03/15/2029${pad}`, 'PRC License', person, today);
+  assert.equal(lic.expiresOn, '2029-03-15');
+  assert.equal(lic.looksLike, undefined);
+  const wrong = precheckDocument(`CERTIFICATE OF LIVE BIRTH Philippine Statistics Authority ESCOVIDAL${pad}`, 'PRC License', person, today);
+  assert.equal(wrong.looksLike, 'PSA Birth Certificate');
+});
+
+test('the upload handler starts the background check after answering', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../src/controllers/personnel-documents.controller.ts'), 'utf8');
+  assert.match(src, /sendCreated\(res, toApiShape\(record\)\);[\s\S]{0,200}void afterPersonnelUpload\(record\.id\)/);
+});

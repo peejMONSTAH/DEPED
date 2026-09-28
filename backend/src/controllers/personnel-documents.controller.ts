@@ -21,6 +21,7 @@ import {
   DocumentExtractionResult,
 } from '../utils/document-extraction.util';
 import { extractWithTesseract } from '../services/tesseract-ocr.service';
+import { afterPersonnelUpload } from './document-precheck.controller';
 
 const parseDocumentId = (raw: unknown): number | null => {
   const id = Number(raw);
@@ -551,6 +552,9 @@ export const uploadPersonnelDocument = async (req: Request, res: Response): Prom
   }
   res.locals.auditLogged = true;
   sendCreated(res, toApiShape(record));
+  // Read the file in the background: record a printed expiry date and warn the
+  // owner if it looks like a different document. The upload is already saved.
+  void afterPersonnelUpload(record.id);
 };
 
 // A replacement is a new immutable file. Existing application references retain

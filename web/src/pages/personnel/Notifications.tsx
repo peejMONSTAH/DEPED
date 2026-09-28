@@ -85,7 +85,7 @@ export function parseNotificationAction(n: NotificationItem): ActionConfig {
   }
 
   const isDeficiency = lower.includes('deficienc') || lower.includes('reject') || lower.includes('return') || lower.includes('incomplete');
-  const isDocument = lower.includes('document') || lower.includes('pds') || lower.includes('prc') || lower.includes('attachment') || lower.includes('expired');
+  const isDocument = lower.includes('document') || lower.includes('uploaded as') || lower.includes('pds') || lower.includes('prc') || lower.includes('attachment') || lower.includes('expired');
   const isCareer = lower.includes('career') || lower.includes('service record') || lower.includes('promotion') || lower.includes('vacancy') || lower.includes('appointed') || lower.includes('ranking');
   const isAccount = lower.includes('password') || lower.includes('credential') || lower.includes('account') || lower.includes('profile');
 
