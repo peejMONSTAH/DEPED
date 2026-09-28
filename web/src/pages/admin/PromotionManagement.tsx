@@ -29,6 +29,9 @@ import { useSearchParams } from 'react-router-dom';
 import { parsePromotionTarget, resolveTargetApplication, resolveTargetCycle, PromotionTarget } from '../../promotions/deepLink';
 import { carErrorMessage, fetchCarDocument } from '../../promotions/carDownload';
 import { ANNEX_C_FALLBACK, AnnexCRequirement, loadAnnexCRequirements } from '../../promotions/annexCRequirements';
+import { EMPTY_FILTERS, GROUP_ACTION, GROUP_LABEL, applyFilters, cycleGroup, filterOptions, formatClose, groupCycles, plural, scopeLabel, splitCycleName, stationLabel, summarize } from '../../promotions/cycleIndex';
+import type { CycleFilters } from '../../promotions/cycleIndex';
+import './cycle-index.css';
 
 export const PromotionManagement: React.FC = () => {
   const { addToast } = useToast();
@@ -79,6 +82,9 @@ export const PromotionManagement: React.FC = () => {
 
   const [cycleStatusFilter, setCycleStatusFilter] = useState<'ALL' | 'ONGOING' | 'PLANNING' | 'FINISHED' | 'CANCELLED'>('ALL');
   const [cycleSearchQuery, setCycleSearchQuery] = useState('');
+  const [cycleFilters, setCycleFilters] = useState<CycleFilters>(EMPTY_FILTERS);
+  const [showCycleFilters, setShowCycleFilters] = useState(false);
+  const [cyclesError, setCyclesError] = useState('');
   const [activeTab, setActiveTab] = useState<'LEADERBOARD' | 'CAR' | 'AO_RATING' | 'HRMO_RANKING' | 'HR_SELECTION' | 'APPLICATIONS'>('LEADERBOARD');
   
   // Realtime Leaderboard Expandable Participants State
@@ -563,10 +569,12 @@ export const PromotionManagement: React.FC = () => {
       const res = await apiClient.get(`/promotions/cycles?${params.toString()}`);
       const list = res.data?.data || [];
       setCycles(list);
+      setCyclesError('');
       // Refresh the open cycle only; a reload or filter never opens one by itself.
       setSelectedCycle((prev: any) => (prev ? (list.find((c: any) => c.id === prev.id) ?? prev) : null));
     } catch (err) {
       console.error('Failed to load promotion cycles:', err);
+      setCyclesError((err as any)?.response?.data?.message || 'Check your connection and try again.');
     } finally {
       if (showLoading) setLoading(false);
       setCyclesLoaded(true);
@@ -1230,348 +1238,193 @@ export const PromotionManagement: React.FC = () => {
     );
 
   return (
-    <div className="page-content animate-fade-in" style={{ padding: '24px 32px 100px 32px', maxWidth: '1680px', margin: '0 auto' }}>
+    <div className="page-content animate-fade-in ci-page">
       
-      {/* Top Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ flex: '1 1 400px' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text-primary)', margin: 0, fontFamily: 'var(--font-sans)' }}>
-            Promotions
-          </h2>
+      {/* Page header */}
+      <header className="ci-head">
+        <div className="ci-head__text">
+          <h2>Promotion cycles</h2>
+          <p>Manage vacancy, reclassification and career progression cycles.</p>
         </div>
-
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="ci-head__actions">
           {selectedCycle && (selectedCycle.rulesConfigurationJson?.targetPosition || 'Teacher I') === 'Teacher I' && (
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowAppModal(true)} style={{ border: '1px solid var(--glass-border)', background: 'var(--bg-glass-fill)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="checklist" size={14} /> Register Applicant Form (Teacher I)
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAppModal(true)}>
+              <AppIcon name="checklist" size={14} /> Register applicant (Teacher I)
             </button>
           )}
-          {isHR ? (
-            <button className="btn btn-primary btn-sm" onClick={() => setShowConfigModal(true)} style={{ background: 'var(--color-primary)', color: '#ffffff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="new-transaction" size={14} /> Create Promotion Cycle
+          {!selectedCycle && (
+            <button type="button" className="ci-icon-btn" onClick={() => fetchCycles(true)} disabled={loading}
+              aria-label="Refresh cycles" title="Refresh cycles">
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
-          ) : (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              fontSize: '0.9375rem',
-              fontWeight: 600,
-              background: 'var(--color-bg-tertiary)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}>
-              <AppIcon name="lock" size={12} color="var(--color-text-secondary)" />
-              <span>Cycle Creation: HR Only</span>
-            </div>
+          )}
+          {isHR && (
+            <button type="button" className="btn btn-primary btn-sm ci-create" onClick={() => setShowConfigModal(true)}>
+              <AppIcon name="new-transaction" size={14} /> Create cycle
+            </button>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Main Container Layout */}
       <div className="promotion-stage" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '20px' }}>
-        
-        {/* Left Sidebar: Promotion Cycles with Interactive Status Filters */}
-        {!selectedCycle && (
-        <div className="card glass-surface promotion-cycle-index" style={{ padding: '20px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)', display: 'flex', flexDirection: 'column', gap: '14px', alignSelf: 'start' }}>
-          
-          {/* Header & Refresh */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h3 style={{ fontSize: '1.0625rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                Promotion Cycles
-              </h3>
-              <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                {cycles.length} {cycles.length === 1 ? 'cycle' : 'cycles'} found
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => fetchCycles(true)}
-              title="Refresh Cycles"
-              style={{
-                background: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: '8px',
-                padding: '6px',
-                cursor: 'pointer',
-                color: 'var(--color-text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            </button>
-          </div>
 
-          {/* Quick Search */}
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
-            <input
-              aria-label="Search cycles"
-              type="text"
-              className="has-icon-left"
-              placeholder="Search cycles..."
-              value={cycleSearchQuery}
-              onChange={(e) => handleCycleSearchChange(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '7px 12px 7px 32px',
-                fontSize: '0.9375rem',
-                borderRadius: '8px',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg-tertiary)',
-                color: 'var(--color-text-primary)',
-                outline: 'none',
-              }}
-            />
-            {cycleSearchQuery && (
-              <button
-                type="button"
-                onClick={() => handleCycleSearchChange('')}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--color-text-muted)',
-                  padding: 0,
-                  fontSize: '14px',
-                }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          {/* Status Filter Tabs */}
-          <div>
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Filter size={11} /> Filter by Status
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {[
-                { key: 'ALL', label: 'All', color: '#2F7D52', activeBg: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1', activeBorder: '#3F9265' },
-                { key: 'ONGOING', label: 'Ongoing', color: '#059669', activeBg: theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5', activeBorder: '#10B981' },
-                { key: 'PLANNING', label: 'Upcoming', color: '#D97706', activeBg: theme === 'dark' ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7', activeBorder: '#F59E0B' },
-                { key: 'FINISHED', label: 'Finished', color: '#6366F1', activeBg: theme === 'dark' ? 'rgba(99, 102, 241, 0.2)' : '#EEF2FF', activeBorder: '#6366F1' },
-                { key: 'CANCELLED', label: 'Cancelled', color: '#DC2626', activeBg: theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#FEF2F2', activeBorder: '#EF4444' },
-              ].map(tab => {
-                const isActive = cycleStatusFilter === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => handleCycleFilterChange(tab.key as any)}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.875rem',
-                      fontWeight: isActive ? 800 : 600,
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      border: `1.5px solid ${isActive ? tab.activeBorder : 'var(--color-border)'}`,
-                      background: isActive ? tab.activeBg : 'var(--color-bg-tertiary)',
-                      color: isActive ? tab.color : 'var(--color-text-secondary)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    {tab.label}
+        {!selectedCycle && (() => {
+          const options = filterOptions(cycles);
+          const visible = applyFilters(cycles, cycleFilters);
+          const { active, archive } = groupCycles(visible);
+          const summary = summarize(visible);
+          const openCycle = (cycle: any) => { setSelectedCycle(cycle); setActiveTab('LEADERBOARD'); };
+          const tags: { label: string; clear: () => void }[] = [
+            ...(cycleSearchQuery ? [{ label: `Search: ${cycleSearchQuery}`, clear: () => handleCycleSearchChange('') }] : []),
+            ...(cycleStatusFilter !== 'ALL' ? [{ label: `Status: ${({ ONGOING: 'Ongoing', PLANNING: 'Upcoming', FINISHED: 'Finished', CANCELLED: 'Cancelled' } as any)[cycleStatusFilter]}`, clear: () => handleCycleFilterChange('ALL') }] : []),
+            ...(cycleFilters.district ? [{ label: `District: ${cycleFilters.district}`, clear: () => setCycleFilters(f => ({ ...f, district: '' })) }] : []),
+            ...(cycleFilters.school ? [{ label: `School: ${cycleFilters.school}`, clear: () => setCycleFilters(f => ({ ...f, school: '' })) }] : []),
+            ...(cycleFilters.type ? [{ label: `Type: ${humanizeEnum(cycleFilters.type)}`, clear: () => setCycleFilters(f => ({ ...f, type: '' })) }] : []),
+          ];
+          const clearAll = () => { setCycleFilters(EMPTY_FILTERS); if (cycleSearchQuery) handleCycleSearchChange(''); if (cycleStatusFilter !== 'ALL') handleCycleFilterChange('ALL'); };
+          const renderCard = (cycle: any) => {
+            const group = cycleGroup(cycle.status);
+            const { title, item } = splitCycleName(cycle);
+            const slots = Number(cycle.rulesConfigurationJson?.vacantPositions || 1);
+            const applicants = Number(cycle.applicantCount || 0);
+            const closes = formatClose(cycle.endDate);
+            const school = stationLabel(cycle);
+            return (
+              <li key={cycle.id}>
+                <article className={`ci-card is-${group.toLowerCase()}`} onClick={() => openCycle(cycle)}>
+                  <div className="ci-card__top">
+                    <span className="ci-card__type">{humanizeEnum(String(cycle.type || 'NATURAL_VACANCY'))}</span>
+                    <span className={`ci-status is-${group.toLowerCase()}`}>{GROUP_LABEL[group]}</span>
+                  </div>
+                  <h4 className="ci-card__title" title={title}>{title}</h4>
+                  {item && <p className="ci-card__item" title={item}>{item}</p>}
+                  <dl className="ci-card__meta">
+                    <div><dt>Scope</dt><dd>{scopeLabel(cycle)}{school ? ` · ${school}` : ''}</dd></div>
+                    <div><dt>Applicants</dt><dd className="ci-num">{plural(applicants, 'applicant')} · {plural(slots, 'slot')}</dd></div>
+                    {closes && <div><dt>{group === 'UPCOMING' ? 'Closes' : 'Closes'}</dt><dd className="ci-num">{closes}</dd></div>}
+                  </dl>
+                  <button type="button" className="btn btn-sm ci-card__action"
+                    onClick={(e) => { e.stopPropagation(); openCycle(cycle); }}>
+                    {GROUP_ACTION[group]}
                   </button>
-                );
-              })}
-            </div>
-          </div>
+                </article>
+              </li>
+            );
+          };
 
-          {/* Cycle Cards List */}
-          <div className="promotion-cycle-grid" style={{ display: 'grid', gap: '10px', paddingRight: '2px' }}>
-            {cycles.length === 0 ? (
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  width: '100%',
-                  padding: '56px 24px',
-                  textAlign: 'center',
-                  background: 'var(--color-bg-tertiary)',
-                  borderRadius: '16px',
-                  border: '1.5px dashed var(--color-border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <div
-                  style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '50%',
-                    background: theme === 'dark' ? 'rgba(255, 255, 255, 0.06)' : '#FFFFFF',
-                    border: '1px solid var(--color-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '16px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
-                  }}
-                >
-                  <Archive size={30} style={{ color: 'var(--color-text-muted)' }} />
-                </div>
-                <div style={{ fontSize: '1.1875rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '8px' }}>
-                  No {cycleStatusFilter !== 'ALL' ? `${cycleStatusFilter.toLowerCase()} ` : ''}cycles found
-                </div>
-                <p style={{ fontSize: '1rem', color: 'var(--color-text-muted)', margin: '0 0 20px 0', maxWidth: '440px', lineHeight: 1.55 }}>
-                  {cycleSearchQuery
-                    ? `No promotion cycles match "${cycleSearchQuery}". Try clearing your search query or switching status filters.`
-                    : cycleStatusFilter !== 'ALL'
-                      ? `There are no ${cycleStatusFilter.toLowerCase()} promotion cycles at this time. Switch back to view all cycles.`
-                      : 'No promotion cycles have been registered yet. HR administrators can create a new cycle to get started.'}
-                </p>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {(cycleStatusFilter !== 'ALL' || cycleSearchQuery) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleCycleFilterChange('ALL');
-                        handleCycleSearchChange('');
-                      }}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '1rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
-                    >
-                      Reset to All Cycles
-                    </button>
-                  )}
-                  {isHR && (
-                    <button
-                      type="button"
-                      onClick={() => setShowConfigModal(true)}
-                      className="btn btn-primary btn-sm"
-                      style={{
-                        fontSize: '1rem',
-                        fontWeight: 700,
-                        padding: '8px 18px',
-                        borderRadius: '10px',
-                        background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
-                        color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
-                        border: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <AppIcon name="new-transaction" size={14} />
-                      Create Promotion Cycle
-                    </button>
-                  )}
+          return (
+            <div className="ci">
+              {/* Summary strip */}
+              <dl className="ci-summary" aria-label="Cycle summary">
+                <div className="is-ongoing"><dt>Ongoing</dt><dd>{summary.ONGOING}</dd></div>
+                <div className="is-upcoming"><dt>Upcoming</dt><dd>{summary.UPCOMING}</dd></div>
+                <div><dt>Finished</dt><dd>{summary.FINISHED}</dd></div>
+                <div><dt>Cancelled</dt><dd>{summary.CANCELLED}</dd></div>
+                <div><dt>Total applicants</dt><dd>{summary.applicants}</dd></div>
+              </dl>
+
+              {/* Toolbar */}
+              <div className="ci-toolbar" role="search">
+                <label className="ci-search">
+                  <Search size={16} aria-hidden="true" />
+                  <input type="search" aria-label="Search cycles" placeholder="Search position or item number"
+                    value={cycleSearchQuery} onChange={e => handleCycleSearchChange(e.target.value)} />
+                </label>
+                <button type="button" className="btn btn-secondary btn-sm ci-filters-toggle" aria-expanded={showCycleFilters}
+                  onClick={() => setShowCycleFilters(v => !v)}>
+                  <Filter size={14} aria-hidden="true" /> Filters{tags.length ? ` (${tags.length})` : ''}
+                </button>
+                <div className={`ci-filters${showCycleFilters ? ' is-open' : ''}`}>
+                  <select aria-label="Status" className="form-input" value={cycleStatusFilter} onChange={e => handleCycleFilterChange(e.target.value as any)}>
+                    <option value="ALL">All statuses</option>
+                    <option value="ONGOING">Ongoing</option>
+                    <option value="PLANNING">Upcoming</option>
+                    <option value="FINISHED">Finished</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                  <select aria-label="District" className="form-input" value={cycleFilters.district} onChange={e => setCycleFilters(f => ({ ...f, district: e.target.value }))}>
+                    <option value="">All districts</option>
+                    {options.districts.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <select aria-label="School" className="form-input" value={cycleFilters.school} onChange={e => setCycleFilters(f => ({ ...f, school: e.target.value }))}>
+                    <option value="">All schools</option>
+                    {options.schools.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select aria-label="Cycle type" className="form-input" value={cycleFilters.type} onChange={e => setCycleFilters(f => ({ ...f, type: e.target.value }))}>
+                    <option value="">All types</option>
+                    {options.types.map(t => <option key={t} value={t}>{humanizeEnum(t)}</option>)}
+                  </select>
+                  {tags.length > 0 && <button type="button" className="ci-clear" onClick={clearAll}>Clear filters</button>}
                 </div>
               </div>
-            ) : (
-              cycles.map(cycle => {
-                const isSelected = selectedCycle?.id === cycle.id;
-                const status = (cycle.status || '').toUpperCase();
-                const isOngoing = ['ACTIVE', 'EVALUATION', 'COMPARATIVE_ASSESSMENT'].includes(status);
-                const isPlanning = ['PLANNING', 'CONFIGURED'].includes(status);
-                const isFinished = ['CLOSED', 'FINALIZED', 'RESULTS_READY', 'PUBLISHED', 'RESOLVED'].includes(status);
-                const isCancelled = status === 'CANCELLED';
+              {tags.length > 0 && (
+                <ul className="ci-tags" aria-label="Active filters">
+                  {tags.map(t => (
+                    <li key={t.label}><span>{t.label}</span>
+                      <button type="button" aria-label={`Remove ${t.label}`} onClick={t.clear}>✕</button></li>
+                  ))}
+                </ul>
+              )}
 
-                const badgeBg = isOngoing
-                  ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5')
-                  : isPlanning
-                    ? (theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB')
-                    : isFinished
-                      ? (theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : '#EEF7F1')
-                      : (theme === 'dark' ? 'rgba(244, 63, 94, 0.15)' : '#FFF1F2');
-
-                const badgeColor = isOngoing
-                  ? (theme === 'dark' ? '#34D399' : '#059669')
-                  : isPlanning
-                    ? (theme === 'dark' ? '#FBBF24' : '#D97706')
-                    : isFinished
-                      ? (theme === 'dark' ? '#8FD3A8' : '#2F7D52')
-                      : (theme === 'dark' ? '#FB7185' : '#E11D48');
-
-                const badgeBorder = isOngoing
-                  ? 'rgba(16, 185, 129, 0.3)'
-                  : isPlanning
-                    ? 'rgba(245, 158, 11, 0.3)'
-                    : isFinished
-                      ? 'rgba(59, 130, 246, 0.3)'
-                      : 'rgba(244, 63, 94, 0.3)';
-
-                const statusLabel = isOngoing ? 'Ongoing' : isPlanning ? 'Upcoming' : isFinished ? 'Finished' : 'Cancelled';
-
-                return (
-                  <div
-                    key={cycle.id}
-                    className="promotion-cycle-card"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setSelectedCycle(cycle);
-                      setActiveTab('LEADERBOARD');
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setSelectedCycle(cycle);
-                        setActiveTab('LEADERBOARD');
-                      }
-                    }}
-                    style={{
-                      padding: '16px 18px',
-                      borderRadius: '14px',
-                      background: isSelected ? (theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1') : 'var(--color-bg-tertiary)',
-                      border: `1.5px solid ${isSelected ? '#2F7D52' : 'var(--color-border)'}`,
-                      boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.15)' : 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 700, }}>
-                        {humanizeEnum(String(cycle.type || 'NATURAL_VACANCY'))}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '0.875rem',
-                          fontWeight: 700,
-                          padding: '2px 8px',
-                          borderRadius: '9999px',
-                          background: badgeBg,
-                          color: badgeColor,
-                          border: `1px solid ${badgeBorder}`,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: badgeColor }} />
-                        {statusLabel}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '1.125rem', fontWeight: 700, color: isSelected ? (theme === 'dark' ? '#8FD3A8' : '#276A45') : 'var(--color-text-primary)', lineHeight: 1.35, marginBottom: '8px' }}>
-                      {String(cycle.name || '').replace(/^Ranking for (Natural )?Vacancy:\s*/i, '')}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-                      <span>{cycle.applicantCount || 0} {(cycle.applicantCount || 0) === 1 ? 'applicant' : 'applicants'}
-                        {' · '}{cycle.rulesConfigurationJson?.openTo === 'DISTRICT' && cycle.rulesConfigurationJson?.district ? `${cycle.rulesConfigurationJson.district} only` : 'Whole division'}</span>
-                      {cycle.endDate && (
-                        <span>Ends {new Date(cycle.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-        )}
+              {cyclesError ? (
+                <div className="ci-state" role="alert">
+                  <strong>Could not load promotion cycles</strong>
+                  <p>{cyclesError}</p>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => fetchCycles(true)} disabled={loading}>Try again</button>
+                </div>
+              ) : !cyclesLoaded ? (
+                <ul className="ci-grid" aria-busy="true" aria-label="Loading cycles">
+                  {[0, 1, 2].map(i => <li key={i}><div className="ci-skel" /></li>)}
+                </ul>
+              ) : visible.length === 0 ? (
+                <div className="ci-state">
+                  <strong>No matching cycles</strong>
+                  <p>{tags.length ? 'Try removing a filter.' : 'No promotion cycles yet.'}</p>
+                  {tags.length > 0 ? <button type="button" className="btn btn-secondary btn-sm" onClick={clearAll}>Clear filters</button>
+                    : isHR && <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowConfigModal(true)}>Create cycle</button>}
+                </div>
+              ) : (
+                <>
+                  {active.length > 0 && (
+                    <section aria-labelledby="ci-active">
+                      <h3 id="ci-active" className="ci-section">Ongoing and upcoming <span>{active.length}</span></h3>
+                      <ul className="ci-grid">{active.map(renderCard)}</ul>
+                    </section>
+                  )}
+                  {archive.length > 0 && (
+                    <section aria-labelledby="ci-archive">
+                      <h3 id="ci-archive" className="ci-section">Cycle archive <span>{archive.length}</span></h3>
+                      <div className="ci-archive" role="table" aria-label="Finished and cancelled cycles">
+                        <div className="ci-arow ci-arow--head" role="row">
+                          <span role="columnheader">Position</span><span role="columnheader">Type</span>
+                          <span role="columnheader">Scope</span><span role="columnheader">Applicants</span>
+                          <span role="columnheader">Status</span><span role="columnheader">Closed</span>
+                          <span role="columnheader"><span className="sr-only">Action</span></span>
+                        </div>
+                        {archive.map(cycle => {
+                          const group = cycleGroup(cycle.status);
+                          const { title, item } = splitCycleName(cycle);
+                          return (
+                            <div key={cycle.id} className="ci-arow" role="row">
+                              <span role="cell" className="ci-arow__pos"><strong title={title}>{title}</strong>{item && <code title={item}>{item}</code>}</span>
+                              <span role="cell" data-label="Type">{humanizeEnum(String(cycle.type || 'NATURAL_VACANCY'))}</span>
+                              <span role="cell" data-label="Scope">{scopeLabel(cycle)}</span>
+                              <span role="cell" data-label="Applicants" className="ci-num">{Number(cycle.applicantCount || 0)}</span>
+                              <span role="cell" data-label="Status"><span className={`ci-status is-${group.toLowerCase()}`}>{GROUP_LABEL[group]}</span></span>
+                              <span role="cell" data-label="Closed" className="ci-num">{formatClose(cycle.endDate) || '—'}</span>
+                              <span role="cell"><button type="button" className="btn btn-secondary btn-sm" onClick={() => openCycle(cycle)}>{GROUP_ACTION[group]}</button></span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Right Area: Workspace, Tabs & Leaderboard */}
         {selectedCycle && (
