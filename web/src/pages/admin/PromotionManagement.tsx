@@ -4888,235 +4888,83 @@ export const PromotionManagement: React.FC = () => {
       )}
 
       {/* MODAL 6: PROMOTION SELECTION CONFIRMATION */}
-      {showConfirmPromotionModal && selectedCandidateForConfirm && isHR && (
-        <ModalOverlay onDismiss={() => setShowConfirmPromotionModal(false)} className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1060 }}>
-          {/* Header and actions stay put; only the body scrolls, and the dialog
-              never grows past the viewport, so the actions are always reachable. */}
-          <div className="modal animate-scale-in promo-select-dialog" role="dialog" aria-modal="true" aria-labelledby="promo-select-title" style={{
-            maxWidth: '560px',
-            width: '95%',
-            maxHeight: 'calc(100dvh - 32px)',
-            display: 'flex',
-            flexDirection: 'column',
-            borderRadius: '16px',
-            background: 'var(--color-bg-card)',
-            border: '1px solid var(--color-border)',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
-            padding: 0,
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              flexShrink: 0,
-              background: 'var(--color-bg-tertiary)',
-              borderBottom: '1px solid var(--color-border)',
-              padding: '18px 24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#ECFDF5', border: theme === 'dark' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid #A7F3D0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <AppIcon name="promotions" size={18} color={theme === 'dark' ? '#34D399' : '#059669'} />
+      {showConfirmPromotionModal && selectedCandidateForConfirm && isHR && (() => {
+        const cand = selectedCandidateForConfirm;
+        const cyclePlantillas: string[] = selectedCycle?.rulesConfigurationJson?.plantillaItemNumbers ||
+          (selectedCycle?.rulesConfigurationJson?.plantillaItemNumber ? [selectedCycle.rulesConfigurationJson.plantillaItemNumber] : []);
+        const takenBy = new Map<string, string>();
+        leaderboard.forEach(l => {
+          const pNum = l.plantillaItemNumber || l.scoreDetailsJson?.plantillaItemNumber;
+          if (l.id !== cand.id && pNum) takenBy.set(pNum, l.name);
+        });
+        const describe = (pNum: string) => {
+          const p = plantillaItems.find(item => item.itemNumber === pNum);
+          return p ? `${p.positionTitle}, SG ${p.salaryGrade} · ${p.department}` : '';
+        };
+        const needsReason = higherRankedThanCandidate.length > 0;
+        const canConfirm = Boolean(selectedPlantillaForCandidate) && (!needsReason || selectionJustification.trim().length >= 15);
+        return (
+          <ModalOverlay onDismiss={() => setShowConfirmPromotionModal(false)} className="modal-overlay" style={{ zIndex: 1060 }}>
+            <div className="modal animate-scale-in select-sheet" role="dialog" aria-modal="true" aria-labelledby="select-sheet-title">
+              <header className="select-sheet__head">
+                <div>
+                  <p className="select-sheet__kicker">Select for promotion</p>
+                  <h3 id="select-sheet-title" className="select-sheet__title">{cand.name}</h3>
+                  <p className="select-sheet__sub">{cand.employeeId} · Rank {cand.rank} · {cand.overallTotalScore} points</p>
                 </div>
-                <h3 id="promo-select-title" style={{ color: 'var(--color-text-primary)', margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>
-                  Confirm Candidate Selection for Promotion
-                </h3>
+                <button type="button" className="select-sheet__close" aria-label="Close" onClick={() => setShowConfirmPromotionModal(false)}>
+                  <X size={18} aria-hidden="true" />
+                </button>
+              </header>
+
+              <div className="select-sheet__body">
+                <div className="select-sheet__move">
+                  <div><span>Current position</span><strong>{cand.designation || 'Not recorded'}</strong></div>
+                  <span className="select-sheet__arrow" aria-hidden="true">→</span>
+                  <div><span>Promoted to</span><strong className="is-target">{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Not set'}</strong></div>
+                </div>
+
+                <div className="select-sheet__field">
+                  <span className="select-sheet__label">Plantilla item</span>
+                  {cyclePlantillas.length === 1 ? (
+                    <div className="select-sheet__item">
+                      <strong>{cyclePlantillas[0]}</strong>
+                      <span>{describe(cyclePlantillas[0])}</span>
+                    </div>
+                  ) : (
+                    <select aria-label="Plantilla item for this candidate" className="form-input" required
+                      value={selectedPlantillaForCandidate} onChange={e => setSelectedPlantillaForCandidate(e.target.value)}>
+                      <option value="">Choose a plantilla item</option>
+                      {(cyclePlantillas.length > 0 ? cyclePlantillas : plantillaItems.filter(p => !p.isOccupied).map(p => p.itemNumber)).map(pNum => (
+                        <option key={pNum} value={pNum} disabled={takenBy.has(pNum)}>
+                          {pNum} — {describe(pNum)}{takenBy.has(pNum) ? ` (taken by ${takenBy.get(pNum)})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {needsReason && (
+                  <label className="select-sheet__field">
+                    <span className="select-sheet__label">Reason for choosing this applicant</span>
+                    <span className="select-sheet__note">
+                      {higherRankedThanCandidate.map(l => `${l.name} (${l.overallTotalScore})`).join(', ')} {higherRankedThanCandidate.length === 1 ? 'ranks' : 'rank'} higher.
+                    </span>
+                    <textarea className="form-input" rows={3} maxLength={1000} placeholder="At least 15 characters"
+                      value={selectionJustification} onChange={e => setSelectionJustification(e.target.value)} />
+                  </label>
+                )}
               </div>
+
+              <footer className="select-sheet__foot">
+                <button type="button" className="btn btn-primary select-sheet__confirm" onClick={handleConfirmSelectionSubmit} disabled={!canConfirm}>
+                  Confirm selection
+                </button>
+              </footer>
             </div>
-
-            <div className="promo-select-body" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-              <div style={{ background: theme === 'dark' ? 'rgba(16, 185, 129, 0.12)' : '#F0FDF4', padding: '16px', borderRadius: '10px', border: theme === 'dark' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid #BBF7D0' }}>
-                <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '4px' }}>
-                  {selectedCandidateForConfirm.name}
-                </div>
-                <div style={{ fontSize: '1rem', color: theme === 'dark' ? '#34D399' : '#059669', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>{selectedCandidateForConfirm.employeeId}</span> · 
-                  <span>Rank #{selectedCandidateForConfirm.rank} ({selectedCandidateForConfirm.overallTotalScore} pts)</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'var(--color-bg-tertiary)', padding: '14px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', marginBottom: '8px' }}>
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Current Designation:</span>
-                  <strong style={{ color: 'var(--color-text-primary)' }}>{selectedCandidateForConfirm.designation}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem' }}>
-                  <span style={{ color: 'var(--color-text-secondary)' }}>Target Promoted Rank:</span>
-                  <strong style={{ color: 'var(--color-primary)' }}>{selectedCycle?.rulesConfigurationJson?.targetPosition || 'Next Salary Rank'}</strong>
-                </div>
-              </div>
-
-              {/* Plantilla Assignation Section */}
-              {(() => {
-                const cyclePlantillas: string[] = selectedCycle?.rulesConfigurationJson?.plantillaItemNumbers ||
-                  (selectedCycle?.rulesConfigurationJson?.plantillaItemNumber ? [selectedCycle.rulesConfigurationJson.plantillaItemNumber] : []);
-
-                // Find occupant mapping from leaderboard
-                const assignedMap = new Map<string, string>();
-                leaderboard.forEach(l => {
-                  if (l.id !== selectedCandidateForConfirm.id) {
-                    const pNum = l.plantillaItemNumber || l.scoreDetailsJson?.plantillaItemNumber;
-                    if (pNum) assignedMap.set(pNum, l.name);
-                  }
-                });
-
-                return (
-                  <div style={{
-                    background: theme === 'dark' ? 'rgba(37, 99, 235, 0.12)' : '#EEF7F1',
-                    padding: '14px 16px',
-                    borderRadius: '10px',
-                    border: theme === 'dark' ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid #CFE8D8',
-                  }}>
-                    <label style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '1rem',
-                      fontWeight: 800,
-                      color: 'var(--color-primary)',
-                      marginBottom: '8px',
-                    }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <AppIcon name="employment" size={15} color="var(--color-primary)" />
-                        Assignation to Plantilla Item Post <span style={{ color: 'var(--color-danger)' }}>*</span>
-                      </span>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>
-                        {cyclePlantillas.length > 0 ? `${cyclePlantillas.length} Post${cyclePlantillas.length > 1 ? 's' : ''} in Cycle` : 'Open Registry'}
-                      </span>
-                    </label>
-
-                    {cyclePlantillas.length === 1 ? (
-                      // A single-post cycle has nothing to choose: the posted item is the one.
-                      <div>
-                        {(() => {
-                          const pNum = cyclePlantillas[0];
-                          const pItem = plantillaItems.find(p => p.itemNumber === pNum);
-                          return (
-                            <div style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 10px', fontSize: '1rem', fontWeight: 700 }}>
-                              {pNum}{pItem ? ` — ${pItem.positionTitle} (SG ${pItem.salaryGrade}) • ${pItem.department}` : ''}
-                            </div>
-                          );
-                        })()}
-                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
-                          The plantilla item posted for this promotion. When the promotion appointment is officially approved, this item will be occupied by them.
-                        </div>
-                      </div>
-                    ) : cyclePlantillas.length > 0 ? (
-                      <div>
-                        <select aria-label="Designated plantilla item for this candidate"
-                          className="form-input"
-                          value={selectedPlantillaForCandidate}
-                          onChange={(e) => setSelectedPlantillaForCandidate(e.target.value)}
-                          style={{
-                            background: 'var(--color-bg-card)',
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            padding: '8px 10px',
-                            width: '100%',
-                          }}
-                          required
-                        >
-                          <option value="">-- Choose Designated Plantilla Item --</option>
-                          {cyclePlantillas.map((pNum, pIdx) => {
-                            const pItem = plantillaItems.find(p => p.itemNumber === pNum);
-                            const assignedTo = assignedMap.get(pNum);
-                            const isCurrentCandidateChoice = selectedPlantillaForCandidate === pNum;
-                            const label = `${pNum}${pItem ? ` — ${pItem.positionTitle} (SG ${pItem.salaryGrade}) • ${pItem.department}` : ''}${assignedTo ? ` [Currently Assigned to: ${assignedTo}]` : isCurrentCandidateChoice ? ' [Selected for this Candidate]' : ' [Available]'}`;
-                            return (
-                              <option key={pNum} value={pNum}>
-                                Post #{pIdx + 1}: {label}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
-                          This personnel will be allocated to this specific plantilla post. When the promotion appointment is officially approved, this item will be occupied by them.
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <select aria-label="Vacant plantilla item from registry"
-                          className="form-input"
-                          value={selectedPlantillaForCandidate}
-                          onChange={(e) => setSelectedPlantillaForCandidate(e.target.value)}
-                          style={{
-                            background: 'var(--color-bg-card)',
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            padding: '8px 10px',
-                            width: '100%',
-                          }}
-                        >
-                          <option value="">-- Select Vacant Plantilla from Registry --</option>
-                          {plantillaItems.filter(p => !p.isOccupied).map(p => (
-                            <option key={p.id} value={p.itemNumber}>
-                              {p.itemNumber} — {p.positionTitle} (SG {p.salaryGrade}) • {p.department}
-                            </option>
-                          ))}
-                        </select>
-                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
-                          Assign one of the available vacant plantilla posts from the Division Registry.
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div style={{ background: theme === 'dark' ? 'rgba(217, 119, 6, 0.12)' : '#FFFBEB', padding: '14px 16px', borderRadius: '8px', border: theme === 'dark' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #FDE68A' }}>
-                <div style={{ fontSize: '1rem', fontWeight: 800, color: theme === 'dark' ? '#FBBF24' : '#B45309', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <AppIcon name="checklist" size={14} color={theme === 'dark' ? '#FBBF24' : '#B45309'} /> Next Steps & Requirements Trigger
-                </div>
-                <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', lineHeight: 1.55 }}>
-                  Selecting this candidate will send an immediate real-time web & mobile notification requiring <strong>{selectedCandidateForConfirm.name}</strong> to submit official <strong>Promotion Appointment Documents</strong> (CS Form 33, Oath of Office, PDF, IPCRF). The official position update will take effect after verification by AO II and final approval by HRMO.
-                </div>
-              </div>
-
-              {higherRankedThanCandidate.length > 0 && (
-                <label className="promo-select-reason">
-                  <span className="promo-select-reason__title">Reason for choosing this applicant <span style={{ color: 'var(--color-danger)' }}>*</span></span>
-                  <span className="promo-select-reason__note">
-                    {higherRankedThanCandidate.map(l => `${l.name} (${l.overallTotalScore})`).join(', ')} {higherRankedThanCandidate.length === 1 ? 'ranks' : 'rank'} higher.
-                    Write why this applicant is chosen instead; it is kept with the selection record.
-                  </span>
-                  <textarea className="form-input" rows={3} maxLength={1000} value={selectionJustification}
-                    onChange={e => setSelectionJustification(e.target.value)} placeholder="At least 15 characters" />
-                </label>
-              )}
-            </div>
-
-            <div style={{
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              flexWrap: 'wrap',
-              gap: '10px',
-              padding: '16px 24px',
-              borderTop: '1px solid var(--color-border)',
-              background: 'var(--color-bg-tertiary)',
-            }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setShowConfirmPromotionModal(false)}
-                style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', borderRadius: '8px', padding: '8px 18px', fontWeight: 600 }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleConfirmSelectionSubmit}
-                disabled={higherRankedThanCandidate.length > 0 && selectionJustification.trim().length < 15}
-                style={{ background: 'var(--color-primary)', color: '#ffffff', border: 'none', borderRadius: '8px', padding: '8px 18px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)' }}
-              >
-                <AppIcon name="promotions" size={15} color="#ffffff" /> Confirm Selection & Request Documents
-              </button>
-            </div>
-          </div>
-        </ModalOverlay>
-      )}
+          </ModalOverlay>
+        );
+      })()}
 
 
 
