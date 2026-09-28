@@ -80,7 +80,8 @@ class ProfileScreen extends StatelessWidget {
                     border: Border.all(color: AppTheme.lightBorder),
                   ),
                   child: const Center(
-                    child: Icon(LucideIcons.userX, size: 28, color: AppTheme.textMuted),
+                    child: Icon(LucideIcons.userX,
+                        size: 28, color: AppTheme.textMuted),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -109,14 +110,20 @@ class ProfileScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.brandDark,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999)),
                     elevation: 0,
                   ),
-                  icon: const Icon(LucideIcons.refreshCw, size: 16, color: Colors.white),
+                  icon: const Icon(LucideIcons.refreshCw,
+                      size: 16, color: Colors.white),
                   label: Text(
                     'Sync Records Now',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, fontSize: 15, color: Colors.white),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: Colors.white),
                   ),
                 ),
               ],
@@ -162,7 +169,8 @@ class ProfileScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: AppTheme.primaryLight.withOpacity(0.08),
-                              border: Border.all(color: AppTheme.primaryLight, width: 2),
+                              border: Border.all(
+                                  color: AppTheme.primaryLight, width: 2),
                             ),
                             child: Center(
                               child: Text(
@@ -187,7 +195,8 @@ class ProfileScreen extends StatelessWidget {
                                 shape: BoxShape.circle,
                               ),
                               child: const Center(
-                                child: Icon(LucideIcons.check, size: 13, color: Colors.white),
+                                child: Icon(LucideIcons.check,
+                                    size: 13, color: Colors.white),
                               ),
                             ),
                           ),
@@ -200,7 +209,9 @@ class ProfileScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              p.fullName.isNotEmpty ? p.fullName : 'Personnel Staff',
+                              p.fullName.isNotEmpty
+                                  ? p.fullName
+                                  : 'Personnel Staff',
                               style: GoogleFonts.plusJakartaSans(
                                 color: AppTheme.textPrimary,
                                 fontSize: 18,
@@ -224,14 +235,22 @@ class ProfileScreen extends StatelessWidget {
                               runSpacing: 4,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryLight.withOpacity(0.1),
+                                    color:
+                                        AppTheme.primaryLight.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.primaryLight.withOpacity(0.25)),
+                                    border: Border.all(
+                                        color: AppTheme.primaryLight
+                                            .withOpacity(0.25)),
                                   ),
                                   child: Text(
-                                    p.salaryGrade == null ? 'SG not recorded' : (p.stepIncrement == null ? 'SG ${p.salaryGrade}' : 'SG ${p.salaryGrade} · Step ${p.stepIncrement}'),
+                                    p.salaryGrade == null
+                                        ? 'SG not recorded'
+                                        : (p.stepIncrement == null
+                                            ? 'SG ${p.salaryGrade}'
+                                            : 'SG ${p.salaryGrade} · Step ${p.stepIncrement}'),
                                     style: GoogleFonts.jetBrainsMono(
                                       color: AppTheme.primaryLight,
                                       fontSize: 11,
@@ -240,11 +259,13 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
                                     color: AppTheme.lightSurface,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppTheme.lightBorder),
+                                    border:
+                                        Border.all(color: AppTheme.lightBorder),
                                   ),
                                   child: Text(
                                     humanizeEnum(p.personnelType),
@@ -271,10 +292,12 @@ class ProfileScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       InkWell(
-                        onTap: () => _copyToClipboard(context, p.employeeId, 'Employee ID'),
+                        onTap: () => _copyToClipboard(
+                            context, p.employeeId, 'Employee ID'),
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: AppTheme.lightSurface,
                             borderRadius: BorderRadius.circular(8),
@@ -282,7 +305,8 @@ class ProfileScreen extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              const Icon(LucideIcons.idCard, size: 14, color: AppTheme.primaryLight),
+                              const Icon(LucideIcons.idCard,
+                                  size: 14, color: AppTheme.primaryLight),
                               const SizedBox(width: 6),
                               Text(
                                 p.employeeId,
@@ -293,12 +317,14 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Icon(LucideIcons.copy, size: 12, color: AppTheme.textMuted),
+                              const Icon(LucideIcons.copy,
+                                  size: 12, color: AppTheme.textMuted),
                             ],
                           ),
                         ),
                       ),
-                      const StatusPill(label: 'Active record', tone: AppStatusTone.success),
+                      const StatusPill(
+                          label: 'Active record', tone: AppStatusTone.success),
                     ],
                   ),
                 ],
@@ -311,15 +337,31 @@ class ProfileScreen extends StatelessWidget {
               title: 'I. Personal Information',
               icon: LucideIcons.user,
               items: [
-                _buildInfoRow('Full Name', p.fullName.isNotEmpty ? p.fullName : 'Not Provided'),
-                _buildInfoRow('Employee ID', p.employeeId, isMono: true, onCopy: () => _copyToClipboard(context, p.employeeId, 'Employee ID')),
-                _buildInfoRow('Personnel Category', humanizeEnum(p.personnelType, fallback: 'Not Provided')),
-                _buildInfoRow('Date of Birth', formatDate(p.birthDate, fallback: 'Not Provided')),
-                _buildInfoRow('Gender', humanizeEnum(p.gender, fallback: 'Not Specified')),
-                _buildInfoRow('Civil Status', humanizeEnum(p.civilStatus, fallback: 'Not Specified')),
-                _buildInfoRow('DepEd Email', p.email ?? 'Not Provided', onCopy: p.email != null ? () => _copyToClipboard(context, p.email!, 'Email') : null),
-                _buildInfoRow('Contact Number', p.mobileNo ?? 'Not Provided', onCopy: p.mobileNo != null ? () => _copyToClipboard(context, p.mobileNo!, 'Contact Number') : null),
-                _buildInfoRow('Residential Address', p.address ?? 'Not Provided'),
+                _buildInfoRow('Full Name',
+                    p.fullName.isNotEmpty ? p.fullName : 'Not Provided'),
+                _buildInfoRow('Employee ID', p.employeeId,
+                    isMono: true,
+                    onCopy: () =>
+                        _copyToClipboard(context, p.employeeId, 'Employee ID')),
+                _buildInfoRow('Personnel Category',
+                    humanizeEnum(p.personnelType, fallback: 'Not Provided')),
+                _buildInfoRow('Date of Birth',
+                    formatDate(p.birthDate, fallback: 'Not Provided')),
+                _buildInfoRow('Gender',
+                    humanizeEnum(p.gender, fallback: 'Not Specified')),
+                _buildInfoRow('Civil Status',
+                    humanizeEnum(p.civilStatus, fallback: 'Not Specified')),
+                _buildInfoRow('DepEd Email', p.email ?? 'Not Provided',
+                    onCopy: p.email != null
+                        ? () => _copyToClipboard(context, p.email!, 'Email')
+                        : null),
+                _buildInfoRow('Contact Number', p.mobileNo ?? 'Not Provided',
+                    onCopy: p.mobileNo != null
+                        ? () => _copyToClipboard(
+                            context, p.mobileNo!, 'Contact Number')
+                        : null),
+                _buildInfoRow(
+                    'Residential Address', p.address ?? 'Not Provided'),
               ],
             ),
             const SizedBox(height: 16),
@@ -330,10 +372,20 @@ class ProfileScreen extends StatelessWidget {
               icon: LucideIcons.briefcase,
               items: [
                 _buildInfoRow('Position Designation', p.positionTitle),
-                _buildInfoRow('Plantilla Item No.', p.plantillaItemNo, isMono: true, onCopy: () => _copyToClipboard(context, p.plantillaItemNo, 'Plantilla Item No.')),
-                _buildInfoRow('Salary Grade & Step', p.salaryGrade == null ? 'Not recorded' : (p.stepIncrement == null ? 'Salary Grade ${p.salaryGrade}' : 'Salary Grade ${p.salaryGrade} · Step ${p.stepIncrement}')),
+                _buildInfoRow('Plantilla Item No.', p.plantillaItemNo,
+                    isMono: true,
+                    onCopy: () => _copyToClipboard(
+                        context, p.plantillaItemNo, 'Plantilla Item No.')),
+                _buildInfoRow(
+                    'Salary Grade & Step',
+                    p.salaryGrade == null
+                        ? 'Not recorded'
+                        : (p.stepIncrement == null
+                            ? 'Salary Grade ${p.salaryGrade}'
+                            : 'Salary Grade ${p.salaryGrade} · Step ${p.stepIncrement}')),
                 _buildInfoRow('Station / School', p.stationName),
-                _buildInfoRow('Date Appointed / Hired', formatDate(p.dateHired, fallback: 'Not Provided')),
+                _buildInfoRow('Date Appointed / Hired',
+                    formatDate(p.dateHired, fallback: 'Not Provided')),
               ],
             ),
             const SizedBox(height: 16),
@@ -343,114 +395,40 @@ class ProfileScreen extends StatelessWidget {
             ProfileActions(profile: p, onSaved: onRefresh),
             const SizedBox(height: 16),
 
-            // Section 3: Personnel 201 Documents & Credentials
-            Container(
-              padding: const EdgeInsets.all(18.0),
-              decoration: BoxDecoration(
-                color: AppTheme.lightBgCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.lightBorder),
+            AppCard(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const PersonnelDocumentsScreen()),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryLight.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(LucideIcons.fileBadge, size: 16, color: AppTheme.primaryLight),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'III. Personnel 201 Documents',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textPrimary,
-                              letterSpacing: -0.01,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emeraldGreen.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          '201 Records',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 22, color: AppTheme.lightBorder),
-                  Text(
-                    'Access, upload, and scan required 201 personnel documents including Government IDs, PRC Licenses, Diplomas, Medical & Clearance records.',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const PersonnelDocumentsScreen()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.brandDark,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      icon: const Icon(LucideIcons.scanLine, size: 16, color: Colors.white),
-                      label: Text(
-                        'Open Personnel Documents & Scanner',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
+                  const Icon(LucideIcons.folderOpen,
+                      size: 20, color: AppTheme.primaryLight),
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('My 201 files', style: AppText.heading),
+                        const SizedBox(height: 2),
+                        Text('IDs, licenses, diplomas and other records',
+                            style: AppText.caption),
+                      ],
                     ),
                   ),
+                  const Icon(LucideIcons.chevronRight,
+                      size: 18, color: AppTheme.textMuted),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            // Bottom Action Row
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: onRefresh,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandDark,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                    icon: const Icon(LucideIcons.refreshCw, size: 16, color: Colors.white),
-                    label: Text(
-                      'Synchronize 201 Records',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: AppSpace.md),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onRefresh,
+                icon: const Icon(LucideIcons.refreshCw, size: 16),
+                label: const Text('Refresh'),
+              ),
             ),
           ],
         ),
