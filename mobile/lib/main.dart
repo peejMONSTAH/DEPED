@@ -41,6 +41,8 @@ class EminenceMobileApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // No Android "stretch" at the scroll ends; it distorts the cards.
+      scrollBehavior: const _NoStretchScroll(),
       // Everyday users read at arm's length: text is 10% larger than the phone's
       // setting, on top of any larger size the person chose themselves.
       builder: (context, child) {
@@ -57,4 +59,13 @@ class EminenceMobileApp extends StatelessWidget {
       home: const SplashScreen(),
     );
   }
+}
+
+class _NoStretchScroll extends MaterialScrollBehavior {
+  const _NoStretchScroll();
+
+  @override
+  Widget buildOverscrollIndicator(
+          BuildContext context, Widget child, ScrollableDetails details) =>
+      child;
 }
