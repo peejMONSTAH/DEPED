@@ -2825,210 +2825,58 @@ export const PromotionManagement: React.FC = () => {
                 </section>
               )}
 
-              {/* TAB 4: HR CANDIDATE SELECTION WORKSPACE */}
-              {activeTab === 'HR_SELECTION' && (
-                <div className="card glass-surface" style={{ padding: '24px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', margin: 0 }}>
-                        HR Candidate Selection for Promotion
-                      </h3>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '0.9375rem', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#ECFDF5', color: theme === 'dark' ? '#34D399' : '#059669', padding: '4px 14px', borderRadius: '9999px', fontWeight: 700, border: '1px solid rgba(5, 150, 105, 0.4)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <AppIcon name="promotions" size={13} color={theme === 'dark' ? '#34D399' : '#059669'} /> Vacancies Available: {selectedCycle?.rulesConfigurationJson?.vacantPositions || 1} Post(s)
-                      </span>
-                    </div>
+              {/* TAB 4: HR CANDIDATE SELECTION */}
+              {activeTab === 'HR_SELECTION' && (() => {
+                const vacancies = Number(selectedCycle?.rulesConfigurationJson?.vacantPositions || 1);
+                const chosen = filteredLeaderboard.filter(i => isAppointed(i) || isSelectedPendingAppointment(i)).length;
+                return (
+                <section className="rv-panel" aria-labelledby="rv-select-title">
+                  <div className="rv-toolbar">
+                    <h3 id="rv-select-title" className="rv-title">Candidate selection</h3>
+                    <p className="rv-sub">{chosen} of {vacancies} {vacancies === 1 ? 'vacancy' : 'vacancies'} filled</p>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '16px' }}>
-                    {filteredLeaderboard.map((item) => {
-                      const isOfficiallyApproved = isAppointed(item);
-                      const isSelectedPendingDocs = isSelectedPendingAppointment(item);
-                      
-                      return (
-                        <div key={item.id} className="card glass-surface card-hover" style={{
-                          padding: '20px',
-                          borderRadius: '14px',
-                          background: isOfficiallyApproved
-                            ? (theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#F0FDF4')
-                            : isSelectedPendingDocs
-                              ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#FFFBEB')
-                              : 'var(--color-bg-tertiary)',
-                          border: isOfficiallyApproved ? '1.5px solid #10b981' : isSelectedPendingDocs ? '1.5px solid #f59e0b' : '1px solid var(--color-border)',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{
-                                width: '26px', height: '26px', borderRadius: '50%',
-                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                                fontWeight: 800, fontSize: '0.9375rem',
-                                background: item.rank === 1 ? (theme === 'dark' ? 'rgba(217, 119, 6, 0.25)' : '#FEF3C7') : 'var(--color-bg-card)',
-                                color: item.rank === 1 ? '#D97706' : 'var(--color-text-secondary)',
-                                border: item.rank === 1 ? '1px solid rgba(217, 119, 6, 0.4)' : '1px solid var(--color-border)',
-                              }}>
-                                #{item.rank}
-                              </span>
-                              <span style={{ fontSize: '0.9375rem', fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontWeight: 700 }}>
-                                {item.applicantNumber ? `App No: ${item.applicantNumber}` : item.employeeId}
-                              </span>
+                  {filteredLeaderboard.length === 0 ? (
+                    <p className="rv-empty">No ranked applicants yet.</p>
+                  ) : (
+                    <ul className="rv-list">
+                      {filteredLeaderboard.map(item => {
+                        const appointed = isAppointed(item);
+                        const pending = isSelectedPendingAppointment(item);
+                        const plantilla = item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber;
+                        return (
+                          <li key={item.id} className="rv-row">
+                            <div className="rv-who">
+                              <strong>{item.rank}. {item.name}</strong>
+                              <span>{item.designation}{item.applicantNumber ? ` · ${item.applicantNumber}` : ''}</span>
+                              {plantilla && <span className="rv-remark">Plantilla item {plantilla}</span>}
+                              {pending && item.transactionId && (
+                                <a className="rv-remark" href={`/admin/validation?tx=${item.transactionId}`}>Appointment documents: validate</a>
+                              )}
                             </div>
-                            {isOfficiallyApproved ? (
-                              <span style={{ fontSize: '0.875rem', background: theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7', color: theme === 'dark' ? '#34D399' : '#15803D', border: '1px solid rgba(5, 150, 105, 0.4)', padding: '3px 9px', borderRadius: '9999px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <AppIcon name="promotions" size={10} color={theme === 'dark' ? '#34D399' : '#15803D'} /> OFFICIALLY PROMOTED
-                              </span>
-                            ) : isSelectedPendingDocs ? (
-                              <span style={{ fontSize: '0.875rem', background: theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7', color: theme === 'dark' ? '#FBBF24' : '#B45309', border: '1px solid rgba(217, 119, 6, 0.4)', padding: '3px 9px', borderRadius: '9999px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <AppIcon name="pending" size={10} color={theme === 'dark' ? '#FBBF24' : '#B45309'} /> PENDING HR DOC APPROVAL
-                              </span>
-                            ) : (
-                              <StatusBadge status={item.status} />
-                            )}
-                          </div>
-
-                          <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '2px' }}>{item.name}</div>
-                          <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)', marginBottom: item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber ? '6px' : '14px' }}>{item.designation}</div>
-
-                          {(item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber) && (
-                            <div style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              fontSize: '0.9375rem',
-                              fontWeight: 700,
-                              background: theme === 'dark' ? 'rgba(37, 99, 235, 0.2)' : '#EEF7F1',
-                              color: 'var(--color-primary)',
-                              border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.4)' : '1px solid #CFE8D8',
-                              padding: '3px 10px',
-                              borderRadius: '8px',
-                              marginBottom: '14px',
-                            }}>
-                              <AppIcon name="employment" size={12} color="var(--color-primary)" />
-                              <span>Plantilla: <strong>{item.plantillaItemNumber || item.scoreDetailsJson?.plantillaItemNumber}</strong></span>
+                            <div className="rv-score">
+                              {(appointed || pending) && <span className={`rv-status ${appointed ? 'is-ok' : 'is-wait'}`}>{appointed ? 'Promoted' : 'Selected'}</span>}
+                              <strong>{Number(item.overallTotalScore || 0).toFixed(2)}</strong><span>/ 100</span>
                             </div>
-                          )}
-
-                          <div style={{ background: 'var(--color-bg-card)', padding: '12px 14px', borderRadius: '10px', marginBottom: '14px', border: '1px solid var(--color-border)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', marginBottom: '4px' }}>
-                              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>AO Initial Rating:</span>
-                              <span style={{ color: '#059669', fontWeight: 700 }}>{item.initialTotalScore > 0 ? `${item.initialTotalScore} / 100` : 'Pending AO'}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem', marginBottom: '4px' }}>
-                              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>HR Board Final Score:</span>
-                              <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{item.finalTotalScore > 0 ? `+${item.finalTotalScore} pts` : 'Pending HR'}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9375rem' }}>
-                              <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>Combined Overall Total:</span>
-                              <span style={{ color: 'var(--color-text-primary)', fontWeight: 800 }}>{item.overallTotalScore} pts</span>
-                            </div>
-                          </div>
-
-                          {isSelectedPendingDocs && item.transactionId && (
-                            <div style={{ background: theme === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EEF7F1', padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', fontSize: '0.9375rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: theme === 'dark' ? '1px solid rgba(37, 99, 235, 0.3)' : '1px solid #CFE8D8' }}>
-                              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Appointment TRX #{item.transactionId} ({item.transactionStatus || 'DRAFT'})</span>
-                              <a href={`/admin/validation?tx=${item.transactionId}`} style={{ color: 'var(--color-primary)', fontWeight: 700, textDecoration: 'underline' }}>Validate Docs →</a>
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setSelectedApplicantInfo(item);
-                                setShowApplicantInfoModal(true);
-                              }}
-                              style={{ fontSize: '0.9375rem', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)', flex: 1, borderRadius: '9999px', fontWeight: 700 }}
-                            >
-                              View Info
-                            </button>
-
-                            {isHR ? (
-                              isSelectedPendingDocs || isOfficiallyApproved ? (
-                                <div style={{ display: 'flex', gap: '6px', flex: 2 }}>
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm"
-                                    onClick={() => handleTogglePromotionCandidate(item, false)}
-                                    style={{
-                                      flex: 1,
-                                      fontSize: '0.9375rem',
-                                      background: isOfficiallyApproved ? (theme === 'dark' ? 'rgba(5, 150, 105, 0.2)' : '#DCFCE7') : (theme === 'dark' ? 'rgba(217, 119, 6, 0.2)' : '#FEF3C7'),
-                                      color: isOfficiallyApproved ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#B45309'),
-                                      border: isOfficiallyApproved ? '1px solid rgba(5, 150, 105, 0.4)' : '1px solid rgba(217, 119, 6, 0.4)',
-                                      borderRadius: '9999px',
-                                      fontWeight: 800,
-                                    }}
-                                  >
-                                    <AppIcon name="approved" size={13} color={isOfficiallyApproved ? (theme === 'dark' ? '#34D399' : '#15803D') : (theme === 'dark' ? '#FBBF24' : '#B45309')} /> 
-                                    {isOfficiallyApproved ? 'Promoted' : 'Revoke'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => handleOpenConfirmSelection(item)}
-                                    title="Reassign to another designated plantilla post"
-                                    style={{
-                                      fontSize: '0.875rem',
-                                      borderRadius: '9999px',
-                                      fontWeight: 700,
-                                      padding: '4px 10px',
-                                      border: '1px solid var(--color-border)',
-                                    }}
-                                  >
-                                    Reassign
-                                  </button>
-                                </div>
+                            <div className="rv-actions">
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(item); setShowApplicantInfoModal(true); }}>201 file</button>
+                              {isHR && (appointed || pending ? (
+                                <>
+                                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleOpenConfirmSelection(item)}>Reassign</button>
+                                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleTogglePromotionCandidate(item, false)}>Revoke</button>
+                                </>
                               ) : (
-                                <button
-                                  type="button"
-                                  className="btn btn-primary btn-sm"
-                                  onClick={() => handleOpenConfirmSelection(item)}
-                                  style={{
-                                    flex: 2,
-                                    fontSize: '0.9375rem',
-                                    background: 'var(--color-primary)',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '9999px',
-                                    fontWeight: 800,
-                                    boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '6px',
-                                  }}
-                                >
-                                  <AppIcon name="promotions" size={13} color="#ffffff" /> Select for Promotion
-                                </button>
-                              )
-                            ) : (
-                              <div style={{
-                                flex: 2,
-                                fontSize: '0.875rem',
-                                color: 'var(--color-text-secondary)',
-                                background: 'var(--color-bg-tertiary)',
-                                padding: '6px 10px',
-                                borderRadius: '9999px',
-                                border: '1px solid var(--color-border)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '4px',
-                                fontWeight: 600,
-                              }}>
-                                <AppIcon name="lock" size={11} color="var(--color-text-secondary)" /> Selection Reserved for HR
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                                <button type="button" className="btn btn-primary btn-sm" onClick={() => handleOpenConfirmSelection(item)}>Select</button>
+                              ))}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+                );
+              })()}
 
 
             </>
