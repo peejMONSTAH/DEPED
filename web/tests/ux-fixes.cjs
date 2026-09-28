@@ -173,9 +173,11 @@ test('the Select for Promotion dialog is height-capped with a scrolling body and
   const page = src('pages/admin/PromotionManagement.tsx');
   const start = page.indexOf('MODAL 6: PROMOTION SELECTION CONFIRMATION');
   const modal = page.slice(start, start + 16000);
-  assert.match(modal, /maxHeight: 'calc\(100dvh - 32px\)'/);
-  assert.match(modal, /className="promo-select-body" style=\{\{[^}]*overflowY: 'auto'/);
-  assert.match(modal, /minHeight: 0/, 'flex child can shrink so it scrolls instead of overflowing');
-  assert.match(modal, /flexShrink: 0,\s*display: 'flex',\s*alignItems: 'center',\s*justifyContent: 'flex-end'/, 'actions never shrink away');
-  assert.match(src('components/common/ModalOverlay.tsx'), /document\.body\.style\.overflow = 'hidden'/, 'page behind does not scroll');
+  assert.match(modal, /className="modal animate-scale-in select-sheet"/);
+  const css = src('pages/admin/car-sheet.css');
+  assert.match(css, /.select-sheet {[^}]*max-height: 92dvh[^}]*display: flex; flex-direction: column/);
+  assert.match(css, /.select-sheet__body {[^}]*overflow-y: auto/);
+  assert.match(css, /.select-sheet__body { min-height: 0; flex: 1; }/, 'flex child can shrink so it scrolls instead of overflowing');
+  assert.match(css, /.select-sheet__foot { flex-shrink: 0; }/, 'actions never shrink away');
+  assert.match(src('components/common/ModalOverlay.tsx'), /document.body.style.overflow = 'hidden'/, 'page behind does not scroll');
 });
