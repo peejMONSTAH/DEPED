@@ -52,7 +52,7 @@ test('every promotion tab uses the same selected / appointed definitions', () =>
   assert.equal(isSelectedPendingAppointment({ isPromoted: true, isSelectedForPromotion: true }), false, 'appointed is not also pending');
   const page = src('pages/admin/PromotionManagement.tsx');
   assert.equal((page.match(/const isPromoted = isAppointed\(item\);/g) || []).length, 2, 'Leaderboard and CAR tab');
-  assert.match(page, /const appointed = isAppointed(item);/, 'HR Selection');
+  assert.match(page, /const appointed = isAppointed\(item\);/, 'HR Selection');
   assert.doesNotMatch(page, /item\.status === 'PROMOTED' \|\| item\.status === 'APPROVED'\)/);
 });
 
