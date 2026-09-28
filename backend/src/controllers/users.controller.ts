@@ -571,10 +571,9 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   // deactivated. A hard delete is reserved for an account that never became
   // anything: never signed in and nothing on record by or about it.
   const personnelId = existing.personnel?.id;
-  const [actions, documentsTouched, checks, filesReviewed, filesUploaded, requests, assigned] = await Promise.all([
+  const [actions, documentsTouched, filesReviewed, filesUploaded, requests, assigned] = await Promise.all([
     prisma.validationLog.count({ where: { userId } }),
     prisma.uploadedDocument.count({ where: { OR: [{ uploadedByUserId: userId }, { validatedByUserId: userId }] } }),
-    prisma.complianceCheck.count({ where: { checkedByUserId: userId } }),
     prisma.personnelFile.count({ where: { reviewedByUserId: userId } }),
     personnelId ? prisma.personnelFile.count({ where: { personnelId, storagePath: { not: null } } }) : Promise.resolve(0),
     prisma.accountCreationRequest.count({ where: { requestedByUserId: userId } }),
@@ -585,7 +584,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     (existing.personnel?.transactions?.length ?? 0) > 0 ||
     (existing.personnel?.promotionApplications?.length ?? 0) > 0 ||
     (existing.personnel?.careerHistoryEntries?.length ?? 0) > 0 ||
-    actions + documentsTouched + checks + filesReviewed + filesUploaded + requests + assigned > 0;
+    actions + documentsTouched + filesReviewed + filesUploaded + requests + assigned > 0;
 
   if (hasHistory) {
     await prisma.$transaction([

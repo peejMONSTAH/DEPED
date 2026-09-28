@@ -41,7 +41,6 @@ model User {
   deviceVerification       Boolean                  @default(true) @map("device_verification")
   accountRequestsCreated   AccountCreationRequest[] @relation("AccountRequestCreatedUser")
   accountRequestsSubmitted AccountCreationRequest[] @relation("AccountRequestsSubmitted")
-  complianceChecks         ComplianceCheck[]
   notifications            Notification[]
   /// The one link to this account's personnel record, owned by personnel.user_id.
   /// There is deliberately no mirror column on this side: two columns for one
@@ -270,7 +269,6 @@ model UploadedDocument {
   createdAt             DateTime            @default(now()) @map("created_at")
   updatedAt             DateTime            @updatedAt @map("updated_at")
   careerHistoryEntry    CareerHistoryEntry?
-  complianceCheck       ComplianceCheck?
   requirementTemplate   RequirementTemplate @relation(fields: [requirementTemplateId], references: [id])
   transaction           Transaction         @relation(fields: [transactionId], references: [id])
   uploadedBy            User                @relation("Uploader", fields: [uploadedByUserId], references: [id])
@@ -280,20 +278,6 @@ model UploadedDocument {
   @@map("uploaded_documents")
 }
 
-model ComplianceCheck {
-  id                 Int              @id @default(autoincrement())
-  uploadedDocumentId Int              @unique @map("uploaded_document_id")
-  isCompliant        Boolean          @map("is_compliant")
-  deficiencyDetails  String?          @map("deficiency_details")
-  checkedByUserId    Int              @map("checked_by_user_id")
-  checkDate          DateTime         @default(now()) @map("check_date")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  checkedBy          User             @relation(fields: [checkedByUserId], references: [id])
-  uploadedDocument   UploadedDocument @relation(fields: [uploadedDocumentId], references: [id])
-
-  @@map("compliance_checks")
-}
 
 model ValidationLog {
   id              Int      @id @default(autoincrement())

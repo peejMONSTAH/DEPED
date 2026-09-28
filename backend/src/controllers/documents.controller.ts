@@ -170,7 +170,6 @@ export const uploadDocument = async (req: Request, res: Response, next: NextFunc
     if (duplicate?.status === 'VALIDATED') throw workflowConflict('This document has already been validated and cannot be replaced.');
     if (duplicate) {
       await db.documentRevision.create({ data: { documentId: duplicate.id, snapshot: JSON.parse(JSON.stringify(duplicate)) } });
-      await db.complianceCheck.deleteMany({ where: { uploadedDocumentId: duplicate.id } });
     }
     const saved = duplicate ? await db.uploadedDocument.update({
       where: { id: duplicate.id },
