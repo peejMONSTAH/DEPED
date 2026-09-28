@@ -12,6 +12,7 @@ import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { SkeletonStats, SkeletonList } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
 import { clickable } from '../../a11y/clickable';
+import './return-sheet.css';
 
 // ─── 201-System-Workflow.md: HRMO Steps 1, 2, 3 ──────────────────────────────
 // Step 1: Review Validated Transactions — displays Personnel Profile, Compliance Information, Uploaded Documents, Validation History
@@ -117,7 +118,12 @@ export const TransactionApproval: React.FC = () => {
           transactionType: tx.transactionType?.name || 'HR Transaction',
           personnelCategory: tx.personnel?.designation?.toLowerCase().includes('teacher') ? 'Teaching Personnel' : 'Non-Teaching Personnel',
           dateSubmitted: tx.submissionDate ? new Date(tx.submissionDate).toLocaleDateString() : new Date(tx.createdAt).toLocaleDateString(),
-          validatedBy: tx.validatedBy?.email || 'Recorded validator',
+          // The AO II who reviewed the documents, by name.
+          validatedBy: (() => {
+            const v = (tx.uploadedDocuments || []).find((d: any) => d.validatedBy)?.validatedBy;
+            const p = v?.personnel;
+            return p ? `${p.firstName} ${p.lastName} (AO II)` : v?.email || 'AO II';
+          })(),
           validatedDate: tx.validationDate ? new Date(tx.validationDate).toLocaleDateString() : new Date(tx.updatedAt || tx.createdAt).toLocaleDateString(),
           complianceScore: tx.complianceScore ?? 0,
           currentPosition: tx.personnel?.designation || 'Staff',
@@ -1136,63 +1142,55 @@ export const TransactionApproval: React.FC = () => {
       )}
 
       {/* Return Modal */}
-      {showReturnModal && selected && (
-        <ModalOverlay onDismiss={() => { setShowReturnModal(false); setReturnDocumentIds([]); }} className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 480 }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AppIcon name="returned" size={16} color="var(--color-error)" /> Return Transaction #{selected.id}
-              </h3>
-            </div>
-            <div className="modal-body">
-              <p className="text-sm text-muted" style={{ marginBottom: 14 }}>
-                Select the flawed document(s). Only those upload slots will reopen; documents you do not select stay validated and locked.
-              </p>
-              <fieldset style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
-                <legend className="form-label" style={{ marginBottom: 8 }}>Documents requiring replacement *</legend>
-                <div style={{ display: 'grid', gap: 8, maxHeight: 210, overflowY: 'auto' }}>
-                  {(selected.detailedDocuments || []).filter(document => document.id !== undefined).map(document => {
+      {showReturnModal && selected && (() => {
+        const close = () => { setShowReturnModal(false); setReturnDocumentIds([]); };
+        const docs = (selected.detailedDocuments || []).filter(d => d.id !== undefined);
+        return (
+        <ModalOverlay onDismiss={close} className="modal-overlay">
+          <div className="modal ret-sheet" role="dialog" aria-modal="true" aria-labelledby="ret-title">
+            <header className="ret-sheet__head">
+              <div>
+                <h3 id="ret-title">Return TRX-{selected.id}</h3>
+                <p>{selected.personnelName} · only the documents you tick reopen for upload</p>
+              </div>
+              <button type="button" className="ret-sheet__close" aria-label="Close" onClick={close}>✕</button>
+            </header>
+            <div className="ret-sheet__body">
+              <fieldset>
+                <legend>Documents to replace</legend>
+                <div className="ret-sheet__docs">
+                  {docs.map(document => {
                     const documentId = document.id!;
                     const checked = returnDocumentIds.includes(documentId);
                     return (
-                      <label key={documentId} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', border: `1px solid ${checked ? 'var(--color-error)' : 'var(--color-border)'}`, borderRadius: 10, cursor: 'pointer', background: checked ? 'rgba(239, 68, 68, 0.07)' : 'var(--color-bg-secondary)' }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => setReturnDocumentIds(current => checked ? current.filter(id => id !== documentId) : [...current, documentId])}
-                          style={{ marginTop: 2 }}
-                        />
+                      <label key={documentId} className={`ret-sheet__doc${checked ? ' is-on' : ''}`}>
+                        <input type="checkbox" checked={checked}
+                          onChange={() => setReturnDocumentIds(current => checked ? current.filter(id => id !== documentId) : [...current, documentId])} />
                         <span>
-                          <strong style={{ display: 'block', fontSize: 14 }}>{document.name}</strong>
-                          <span className="text-xs text-muted">{document.type || 'Uploaded document'}</span>
+                          <strong>{document.name}</strong>
+                          {document.type && <small>{document.type}</small>}
                         </span>
                       </label>
                     );
                   })}
                 </div>
               </fieldset>
-              <div className="form-group">
-                <label className="form-label">Return Remarks / Deficiency Notes *</label>
-                <textarea
-                  aria-label="Return Remarks / Deficiency Notes"
-                  className="form-input"
-                  rows={4}
-                  placeholder="Specify deficiency reasons or missing documentary certifications…"
-                  value={returnRemarks}
-                  onChange={e => setReturnRemarks(e.target.value)}
-                  required
-                />
-              </div>
+              <label className="ret-sheet__field">
+                <span>What needs fixing</span>
+                <textarea className="form-input" rows={3} placeholder="Sent to the personnel"
+                  value={returnRemarks} onChange={e => setReturnRemarks(e.target.value)} required />
+              </label>
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowReturnModal(false); setReturnDocumentIds([]); }}>Cancel</button>
-              <button type="button" className="btn btn-danger" onClick={handleReturn} disabled={isSubmitting || returnDocumentIds.length === 0}>
-                {isSubmitting ? 'Returning…' : 'Confirm Return → Notify Personnel'}
+            <footer className="ret-sheet__foot">
+              <button type="button" className="btn btn-danger" onClick={handleReturn}
+                disabled={isSubmitting || returnDocumentIds.length === 0 || !returnRemarks.trim()}>
+                {isSubmitting ? 'Returning…' : returnDocumentIds.length ? `Return ${returnDocumentIds.length} document${returnDocumentIds.length === 1 ? '' : 's'}` : 'Tick a document to return'}
               </button>
-            </div>
+            </footer>
           </div>
         </ModalOverlay>
-      )}
+        );
+      })()}
 
       {/* The actual uploaded file, fitted to the viewer's width */}
       {viewingDoc && viewingDoc.id !== undefined && (
