@@ -18,6 +18,7 @@ import { RowActionMenu, RowAction } from '../../components/common/RowActionMenu'
 import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
 import './review-list.css';
 import { humanizeEnum } from '../../constants/transactionStatus';
+import { AccountDetail } from './AccountDetail';
 
 /** Today in the viewer's local time as YYYY-MM-DD, the upper bound for birth and hire dates. */
 const todayDateInput = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -1312,152 +1313,27 @@ export const CredentialDistribution: React.FC = () => {
       )}
 
       {/* View Personnel Info Modal */}
-      {selectedAccount && createPortal(
-        <ModalOverlay onDismiss={() => setSelectedAccount(null)} className="modal-overlay" onClick={() => setSelectedAccount(null)}>
-          <div
-            className="animate-scale-in"
-            onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: 680,
-              width: '95%',
-              maxHeight: '90vh',
-              borderRadius: '20px',
-              backgroundColor: 'var(--color-bg-card)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
-              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.35)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
+      {selectedAccount && (() => {
+        const u = selectedAccount;
+        const allowed = accountActionsFor({ role: user?.role, userId: user?.id }, u);
+        const close = () => setSelectedAccount(null);
+        return (
+          <AccountDetail
+            account={u as any}
+            canSeeAccess={isSysAdmin}
+            onClose={close}
+            actions={{
+              edit: allowed.includes('edit') ? () => { close(); setEditAccount(u); setEditEmail(u.email); } : undefined,
+              resetPassword: allowed.includes('resetPassword') ? () => { close(); setResetModalUser(u); setNewResetPass(generateInitialPassword()); } : undefined,
+              sendSetup: allowed.includes('distribute') ? () => { close(); void handleDistribute(u.id, u.email); } : undefined,
+              activate: allowed.includes('reactivate') ? () => { close(); void handleSetAccountStatus(u, 'ACTIVE'); } : undefined,
+              deactivate: allowed.includes('deactivate') ? () => { close(); void handleSetAccountStatus(u, 'INACTIVE'); } : undefined,
+              signOutEverywhere: isSysAdmin ? () => handleAccessAction(u, 'signout') : undefined,
+              requireCodes: isSysAdmin ? () => handleAccessAction(u, 'codes') : undefined,
             }}
-          >
-            {/* Profile Hero Header */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%)',
-                borderBottom: '1px solid var(--color-border)',
-                padding: '24px 28px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '18px',
-                flexShrink: 0,
-              }}
-            >
-              <div
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #2f7d52 0%, #10b981 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '1.25rem',
-                  flexShrink: 0,
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-                }}
-              >
-                {(selectedAccount.personnel?.firstName?.[0] || selectedAccount.email?.[0] || 'U').toUpperCase()}
-                {(selectedAccount.personnel?.lastName?.[0] || '').toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
-                  {personnelDisplayName(selectedAccount.personnel, selectedAccount.role) || selectedAccount.email}
-                </h3>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 600 }}>{selectedAccount.personnel?.designation || selectedAccount.role}</span>
-                  <span style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--color-text-muted)', flexShrink: 0 }} />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--color-primary)' }}>
-                    {selectedAccount.personnel?.employeeId || 'Pending'}
-                  </span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`} style={{ fontSize: '0.8125rem', padding: '4px 10px' }}>
-                  {ACCOUNT_STATUS_LABEL[selectedAccount.accountStatus as keyof typeof ACCOUNT_STATUS_LABEL] || selectedAccount.accountStatus}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAccount(null)}
-                  aria-label="Close"
-                  style={{ width: '34px', height: '34px', borderRadius: '10px', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '15px', fontWeight: 700 }}
-                >✕</button>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div style={{ padding: '20px 28px', overflowY: 'auto', flex: '1 1 auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 14, background: 'var(--color-bg-tertiary)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border)' }}>
-                <div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Employee ID</div>
-                  <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontSize: '0.9375rem' }}>
-                    {selectedAccount.personnel?.employeeId || 'Pending Generation'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Name</div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                    {personnelDisplayName(selectedAccount.personnel, selectedAccount.role) || 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Designation / Role</div>
-                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{selectedAccount.personnel?.designation || selectedAccount.role}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Station / Scope</div>
-                  <div style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {['SYSTEM_ADMIN', 'HRMO'].includes(selectedAccount.role) ? (
-                      <>
-                        <AppIcon name="settings" size={13} color="var(--color-primary-light)" />
-                        <span style={{ fontWeight: 600, color: 'var(--color-primary-light)' }}>Division Office (SDO Koronadal City)</span>
-                      </>
-                    ) : (
-                      selectedAccount.personnel?.address || 'City Schools Division of Koronadal'
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Email Address</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>{selectedAccount.email}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Account Status</div>
-                  <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`}>
-                    {ACCOUNT_STATUS_LABEL[selectedAccount.accountStatus as keyof typeof ACCOUNT_STATUS_LABEL] || selectedAccount.accountStatus}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-              {isSysAdmin && (
-                <button 
-                  className="btn btn-secondary"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: '9999px' }}
-                  onClick={() => {
-                    const u = selectedAccount;
-                    setSelectedAccount(null);
-                    setResetModalUser(u);
-                    setNewResetPass(generateInitialPassword());
-                  }}
-                >
-                  <AppIcon name="credentials" size={14} /> Reset Password
-                </button>
-              )}
-              {selectedAccount.accountStatus === 'PENDING' && (
-                <button className="btn btn-primary" onClick={() => handleDistribute(selectedAccount.id, selectedAccount.email)} style={{ borderRadius: '9999px', fontWeight: 700 }}>
-                  Distribute Credentials Now
-                </button>
-              )}
-            </div>
-          </div>
-        </ModalOverlay>,
-        document.body
-      )}
+          />
+        );
+      })()}
     </div>
   );
 };

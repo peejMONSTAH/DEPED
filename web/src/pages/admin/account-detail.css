@@ -1,0 +1,21 @@
+/* One account, everything about it. !important where global .modal/button rules win. */
+.modal.acd { width: min(620px, calc(100vw - 32px)) !important; max-width: none !important; max-height: 90vh; padding: 0 !important; border-radius: 18px !important; overflow: hidden; display: flex; flex-direction: column; }
+.acd__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 24px 14px; border-bottom: 1px solid var(--color-border); }
+.acd__head h3 { margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.acd__head p { margin: 4px 0 0; font-size: .9375rem; color: var(--color-text-secondary); }
+.acd__close { flex: none; width: 36px !important; height: 36px !important; min-width: 36px !important; padding: 0 !important; border-radius: 9999px !important; border: 1px solid var(--color-border) !important; background: var(--color-bg-card) !important; color: var(--color-text-secondary) !important; }
+.acd__body { padding: 16px 24px; overflow-y: auto; display: grid; gap: 18px; }
+.acd__facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 20px; }
+.acd__facts dt { font-size: .8125rem; color: var(--color-text-muted); }
+.acd__facts dd { margin: 2px 0 0; font-size: .9375rem; font-weight: 600; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.acd__mono { font-family: var(--font-mono); font-size: .875rem !important; }
+.acd__status { display: inline-block; padding: 2px 10px; border-radius: 9999px; font-size: .8125rem; font-weight: 700; background: #EEF0F2; color: #4B5563; }
+.acd__status.is-active { background: #E3F3E9; color: #1F6B43; }
+.acd__status.is-pending { background: #FDF3DC; color: #8A5A0B; }
+.acd__status.is-inactive, .acd__status.is-locked { background: #FBE7EA; color: #A1263A; }
+.acd__section h4 { margin: 0 0 8px; font-size: 1rem; font-weight: 800; color: var(--color-text-primary); }
+.acd__list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.acd__list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 10px; font-size: .9rem; }
+.acd__list span, .acd__muted { color: var(--color-text-muted); font-size: .875rem; margin: 0; }
+.acd__foot { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 24px 20px; border-top: 1px solid var(--color-border); }
+.acd__danger { color: #A1263A !important; }
