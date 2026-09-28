@@ -106,6 +106,22 @@ export function parseNotificationAction(n: NotificationItem): ActionConfig {
     };
   }
 
+  // Any other notice about a transaction opens that transaction, not a list.
+  if ((n.relatedEntityType || '').toLowerCase() === 'transaction' && n.relatedEntityId) {
+    return {
+      path: `/personnel/checklist?txId=${n.relatedEntityId}`,
+      label: 'Transaction',
+      category: isCareer ? 'CAREER' : 'DOCUMENTS',
+      iconName: 'transactions',
+      badge: 'Transaction',
+      color: '#2F7D52',
+      title,
+      body,
+      ctaText: 'Open transaction',
+      isActionRequired: false,
+    };
+  }
+
   // 2. Account & Profile
   if (isAccount) {
     return {

@@ -74,6 +74,12 @@ export const AdminNotifications: React.FC = () => {
       };
     }
 
+    // Each notice opens the exact record it is about.
+    const txId = entity === 'transaction' && n.relatedEntityId ? n.relatedEntityId : null;
+    if (entity === 'backuprun') {
+      return { path: '/admin/health', label: 'Open service health & backups', btnClass: 'btn-primary', badge: 'Backup', iconName: 'warning' as const };
+    }
+
     // 1. Account Creation Request
     if (entity === 'accountcreationrequest' || msg.includes('account creation') || msg.includes('creation request') || msg.includes('new account')) {
       return {
@@ -99,7 +105,7 @@ export const AdminNotifications: React.FC = () => {
     // 3. Document Validation (AO II)
     if (msg.includes('validation') || msg.includes('submitted for validation') || (user?.role === 'AO_II' && entity === 'transaction')) {
       return {
-        path: '/admin/documents',
+        path: txId ? `/admin/documents?txId=${txId}` : '/admin/documents',
         label: 'Validate Documents & Review Form',
         btnClass: 'btn-primary',
         badge: 'AO II Action Required',
@@ -110,7 +116,7 @@ export const AdminNotifications: React.FC = () => {
     // 4. HRMO Approvals & Ranking
     if (msg.includes('hrmo') || msg.includes('approval') || (user?.role === 'HRMO' && entity === 'transaction')) {
       return {
-        path: '/admin/approvals',
+        path: txId ? `/admin/transactions/${txId}` : '/admin/approvals',
         label: 'Open HRMO Approvals & Ranking',
         btnClass: 'btn-primary',
         badge: 'HRMO Approval',
@@ -131,7 +137,7 @@ export const AdminNotifications: React.FC = () => {
 
     // Default Transaction
     return {
-      path: '/admin/transactions',
+      path: txId ? `/admin/transactions/${txId}` : '/admin/transactions',
       label: 'View Transaction Details',
       btnClass: 'btn-secondary',
       badge: 'Transaction Alert',
