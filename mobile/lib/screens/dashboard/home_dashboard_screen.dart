@@ -15,7 +15,6 @@ import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../utils/display.dart';
 import '../../widgets/ui_kit.dart';
-import '../../widgets/compliance_gauge.dart';
 import '../../widgets/eminence_logo.dart';
 import '../../widgets/status_badge.dart';
 import '../applications/my_applications_screen.dart';
@@ -117,7 +116,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       LocalNotificationService.instance.markSeen(_lastSeenNotifId);
       return;
     }
-    final fresh = unread.where((n) => n['id'] is int && (n['id'] as int) > _lastSeenNotifId!).toList()
+    final fresh = unread
+        .where((n) => n['id'] is int && (n['id'] as int) > _lastSeenNotifId!)
+        .toList()
       ..sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
     if (fresh.isEmpty) return;
     _lastSeenNotifId = fresh.first['id'] as int;
@@ -133,7 +134,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             : (fresh.first['message'] ?? 'New notification').toString(),
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
+        style: GoogleFonts.inter(
+            fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
       ),
       actions: [
         TextButton(
@@ -141,7 +143,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             messenger.hideCurrentMaterialBanner();
             setState(() => _currentIndex = _alertsTabIndex);
           },
-          child: const Text('View', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          child: const Text('View',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         ),
         TextButton(
           onPressed: messenger.hideCurrentMaterialBanner,
@@ -195,7 +199,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           .get<dynamic>('/promotions/cycles?status=ACTIVE,PLANNING');
       if (res.data != null && res.data['data'] is List) {
         final list = res.data['data'] as List<dynamic>;
-        loadedCycles = list.where((c) => c is Map && c['status'] != 'CANCELLED').toList();
+        loadedCycles =
+            list.where((c) => c is Map && c['status'] != 'CANCELLED').toList();
       }
     } catch (_) {}
 
@@ -329,7 +334,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       const PersonnelDocumentsScreen(embedded: true),
       const CareerTimelineScreen(),
       // Index 3 is the Service Record tab; notifications open it in place.
-      NotificationsScreen(onOpenServiceRecord: () => setState(() => _currentIndex = 3)),
+      NotificationsScreen(
+          onOpenServiceRecord: () => setState(() => _currentIndex = 3)),
       MyApplicationsScreen(user: widget.user, profile: _profile),
     ];
 
@@ -424,23 +430,19 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       // Labels mirror the website sidebar so the same
                       // destination is called the same thing on every surface.
                       _buildNavTabItem(
-                          index: 0,
-                          icon: LucideIcons.home,
-                          label: 'Portal Home'),
+                          index: 0, icon: LucideIcons.home, label: 'Home'),
                       _buildNavTabItem(
                           index: 2,
                           icon: LucideIcons.folderOpen,
-                          label: 'My 201 Files'),
+                          label: '201 Files'),
                       // Opens CareerTimelineScreen, which the sidebar calls
                       // Service Record - not My Transactions.
                       _buildNavTabItem(
                           index: _applicationsTabIndex,
                           icon: LucideIcons.clipboardList,
-                          label: 'My Applications'),
+                          label: 'Applications'),
                       _buildNavTabItem(
-                          index: 3,
-                          icon: LucideIcons.award,
-                          label: 'Service Record'),
+                          index: 3, icon: LucideIcons.award, label: 'Service'),
                       // Profile sits at the far right. The index is the page
                       // it opens, not its position in this row.
                       _buildNavTabItem(
@@ -527,18 +529,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               // them readable; scaleDown on a single line would shrink
               // "My Documents" to roughly 8px inside a 320px five-tab bar.
               // scaleDown is kept as the floor for the longest single word.
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 10.5,
-                    height: 1.15,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: color,
-                  ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  height: 1.15,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: color,
                 ),
               ),
             ],
@@ -742,38 +742,35 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
 
           // Personnel 201 documents quick action
           AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // Documents has its own tab, so switch to it rather than pushing a
+            // second copy on top of the navigation bar.
+            onTap: () => setState(() => _currentIndex = 2),
+            child: Row(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(LucideIcons.scanLine,
-                        size: 18, color: AppTheme.primaryLight),
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Personnel documents', style: AppText.heading),
-                          const SizedBox(height: 2),
-                          Text('Scan or upload your 201 records',
-                              style: AppText.caption),
-                        ],
-                      ),
-                    ),
-                  ],
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withValues(alpha: 0.10),
+                    borderRadius: AppRadius.mdAll,
+                  ),
+                  child: const Icon(LucideIcons.folderOpen,
+                      size: 20, color: AppTheme.primaryLight),
                 ),
-                const SizedBox(height: AppSpace.lg),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    // Documents has its own tab, so switch to it rather than
-                    // pushing a second copy on top of the navigation bar.
-                    onPressed: () => setState(() => _currentIndex = 2),
-                    child: const Text('Manage documents'),
+                const SizedBox(width: AppSpace.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('My 201 files', style: AppText.heading),
+                      const SizedBox(height: 2),
+                      Text('Scan or upload your records',
+                          style: AppText.caption),
+                    ],
                   ),
                 ),
+                const Icon(LucideIcons.chevronRight,
+                    size: 18, color: AppTheme.textMuted),
               ],
             ),
           ),
@@ -859,10 +856,16 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             tone: AppStatusTone.success,
                             icon: LucideIcons.check,
                           )
-                        else if (isActive && cycle['applicationsState'] == 'CLOSED')
-                          StatusPill(label: 'Applications closed on ${cycle['applicationsCloseOn'] ?? 'the deadline'}')
-                        else if (isActive && cycle['applicationsState'] == 'NOT_YET_OPEN')
-                          StatusPill(label: 'Applications open on ${cycle['applicationsOpenOn'] ?? 'a later date'}')
+                        else if (isActive &&
+                            cycle['applicationsState'] == 'CLOSED')
+                          StatusPill(
+                              label:
+                                  'Applications closed on ${cycle['applicationsCloseOn'] ?? 'the deadline'}')
+                        else if (isActive &&
+                            cycle['applicationsState'] == 'NOT_YET_OPEN')
+                          StatusPill(
+                              label:
+                                  'Applications open on ${cycle['applicationsOpenOn'] ?? 'a later date'}')
                         else if (isActive)
                           SizedBox(
                             width: double.infinity,
@@ -895,67 +898,43 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   'A hiring or promotion transaction will appear here once the AO or HRMO assigns one to you.',
             )
           else
-            ListView.builder(
-              shrinkWrap: true,
-              // A nested ListView with no explicit padding inherits the
-              // MediaQuery vertical inset, which injects the bottom nav bar
-              // height as blank space in the middle of the page.
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _transactions.length,
-              itemBuilder: (ctx, index) {
-                final item = _transactions[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBgCard,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.lightBorder),
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      leading: ComplianceGauge(
-                          score: item.complianceScore, radius: 24),
-                      title: Text(
-                        item.referenceNo,
-                        style: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                            fontSize: 15),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Text(
-                            humanizeEnum(item.type.name),
-                            style: GoogleFonts.inter(
-                                color: AppTheme.textSecondary, fontSize: 12),
-                          ),
-                          const SizedBox(height: 6),
-                          StatusBadge(status: item.status),
-                        ],
-                      ),
-                      trailing: const Icon(LucideIcons.chevronRight,
-                          size: 18, color: AppTheme.textMuted),
+            Column(
+              children: [
+                for (final item in _transactions)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                    child: AppCard(
                       onTap: () {
                         Navigator.of(context)
-                            .push(
-                              MaterialPageRoute<void>(
+                            .push(MaterialPageRoute<void>(
                                 builder: (_) =>
-                                    ChecklistUploadScreen(transaction: item),
-                              ),
-                            )
+                                    ChecklistUploadScreen(transaction: item)))
                             .then((_) => _loadData());
                       },
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(humanizeEnum(item.type.name),
+                                    style: AppText.heading),
+                                const SizedBox(height: 2),
+                                Text(
+                                    '${item.referenceNo} · ${item.complianceScore.toInt()}% complete',
+                                    style: AppText.caption),
+                                const SizedBox(height: AppSpace.sm),
+                                StatusBadge(status: item.status),
+                              ],
+                            ),
+                          ),
+                          const Icon(LucideIcons.chevronRight,
+                              size: 18, color: AppTheme.textMuted),
+                        ],
+                      ),
                     ),
                   ),
-                );
-              },
+              ],
             ),
         ],
       ),
@@ -981,204 +960,84 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         _promoStatus!['promotionStage'] == 'SELECTED_PENDING_DOCUMENT_APPROVAL';
     final bool isPromoted = _promoStatus!['isPromoted'] == true ||
         _promoStatus!['promotionStage'] == 'OFFICIALLY_PROMOTED';
-
     if (!isPending && !isPromoted) return const SizedBox.shrink();
 
     final details = _promoStatus!['promotionDetails'] as Map<String, dynamic>?;
-    final targetPos =
-        details?['targetPosition']?.toString() ?? 'Master Teacher I';
+    final targetPos = details?['targetPosition']?.toString() ?? 'the position';
     final txId = _promoStatus!['transactionId'];
 
-    if (isPending) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFBEB),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFFDE68A)),
-        ),
+    void openTransaction() {
+      TransactionModel? matchingTx;
+      for (final transaction in _transactions) {
+        if ((txId != null && transaction.id == txId) ||
+            transaction.type == TransactionType.PROMOTION) {
+          matchingTx = transaction;
+          break;
+        }
+      }
+      if (matchingTx == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('No assigned promotion transaction is available yet.')));
+        return;
+      }
+      Navigator.of(context)
+          .push(MaterialPageRoute(
+              builder: (_) => ChecklistUploadScreen(transaction: matchingTx!)))
+          .then((_) => _loadData());
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.md),
+      child: AppCard(
+        borderColor:
+            (isPromoted ? AppTheme.statusApproved : AppTheme.statusPending)
+                .withValues(alpha: 0.45),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(LucideIcons.sparkles,
-                      color: AppTheme.accentGold, size: 20),
-                ),
-                const SizedBox(width: 12),
+                Icon(isPromoted ? LucideIcons.award : LucideIcons.sparkles,
+                    size: 18,
+                    color: isPromoted
+                        ? AppTheme.statusApproved
+                        : AppTheme.statusPending),
+                const SizedBox(width: AppSpace.sm),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Selected for Promotion!',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        'Target Position: $targetPos',
-                        style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xFFB45309),
-                            fontWeight: FontWeight.w600),
-                      ),
-                    ],
+                  child: Text(
+                    isPromoted ? 'Promoted' : 'Selected for promotion',
+                    style: AppText.heading,
                   ),
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFCD34D)),
-                  ),
-                  child: Text(
-                    'DOCS PENDING',
-                    style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF92400E)),
-                  ),
+                StatusPill(
+                  label: isPromoted ? 'Approved' : 'Documents needed',
+                  tone: isPromoted
+                      ? AppStatusTone.success
+                      : AppStatusTone.pending,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7).withOpacity(0.6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.info,
-                      color: Color(0xFF92400E), size: 14),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'You are not officially promoted until HR validates and approves your appointment documents.',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: const Color(0xFF92400E),
-                          height: 1.35),
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              isPromoted
+                  ? 'You are now $targetPos.'
+                  : 'Submit your appointment documents for $targetPos. The promotion is final once HR approves them.',
+              style: AppText.caption,
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  TransactionModel? matchingTx;
-                  for (final transaction in _transactions) {
-                    if ((txId != null && transaction.id == txId) ||
-                        transaction.type == TransactionType.PROMOTION) {
-                      matchingTx = transaction;
-                      break;
-                    }
-                  }
-                  if (matchingTx == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'No assigned promotion transaction is available yet.',
-                        ),
-                      ),
-                    );
-                    return;
-                  }
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          ChecklistUploadScreen(transaction: matchingTx!),
-                    ),
-                  );
-                },
-                icon: const Icon(LucideIcons.fileUp,
-                    size: 16, color: Colors.white),
-                label: Text(
-                  txId != null
-                      ? 'Upload Appointment Docs (TRX #$txId)'
-                      : 'Upload Promotion Appointment Documents',
-                  style: GoogleFonts.inter(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.brandDark,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+            if (isPending) ...[
+              const SizedBox(height: AppSpace.md),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: openTransaction,
+                  child: const Text('Add appointment documents'),
                 ),
               ),
-            ),
+            ],
           ],
         ),
-      );
-    }
-
-    if (isPromoted) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFECFDF5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFA7F3D0)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.emeraldGreen.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(LucideIcons.award,
-                  color: AppTheme.emeraldGreen, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Officially Promoted!',
-                    style: GoogleFonts.plusJakartaSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary),
-                  ),
-                  Text(
-                    'Your appointment documents were verified and approved by HR. Position: $targetPos',
-                    style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: const Color(0xFF065F46),
-                        fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return const SizedBox.shrink();
+      ),
+    );
   }
 }
