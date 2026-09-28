@@ -30,6 +30,7 @@ import { isValidPersonnelDocumentFile } from '../middleware/personnel-document-u
 import { extractWithTesseract } from '../services/tesseract-ocr.service';
 import { mapTrustedOcrFields } from '../utils/document-extraction.util';
 import { discardUncommittedDocument, storeDocument } from '../services/document-storage.service';
+import { LAST_ADMIN_REFUSAL, wouldRemoveLastAdministrator } from '../utils/system-admin.util';
 
 /**
  * GET /users — List all users with pagination and filtering
@@ -433,6 +434,11 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     return;
   }
 
+  if (await wouldRemoveLastAdministrator(userId, { role: existing.role.name, accountStatus: existing.accountStatus }, { role, accountStatus })) {
+    sendBadRequest(res, LAST_ADMIN_REFUSAL, 'LAST_ADMINISTRATOR');
+    return;
+  }
+
   const updateData: Record<string, unknown> = {};
   if (email) {
     const cleanEmail = email.trim().toLowerCase();
@@ -454,7 +460,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   // so every client must re-authenticate and drop what it cached.
   const roleChanged = typeof updateData.roleId === 'number' && updateData.roleId !== existing.roleId;
   // Deactivating ends the account's sessions as well, not just future sign-ins.
-  const deactivated = updateData.accountStatus === 'INACTIVE' && existing.accountStatus !== 'INACTIVE';
+  const deactivated = (updateData.accountStatus === 'INACTIVE' || updateData.accountStatus === 'LOCKED') && existing.accountStatus !== updateData.accountStatus;
   const updated = await prisma.$transaction(async tx => {
     const row = await tx.user.update({
       where: { id: userId },
@@ -526,6 +532,10 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     return;
   }
   if (!canManageAccount(req.user?.role, existing.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
+  if (await wouldRemoveLastAdministrator(userId, { role: existing.role.name, accountStatus: existing.accountStatus }, { deleted: true })) {
+    sendBadRequest(res, LAST_ADMIN_REFUSAL, 'LAST_ADMINISTRATOR');
+    return;
+  }
 
   // Government records outlive the account. Anything the person did or that
   // was done in their name keeps the account as its reference, so it is only

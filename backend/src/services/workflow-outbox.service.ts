@@ -44,6 +44,11 @@ export async function queueDeficiencyEmail(
 }
 
 const MAX_ATTEMPTS = 8;
+export const OUTBOX_MAX_ATTEMPTS = MAX_ATTEMPTS;
+
+let lastHeartbeat: Date | null = null;
+/** For the service-health check: when this process last ran a delivery cycle. */
+export const outboxWorkerState = () => ({ enabled: isOutboxDeliveryEnabled(), lastHeartbeat });
 
 /**
  * Whether this process may deliver queued email. Default: production only.
@@ -62,6 +67,7 @@ let processing = false;
 export async function processWorkflowOutbox(): Promise<void> {
   // Queued rows are kept; they are delivered by a process that is allowed to.
   if (!isOutboxDeliveryEnabled()) return;
+  lastHeartbeat = new Date();
   if (processing) return;
   processing = true;
   try {

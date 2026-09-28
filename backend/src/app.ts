@@ -26,6 +26,7 @@ import { forwardAsyncErrors } from './middleware/async-routes';
 import { auditMiddleware } from './middleware/audit.middleware';
 import dashboardRoutes from './routes/dashboard.routes';
 import { appBuildOf, isPhoneApp } from './services/session.service';
+import systemAdminRoutes from './routes/system-admin.routes';
 
 for (const router of [dashboardRoutes, authRoutes, usersRoutes, personnelRoutes, transactionsRoutes, documentsRoutes, promotionsRoutes, notificationsRoutes, auditRoutes, plantillaRoutes, formDraftRoutes, personnelDocumentsRoutes]) {
   forwardAsyncErrors(router);
@@ -124,6 +125,7 @@ app.use(API_PREFIX, (req, res, next) => {
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`, usersRoutes);
 app.use(`${API_PREFIX}/dashboard`, dashboardRoutes);
+app.use(`${API_PREFIX}/admin`, systemAdminRoutes);
 app.use(`${API_PREFIX}/personnel/documents`, personnelDocumentsRoutes);
 app.use(`${API_PREFIX}/personnel`, personnelRoutes);
 app.use(`${API_PREFIX}/transactions`, transactionsRoutes);

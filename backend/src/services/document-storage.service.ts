@@ -56,3 +56,24 @@ export async function discardUncommittedDocument(key: string): Promise<void> {
     if (error) throw error;
   } else await fs.unlink(localPath(key));
 }
+
+let storageCheck: { at: number; value: { status: 'OPERATIONAL' | 'DEGRADED' | 'UNAVAILABLE' | 'NOT_CONFIGURED'; name: string; detail: string; remedy?: string } } | null = null;
+
+/** A one-object listing of the private bucket, cached for five minutes. */
+export async function checkStorageHealth() {
+  if (storageCheck && Date.now() - storageCheck.at < 5 * 60_000) return storageCheck.value;
+  let value: NonNullable<typeof storageCheck>['value'];
+  if (!config.supabase.url || !config.supabase.serviceKey) {
+    value = config.env === 'production'
+      ? { status: 'NOT_CONFIGURED', name: 'Document storage', detail: 'Supabase storage is not configured.', remedy: 'Set SUPABASE_URL and SUPABASE_SERVICE_KEY on Railway.' }
+      : { status: 'DEGRADED', name: 'Document storage', detail: 'Using local development storage; files are not in Supabase.', remedy: 'Set DOCUMENT_STORAGE=supabase with the Supabase keys.' };
+  } else {
+    const t0 = Date.now();
+    const { error } = await cloud().list('', { limit: 1 });
+    value = error
+      ? { status: 'UNAVAILABLE', name: 'Document storage', detail: 'The private bucket could not be listed.', remedy: 'Check the Supabase project, bucket name and service key.' }
+      : { status: 'OPERATIONAL', name: 'Document storage', detail: `Private bucket reachable in ${Date.now() - t0} ms.` };
+  }
+  storageCheck = { at: Date.now(), value };
+  return value;
+}

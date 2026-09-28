@@ -649,3 +649,28 @@ enum AccountRequestStatus {
   APPROVED
   REJECTED
 }
+
+/// One backup or restore-drill result, reported by the job itself with the
+/// BACKUP_REPORT_TOKEN. run_key makes a re-sent report idempotent.
+model BackupRun {
+  id               Int       @id @default(autoincrement())
+  runKey           String    @unique @map("run_key")
+  /// DATABASE_BACKUP | RESTORE_DRILL
+  kind             String
+  /// SUCCEEDED | FAILED
+  status           String
+  startedAt        DateTime? @map("started_at")
+  finishedAt       DateTime? @map("finished_at")
+  sizeBytes        BigInt?   @map("size_bytes")
+  encrypted        Boolean?
+  manifestVerified Boolean?  @map("manifest_verified")
+  missingObjects   Int?      @map("missing_objects")
+  objectCount      Int?      @map("object_count")
+  retentionDays    Int?      @map("retention_days")
+  error            String?
+  source           String?
+  reportedAt       DateTime  @default(now()) @map("reported_at")
+
+  @@index([kind, reportedAt])
+  @@map("backup_runs")
+}

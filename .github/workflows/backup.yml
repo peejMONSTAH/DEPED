@@ -58,3 +58,20 @@ jobs:
           path: ${{ runner.temp }}/digital201-backup.enc
           retention-days: 30
           if-no-files-found: error
+      # Tell Digital 201 how the run went. The console shows backup health from
+      # these reports only; a missing report reads as "unknown", never "healthy".
+      - name: Report result to Digital 201
+        if: always() && vars.BACKUP_REPORT_URL != ''
+        shell: bash
+        env:
+          REPORT_URL: ${{ vars.BACKUP_REPORT_URL }}
+          REPORT_TOKEN: ${{ secrets.BACKUP_REPORT_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          ARCHIVE="$RUNNER_TEMP/digital201-backup.enc"
+          SIZE=$( [ -f "$ARCHIVE" ] && stat -c %s "$ARCHIVE" || echo null )
+          MANIFEST=$( [ -f "$RUNNER_TEMP/digital201-backup/manifest.json" ] && echo true || echo false )
+          STATUS=$( [ "$JOB_STATUS" = "success" ] && echo SUCCEEDED || echo FAILED )
+          curl -fsS -X POST "$REPORT_URL" \
+            -H "content-type: application/json" -H "x-backup-report-token: $REPORT_TOKEN" \
+            -d "{\"kind\":\"DATABASE_BACKUP\",\"status\":\"$STATUS\",\"runKey\":\"gh-${{ github.run_id }}-${{ github.run_attempt }}\",\"finishedAt\":\"$(date -u +%FT%TZ)\",\"sizeBytes\":$SIZE,\"encrypted\":$( [ -f "$ARCHIVE" ] && echo true || echo false ),\"manifestVerified\":$MANIFEST,\"retentionDays\":30,\"source\":\"github-actions\",\"error\":$( [ "$STATUS" = FAILED ] && echo '"backup job failed; see the workflow run log"' || echo null )}"

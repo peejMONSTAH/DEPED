@@ -27,7 +27,7 @@ test('stored notifications with emoji are served as clean text', () => {
 test('account status changes cannot target your own account and deactivation ends sessions', () => {
   const users = read('controllers/users.controller.ts');
   assert.match(users, /userId === req\.user!\.userId && \(\(accountStatus && accountStatus !== existing\.accountStatus\) \|\| role\)/);
-  assert.match(users, /const deactivated = updateData\.accountStatus === 'INACTIVE'/);
+  assert.match(users, /const deactivated = \(updateData\.accountStatus === 'INACTIVE' \|\| updateData\.accountStatus === 'LOCKED'\)/);
   assert.match(users, /if \(roleChanged \|\| deactivated\) \{\s*await tx\.refreshToken\.updateMany/);
   assert.match(users, /'Another account already uses this email address\.'/);
   const routes = read('routes/users.routes.ts');
