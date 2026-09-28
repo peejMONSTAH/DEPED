@@ -1,0 +1,9 @@
+/* Ineligible-vacancy notice: one message, one way out. */
+.elig { width: min(440px, calc(100vw - 32px)); padding: 28px 28px 24px; border-radius: 18px; background: var(--color-bg-card); border: 1px solid var(--color-border); box-shadow: 0 24px 60px rgba(0, 0, 0, .18); text-align: center; display: grid; justify-items: center; }
+.elig__icon { width: 48px; height: 48px; border-radius: 9999px; background: #FDECEC; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.elig__title { margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--color-text-primary); text-wrap: balance; }
+.elig__position { margin: 6px 0 0; font-size: 1rem; font-weight: 700; color: var(--color-text-primary); }
+.elig__item { margin: 2px 0 0; font-family: var(--font-mono); font-size: .8125rem; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.elig__reason { margin: 16px 0 0; font-size: .9375rem; line-height: 1.55; color: var(--color-text-secondary); text-wrap: pretty; }
+.elig__basis { margin: 12px 0 0; font-size: .8125rem; color: var(--color-text-muted); }
+.elig__ok { width: 100%; margin-top: 20px; min-height: 44px; justify-content: center; font-weight: 700 !important; }
