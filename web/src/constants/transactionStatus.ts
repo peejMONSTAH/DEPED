@@ -26,9 +26,16 @@ const TEXT: Record<TransactionStatus, { label: string; phrase: string }> = {
 };
 
 /** "SOME_VALUE" → "Some value"; the fallback for anything not in the table. */
+// Acronyms and rank numerals that stay in capitals ("ECP", "AO II", "HRMO").
+const KEEP_UPPER = new Set(['ECP', 'AO', 'HR', 'HRMO', 'HRMPSB', 'CAR', 'SDO', 'PDS', 'WES', 'NBI', 'PRC', 'PSA', 'CSC', 'DBM', 'OCR', 'II', 'III', 'IV', 'VI', 'VII', 'VIII']);
+
 export const humanizeEnum = (value: string): string => {
-  const words = String(value || '').replace(/[_-]+/g, ' ').trim().toLowerCase();
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
+  const words = String(value || '').replace(/[_-]+/g, ' ').trim().split(/s+/).filter(Boolean);
+  return words.map((w, i) => {
+    if (KEEP_UPPER.has(w.toUpperCase())) return w.toUpperCase();
+    const lower = w.toLowerCase();
+    return i === 0 ? lower.charAt(0).toUpperCase() + lower.slice(1) : lower;
+  }).join(' ');
 };
 
 export const isTransactionStatus = (status: string): status is TransactionStatus => (TRANSACTION_STATUSES as readonly string[]).includes(status);

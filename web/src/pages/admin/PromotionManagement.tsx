@@ -1,3 +1,4 @@
+import { humanizeEnum } from '../../constants/transactionStatus';
 import './promo-detail.css';
 import './promo-create.css';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
@@ -1496,7 +1497,7 @@ export const PromotionManagement: React.FC = () => {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', fontWeight: 700, }}>
-                        {String(cycle.type || 'NATURAL_VACANCY').toLowerCase().replace(/_/g, ' ').replace(/^./, (c: string) => c.toUpperCase())}
+                        {humanizeEnum(String(cycle.type || 'NATURAL_VACANCY'))}
                       </span>
                       <span
                         style={{

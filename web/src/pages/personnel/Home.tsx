@@ -273,13 +273,7 @@ export const PersonnelHome: React.FC = () => {
   };
 
   // Vacancy types are stored as enum values; show them as words.
-  const vacancyTypeLabel = (type?: string) =>
-    (type || '')
-      .toLowerCase()
-      .split('_')
-      .filter(Boolean)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ') || 'Promotion';
+  const vacancyTypeLabel = (type?: string) => (type ? transactionStatusLabel(type) : 'Promotion');
 
   const fetchMyTransactions = useCallback(async () => {
     try {

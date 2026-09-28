@@ -77,6 +77,16 @@ bool isDateInPast(Object? isoDate) {
 /// should stay uppercase are preserved via [_keepUppercase].
 const Set<String> _keepUppercase = {
   'AO',
+  'ECP',
+  'HRMPSB',
+  'CAR',
+  'SDO',
+  'II',
+  'III',
+  'IV',
+  'VI',
+  'VII',
+  'VIII',
   'CAV',
   'CSC',
   'HR',
