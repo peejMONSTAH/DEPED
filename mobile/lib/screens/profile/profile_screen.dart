@@ -247,7 +247,7 @@ class ProfileScreen extends StatelessWidget {
                                     border: Border.all(color: AppTheme.lightBorder),
                                   ),
                                   child: Text(
-                                    p.personnelType,
+                                    humanizeEnum(p.personnelType),
                                     style: GoogleFonts.plusJakartaSans(
                                       color: AppTheme.textSecondary,
                                       fontSize: 11,
@@ -298,109 +298,8 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.emeraldGreen.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.25)),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.emeraldGreen,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'ACTIVE 201 RECORD',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.emeraldGreen,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      const StatusPill(label: 'Active record', tone: AppStatusTone.success),
                     ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // PDS CS Form 212 Digital Banner
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: AppTheme.lightBgCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.lightBorder),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryLight.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
-                    ),
-                    child: const Center(
-                      child: Icon(LucideIcons.fileSpreadsheet, color: AppTheme.primaryLight, size: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Personal Data Sheet',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryLight.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'PDS',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.primaryLight,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'CSC Form 212 (Revised 2017) Digital Personnel Record',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),

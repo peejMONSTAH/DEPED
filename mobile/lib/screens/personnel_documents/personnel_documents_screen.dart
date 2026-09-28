@@ -253,7 +253,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                 child: TextField(
                   onChanged: (val) => setState(() => _searchQuery = val.trim()),
                   decoration: InputDecoration(
-                    hintText: 'Search by document name or filename...',
+                    hintText: 'Search documents',
                     hintStyle: GoogleFonts.inter(
                         fontSize: 13, color: AppTheme.textMuted),
                     prefixIcon: const Icon(LucideIcons.search,
@@ -366,7 +366,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
           ),
           const SizedBox(height: AppSpace.sm),
           Text(
-            'Keep your DepEd records current. Scan a physical credential with your camera, or upload a PDF.',
+            'Scan with your camera or upload a PDF.',
             style: AppText.caption,
           ),
           if (expiringSoon > 0) ...[
@@ -418,7 +418,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
         'label': 'Required (${_documents.where((d) => d.isRequired).length})',
         'key': 'REQUIRED'
       },
-      {'label': 'Action Needed ($actionNeededCount)', 'key': 'ACTION_NEEDED'},
+      {'label': 'Needs action ($actionNeededCount)', 'key': 'ACTION_NEEDED'},
       {'label': 'Expiring Soon ($expiringSoonCount)', 'key': 'EXPIRING_SOON'},
     ];
 

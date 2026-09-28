@@ -88,7 +88,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Accumulated Government Service',
+                                'Government service',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -107,7 +107,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Computed from official SDO Koronadal Service Records',
+                                'From your official service records',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
                                   color: AppTheme.textMuted,
@@ -122,7 +122,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                   const SizedBox(height: 24),
 
                   Text(
-                    'Official Service Record Timeline',
+                    'Service history',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
@@ -222,7 +222,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            Container(
+                                            if (item.gradeLabel != null) Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                                               decoration: BoxDecoration(
                                                 color: AppTheme.primaryLight.withOpacity(0.1),
@@ -230,7 +230,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                                 border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
                                               ),
                                               child: Text(
-                                                item.gradeLabel ?? 'SG not recorded',
+                                                item.gradeLabel!,
                                                 style: GoogleFonts.plusJakartaSans(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w800,
@@ -242,7 +242,7 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          '${formatDate(item.dateFrom)}  ──  ${item.isPresent ? "Present" : formatDate(item.dateTo)}',
+                                          '${formatDate(item.dateFrom)} – ${item.isPresent ? "Present" : formatDate(item.dateTo)}',
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: 12,
                                             color: AppTheme.textSecondary,
