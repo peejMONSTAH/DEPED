@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { uploadDocument, getDocument, downloadDocumentFile, getExtractionReview, confirmExtractionReview, getDocumentViewToken } from '../controllers/documents.controller';
+import { precheckTransactionDocument } from '../controllers/document-precheck.controller';
 import multer from 'multer';
 import path from 'path';
 import { config } from '../config';
@@ -34,6 +35,7 @@ router.post('/transactions/:transactionId/upload', authorize('TEACHING_PERSONNEL
 router.get('/:documentId/view-token', getDocumentViewToken);
 router.get('/:documentId/file', downloadDocumentFile);
 router.get('/:documentId/download', downloadDocumentFile);
+router.get('/:documentId/precheck', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), precheckTransactionDocument);
 router.get('/:documentId/extraction-review', getExtractionReview);
 router.put('/:documentId/extraction-review', authorize('TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL', 'AO_II', 'HRMO', 'SYSTEM_ADMIN'), confirmExtractionReview);
 router.get('/:documentId', getDocument);

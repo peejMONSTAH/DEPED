@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
+import { precheckPersonnelDocument } from '../controllers/document-precheck.controller';
 import { personnelDocumentUpload } from '../middleware/personnel-document-upload.middleware';
 import {
   getDocumentTypes,
@@ -29,6 +30,7 @@ router.put('/:id', personnelDocumentUpload.single('file'), replacePersonnelDocum
 router.delete('/:id', deletePersonnelDocument);
 router.get('/:id/view-token', getPersonnelDocumentViewToken);
 router.get('/:id/file', downloadPersonnelDocumentFile);
+router.get('/:id/precheck', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), precheckPersonnelDocument);
 
 // Extraction and 201 synchronization endpoints
 router.post('/:id/extract', extractPersonnelDocument);

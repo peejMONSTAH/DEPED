@@ -9,6 +9,8 @@ export type OcrResult = {
   rawFields: Array<{ label: string; value: string; confidence: number }>;
   provider: 'TESSERACT';
   confidence: number;
+  /** Every recognised line, in reading order (used by the reviewer pre-check). */
+  text: string;
 };
 
 const MAX_PAGES = 10;
@@ -206,6 +208,7 @@ export const extractWithTesseract = async (buffer: Buffer, mimeType: string, doc
       templateId: documentTypeId === 'PDS' ? 'pds-2025' : documentTypeId.toLowerCase(),
       fields: mapOcrFormFields(rawFields, documentTypeId), rawFields,
       provider: 'TESSERACT', confidence,
+      text: lines.join('\n'),
     };
   } finally {
     if (directory) await rm(directory, { recursive: true, force: true });

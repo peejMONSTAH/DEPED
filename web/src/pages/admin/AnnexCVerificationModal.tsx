@@ -25,6 +25,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { groupByAnnex, requirementState, REQUIREMENT_STATE_LABEL } from '../../promotions/annexGroups';
 import './annex-c-verification-modal.css';
 import { PdfPages } from '../../components/common/PdfPages';
+import { PrecheckStrip } from '../../components/common/PrecheckStrip';
 
 export interface AnnexCItemState {
   code: string;
@@ -671,6 +672,10 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                       <span className="hidden sm:inline">Close</span>
                     </button>
                   </div>
+                </div>
+
+                <div style={{ padding: '10px 16px 0' }}>
+                  <PrecheckStrip url={activeDocId ? `/personnel/documents/${activeDocId}/precheck?requirement=${encodeURIComponent(activeDoc.title)}` : null} />
                 </div>
 
                 {/* Preview Specimen Body */}

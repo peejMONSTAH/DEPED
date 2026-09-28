@@ -6,6 +6,7 @@ import { ModalPortal } from '../../components/common/ModalPortal';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import { useDocumentPreview } from '../../components/common/useDocumentPreview';
 import { PdfPages } from '../../components/common/PdfPages';
+import { PrecheckStrip } from '../../components/common/PrecheckStrip';
 import { PreviewZoomControls } from '../../components/common/PreviewZoomControls';
 import './transaction-review.css';
 
@@ -175,6 +176,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
                     </span>
                     <PreviewZoomControls zoom={zoom} onZoomChange={setZoom} disabled={preview.status !== 'ready'} buttonClassName="doc-viewer-btn doc-viewer-btn-icon" />
                   </div>
+                  <PrecheckStrip url={`/documents/${active.id}/precheck`} />
                   <div className="trv-stage">
                     {preview.status === 'ready' && preview.url ? (
                       preview.type === 'application/pdf'
