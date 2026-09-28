@@ -178,6 +178,24 @@ button:not(.neuro-login-viewport *):not(.sidebar-theme-toggle-btn, .theme-toggle
   white-space: nowrap !important;
 }
 
+/* Icon-only close buttons: the padding above left a 34px button no room for
+   its X, which shrank to nothing. Close buttons keep a small padding and a
+   fixed hit area instead, and their icon never shrinks. */
+button[aria-label^="Close"]:not(.neuro-login-viewport *),
+button[aria-label^="close"]:not(.neuro-login-viewport *),
+button[title^="Close"]:not(.neuro-login-viewport *),
+button.modal-close:not(.neuro-login-viewport *),
+button[class*="close-btn"]:not(.neuro-login-viewport *) {
+  padding: 0 8px !important;
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+button[aria-label^="Close"] svg,
+button[aria-label^="close"] svg,
+button[title^="Close"] svg,
+button.modal-close svg,
+button[class*="close-btn"] svg { flex-shrink: 0; }
 button:not(.neuro-login-viewport *):not(.form-entry):hover, input[type="button"]:not(.neuro-login-viewport *):hover, input[type="submit"]:not(.neuro-login-viewport *):hover, .btn:not(.neuro-login-viewport *):hover {
   background: var(--color-bg-hover) !important;
   transform: translateY(-1px) !important;
