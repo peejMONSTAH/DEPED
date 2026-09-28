@@ -20,8 +20,9 @@ class NotificationsScreen extends StatefulWidget {
   /// Set when shown as a dashboard tab: service-record links switch tabs
   /// instead of opening a second, shell-less copy of the screen.
   final VoidCallback? onOpenServiceRecord;
+  final VoidCallback? onOpenApplications;
 
-  const NotificationsScreen({Key? key, this.onOpenServiceRecord}) : super(key: key);
+  const NotificationsScreen({Key? key, this.onOpenServiceRecord, this.onOpenApplications}) : super(key: key);
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -31,7 +32,7 @@ class NotificationsScreen extends StatefulWidget {
 ///
 /// Kept separate from the button label so the two cannot drift: a label with
 /// no destination is what produced "Redirecting to:" followed by nothing.
-enum _NotificationDestination { transaction, password, serviceRecord, none }
+enum _NotificationDestination { transaction, password, serviceRecord, applications, none }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late final ApiService _apiService;
@@ -183,7 +184,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         var destination = _NotificationDestination.none;
                         final lowerMsg = message.toLowerCase();
 
-                        if (entityType == 'AccountCreationRequest' ||
+                        // The record a notice is about decides where it opens;
+                        // the wording is only a fallback for older notices.
+                        if (entityType == 'Transaction') {
+                          final fix = lowerMsg.contains('deficienc') || lowerMsg.contains('return') || lowerMsg.contains('reopen') || lowerMsg.contains('disqualif');
+                          actionLabel = fix ? 'Fix requirements' : 'Open transaction';
+                          actionIcon = fix ? LucideIcons.fileWarning : LucideIcons.fileText;
+                          destination = _NotificationDestination.transaction;
+                        } else if (entityType == 'PromotionApplication' || entityType == 'PromotionCycle') {
+                          actionLabel = 'Open my applications';
+                          actionIcon = LucideIcons.clipboardList;
+                          destination = _NotificationDestination.applications;
+                        } else if (entityType == 'AccountCreationRequest' ||
                             lowerMsg.contains('account creation') ||
                             lowerMsg.contains('creation request')) {
                           // Approving account requests is an administrator's
@@ -329,6 +341,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                     const CareerTimelineScreen(),
                                               ),
                                             );
+                                            return;
+
+                                          case _NotificationDestination
+                                                .applications:
+                                            widget.onOpenApplications?.call();
                                             return;
 
                                           case _NotificationDestination

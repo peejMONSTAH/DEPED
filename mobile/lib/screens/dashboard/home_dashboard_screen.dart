@@ -335,7 +335,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       const CareerTimelineScreen(),
       // Index 3 is the Service Record tab; notifications open it in place.
       NotificationsScreen(
-          onOpenServiceRecord: () => setState(() => _currentIndex = 3)),
+          onOpenServiceRecord: () => setState(() => _currentIndex = 3),
+          onOpenApplications: () => setState(() => _currentIndex = _applicationsTabIndex)),
       MyApplicationsScreen(user: widget.user, profile: _profile),
     ];
 
