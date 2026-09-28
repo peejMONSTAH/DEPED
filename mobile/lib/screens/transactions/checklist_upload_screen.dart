@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../utils/errors.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../models/personnel_document_model.dart';
@@ -9,9 +8,9 @@ import '../../services/api_service.dart';
 import '../../services/personnel_document_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/ui_kit.dart';
 import '../../utils/display.dart';
-import '../../widgets/compliance_gauge.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/transaction_tracker_card.dart';
 
@@ -377,454 +376,280 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final canEdit = _currentTx.status == TransactionStatus.DRAFT ||
-        _currentTx.status == TransactionStatus.RETURNED_BY_AO2 ||
-        _currentTx.status == TransactionStatus.RETURNED_BY_HRMO;
+    final tx = _currentTx;
+    final canEdit = tx.status == TransactionStatus.DRAFT ||
+        tx.status == TransactionStatus.RETURNED_BY_AO2 ||
+        tx.status == TransactionStatus.RETURNED_BY_HRMO;
+    final returned = tx.status == TransactionStatus.RETURNED_BY_AO2 ||
+        tx.status == TransactionStatus.RETURNED_BY_HRMO;
+    final disqualified = tx.status == TransactionStatus.REJECTED;
+    final ready = tx.complianceScore >= 100;
+    final done = tx.requirements.where((r) => r.isUploaded).length;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_currentTx.referenceNo),
-        actions: [],
-      ),
+      appBar: AppBar(title: Text(tx.referenceNo)),
       body: Stack(
         children: [
           ContentWidth(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: RefreshIndicator(
+              onRefresh: _refreshTransaction,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpace.lg, AppSpace.lg, AppSpace.lg, AppSpace.xxxl),
                 children: [
-                  // Top Status & Compliance Card
-                  Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: const BorderSide(color: AppTheme.lightBorder),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18.0),
-                      child: Row(
-                        children: [
-                          ComplianceGauge(
-                              score: _currentTx.complianceScore, radius: 36),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  humanizeEnum(_currentTx.type.name),
-                                  style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimary),
-                                ),
-                                const SizedBox(height: 6),
-                                StatusBadge(status: _currentTx.status),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _currentTx.complianceScore >= 100.0
-                                      ? 'Ready for AO II Submission'
-                                      : 'Upload all mandatory requirements below',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _currentTx.complianceScore >= 100.0
-                                        ? AppTheme.emeraldGreen
-                                        : AppTheme.textMuted,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(humanizeEnum(tx.type.name),
+                                  style: AppText.title),
                             ),
-                          ),
+                            StatusBadge(status: tx.status),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpace.xs),
+                        Text(
+                          '$done of ${tx.requirements.length} documents added',
+                          style: AppText.caption,
+                        ),
+                        if (!disqualified) ...[
+                          const SizedBox(height: AppSpace.lg),
+                          TransactionTrackerCard(transaction: tx),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Live 4-Stage Transaction Tracking Stepper
-                  TransactionTrackerCard(transaction: _currentTx),
-
-                  // Return Remarks Banner if returned by AO II / HRMO
-                  if (_currentTx.status == TransactionStatus.RETURNED_BY_AO2 ||
-                      _currentTx.status == TransactionStatus.RETURNED_BY_HRMO)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppTheme.statusReturned.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.statusReturned),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(LucideIcons.alertTriangle,
-                              color: AppTheme.statusReturned),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Remarks: ${_currentTx.remarks ?? "Please re-upload missing or unauthenticated PDF documents."}',
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.statusReturned,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
+                  if ((returned || disqualified) &&
+                      (tx.remarks ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: AppSpace.md),
+                    _Notice(
+                      tone: AppStatusTone.danger,
+                      title: disqualified
+                          ? 'Disqualified'
+                          : 'Returned for correction',
+                      message: tx.remarks!,
                     ),
-
-                  // Dynamic Checklist Section Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Dynamic Requirement Checklist',
-                          style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-
-                  ListView.builder(
-                    shrinkWrap: true,
-                    // A nested ListView with no explicit padding inherits the
-                    // MediaQuery vertical inset, which injects the bottom nav bar
-                    // height as blank space in the middle of the page.
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _currentTx.requirements.length,
-                    itemBuilder: (ctx, index) {
-                      final item = _currentTx.requirements[index];
-                      final isDeficient = item.fileStatus == 'REJECTED' ||
-                          item.fileStatus == 'DEFICIENT';
-                      final isApproved = (item.fileStatus == 'VERIFIED' ||
-                              item.fileStatus == 'APPROVED' ||
-                              item.fileStatus == 'VALIDATED') &&
-                          (_currentTx.status ==
-                                  TransactionStatus.RETURNED_BY_AO2 ||
-                              _currentTx.status ==
-                                  TransactionStatus.RETURNED_BY_HRMO);
-
-                      return Card(
-                        elevation: 0,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: isDeficient
-                                ? AppTheme.statusReturned
-                                : (isApproved
-                                    ? AppTheme.emeraldGreen.withOpacity(0.5)
-                                    : AppTheme.lightBorder),
-                            width: isDeficient || isApproved ? 1.5 : 1.0,
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                isDeficient
-                                    ? LucideIcons.alertCircle
-                                    : (item.isUploaded
-                                        ? LucideIcons.checkCircle2
-                                        : LucideIcons.circle),
-                                color: isDeficient
-                                    ? AppTheme.statusReturned
-                                    : (item.isUploaded
-                                        ? AppTheme.emeraldGreen
-                                        : AppTheme.textMuted),
-                                size: 24,
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.documentName,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 15,
-                                              color: AppTheme.textPrimary),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        if (isDeficient)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.statusReturned
-                                                  .withOpacity(0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Text(
-                                              'DEFICIENT — Action Required',
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color:
-                                                      AppTheme.statusReturned,
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          )
-                                        else if (isApproved)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.emeraldGreen
-                                                  .withOpacity(0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Text(
-                                              'VALIDATED — Locked',
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: AppTheme.emeraldGreen,
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          )
-                                        else if (item.isMandatory)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Colors.red.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: const Text(
-                                              'MANDATORY',
-                                              style: TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.red,
-                                                  fontWeight: FontWeight.bold),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    if (item.description != null) ...[
-                                      const SizedBox(height: 2),
-                                      Text(item.description!,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppTheme.textSecondary)),
-                                    ],
-                                    if (isDeficient &&
-                                        item.rejectionReason != null) ...[
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.statusReturned
-                                              .withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          item.rejectionReason!,
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppTheme.statusReturned,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                    ],
-                                    if (item.isUploaded && !isDeficient) ...[
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        children: [
-                                          const Icon(LucideIcons.fileCheck,
-                                              size: 14,
-                                              color: AppTheme.primaryLight),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              item.uploadedFilePath!,
-                                              style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppTheme.primaryLight,
-                                                  fontWeight: FontWeight.w600),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                    if (canEdit && !isApproved) ...[
-                                      const SizedBox(height: 10),
-                                      ElevatedButton(
-                                        onPressed: () => _chooseSource(item),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: isDeficient
-                                              ? AppTheme.statusReturned
-                                              : (item.isUploaded
-                                                  ? AppTheme.lightSurface
-                                                  : AppTheme.brandDark),
-                                          foregroundColor: isDeficient
-                                              ? Colors.white
-                                              : (item.isUploaded
-                                                  ? AppTheme.textPrimary
-                                                  : Colors.white),
-                                          side: item.isUploaded && !isDeficient
-                                              ? const BorderSide(
-                                                  color: AppTheme.lightBorder)
-                                              : null,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12, vertical: 8),
-                                          elevation: 0,
-                                        ),
-                                        child: Text(isDeficient
-                                            ? 'Fix & Upload'
-                                            : (item.isUploaded
-                                                ? 'Replace'
-                                                : 'Add')),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                  ],
+                  const SizedBox(height: AppSpace.xl),
+                  const SectionHeading(title: 'Requirements'),
+                  const SizedBox(height: AppSpace.sm),
+                  for (final item in tx.requirements) ...[
+                    _RequirementCard(
+                      item: item,
+                      txReturned: returned,
+                      canEdit: canEdit,
+                      onAdd: () => _chooseSource(item),
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                  ],
                 ],
               ),
             ),
           ),
           if (_isUploading || _isSubmitting)
-            Container(
-              color: Colors.black26,
-              child: const Center(
-                child: Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Processing request...',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            const ColoredBox(
+              color: Color(0x33000000),
+              child: Center(child: CircularProgressIndicator()),
             ),
         ],
       ),
-      bottomNavigationBar: _currentTx.status == TransactionStatus.REJECTED
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSubmitting ? null : _reopenForCorrection,
-                    icon: const Icon(LucideIcons.rotateCcw, size: 16),
-                    label: const Text('Correct & resubmit',
-                        style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.brandDark,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              ),
+      bottomNavigationBar: disqualified
+          ? _BottomAction(
+              label: 'Correct & resubmit',
+              icon: LucideIcons.rotateCcw,
+              onPressed: _isSubmitting ? null : _reopenForCorrection,
             )
           : canEdit
-              ? Container(
-                  padding: const EdgeInsets.only(
-                      left: 16, right: 16, top: 12, bottom: 16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBgCard,
-                    border: const Border(
-                        top: BorderSide(color: AppTheme.lightBorder, width: 1)),
-                  ),
-                  child: SafeArea(
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          colors: _currentTx.complianceScore >= 100.0
-                              ? const [Color(0xFF059669), Color(0xFF10B981)]
-                              : const [Color(0xFFD97706), Color(0xFFEAB308)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (_currentTx.complianceScore >= 100.0
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFFEAB308))
-                                .withOpacity(0.25),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: !_isUploading &&
-                                  !_isSubmitting &&
-                                  _currentTx.complianceScore >= 100
-                              ? _handleSubmitTransaction
-                              : null,
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(LucideIcons.send,
-                                    color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _currentTx.complianceScore >= 100.0
-                                      ? 'Submit to AO II for Validation'
-                                      : 'Complete required documents (${_currentTx.complianceScore.toInt()}%)',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+              ? _BottomAction(
+                  label: ready
+                      ? 'Submit to AO II'
+                      : 'Add all required documents (${tx.complianceScore.toInt()}%)',
+                  icon: LucideIcons.send,
+                  onPressed: ready && !_isUploading && !_isSubmitting
+                      ? _handleSubmitTransaction
+                      : null,
                 )
               : null,
+    );
+  }
+}
+
+class _Notice extends StatelessWidget {
+  const _Notice(
+      {required this.tone, required this.title, required this.message});
+
+  final AppStatusTone tone;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpace.md),
+      decoration: BoxDecoration(
+        color: tone.background,
+        borderRadius: AppRadius.mdAll,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.alertCircle, size: 18, color: tone.foreground),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: AppText.heading
+                        .copyWith(fontSize: 14, color: tone.foreground)),
+                const SizedBox(height: 2),
+                Text(message, style: AppText.body),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequirementCard extends StatelessWidget {
+  const _RequirementCard({
+    required this.item,
+    required this.txReturned,
+    required this.canEdit,
+    required this.onAdd,
+  });
+
+  final RequirementItemModel item;
+  final bool txReturned;
+  final bool canEdit;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final deficient =
+        item.fileStatus == 'REJECTED' || item.fileStatus == 'DEFICIENT';
+    final validated =
+        const {'VERIFIED', 'APPROVED', 'VALIDATED'}.contains(item.fileStatus);
+    final locked = validated && txReturned;
+
+    final (String label, AppStatusTone tone) = deficient
+        ? ('Needs correction', AppStatusTone.danger)
+        : validated
+            ? ('Verified', AppStatusTone.success)
+            : item.isUploaded
+                ? ('Added', AppStatusTone.info)
+                : item.isMandatory
+                    ? ('Required', AppStatusTone.pending)
+                    : ('Optional', AppStatusTone.neutral);
+
+    return AppCard(
+      borderColor:
+          deficient ? AppTheme.statusReturned.withValues(alpha: 0.5) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: Text(item.documentName, style: AppText.heading)),
+              const SizedBox(width: AppSpace.sm),
+              StatusPill(label: label, tone: tone),
+            ],
+          ),
+          if (item.description != null &&
+              item.description!.trim().isNotEmpty) ...[
+            const SizedBox(height: AppSpace.xs),
+            Text(item.description!, style: AppText.caption),
+          ],
+          if (deficient && item.rejectionReason != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text(item.rejectionReason!,
+                style: AppText.body.copyWith(color: AppTheme.statusReturned)),
+          ],
+          if (item.isUploaded && !deficient) ...[
+            const SizedBox(height: AppSpace.sm),
+            MetaItem(
+              icon: LucideIcons.paperclip,
+              label: item.uploadedFilePath!.split('/').last,
+            ),
+          ],
+          if (canEdit && !locked) ...[
+            const SizedBox(height: AppSpace.md),
+            SizedBox(
+              width: double.infinity,
+              child: deficient || !item.isUploaded
+                  ? ElevatedButton.icon(
+                      onPressed: onAdd,
+                      icon: Icon(
+                          deficient ? LucideIcons.refreshCw : LucideIcons.plus,
+                          size: 16),
+                      label:
+                          Text(deficient ? 'Replace document' : 'Add document'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: deficient
+                            ? AppTheme.statusReturned
+                            : AppTheme.brandDark,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: onAdd,
+                      icon: const Icon(LucideIcons.refreshCw, size: 16),
+                      label: const Text('Replace'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        textStyle: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomAction extends StatelessWidget {
+  const _BottomAction(
+      {required this.label, required this.icon, this.onPressed});
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.lightBgCard,
+        border: Border(top: BorderSide(color: AppTheme.lightBorder)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpace.lg, AppSpace.md, AppSpace.lg, AppSpace.md),
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: onPressed,
+              icon: Icon(icon, size: 18),
+              label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: ElevatedButton.styleFrom(
+                disabledBackgroundColor: AppTheme.lightSurface,
+                disabledForegroundColor: AppTheme.textMuted,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

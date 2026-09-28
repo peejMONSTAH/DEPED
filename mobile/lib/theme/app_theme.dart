@@ -98,15 +98,45 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: lightBgCard,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: lightBorder, width: 1),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        titleTextStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 17, fontWeight: FontWeight.w700, color: textPrimary),
+        contentTextStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 13, height: 1.45, color: textSecondary),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: lightBgCard,
         surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: lightBorder,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: brandDark,
+        contentTextStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: primaryLight,
+          textStyle: GoogleFonts.plusJakartaSans(
+              fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+        iconColor: textSecondary,
+      ),
+      progressIndicatorTheme:
+          const ProgressIndicatorThemeData(color: primaryLight),
+      pageTransitionsTheme: const PageTransitionsTheme(builders: {
+        TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      }),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightSurface,
