@@ -822,8 +822,8 @@ export const AdminDashboard: React.FC = () => {
                   <span className="info-val">{loading ? '...' : pendingRequestsCount}</span>
                 </div>
                 <div className="dark-info-row">
-                  <span className="info-label">System Security Status</span>
-                  <span className="info-val lime-text">Live Protected</span>
+                  <span className="info-label">Security monitoring</span>
+                  <span className="info-val lime-text">Audit enabled</span>
                 </div>
               </div>
             </div>
@@ -868,7 +868,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <h4 className="bento-card-title">System Settings & Security</h4>
                   <p className="bento-card-desc">
-                    Configure global security policies, password complexity rules, session timeouts, and upload parameters.
+                    Review account access, enforced safeguards, active sessions, and delivery failures.
                   </p>
                 </div>
               </Link>
@@ -879,9 +879,9 @@ export const AdminDashboard: React.FC = () => {
                   <div className="bento-icon-badge badge-lime-bg">
                     <AppIcon name="reports" size={20} color="#1f3a2c" />
                   </div>
-                  <h4 className="bento-card-title">System Reports & Compliance</h4>
+                  <h4 className="bento-card-title">Operational Reports</h4>
                   <p className="bento-card-desc">
-                    Export division system compliance summaries, demographics reports, and audit certificates.
+                    Export account access, security event, email delivery, and system audit evidence.
                   </p>
                 </div>
               </Link>

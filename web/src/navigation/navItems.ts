@@ -42,7 +42,7 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
   {
     label: 'System Administration',
     items: [
-      { label: 'Reports',            icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
+      { label: 'Operational Reports',icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
       { label: 'Audit Trail',        icon: 'audit',        path: '/admin/audit',        roles: ['SYSTEM_ADMIN'] },
       { label: 'System Security',    icon: 'settings',     path: '/admin/settings',     roles: ['SYSTEM_ADMIN'] },
     ],

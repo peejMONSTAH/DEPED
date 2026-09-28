@@ -1,11 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import apiClient from '../../api/client';
 import { AppIcon } from '../../components/common/AppIcon';
-import { useToast } from '../../contexts/ToastContext';
-import { getAllPages } from '../../api/pagination';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import './system-operations.css';
 
-type Plantilla = { itemNumber: string; positionTitle: string; department?: string; division?: string; salaryGrade?: number; isOccupied: boolean };
-type Transaction = { id: number; referenceNo?: string; status: string; complianceScore?: number; transactionType?: { name?: string }; personnel?: { employeeId?: string; firstName?: string; lastName?: string } };
+type AuditEvent = { id: number; timestamp: string; userEmail: string; userRole: string; category: string; action: string; resourceType: string; resourceId: number; ipAddress?: string; status: string };
+type Operations = {
+  generatedAt: string;
+  accounts: { total: number; active: number; pending: number; locked: number; passwordChangeRequired: number; deviceVerificationDisabled: number };
+  access: { activeSessions: number; activeTrustedDevices: number; pendingChallenges: number };
+  securityEvents: { failedLogins24h: number; accessDenied24h: number; failedOperations24h: number };
+  delivery: { pending: number; retrying: number; failed: number; delivered24h: number };
+  recentDeliveryFailures: Array<{ id: string; kind: string; attempts: number; availableAt: string; createdAt: string; error: string | null }>;
+};
 
 const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const downloadCsv = (name: string, headers: string[], rows: unknown[][]) => {
@@ -17,47 +24,47 @@ const downloadCsv = (name: string, headers: string[], rows: unknown[][]) => {
 };
 
 export const Reports: React.FC = () => {
-  const { addToast } = useToast();
-  const [plantilla, setPlantilla] = useState<Plantilla[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [operations, setOperations] = useState<Operations | null>(null);
+  const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const [operationsResponse, auditResponse] = await Promise.all([apiClient.get('/dashboard/system-operations'), apiClient.get('/audit-logs?limit=500')]);
+      setOperations(operationsResponse.data?.data || null);
+      setEvents(Array.isArray(auditResponse.data?.data) ? auditResponse.data.data : []);
+    } catch (err: any) { setError(err?.response?.data?.message || 'Administrator reports could not be loaded.'); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
 
-  useEffect(() => {
-    Promise.all([getAllPages<Plantilla>('/plantilla'), getAllPages<Transaction>('/transactions')])
-      .then(([p, t]) => { setPlantilla(p); setTransactions(t); })
-      .catch((error) => addToast(error.response?.data?.message || 'Unable to load report data.', 'ERROR'))
-      .finally(() => setLoading(false));
-  }, [addToast]);
+  const securityEvents = useMemo(() => events.filter(event => event.status === 'FAILED' || /LOGIN|LOGOUT|PASSWORD|ACCESS_DENIED|DEVICE/.test(event.action)), [events]);
+  const exportAccounts = () => operations && downloadCsv('system-account-summary', ['Metric', 'Count'], Object.entries(operations.accounts));
+  const exportSecurity = () => downloadCsv('security-events', ['Timestamp', 'Account', 'Role', 'Action', 'Resource', 'Resource ID', 'IP address', 'Status'], securityEvents.map(e => [e.timestamp, e.userEmail, e.userRole, e.action, e.resourceType, e.resourceId, e.ipAddress, e.status]));
+  const exportAudit = () => downloadCsv('system-audit-register', ['Timestamp', 'Account', 'Role', 'Category', 'Action', 'Resource', 'Resource ID', 'Status'], events.map(e => [e.timestamp, e.userEmail, e.userRole, e.category, e.action, e.resourceType, e.resourceId, e.status]));
+  const exportDelivery = () => {
+    if (!operations) return;
+    const summary = Object.entries(operations.delivery).map(([name, value]) => ['Summary', name, value, '', '', '']);
+    const failures = operations.recentDeliveryFailures.map(f => ['Failure', f.kind, '', f.attempts, f.createdAt, f.error]);
+    downloadCsv('email-delivery-operations', ['Record type', 'Kind or metric', 'Count', 'Attempts', 'Created', 'Last error'], [...summary, ...failures]);
+  };
+  const reports = operations ? [
+    { title: 'Account access summary', description: 'Activation, lockout, temporary-password, and device-verification totals.', detail: `${operations.accounts.active} active · ${operations.accounts.locked} locked`, action: exportAccounts },
+    { title: 'Security event register', description: 'Authentication, password, device, and denied-access activity from the audit trail.', detail: `${securityEvents.length} events in the loaded register`, action: exportSecurity },
+    { title: 'Email delivery operations', description: 'Pending, retrying, exhausted, and recently delivered workflow messages.', detail: `${operations.delivery.failed} failed · ${operations.delivery.retrying} retrying`, action: exportDelivery },
+    { title: 'System audit register', description: 'Administrative and automated operations retained by Digital 201.', detail: `${events.length} most recent records`, action: exportAudit },
+  ] : [];
 
-  const distribution = useMemo(() => {
-    const groups = new Map<string, { division: string; active: number; vacancy: number }>();
-    plantilla.forEach(item => {
-      const title = item.positionTitle.toLowerCase();
-      const division = title.includes('teacher') ? 'Teaching' : title.includes('administrative') || title.includes('officer') ? 'Administrative' : 'Other personnel';
-      const row = groups.get(division) || { division, active: 0, vacancy: 0 };
-      item.isOccupied ? row.active++ : row.vacancy++;
-      groups.set(division, row);
-    });
-    return [...groups.values()];
-  }, [plantilla]);
-
-  const exportPlantilla = () => downloadCsv('plantilla-audit', ['Item number', 'Position', 'Salary grade', 'Station', 'Division', 'Status'], plantilla.map(i => [i.itemNumber, i.positionTitle, i.salaryGrade, i.department, i.division, i.isOccupied ? 'Occupied' : 'Vacant']));
-  const exportTransactions = () => downloadCsv('document-compliance', ['Reference', 'Employee ID', 'Personnel', 'Transaction type', 'Status', 'Compliance percent'], transactions.map(t => [t.referenceNo || `TRX-${t.id}`, t.personnel?.employeeId, `${t.personnel?.firstName || ''} ${t.personnel?.lastName || ''}`.trim(), t.transactionType?.name, t.status, t.complianceScore ?? 0]));
-  const exportDeficiencies = () => downloadCsv('compliance-deficiencies', ['Reference', 'Employee ID', 'Status', 'Compliance percent'], transactions.filter(t => ['DEFICIENCY', 'REJECTED'].includes(t.status)).map(t => [t.referenceNo || `TRX-${t.id}`, t.personnel?.employeeId, t.status, t.complianceScore ?? 0]));
-
-  const reports = [
-    ['Plantilla Item Audit Report', 'Current filled items and vacancies', exportPlantilla],
-    ['Document Verification & Compliance Log', 'Current transaction status and measured requirement completion', exportTransactions],
-    ['Compliance Deficiency Report', 'Returned, deficient, and rejected transactions', exportDeficiencies],
-  ] as const;
-
-  return <div className="animate-fade-in">
-    <div className="topbar"><h1 className="topbar-title" style={{ margin: 0 }}>Reports & Data Analytics</h1></div>
-    <div className="page-content"><div className="grid grid-2 gap-6 mb-6">
-      <div className="card"><h3 className="card-title mb-4">Plantilla Item Distribution</h3><div className="chart-wrapper">
-        {loading ? <div className="text-muted">Loading current data…</div> : distribution.length === 0 ? <div className="text-muted">No plantilla items found.</div> : <ResponsiveContainer width="100%" height="100%"><BarChart data={distribution}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" /><XAxis dataKey="division" tick={{ fill: 'var(--color-text-muted)', fontSize: 13 }} /><YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-muted)', fontSize: 13 }} /><Tooltip /><Bar dataKey="active" name="Filled Items" fill="#2f7d52" radius={[4, 4, 0, 0]} /><Bar dataKey="vacancy" name="Vacancies" fill="#f97316" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>}
-      </div></div>
-      <div className="card"><h3 className="card-title mb-4">Available Report Downloads</h3><div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>{reports.map(([title, note, action]) => <div className="card" key={title} style={{ padding: 'var(--space-3)', display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}><div><h4 style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{title}</h4><p className="text-xs text-muted">{note}</p></div><button className="btn btn-secondary btn-sm" disabled={loading} onClick={action}><AppIcon name="download" size={14} /> Export CSV</button></div>)}</div></div>
-    </div></div>
+  return <div className="animate-fade-in sysops-page">
+    <header className="sysops-header"><div><p className="sysops-eyebrow">System administration</p><h1>Operational reports</h1><p>Export evidence for access reviews, incident investigation, and delivery monitoring.</p></div><button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}><AppIcon name="refresh" size={16} /> {loading ? 'Refreshing…' : 'Refresh data'}</button></header>
+    {error ? <section className="sysops-error" role="alert"><div><strong>Reports unavailable</strong><span>{error}</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => void load()}>Try again</button></section>
+    : loading && !operations ? <div className="sysops-loading" aria-busy="true">Preparing administrator reports…</div>
+    : operations ? <>
+      <section className="report-purpose" aria-label="Reporting scope"><AppIcon name="reports" size={22} /><div><strong>These reports describe system operation—not HR decisions.</strong><span>Personnel compliance, plantilla, and promotion reports belong to HRMO workflows. System Administrators receive access, security, delivery, and audit evidence.</span></div></section>
+      <section className="report-grid">{reports.map(report => <article className="report-card" key={report.title}><div><span className="report-kicker">CSV export</span><h2>{report.title}</h2><p>{report.description}</p></div><div className="report-card-footer"><span>{report.detail}</span><button type="button" className="btn btn-secondary btn-sm" onClick={report.action}><AppIcon name="download" size={15} /> Download</button></div></article>)}</section>
+      <section className="report-guidance"><div><h2>Administrator review cadence</h2><p>Use reports as evidence for operational review, not as a substitute for the permanent audit trail.</p></div><ul><li><strong>Daily:</strong> failed email deliveries and locked accounts</li><li><strong>Weekly:</strong> denied access and failed sign-ins</li><li><strong>Monthly:</strong> active access, device verification, and complete audit export</li></ul><Link to="/admin/audit" className="btn btn-secondary btn-sm">Open audit trail</Link></section>
+      <footer className="sysops-updated">Report snapshot generated {new Date(operations.generatedAt).toLocaleString()}</footer>
+    </> : null}
   </div>;
 };
