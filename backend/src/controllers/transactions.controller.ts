@@ -839,7 +839,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
 
       if (isRejected) {
         notifType = 'WARNING';
-        notifMsg = `Transaction #${id} was disqualified by AO II. Reason: "${remarks}". This decision is final for this transaction; no document re-upload is requested.`;
+        notifMsg = `Transaction #${id} was disqualified by AO II. Reason: "${remarks}". You can reopen it in the app to correct the documents and submit again.`;
       } else if (hasDeficiencies) {
         notifType = 'WARNING';
         if (deficientDocNames.length > 0) {
@@ -899,7 +899,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
           recipientName: `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}`,
           subject: `AO II decision issued: TRX-${id}`,
           heading: 'Your transaction was disqualified',
-          message: `AO II disqualified this transaction. Review the recorded reason in Digital 201: ${remarks}. This is a final decision for this transaction; no document re-upload is requested.`,
+          message: `AO II disqualified this transaction. Review the recorded reason in Digital 201: ${remarks}. You can reopen it in Digital 201 to correct the documents and submit again.`,
           reference: `TRX-${id}`,
           actionLabel: 'View decision',
           actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,

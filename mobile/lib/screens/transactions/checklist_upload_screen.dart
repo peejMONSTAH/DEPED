@@ -99,8 +99,8 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
       backgroundColor: AppTheme.lightBgCard,
       builder: (ctx) => SafeArea(
         child: ConstrainedBox(
-          constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          constraints:
+              BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,7 +119,8 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                   onPressed: () => Navigator.pop(ctx, 'upload'),
                   icon: const Icon(LucideIcons.upload, size: 16),
                   label: const Text('Upload a new file',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      style:
+                          TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.textPrimary,
                     side: const BorderSide(color: AppTheme.lightBorder),
@@ -142,7 +143,8 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                 const Padding(
                   padding: EdgeInsets.fromLTRB(20, 0, 20, 16),
                   child: Text('No 201 files available to attach.',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
+                      style:
+                          TextStyle(fontSize: 13, color: AppTheme.textMuted)),
                 )
               else
                 Flexible(
@@ -169,7 +171,8 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(d.documentTypeName,
                                           maxLines: 1,
@@ -547,17 +550,18 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Expanded(
-                                          child: Text(
-                                            item.documentName,
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15,
-                                                color: AppTheme.textPrimary),
-                                          ),
+                                        Text(
+                                          item.documentName,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: AppTheme.textPrimary),
                                         ),
+                                        const SizedBox(height: 6),
                                         if (isDeficient)
                                           Container(
                                             padding: const EdgeInsets.symmetric(
@@ -663,38 +667,39 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                         ],
                                       ),
                                     ],
+                                    if (canEdit && !isApproved) ...[
+                                      const SizedBox(height: 10),
+                                      ElevatedButton(
+                                        onPressed: () => _chooseSource(item),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: isDeficient
+                                              ? AppTheme.statusReturned
+                                              : (item.isUploaded
+                                                  ? AppTheme.lightSurface
+                                                  : AppTheme.brandDark),
+                                          foregroundColor: isDeficient
+                                              ? Colors.white
+                                              : (item.isUploaded
+                                                  ? AppTheme.textPrimary
+                                                  : Colors.white),
+                                          side: item.isUploaded && !isDeficient
+                                              ? const BorderSide(
+                                                  color: AppTheme.lightBorder)
+                                              : null,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 8),
+                                          elevation: 0,
+                                        ),
+                                        child: Text(isDeficient
+                                            ? 'Fix & Upload'
+                                            : (item.isUploaded
+                                                ? 'Replace'
+                                                : 'Add')),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              if (canEdit && !isApproved)
-                                ElevatedButton(
-                                  onPressed: () => _chooseSource(item),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: isDeficient
-                                        ? AppTheme.statusReturned
-                                        : (item.isUploaded
-                                            ? AppTheme.lightSurface
-                                            : AppTheme.brandDark),
-                                    foregroundColor: isDeficient
-                                        ? Colors.white
-                                        : (item.isUploaded
-                                            ? AppTheme.textPrimary
-                                            : Colors.white),
-                                    side: item.isUploaded && !isDeficient
-                                        ? const BorderSide(
-                                            color: AppTheme.lightBorder)
-                                        : null,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    elevation: 0,
-                                  ),
-                                  child: Text(isDeficient
-                                      ? 'Fix & Upload'
-                                      : (item.isUploaded
-                                          ? 'Replace'
-                                          : 'Add')),
-                                ),
                             ],
                           ),
                         ),
@@ -753,69 +758,73 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
               ),
             )
           : canEdit
-          ? Container(
-              padding: const EdgeInsets.only(
-                  left: 16, right: 16, top: 12, bottom: 16),
-              decoration: BoxDecoration(
-                color: AppTheme.lightBgCard,
-                border: const Border(
-                    top: BorderSide(color: AppTheme.lightBorder, width: 1)),
-              ),
-              child: SafeArea(
-                child: Container(
-                  height: 48,
+              ? Container(
+                  padding: const EdgeInsets.only(
+                      left: 16, right: 16, top: 12, bottom: 16),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: _currentTx.complianceScore >= 100.0
-                          ? const [Color(0xFF059669), Color(0xFF10B981)]
-                          : const [Color(0xFFD97706), Color(0xFFEAB308)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (_currentTx.complianceScore >= 100.0
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEAB308))
-                            .withOpacity(0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                    color: AppTheme.lightBgCard,
+                    border: const Border(
+                        top: BorderSide(color: AppTheme.lightBorder, width: 1)),
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: !_isUploading && !_isSubmitting && _currentTx.complianceScore >= 100 ? _handleSubmitTransaction : null,
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(LucideIcons.send,
-                                color: Colors.white, size: 16),
-                            const SizedBox(width: 8),
-                            Text(
-                              _currentTx.complianceScore >= 100.0
-                                  ? 'Submit to AO II for Validation'
-                                  : 'Complete required documents (${_currentTx.complianceScore.toInt()}%)',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 0.2,
-                              ),
+                  child: SafeArea(
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          colors: _currentTx.complianceScore >= 100.0
+                              ? const [Color(0xFF059669), Color(0xFF10B981)]
+                              : const [Color(0xFFD97706), Color(0xFFEAB308)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_currentTx.complianceScore >= 100.0
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFEAB308))
+                                .withOpacity(0.25),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: !_isUploading &&
+                                  !_isSubmitting &&
+                                  _currentTx.complianceScore >= 100
+                              ? _handleSubmitTransaction
+                              : null,
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(LucideIcons.send,
+                                    color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _currentTx.complianceScore >= 100.0
+                                      ? 'Submit to AO II for Validation'
+                                      : 'Complete required documents (${_currentTx.complianceScore.toInt()}%)',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            )
-          : null,
+                )
+              : null,
     );
   }
 }
