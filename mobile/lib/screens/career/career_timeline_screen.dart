@@ -266,14 +266,6 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            Text(
-                                              item.monthlySalary == null ? 'Salary not recorded' : '${formatPeso(item.monthlySalary!)}/mo',
-                                              style: GoogleFonts.jetBrainsMono(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                color: AppTheme.emeraldGreen,
-                                              ),
-                                            ),
                                           ],
                                         ),
                                       ],

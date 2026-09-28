@@ -17,7 +17,11 @@ import '../career/career_timeline_screen.dart';
 import '../transactions/checklist_upload_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({Key? key}) : super(key: key);
+  /// Set when shown as a dashboard tab: service-record links switch tabs
+  /// instead of opening a second, shell-less copy of the screen.
+  final VoidCallback? onOpenServiceRecord;
+
+  const NotificationsScreen({Key? key, this.onOpenServiceRecord}) : super(key: key);
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -313,6 +317,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                                           case _NotificationDestination
                                                 .serviceRecord:
+                                            if (widget.onOpenServiceRecord != null) {
+                                              widget.onOpenServiceRecord!();
+                                              return;
+                                            }
                                             await navigator.push(
                                               MaterialPageRoute(
                                                 builder: (ctx) =>
