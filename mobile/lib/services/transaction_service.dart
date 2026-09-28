@@ -172,6 +172,26 @@ class TransactionService {
     }
   }
 
+  /// Attaches a copy of a file already in the personnel's 201.
+  Future<void> attachExistingDocument(
+      int transactionId, int requirementId, int personnelDocumentId) async {
+    try {
+      await _apiService.dio.post<dynamic>(
+        '/transactions//documents/attach-existing',
+        data: {
+          'requirementId': requirementId,
+          'personnelDocumentId': personnelDocumentId,
+        },
+      );
+    } on DioException catch (e) {
+      final message =
+          (e.response?.data is Map && e.response?.data['message'] != null)
+              ? e.response?.data['message'].toString()
+              : 'Failed to attach document.';
+      throw Exception(message);
+    }
+  }
+
   Future<Map<String, dynamic>> getExtractionReview(int documentId) async {
     final response = await _apiService.dio.get('/documents/$documentId/extraction-review');
     return Map<String, dynamic>.from(response.data['data']);

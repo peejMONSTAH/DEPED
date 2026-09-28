@@ -3,8 +3,10 @@ import '../../utils/errors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../models/personnel_document_model.dart';
 import '../../models/transaction_model.dart';
 import '../../services/api_service.dart';
+import '../../services/personnel_document_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/ui_kit.dart';
@@ -72,6 +74,94 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
             ),
           ),
         );
+      }
+    }
+  }
+
+  /// Offers a file already in the 201 first, or a new upload.
+  Future<void> _chooseSource(RequirementItemModel item) async {
+    if (_isUploading || _isSubmitting) return;
+    List<PersonnelDocument> docs = [];
+    try {
+      final all = await PersonnelDocumentService(ApiService()).getDocuments();
+      const usable = {
+        PersonnelDocumentStatus.SUBMITTED,
+        PersonnelDocumentStatus.UNDER_REVIEW,
+        PersonnelDocumentStatus.APPROVED,
+      };
+      docs = all.where((d) => d.hasFile && usable.contains(d.status)).toList();
+    } catch (_) {}
+    if (!mounted) return;
+    final picked = await showModalBottomSheet<Object>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.7),
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              Text(item.documentName,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary)),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(LucideIcons.upload),
+                title: const Text('Upload a new file'),
+                onTap: () => Navigator.pop(ctx, 'upload'),
+              ),
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text('Attach from your 201 files',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondary)),
+              ),
+              if (docs.isEmpty)
+                const Text('No 201 files available to attach.',
+                    style: TextStyle(color: AppTheme.textMuted)),
+              for (final d in docs)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(LucideIcons.fileText),
+                  title: Text(d.documentTypeName),
+                  subtitle: Text(d.originalFileName,
+                      overflow: TextOverflow.ellipsis),
+                  trailing: const Text('Attach',
+                      style: TextStyle(
+                          color: AppTheme.primaryLight,
+                          fontWeight: FontWeight.bold)),
+                  onTap: () => Navigator.pop(ctx, d),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || picked == null) return;
+    if (picked == 'upload') {
+      _pickAndUploadDocument(item);
+    } else if (picked is PersonnelDocument) {
+      setState(() => _isUploading = true);
+      try {
+        await _transactionService.attachExistingDocument(
+            _currentTx.id, item.id, picked.id);
+        await _refreshTransaction();
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(friendlyError(error,
+                  fallback: 'That file could not be attached.'))));
+        }
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
       }
     }
   }
@@ -456,7 +546,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                               const SizedBox(width: 10),
                               if (canEdit && !isApproved)
                                 ElevatedButton(
-                                  onPressed: () => _pickAndUploadDocument(item),
+                                  onPressed: () => _chooseSource(item),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: isDeficient
                                         ? AppTheme.statusReturned
@@ -480,7 +570,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                                       ? 'Fix & Upload'
                                       : (item.isUploaded
                                           ? 'Replace'
-                                          : 'Upload')),
+                                          : 'Add')),
                                 ),
                             ],
                           ),
