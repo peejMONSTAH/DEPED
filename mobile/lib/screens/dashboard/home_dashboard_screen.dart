@@ -701,6 +701,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           ),
           const SizedBox(height: AppSpace.md),
 
+          // The one place that says what to do next.
+          _buildActionNeeded(),
+
           // Promotion Status & Pending Document Approval Card
           _buildPromotionStatusCard(),
 
@@ -950,6 +953,79 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     return AppCard(
       padding: const EdgeInsets.all(AppSpace.md),
       child: StatBlock(label: title, value: value, icon: icon),
+    );
+  }
+
+  /// Returned, disqualified or unfinished transactions, each one tap from its fix.
+  Widget _buildActionNeeded() {
+    final items = <({String title, String detail, TransactionModel tx, bool urgent})>[];
+    for (final tx in _transactions) {
+      final name = '${humanizeEnum(tx.type.name)} · ${tx.referenceNo}';
+      if (tx.status == TransactionStatus.RETURNED_BY_AO2 ||
+          tx.status == TransactionStatus.RETURNED_BY_HRMO) {
+        final n = tx.requirements
+            .where((r) => r.fileStatus == 'REJECTED' || r.fileStatus == 'DEFICIENT')
+            .length;
+        items.add((
+          title: n > 0 ? 'Replace $n document${n == 1 ? '' : 's'}' : 'Fix and resubmit',
+          detail: name,
+          tx: tx,
+          urgent: true,
+        ));
+      } else if (tx.status == TransactionStatus.REJECTED) {
+        items.add((title: 'Correct and resubmit', detail: name, tx: tx, urgent: true));
+      } else if (tx.status == TransactionStatus.DRAFT) {
+        items.add((
+          title: tx.complianceScore >= 100 ? 'Ready to submit' : 'Add your documents',
+          detail: '$name · ${tx.complianceScore.toInt()}% complete',
+          tx: tx,
+          urgent: false,
+        ));
+      }
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.md),
+      child: AppCard(
+        borderColor: AppTheme.statusPending.withValues(alpha: 0.5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Action needed', style: AppText.heading),
+            const SizedBox(height: AppSpace.sm),
+            for (final it in items)
+              InkWell(
+                borderRadius: AppRadius.mdAll,
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute<void>(
+                        builder: (_) => ChecklistUploadScreen(transaction: it.tx)))
+                    .then((_) => _loadData()),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+                  child: Row(
+                    children: [
+                      Icon(it.urgent ? LucideIcons.alertCircle : LucideIcons.fileUp,
+                          size: 18,
+                          color: it.urgent ? AppTheme.statusReturned : AppTheme.statusPending),
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(it.title,
+                                style: AppText.body.copyWith(fontWeight: FontWeight.w700)),
+                            Text(it.detail, style: AppText.caption),
+                          ],
+                        ),
+                      ),
+                      const Icon(LucideIcons.chevronRight, size: 18, color: AppTheme.textMuted),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
