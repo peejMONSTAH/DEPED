@@ -62,6 +62,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'RETURN' | 'DQ'>(null);
   const [overall, setOverall] = useState('');
+  const [dqAck, setDqAck] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -216,13 +217,20 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
           <footer className="trv-foot">
             {confirm ? (
               <div className="trv-confirm">
+                {confirm === 'DQ' && (
+                  <div role="alert" className="trv-dq-warning">
+                    <strong>Disqualifying closes this transaction.</strong>
+                    <span>Use it only when {tx.personName} is not qualified. If documents just need fixing, go back and choose Return for correction instead.</span>
+                    <label><input type="checkbox" checked={dqAck} onChange={e => setDqAck(e.target.checked)} disabled={busy} /> I understand this is not a return for correction</label>
+                  </div>
+                )}
                 <label className="text-sm" style={{ fontWeight: 600 }}>
                   {confirm === 'RETURN' ? 'Message to the personnel (optional)' : 'Reason for disqualification (required)'}
                   <textarea className="form-input" rows={2} maxLength={500} value={overall} onChange={e => setOverall(e.target.value)} disabled={busy} />
                 </label>
                 <div className="trv-actions">
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirm(null)} disabled={busy}>Back</button>
-                  <button type="button" className="btn btn-danger btn-sm" disabled={busy} onClick={() => void submit(confirm === 'RETURN' ? 'DEFICIENCY' : 'REJECTED')}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setConfirm(null); setDqAck(false); }} disabled={busy}>Back</button>
+                  <button type="button" className="btn btn-danger btn-sm" disabled={busy || (confirm === 'DQ' && (!dqAck || overall.trim().length < 10))} onClick={() => void submit(confirm === 'RETURN' ? 'DEFICIENCY' : 'REJECTED')}>
                     {busy ? 'Saving…' : confirm === 'RETURN' ? `Return ${counts.deficient} document${counts.deficient === 1 ? '' : 's'} for correction` : 'Record disqualification'}
                   </button>
                 </div>
