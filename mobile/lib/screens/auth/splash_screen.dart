@@ -1,13 +1,14 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
 import '../../widgets/eminence_logo.dart';
 import '../dashboard/home_dashboard_screen.dart';
 import 'login_screen.dart';
 
+/// A short, quiet brand moment: the mark settles in, the wordmark rises,
+/// a hairline draws underneath, then the app opens. No fake loading steps.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
 
@@ -15,86 +16,48 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _fadeAnim;
-  late Animation<double> _progressAnim;
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  );
 
-  int _stepIndex = 1;
-  Timer? _timer;
-
-  final List<String> _steps = [
-    'Verifying DepEd HRIS security tokens',
-    'Initializing SSL/TLS encrypted session',
-    'Loading 201 personnel workspace permissions',
-  ];
+  late final Animation<double> _mark =
+      CurvedAnimation(parent: _c, curve: const Interval(0.0, 0.45, curve: Curves.easeOutCubic));
+  late final Animation<double> _word =
+      CurvedAnimation(parent: _c, curve: const Interval(0.25, 0.7, curve: Curves.easeOutCubic));
+  late final Animation<double> _line =
+      CurvedAnimation(parent: _c, curve: const Interval(0.55, 1.0, curve: Curves.easeInOutCubic));
 
   @override
   void initState() {
     super.initState();
+    _start();
+  }
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    );
-
-    _scaleAnim = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-    );
-
-    _fadeAnim = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
-    );
-
-    _progressAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0.2, 0.95, curve: Curves.easeInOut),
+  Future<void> _start() async {
+    // The session check runs while the animation plays; whichever is slower
+    // decides when the app opens.
+    final userFuture = AuthService(ApiService()).getCurrentUser();
+    await _c.forward();
+    final user = await userFuture;
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) =>
+            user != null ? HomeDashboardScreen(user: user) : const LoginScreen(),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+        transitionDuration: const Duration(milliseconds: 400),
       ),
     );
-
-    _controller.forward();
-
-    // Step checklist progression timers
-    Timer(const Duration(milliseconds: 800), () {
-      if (mounted) setState(() => _stepIndex = 2);
-    });
-
-    Timer(const Duration(milliseconds: 1600), () {
-      if (mounted) setState(() => _stepIndex = 3);
-    });
-
-    // Navigation timer
-    _timer = Timer(const Duration(milliseconds: 2800), () async {
-      if (!mounted) return;
-      final authService = AuthService(ApiService());
-      final currentUser = await authService.getCurrentUser();
-
-      if (!mounted) return;
-
-      final Widget nextScreen = currentUser != null
-          ? HomeDashboardScreen(user: currentUser)
-          : const LoginScreen();
-
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (_, animation, secondaryAnimation) => nextScreen,
-          transitionsBuilder: (_, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 600),
-        ),
-      );
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _controller.dispose();
+    _c.dispose();
     super.dispose();
   }
 
@@ -102,247 +65,60 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightBg,
-      body: Stack(
-        children: [
-          // Ambient Radial Light Aura (Top center glow)
-          Positioned(
-            top: -100,
-            left: MediaQuery.of(context).size.width * 0.5 - 150,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.primaryLight.withOpacity(0.06),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.7],
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Opacity(
+                opacity: _mark.value,
+                child: Transform.scale(
+                  scale: 0.85 + 0.15 * _mark.value,
+                  child: const EminenceLogo(
+                    variant: EminenceLogoVariant.mark,
+                    size: EminenceLogoSize.xl,
+                  ),
                 ),
               ),
-            ),
-          ),
-
-          // Bottom right subtle lavender glow
-          Positioned(
-            bottom: -80,
-            right: -80,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.accentLavender.withOpacity(0.08),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.7],
+              const SizedBox(height: AppSpace.xl),
+              Opacity(
+                opacity: _word.value,
+                child: Transform.translate(
+                  offset: Offset(0, 12 * (1 - _word.value)),
+                  child: const EminenceLogo(
+                    variant: EminenceLogoVariant.full,
+                    size: EminenceLogoSize.lg,
+                    showSubtitle: false,
+                  ),
                 ),
               ),
-            ),
-          ),
-
-          // Main Center Content
-          SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(),
-
-                    // Animated Eminence Logo Hero
-                    AnimatedBuilder(
-                      animation: _controller,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _scaleAnim.value,
-                          child: Opacity(
-                            opacity: _fadeAnim.value,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Column(
-                        children: [
-                          // Icon / Mark Badge
-                          Container(
-                            width: 100,
-                            height: 100,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppTheme.lightBgCard,
-                              border: Border.all(color: AppTheme.lightBorder, width: 1.5),
-                            ),
-                            child: const Center(
-                              child: EminenceLogo(
-                                variant: EminenceLogoVariant.mark,
-                                size: EminenceLogoSize.md,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Full Logo Text
-                          const EminenceLogo(
-                            variant: EminenceLogoVariant.full,
-                            size: EminenceLogoSize.xl,
-                          ),
-                          const SizedBox(height: 12),
-
-                          Text(
-                            'City Schools Division of Koronadal City',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          Text(
-                            'Department of Education · Region XII',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // Progress Section Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+              const SizedBox(height: AppSpace.lg),
+              SizedBox(
+                width: 120,
+                height: 2,
+                child: Align(
+                  alignment: Alignment.center,
+                  child: FractionallySizedBox(
+                    widthFactor: _line.value,
+                    child: Container(
                       decoration: BoxDecoration(
-                        color: AppTheme.lightBgCard,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.lightBorder),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Initializing System...',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              AnimatedBuilder(
-                                animation: _progressAnim,
-                                builder: (ctx, _) {
-                                  final pct = (_progressAnim.value * 100).toInt();
-                                  return Text(
-                                    '$pct%',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.primaryLight,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Animated Gradient Progress Bar
-                          AnimatedBuilder(
-                            animation: _progressAnim,
-                            builder: (ctx, _) {
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(999),
-                                child: Container(
-                                  height: 6,
-                                  width: double.infinity,
-                                  color: AppTheme.lightBorder,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: FractionallySizedBox(
-                                      widthFactor: _progressAnim.value,
-                                      child: Container(
-                                        decoration: const BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [AppTheme.accentLime, Color(0xFF10B981)],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Step Checklist Items
-                          ...List.generate(_steps.length, (idx) {
-                            final stepNum = idx + 1;
-                            final isDone = _stepIndex >= stepNum;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 6.0),
-                              child: Row(
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: isDone ? const Color(0xFF10B981).withOpacity(0.15) : Colors.transparent,
-                                      border: Border.all(
-                                        color: isDone ? const Color(0xFF10B981) : AppTheme.lightBorder,
-                                      ),
-                                    ),
-                                    child: isDone
-                                        ? const Icon(Icons.check, size: 10, color: Color(0xFF10B981))
-                                        : null,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _steps[idx],
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        fontWeight: isDone ? FontWeight.w600 : FontWeight.w400,
-                                        color: isDone ? AppTheme.textPrimary : AppTheme.textMuted,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
+                        color: AppTheme.primaryLight,
+                        borderRadius: AppRadius.pillAll,
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-                    Text(
-                      'Digital 201 v1.0 · Protected by DepEd Data Privacy',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: AppSpace.lg),
+              Opacity(
+                opacity: _line.value,
+                child: Text('City Schools Division of Koronadal',
+                    style: AppText.caption),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
