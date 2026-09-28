@@ -307,6 +307,7 @@ export const AuditLog: React.FC = () => {
     setPage(1);
   };
 
+  const moreCount = [selectedSeverity, selectedOutcome, selectedRole].filter(v => v !== 'All').length;
   const totalPages = Math.max(1, Math.ceil(totalCount / limit));
 
   return (
@@ -316,256 +317,103 @@ export const AuditLog: React.FC = () => {
         {loading ? 'Loading audit records…' : `${logs.length} audit records displayed. Total records: ${totalCount}.`}
       </div>
 
-      {/* Header Panel */}
-      <header className="audit-ws-header">
-        <div className="audit-ws-header-info">
-          <div className="audit-ws-eyebrow">
-            <AppIcon name="security" size={16} />
-            <span>Digital 201 Security & Accountability</span>
-          </div>
-          <h1 className="audit-ws-title">Audit Trail & Forensic Logs</h1>
-          <p className="audit-ws-subtitle">
-            Tamper-evident audit records for administrative operations, access controls, and document workflows.
-          </p>
-          <div style={{ marginTop: '0.25rem' }}>
-            <span className="audit-ws-tz-badge">
-              <AppIcon name="clock" size={13} />
-              <span>Timezone: Asia/Manila (UTC+8, PHT)</span>
-            </span>
-          </div>
+      {/* Header: title, one line of context, two actions */}
+      <header className="aw-head">
+        <div>
+          <h1 className="aw-title">Audit trail</h1>
+          <p className="aw-sub">Every sign-in, change and document action, newest first. Philippine time · updated {lastRefreshedAt}.</p>
         </div>
-
-        <div className="audit-ws-header-actions">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => void loadRecords(true)}
-            disabled={refreshing || loading}
-            aria-label="Refresh audit records"
-          >
-            <AppIcon name="refresh" size={15} />
-            <span>{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+        <div className="aw-actions">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadRecords(true)} disabled={refreshing || loading} aria-label="Refresh audit records">
+            <AppIcon name="refresh" size={15} /> {refreshing ? 'Refreshing…' : 'Refresh'}
           </button>
-
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={handleExportCsv}
-            disabled={exporting || loading || logs.length === 0}
-            title="Download complete database audit records as CSV"
-            aria-label="Export audit trail as CSV"
-          >
-            <AppIcon name="download" size={15} />
-            <span>{exporting ? 'Exporting…' : 'Export CSV'}</span>
+          <button type="button" className="btn btn-primary btn-sm" onClick={handleExportCsv} disabled={exporting || loading || logs.length === 0} aria-label="Export audit trail as CSV">
+            <AppIcon name="download" size={15} /> {exporting ? 'Exporting…' : 'Export CSV'}
           </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleExportJson}
-            disabled={exporting || loading || logs.length === 0}
-            title="Download forensic JSON format"
-            aria-label="Export forensic JSON"
-          >
-            <span>JSON</span>
-          </button>
-
-          <span className="audit-ws-last-refreshed">
-            Updated at {lastRefreshedAt}
-          </span>
+          <button type="button" className="aw-link" onClick={handleExportJson} disabled={exporting || loading || logs.length === 0} aria-label="Export forensic JSON">JSON</button>
         </div>
       </header>
 
-      {/* Summary Metrics Strip */}
+      {/* Last 24 hours at a glance, colored only when a number needs a look */}
       {summary && (
-        <section className="audit-summary-strip" aria-label="Operational audit metrics">
-          <article className={`audit-summary-card ${summary.criticalCount + summary.highCount > 0 ? 'has-alert' : ''}`}>
-            <span className="audit-summary-label">High-Risk Events (24h)</span>
-            <strong className={`audit-summary-val ${summary.criticalCount + summary.highCount > 0 ? 'danger-val' : ''}`}>
-              {summary.criticalCount + summary.highCount}
-            </strong>
-            <span className="audit-summary-sub">{summary.criticalCount} Critical · {summary.highCount} High</span>
-          </article>
-
-          <article className="audit-summary-card">
-            <span className="audit-summary-label">Successful Logins (24h)</span>
-            <strong className="audit-summary-val">{summary.logins24h}</strong>
-            <span className="audit-summary-sub">Authenticated sessions</span>
-          </article>
-
-          <article className={`audit-summary-card ${summary.failedLogins24h > 0 ? 'has-warning' : ''}`}>
-            <span className="audit-summary-label">Failed Logins (24h)</span>
-            <strong className={`audit-summary-val ${summary.failedLogins24h > 0 ? 'warning-val' : ''}`}>
-              {summary.failedLogins24h}
-            </strong>
-            <span className="audit-summary-sub">Credential mismatch</span>
-          </article>
-
-          <article className={`audit-summary-card ${summary.accessDenied24h > 0 ? 'has-alert' : ''}`}>
-            <span className="audit-summary-label">Access Denied (24h)</span>
-            <strong className={`audit-summary-val ${summary.accessDenied24h > 0 ? 'danger-val' : ''}`}>
-              {summary.accessDenied24h}
-            </strong>
-            <span className="audit-summary-sub">Boundary violations</span>
-          </article>
-
-          <article className={`audit-summary-card ${summary.lockedAccounts > 0 ? 'has-alert' : ''}`}>
-            <span className="audit-summary-label">Locked Accounts</span>
-            <strong className={`audit-summary-val ${summary.lockedAccounts > 0 ? 'danger-val' : ''}`}>
-              {summary.lockedAccounts}
-            </strong>
-            <span className="audit-summary-sub">Password attempt lockouts</span>
-          </article>
-
-          <article className="audit-summary-card">
-            <span className="audit-summary-label">Privileged Changes (24h)</span>
-            <strong className="audit-summary-val">{summary.privilegedChanges24h}</strong>
-            <span className="audit-summary-sub">Role & security updates</span>
-          </article>
-        </section>
-      )}
-
-      {/* Security Threat Findings Banner (when detected) */}
-      {findings.length > 0 && (
-        <section className="audit-findings-panel" aria-label="Detected security operational findings">
-          <div className="audit-findings-header">
-            <div className="audit-findings-title">
-              <AppIcon name="warning" size={18} />
-              <span>Operational Security Findings ({findings.length})</span>
+        <section className="aw-stats" aria-label="Last 24 hours">
+          {[
+            { label: 'Sign-ins', value: summary.logins24h, tone: '' },
+            { label: 'Failed sign-ins', value: summary.failedLogins24h, tone: summary.failedLogins24h > 0 ? 'warn' : '' },
+            { label: 'Access denied', value: summary.accessDenied24h, tone: summary.accessDenied24h > 0 ? 'bad' : '' },
+            { label: 'High-risk events', value: summary.criticalCount + summary.highCount, tone: summary.criticalCount + summary.highCount > 0 ? 'bad' : '' },
+            { label: 'Locked accounts', value: summary.lockedAccounts, tone: summary.lockedAccounts > 0 ? 'bad' : '' },
+          ].map(st => (
+            <div key={st.label} className={`aw-stat${st.tone ? ` is-${st.tone}` : ''}`}>
+              <strong>{st.value}</strong><span>{st.label}</span>
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 600 }}>
-              Action recommended based on automated analysis
-            </span>
-          </div>
-
-          <div className="audit-findings-list">
-            {findings.map(f => (
-              <div key={f.id} className={`audit-finding-item severity-${f.severity.toLowerCase()}`}>
-                <div className="audit-finding-heading">
-                  <span>{f.title}</span>
-                  <span className={`audit-severity-pill sev-${f.severity.toLowerCase()}`}>{f.severity}</span>
-                </div>
-                <div className="audit-finding-desc">{f.description}</div>
-                <div className="audit-finding-rec">{f.recommendation}</div>
-              </div>
-            ))}
-          </div>
+          ))}
+          <span className="aw-stats-note">Last 24 hours</span>
         </section>
       )}
 
-      {/* Investigation Toolbar */}
-      <section className="audit-ws-toolbar" aria-label="Audit filters and search toolbar">
-        <div className="audit-ws-primary-row">
-          {/* Multi-field search */}
-          <div className="audit-ws-search">
-            <span className="audit-ws-search-icon">
-              <AppIcon name="search" size={16} />
-            </span>
-            <input
-              type="text"
-              className="audit-ws-search-input"
-              placeholder="Search actor, target reference, IP, action, or request ID…"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              aria-label="Search audit records"
-            />
-            {search && (
-              <button
-                type="button"
-                className="audit-ws-search-clear"
-                onClick={() => { setSearch(''); setPage(1); }}
-                title="Clear search"
-                aria-label="Clear search input"
-              >
-                ×
-              </button>
-            )}
-          </div>
+      {/* Findings: one line each; the suggested fix opens on click */}
+      {findings.length > 0 && (
+        <section className="aw-findings" aria-label="Worth a look">
+          <h2>Worth a look ({findings.length})</h2>
+          <ul>
+            {findings.map(f => (
+              <li key={f.id}>
+                <details>
+                  <summary>
+                    <span className={`aw-dot sev-${f.severity.toLowerCase()}`} title={f.severity} />
+                    <strong>{f.title}</strong>
+                    <span className="aw-finding-desc">{f.description}</span>
+                  </summary>
+                  <p>{f.recommendation}</p>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-          {/* Select Filters Group */}
-          <div className="audit-ws-select-group">
-            {/* Date Range Preset */}
-            <select
-              className="audit-ws-select"
-              value={dateRangePreset}
-              onChange={e => { setDateRangePreset(e.target.value); setPage(1); }}
-              aria-label="Filter by date range"
-            >
-              <option value="all">All Dates</option>
-              <option value="today">Today (24h)</option>
-              <option value="7d">Last 7 Days</option>
-              <option value="30d">Last 30 Days</option>
-            </select>
-
-            {/* Severity Filter */}
-            <select
-              className="audit-ws-select"
-              value={selectedSeverity}
-              onChange={e => { setSelectedSeverity(e.target.value); setPage(1); }}
-              aria-label="Filter by severity"
-            >
-              {SEVERITY_LEVELS.map(s => (
-                <option key={s} value={s}>{s === 'All' ? 'All Severities' : `Severity: ${s}`}</option>
-              ))}
-            </select>
-
-            {/* Outcome Filter */}
-            <select
-              className="audit-ws-select"
-              value={selectedOutcome}
-              onChange={e => { setSelectedOutcome(e.target.value); setPage(1); }}
-              aria-label="Filter by outcome"
-            >
-              {OUTCOME_LEVELS.map(o => (
-                <option key={o} value={o}>{o === 'All' ? 'All Outcomes' : `Outcome: ${o}`}</option>
-              ))}
-            </select>
-
-            {/* Role Filter */}
-            <select
-              className="audit-ws-select"
-              value={selectedRole}
-              onChange={e => { setSelectedRole(e.target.value); setPage(1); }}
-              aria-label="Filter by role"
-            >
-              {ROLE_OPTIONS.map(r => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </select>
-
-            {/* Reset Filters Button */}
-            {hasActiveFilters && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={resetFilters}
-                aria-label="Clear all active filters"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
+      {/* Search and filters on one row; rarely used filters fold away */}
+      <section className="aw-filters" aria-label="Search and filter">
+        <div className="audit-ws-search aw-search">
+          <span className="audit-ws-search-icon"><AppIcon name="search" size={16} /></span>
+          <input
+            type="text"
+            className="audit-ws-search-input"
+            placeholder="Search name, email, action or IP…"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            aria-label="Search audit records"
+          />
+          {search && (
+            <button type="button" className="audit-ws-search-clear" onClick={() => { setSearch(''); setPage(1); }} aria-label="Clear search input">×</button>
+          )}
         </div>
-
-        {/* Category Filter Pills */}
-        <div className="audit-ws-categories-bar" role="tablist" aria-label="Audit category filter tabs">
-          {CATEGORIES.map(cat => {
-            const isActive = activeCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`audit-ws-cat-pill ${isActive ? 'is-active' : ''}`}
-                onClick={() => { setActiveCategory(cat.id); setPage(1); }}
-              >
-                <span className="audit-ws-cat-dot" />
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        <select className="audit-ws-select" value={activeCategory} onChange={e => { setActiveCategory(e.target.value); setPage(1); }} aria-label="Filter by activity">
+          {CATEGORIES.map(cat => <option key={cat.id} value={cat.id}>{cat.id === 'All' ? 'All activity' : cat.label}</option>)}
+        </select>
+        <select className="audit-ws-select" value={dateRangePreset} onChange={e => { setDateRangePreset(e.target.value); setPage(1); }} aria-label="Filter by date range">
+          <option value="all">Any time</option>
+          <option value="today">Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+        </select>
+        <details className="aw-more">
+          <summary>More filters{moreCount ? ` (${moreCount})` : ''}</summary>
+          <div className="aw-more-body">
+            <select className="audit-ws-select" value={selectedSeverity} onChange={e => { setSelectedSeverity(e.target.value); setPage(1); }} aria-label="Filter by severity">
+              {SEVERITY_LEVELS.map(s => <option key={s} value={s}>{s === 'All' ? 'Any severity' : s.charAt(0) + s.slice(1).toLowerCase()}</option>)}
+            </select>
+            <select className="audit-ws-select" value={selectedOutcome} onChange={e => { setSelectedOutcome(e.target.value); setPage(1); }} aria-label="Filter by outcome">
+              {OUTCOME_LEVELS.map(o => <option key={o} value={o}>{o === 'All' ? 'Any result' : o === 'FAILURE' ? 'Failed' : o.charAt(0) + o.slice(1).toLowerCase()}</option>)}
+            </select>
+            <select className="audit-ws-select" value={selectedRole} onChange={e => { setSelectedRole(e.target.value); setPage(1); }} aria-label="Filter by role">
+              {ROLE_OPTIONS.map(r => <option key={r.id} value={r.id}>{r.id === 'All' ? 'Any role' : r.label}</option>)}
+            </select>
+          </div>
+        </details>
+        {hasActiveFilters && <button type="button" className="aw-link" onClick={resetFilters} aria-label="Clear all active filters">Clear</button>}
+        <span className="aw-count">{loading ? '' : `${totalCount} record${totalCount === 1 ? '' : 's'}`}</span>
       </section>
 
       {/* Main Audit Table Card */}

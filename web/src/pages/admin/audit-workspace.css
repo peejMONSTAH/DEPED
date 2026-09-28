@@ -911,3 +911,46 @@
     transform: none !important;
   }
 }
+
+/* ---- Simplified top of page ---- */
+.audit-workspace .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.aw-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin-bottom: 18px; }
+.aw-title { margin: 0; font-size: 1.75rem; font-weight: 800; color: var(--color-text-primary); letter-spacing: -.01em; }
+.aw-sub { margin: 4px 0 0; font-size: .9375rem; color: var(--color-text-secondary); }
+.aw-actions { display: flex; align-items: center; gap: 8px; }
+.aw-actions .btn { display: inline-flex; align-items: center; gap: 6px; }
+.aw-link { background: none !important; border: 0 !important; padding: 4px 6px !important; color: var(--color-primary) !important; font-weight: 700; font-size: .875rem; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; box-shadow: none !important; }
+.aw-link:disabled { opacity: .5; cursor: default; }
+.aw-stats { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-bottom: 16px; }
+.aw-stat { display: flex; align-items: baseline; gap: 8px; padding: 10px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-card); }
+.aw-stat strong { font-size: 1.375rem; font-weight: 800; color: var(--color-text-primary); }
+.aw-stat span { font-size: .875rem; color: var(--color-text-secondary); }
+.aw-stat.is-warn { border-color: #F2D9A6; background: #FFFAEE; } .aw-stat.is-warn strong { color: #8A5A0B; }
+.aw-stat.is-bad { border-color: #F3C6CD; background: #FFF5F6; } .aw-stat.is-bad strong { color: #A1263A; }
+.aw-stats-note { align-self: center; margin-left: auto; font-size: .8125rem; color: var(--color-text-muted); }
+.aw-findings { margin-bottom: 16px; padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-card); }
+.aw-findings h2 { margin: 0 0 6px; font-size: 1rem; font-weight: 800; color: var(--color-text-primary); }
+.aw-findings ul { list-style: none; margin: 0; padding: 0; }
+.aw-findings li + li { border-top: 1px solid var(--color-border); }
+.aw-findings summary { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; cursor: pointer; list-style: none; font-size: .9375rem; min-width: 0; }
+.aw-findings summary::-webkit-details-marker { display: none; }
+.aw-findings summary strong { flex: none; color: var(--color-text-primary); }
+.aw-finding-desc { color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.aw-findings details[open] .aw-finding-desc { white-space: normal; }
+.aw-findings details p { margin: 0 0 10px 20px; font-size: .875rem; color: var(--color-text-secondary); }
+.aw-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #9CA3AF; transform: translateY(1px); }
+.aw-dot.sev-critical, .aw-dot.sev-high { background: #DC2626; }
+.aw-dot.sev-warning { background: #D97706; }
+.aw-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 14px; }
+.aw-filters .audit-ws-select { width: auto; min-width: 150px; }
+.aw-search { flex: 1 1 280px; min-width: 0; }
+.aw-more { position: relative; }
+.aw-more summary { cursor: pointer; list-style: none; padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-card); font-size: .9375rem; font-weight: 600; color: var(--color-text-primary); }
+.aw-more summary::-webkit-details-marker { display: none; }
+.aw-more-body { position: absolute; z-index: 20; top: calc(100% + 6px); right: 0; display: grid; gap: 8px; padding: 12px; min-width: 240px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-card); box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+.aw-count { margin-left: auto; font-size: .875rem; color: var(--color-text-muted); }
+@media (max-width: 768px) {
+  .aw-filters .audit-ws-select, .aw-more { flex: 1 1 45%; }
+  .aw-more-body { left: 0; right: auto; }
+  .aw-stats-note { margin-left: 0; width: 100%; }
+}
