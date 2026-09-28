@@ -26,7 +26,7 @@ export const VacancyEligibilityDialog: React.FC<VacancyEligibilityDialogProps> =
     'Your current plantilla item does not meet the prescribed Civil Service qualification standards or exceeds the allowed salary grade jump limit for this cycle.';
 
   // "Ranking for Vacancy: Master Teacher II (OSEC-…)" -> the item number alone.
-  const item = /(([^()]+))s*$/.exec(String(cycle.name || ''))?.[1] || null;
+  const item = /\(([^()]+)\)\s*$/.exec(String(cycle.name || ''))?.[1] || null;
 
   return (
     <ModalPortal>
