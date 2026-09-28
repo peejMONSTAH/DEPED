@@ -51,7 +51,7 @@ router.post('/:id/upload', upload.single('file'), uploadDocument);
 // Administrator runs the system and is excluded here, as in promotion selection.
 router.post('/:id/validate', authorize('AO_II'), validateTransaction);
 router.post('/:id/approve', authorize('HRMO'), approveTransaction);
-router.post('/:id/reopen', authorize('HRMO'), reopenTransaction);
+router.post('/:id/reopen', authorize('HRMO', 'TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'), reopenTransaction);
 router.get('/:id/requirements', getTransactionRequirements);
 
 export default router;

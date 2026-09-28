@@ -254,6 +254,27 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
     }
   }
 
+  Future<void> _reopenForCorrection() async {
+    setState(() => _isSubmitting = true);
+    try {
+      await _transactionService.reopenTransaction(_currentTx.id);
+      await _refreshTransaction();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Reopened. Replace the deficient documents, then submit again.')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(friendlyError(error,
+                fallback: 'Could not reopen this transaction.'))));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   void _handleSubmitTransaction() async {
     // Submission eligibility belongs to this assigned transaction and is enforced by the API.
     if (_isUploading || _currentTx.complianceScore < 100) return;
@@ -708,7 +729,30 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: canEdit
+      bottomNavigationBar: _currentTx.status == TransactionStatus.REJECTED
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : _reopenForCorrection,
+                    icon: const Icon(LucideIcons.rotateCcw, size: 16),
+                    label: const Text('Correct & resubmit',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.brandDark,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : canEdit
           ? Container(
               padding: const EdgeInsets.only(
                   left: 16, right: 16, top: 12, bottom: 16),

@@ -1278,7 +1278,8 @@ export const getTransactionRequirements = async (req: Request, res: Response) =>
 export const reopenTransaction = async (req: Request, res: Response) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id) || id <= 0 || id > 2147483647) { sendNotFound(res, 'Transaction not found.'); return; }
-  const reason = String(req.body?.reason || '').trim();
+  const byPersonnel = ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(String(req.user?.role));
+  const reason = String(req.body?.reason || '').trim() || (byPersonnel ? 'Personnel chose to correct and resubmit.' : '');
   if (reason.length < 10) { sendBadRequest(res, 'Give a reason for reopening (at least 10 characters).', 'REOPEN_REASON_REQUIRED'); return; }
   if (!(await canAccessTransaction(req.user, id))) { sendNotFound(res, 'Transaction not found.'); return; }
 
@@ -1286,19 +1287,20 @@ export const reopenTransaction = async (req: Request, res: Response) => {
     await lockTransaction(tx, id);
     const current = await tx.transaction.findUnique({
       where: { id },
-      select: { status: true, personnel: { select: { user: { select: { id: true } } } } },
+      select: { status: true, personnelId: true, personnel: { select: { user: { select: { id: true } } } } },
     });
     if (!current) throw Object.assign(new Error('Transaction not found.'), { statusCode: 404 });
     if (current.status !== 'REJECTED') throw workflowConflict('Only a disqualified transaction can be reopened.');
+    if (byPersonnel && current.personnelId !== req.user?.personnelId) throw Object.assign(new Error('Transaction not found.'), { statusCode: 404 });
     await tx.transaction.update({
       where: { id },
-      data: { status: 'DEFICIENCY', remarks: `Reopened by HRMO: ${reason}`, currentAssigneeId: req.user!.userId },
+      data: { status: 'DEFICIENCY', remarks: `${byPersonnel ? 'Reopened by personnel' : 'Reopened by HRMO'}: ${reason}`, currentAssigneeId: req.user!.userId },
     });
     await tx.validationLog.create({
       data: { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_REOPENED', detailsJson: { from: 'REJECTED', to: 'DEFICIENCY', reason }, userId: req.user!.userId, status: 'SUCCESS' },
     });
     const userId = current.personnel?.user?.id;
-    if (userId) {
+    if (userId && !byPersonnel) {
       await tx.notification.create({
         data: { userId, type: 'INFO', relatedEntityId: id, relatedEntityType: 'Transaction',
           message: `TRX-${id} was reopened by HRMO. Replace the documents marked deficient and submit again. Note: ${reason}` },

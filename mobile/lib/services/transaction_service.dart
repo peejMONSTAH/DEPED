@@ -172,6 +172,19 @@ class TransactionService {
     }
   }
 
+  /// Reopens a disqualified transaction so it can be corrected and submitted again.
+  Future<void> reopenTransaction(int transactionId) async {
+    try {
+      await _apiService.dio.post<dynamic>('/transactions/$transactionId/reopen', data: {});
+    } on DioException catch (e) {
+      final message =
+          (e.response?.data is Map && e.response?.data['message'] != null)
+              ? e.response?.data['message'].toString()
+              : 'Could not reopen this transaction.';
+      throw Exception(message);
+    }
+  }
+
   /// Attaches a copy of a file already in the personnel's 201.
   Future<void> attachExistingDocument(
       int transactionId, int requirementId, int personnelDocumentId) async {
