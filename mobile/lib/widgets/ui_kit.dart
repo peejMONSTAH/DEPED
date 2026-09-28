@@ -208,11 +208,17 @@ class MetaItem extends StatelessWidget {
       children: [
         Icon(icon, size: 13, color: color),
         const SizedBox(width: AppSpace.xs),
-        Text(
-          label,
-          style: AppText.caption.copyWith(
-            color: tone == null ? AppTheme.textSecondary : color,
-            fontWeight: emphasis ? FontWeight.w600 : FontWeight.w500,
+        // Flexible + ellipsis: a long value such as a file name must shorten
+        // rather than run past the card edge.
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.caption.copyWith(
+              color: tone == null ? AppTheme.textSecondary : color,
+              fontWeight: emphasis ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ),
       ],
