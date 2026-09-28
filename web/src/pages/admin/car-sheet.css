@@ -72,3 +72,5 @@
 .car-sheet__summary { background: var(--color-bg-secondary); box-shadow: none; }
 .car-sheet__save:disabled { opacity: .45 !important; cursor: not-allowed !important; box-shadow: none !important; transform: none !important; }
 .car-sheet__req { border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent); }
+.car-sheet .car-sheet__input.is-invalid { border: 2px solid #C23B4E !important; background: #FDF0F1 !important; color: #A1263A !important; }
+.car-sheet__progress.is-error { color: #A1263A; font-weight: 700; }

@@ -3776,9 +3776,17 @@ export const PromotionManagement: React.FC = () => {
                         return <div key={g.title}><dt>{g.title}</dt><dd>{sub.toFixed(2)} / {g.rows.reduce((s, r) => s + r.max, 0)}</dd></div>;
                       })}
                     </dl>
-                    <p className="car-sheet__progress">
-                      {filled.length === all.length ? 'All criteria scored.' : `${all.length - filled.length} of ${all.length} criteria still blank.`}
-                    </p>
+                    {(() => {
+                      const over = all.filter(r => r.value !== '' && !isScoreEntered(r.value, r.max));
+                      const blank = all.filter(r => r.value === '').length;
+                      return (
+                        <p className={`car-sheet__progress ${over.length ? 'is-error' : ''}`} role={over.length ? 'alert' : undefined}>
+                          {over.length
+                            ? `Over the maximum: ${over.map(r => `${r.label} (max ${r.max})`).join(', ')}.`
+                            : blank ? `${blank} of ${all.length} criteria still blank.` : 'All criteria scored.'}
+                        </p>
+                      );
+                    })()}
                     <button type="submit" className="btn btn-primary car-sheet__save" disabled={savingHrmoRating.pending || filled.length !== all.length}>
                       {savingHrmoRating.pending ? 'Saving…' : 'Save rating'}
                     </button>
