@@ -41,3 +41,9 @@ export const isPhoneApp = (req: Request): boolean => /^Dart\//.test(String(req.h
 
 /** The app's build number, sent as X-App-Build from build 2 on; older builds send none (0). */
 export const appBuildOf = (req: Request): number => Number(req.headers['x-app-build']) || 0;
+
+/** The phone app is for personnel only; administrative accounts use the website. */
+export const PHONE_APP_ROLES = ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'];
+export const PHONE_APP_REFUSAL = 'The Digital 201 app is for personnel accounts. AO II, HRMO and System Administrator accounts sign in on the website.';
+export const isRefusedOnPhone = (req: Request, role: string | undefined): boolean =>
+  isPhoneApp(req) && !PHONE_APP_ROLES.includes(role || '');

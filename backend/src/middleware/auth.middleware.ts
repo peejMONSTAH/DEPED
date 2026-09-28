@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, JwtPayload, passwordTokenVersion, verifyDocumentAccessToken, DocumentViewTokenPayload } from '../utils/jwt.util';
 import { sendUnauthorized, sendError } from '../utils/response.util';
 import prisma from '../config/prisma';
+import { isRefusedOnPhone, PHONE_APP_REFUSAL } from '../services/session.service';
 
 // Extend Express Request to include the authenticated user
 declare global {
@@ -141,6 +142,12 @@ export const authenticate = async (
     // re-checked by the file endpoint; this makes a role change void the link outright.
     if (docTokenPayload && docTokenPayload.role !== user.role.name) {
       sendUnauthorized(res, 'This document link is no longer valid. Open the document again.');
+      return;
+    }
+
+    // The phone app is personnel-only, including sessions opened before this rule.
+    if (isRefusedOnPhone(req, user.role.name)) {
+      sendError(res, PHONE_APP_REFUSAL, 403, 'PHONE_APP_PERSONNEL_ONLY');
       return;
     }
 

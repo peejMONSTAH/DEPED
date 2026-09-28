@@ -500,9 +500,10 @@ test('5. records say only what is on file; resets, sessions and removals keep th
   assert.ok(live <= 3, `at most three live sessions (found ${live})`);
 
   // A phone app from before the sign-in code is told to update, not left to crash.
+  await db.user.update({ where: { email: 'teacher@pilot.invalid' }, data: { deviceVerification: true } });
   const oldApp = await fetch(`${baseUrl}/api/v1/auth/login`, { method: 'POST',
     headers: { 'content-type': 'application/json', 'user-agent': 'Dart/3.5 (dart:io)' },
-    body: JSON.stringify({ email: 'ao.matulas@pilot.invalid', password: PASSWORD }) });
+    body: JSON.stringify({ email: 'teacher@pilot.invalid', password: resetMail.credentials.initialPassword }) });
   assert.equal(oldApp.status, 426, 'an old app build is asked to update');
 
   // Removing an officer who has acted deactivates them; their record of work stays.
@@ -520,4 +521,19 @@ test('5. records say only what is on file; resets, sessions and removals keep th
   ok(spare, 201, 'create an account that is never used');
   const spareId = spare.json.data.user?.id ?? spare.json.data.id;
   ok(await http(T.sa, 'DELETE', `/users/${spareId}`), 204, 'an account never used is removed outright');
+});
+
+test('6. the phone app is for personnel; administrative accounts use the website', async () => {
+  const dart = { 'content-type': 'application/json', 'user-agent': 'Dart/3.5 (dart:io)', 'x-app-build': '2' };
+  const hrPhone = await fetch(`${baseUrl}/api/v1/auth/login`, { method: 'POST', headers: dart,
+    body: JSON.stringify({ email: 'hr@pilot.invalid', password: PASSWORD, deviceName: 'Digital 201 app' }) });
+  assert.equal(hrPhone.status, 403, 'HR cannot sign in on the phone app');
+  assert.equal((await hrPhone.json()).code, 'PHONE_APP_PERSONNEL_ONLY');
+  const hr = await login('hr@pilot.invalid', PASSWORD);
+  const reused = await fetch(`${baseUrl}/api/v1/notifications`, { headers: { ...dart, authorization: `Bearer ${hr.json.data.accessToken}` } });
+  assert.equal(reused.status, 403, 'an HR session is refused when used from the phone app');
+  const onWeb = await http(hr.json.data.accessToken, 'GET', '/notifications');
+  ok(onWeb, 200, 'the same HR session works on the website');
+  const teacherPhone = await fetch(`${baseUrl}/api/v1/notifications`, { headers: { ...dart, authorization: `Bearer ${T.teacher}` } });
+  assert.notEqual(teacherPhone.status, 403, 'personnel use the phone app');
 });

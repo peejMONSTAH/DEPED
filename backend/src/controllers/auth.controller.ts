@@ -6,7 +6,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMa
 import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound } from '../utils/response.util';
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { capSessions, hashRefreshToken, isPhoneApp, isSessionIdle, refreshTokenRow } from '../services/session.service';
+import { capSessions, hashRefreshToken, isPhoneApp, isRefusedOnPhone, isSessionIdle, PHONE_APP_REFUSAL, refreshTokenRow } from '../services/session.service';
 import {
   isTrustedDevice, startChallenge, verifyChallenge, resendChallenge, trustDevice, notifyNewDevice,
   listDevices, revokeDevice, revokeAllDevices, hashDeviceToken,
@@ -106,6 +106,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     sendUnauthorized(res, 'Invalid email or password.');
+    return;
+  }
+
+  // Checked after the password, so the refusal does not reveal which accounts are staff.
+  if (isRefusedOnPhone(req, user.role.name)) {
+    sendError(res, PHONE_APP_REFUSAL, 403, 'PHONE_APP_PERSONNEL_ONLY');
     return;
   }
 
@@ -297,6 +303,10 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     });
     if (!user || user.accountStatus !== 'ACTIVE' || payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
       sendUnauthorized(res, 'User not found or account is not active/distributed.');
+      return;
+    }
+    if (isRefusedOnPhone(req, user.role.name)) {
+      sendError(res, PHONE_APP_REFUSAL, 403, 'PHONE_APP_PERSONNEL_ONLY');
       return;
     }
 
