@@ -40,11 +40,24 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'System Administration',
+    label: 'Access management',
     items: [
-      { label: 'Operational Reports',icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
-      { label: 'Audit Trail',        icon: 'audit',        path: '/admin/audit',        roles: ['SYSTEM_ADMIN'] },
-      { label: 'System Security',    icon: 'settings',     path: '/admin/settings',     roles: ['SYSTEM_ADMIN'] },
+      { label: 'Sessions & devices', icon: 'credentials',  path: '/admin/access',       roles: ['SYSTEM_ADMIN'] },
+    ],
+  },
+  {
+    label: 'System operations',
+    items: [
+      { label: 'Security overview',  icon: 'settings',     path: '/admin/settings',     roles: ['SYSTEM_ADMIN'] },
+      { label: 'Service health',     icon: 'dashboard',    path: '/admin/health',       roles: ['SYSTEM_ADMIN'] },
+      { label: 'Email delivery',     icon: 'notifications',path: '/admin/email',        roles: ['SYSTEM_ADMIN'] },
+    ],
+  },
+  {
+    label: 'Governance',
+    items: [
+      { label: 'Audit trail',        icon: 'audit',        path: '/admin/audit',        roles: ['SYSTEM_ADMIN'] },
+      { label: 'Operational reports',icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
     ],
   },
   {

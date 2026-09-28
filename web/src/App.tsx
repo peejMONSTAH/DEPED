@@ -19,6 +19,9 @@ const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => 
 const SetupAccount = React.lazy(() => import('./pages/auth/SetupAccount').then(m => ({ default: m.SetupAccount })));
 
 // Admin Pages
+const AccessSessions = React.lazy(() => import('./pages/admin/AccessSessions').then(m => ({ default: m.AccessSessions })));
+const EmailDelivery = React.lazy(() => import('./pages/admin/EmailDelivery').then(m => ({ default: m.EmailDelivery })));
+const ServiceHealth = React.lazy(() => import('./pages/admin/ServiceHealth').then(m => ({ default: m.ServiceHealth })));
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })));
 const AdminNotifications = React.lazy(() => import('./pages/admin/Notifications').then(m => ({ default: m.AdminNotifications })));
 const TransactionQueue = React.lazy(() => import('./pages/admin/TransactionQueue').then(m => ({ default: m.TransactionQueue })));
@@ -179,6 +182,10 @@ export const App: React.FC = () => {
                   </RequireAuth>
                 }
               />
+
+              <Route path="access" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><AccessSessions /></RequireAuth>} />
+              <Route path="email" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><EmailDelivery /></RequireAuth>} />
+              <Route path="health" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><ServiceHealth /></RequireAuth>} />
 
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>

@@ -80,7 +80,8 @@ test('status labels come from one table', () => {
 
 test('the Sidebar and Command Palette share one role-filtered navigation list', () => {
   const nav = src('navigation/navItems.ts');
-  assert.match(nav, /label: 'System Security'/);
+  assert.match(nav, /label: 'Security overview'/);
+  for (const p of ['/admin/access', '/admin/health', '/admin/email']) assert.ok(nav.includes(p), p);
   assert.doesNotMatch(nav, /Settings & Roles/);
   assert.match(src('components/admin/Sidebar.tsx'), /from '\.\.\/\.\.\/navigation\/navItems'/);
   const palette = src('components/common/CommandPalette.tsx');

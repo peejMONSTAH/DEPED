@@ -1,70 +1,80 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { AppIcon } from '../../components/common/AppIcon';
+import { useToast } from '../../contexts/ToastContext';
 import './system-operations.css';
 
-type AuditEvent = { id: number; timestamp: string; userEmail: string; userRole: string; category: string; action: string; resourceType: string; resourceId: number; ipAddress?: string; status: string };
-type Operations = {
-  generatedAt: string;
-  accounts: { total: number; active: number; pending: number; locked: number; passwordChangeRequired: number; deviceVerificationDisabled: number };
-  access: { activeSessions: number; activeTrustedDevices: number; pendingChallenges: number };
-  securityEvents: { failedLogins24h: number; accessDenied24h: number; failedOperations24h: number };
-  delivery: { pending: number; retrying: number; failed: number; delivered24h: number };
-  recentDeliveryFailures: Array<{ id: string; kind: string; attempts: number; availableAt: string; createdAt: string; error: string | null }>;
-};
+/**
+ * Operational exports, built on the server (/admin/reports/:type/export) from
+ * the database, not from whatever the browser happened to load. Each file
+ * carries its filters, row count and a SHA-256 checksum, and every export is
+ * audited. HR decision reports are deliberately not offered here.
+ */
+export const REPORT_TYPES: { type: string; title: string; description: string; ranged?: boolean }[] = [
+  { type: 'accounts', title: 'Account inventory', description: 'Every account with role, status, lockout, password-change and device-verification state.' },
+  { type: 'sessions', title: 'Active sessions', description: 'Signed-in web and phone sessions with their last use and expiry.' },
+  { type: 'devices', title: 'Trusted devices', description: 'Devices that passed an emailed sign-in code, including revoked ones.' },
+  { type: 'auth-failures', title: 'Authentication failures', description: 'Failed and denied sign-ins with account, IP and reason.', ranged: true },
+  { type: 'access-denials', title: 'Access-denial register', description: 'Requests refused by role or station scope.', ranged: true },
+  { type: 'privileged-changes', title: 'Privileged changes', description: 'Account lifecycle and role changes.', ranged: true },
+  { type: 'email-failures', title: 'Email delivery failures', description: 'Messages that exhausted their retries, with masked recipients.' },
+  { type: 'backups', title: 'Backup and restore status', description: 'Reported backup and restore-drill runs.', ranged: true },
+];
 
-const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-const downloadCsv = (name: string, headers: string[], rows: unknown[][]) => {
-  const csv = [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url; link.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`; link.click();
+export async function downloadExport(type: string, params: Record<string, string>) {
+  const res = await apiClient.get(`/admin/reports/${type}/export`, { params, responseType: 'blob' });
+  const name = /filename="([^"]+)"/.exec(String(res.headers['content-disposition'] || ''))?.[1] || `digital201-${type}.csv`;
+  const url = URL.createObjectURL(res.data as Blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
+  return { rows: Number(res.headers['x-export-rows'] || 0), checksum: String(res.headers['x-export-checksum'] || '') };
+}
+
+const errorText = async (err: any) => {
+  const data = err?.response?.data;
+  if (data instanceof Blob) { try { return JSON.parse(await data.text()).message; } catch { /* not json */ } }
+  return data?.message || 'The export could not be generated.';
 };
 
 export const Reports: React.FC = () => {
-  const [operations, setOperations] = useState<Operations | null>(null);
-  const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const load = useCallback(async () => {
-    setLoading(true); setError('');
-    try {
-      const [operationsResponse, auditResponse] = await Promise.all([apiClient.get('/dashboard/system-operations'), apiClient.get('/audit-logs?limit=500')]);
-      setOperations(operationsResponse.data?.data || null);
-      setEvents(Array.isArray(auditResponse.data?.data) ? auditResponse.data.data : []);
-    } catch (err: any) { setError(err?.response?.data?.message || 'Administrator reports could not be loaded.'); }
-    finally { setLoading(false); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
+  const { addToast } = useToast();
+  const today = new Date().toISOString().slice(0, 10);
+  const [from, setFrom] = useState(new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10));
+  const [to, setTo] = useState(today);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [last, setLast] = useState<Record<string, string>>({});
 
-  const securityEvents = useMemo(() => events.filter(event => event.status === 'FAILED' || /LOGIN|LOGOUT|PASSWORD|ACCESS_DENIED|DEVICE/.test(event.action)), [events]);
-  const exportAccounts = () => operations && downloadCsv('system-account-summary', ['Metric', 'Count'], Object.entries(operations.accounts));
-  const exportSecurity = () => downloadCsv('security-events', ['Timestamp', 'Account', 'Role', 'Action', 'Resource', 'Resource ID', 'IP address', 'Status'], securityEvents.map(e => [e.timestamp, e.userEmail, e.userRole, e.action, e.resourceType, e.resourceId, e.ipAddress, e.status]));
-  const exportAudit = () => downloadCsv('system-audit-register', ['Timestamp', 'Account', 'Role', 'Category', 'Action', 'Resource', 'Resource ID', 'Status'], events.map(e => [e.timestamp, e.userEmail, e.userRole, e.category, e.action, e.resourceType, e.resourceId, e.status]));
-  const exportDelivery = () => {
-    if (!operations) return;
-    const summary = Object.entries(operations.delivery).map(([name, value]) => ['Summary', name, value, '', '', '']);
-    const failures = operations.recentDeliveryFailures.map(f => ['Failure', f.kind, '', f.attempts, f.createdAt, f.error]);
-    downloadCsv('email-delivery-operations', ['Record type', 'Kind or metric', 'Count', 'Attempts', 'Created', 'Last error'], [...summary, ...failures]);
+  const run = async (type: string, ranged?: boolean) => {
+    if (busy) return;
+    setBusy(type);
+    try {
+      const r = await downloadExport(type, ranged ? { from: `${from}T00:00:00+08:00`, to: `${to}T23:59:59+08:00` } : {});
+      setLast(l => ({ ...l, [type]: `${r.rows} rows · checksum ${r.checksum.slice(0, 12)}…` }));
+      addToast(`Exported ${r.rows} rows.`, 'SUCCESS');
+    } catch (err) {
+      addToast(await errorText(err), 'ERROR');
+    } finally { setBusy(null); }
   };
-  const reports = operations ? [
-    { title: 'Account access summary', description: 'Activation, lockout, temporary-password, and device-verification totals.', detail: `${operations.accounts.active} active · ${operations.accounts.locked} locked`, action: exportAccounts },
-    { title: 'Security event register', description: 'Authentication, password, device, and denied-access activity from the audit trail.', detail: `${securityEvents.length} events in the loaded register`, action: exportSecurity },
-    { title: 'Email delivery operations', description: 'Pending, retrying, exhausted, and recently delivered workflow messages.', detail: `${operations.delivery.failed} failed · ${operations.delivery.retrying} retrying`, action: exportDelivery },
-    { title: 'System audit register', description: 'Administrative and automated operations retained by Digital 201.', detail: `${events.length} most recent records`, action: exportAudit },
-  ] : [];
 
   return <div className="animate-fade-in sysops-page">
-    <header className="sysops-header"><div><p className="sysops-eyebrow">System administration</p><h1>Operational reports</h1><p>Export evidence for access reviews, incident investigation, and delivery monitoring.</p></div><button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}><AppIcon name="refresh" size={16} /> {loading ? 'Refreshing…' : 'Refresh data'}</button></header>
-    {error ? <section className="sysops-error" role="alert"><div><strong>Reports unavailable</strong><span>{error}</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => void load()}>Try again</button></section>
-    : loading && !operations ? <div className="sysops-loading" aria-busy="true">Preparing administrator reports…</div>
-    : operations ? <>
-      <section className="report-purpose" aria-label="Reporting scope"><AppIcon name="reports" size={22} /><div><strong>These reports describe system operation—not HR decisions.</strong><span>Personnel compliance, plantilla, and promotion reports belong to HRMO workflows. System Administrators receive access, security, delivery, and audit evidence.</span></div></section>
-      <section className="report-grid">{reports.map(report => <article className="report-card" key={report.title}><div><span className="report-kicker">CSV export</span><h2>{report.title}</h2><p>{report.description}</p></div><div className="report-card-footer"><span>{report.detail}</span><button type="button" className="btn btn-secondary btn-sm" onClick={report.action}><AppIcon name="download" size={15} /> Download</button></div></article>)}</section>
-      <section className="report-guidance"><div><h2>Administrator review cadence</h2><p>Use reports as evidence for operational review, not as a substitute for the permanent audit trail.</p></div><ul><li><strong>Daily:</strong> failed email deliveries and locked accounts</li><li><strong>Weekly:</strong> denied access and failed sign-ins</li><li><strong>Monthly:</strong> active access, device verification, and complete audit export</li></ul><Link to="/admin/audit" className="btn btn-secondary btn-sm">Open audit trail</Link></section>
-      <footer className="sysops-updated">Report snapshot generated {new Date(operations.generatedAt).toLocaleString()}</footer>
-    </> : null}
+    <header className="sysops-header"><div><p className="sysops-eyebrow">Governance</p><h1>Operational reports</h1><p>Generated by the server from live records. Each file states its filters, row count and checksum, and every export is recorded in the audit trail.</p></div></header>
+    <section className="report-purpose" aria-label="Reporting scope"><AppIcon name="reports" size={22} /><div><strong>These reports describe system operation, not HR decisions.</strong><span>Personnel, plantilla and promotion reports belong to HRMO workflows.</span></div></section>
+    <section className="sysops-panel" style={{ marginBottom: '1rem' }} aria-label="Date range">
+      <div className="report-range">
+        <label>From <input type="date" className="form-input" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
+        <label>To <input type="date" className="form-input" value={to} min={from} max={today} onChange={e => setTo(e.target.value)} /></label>
+        <span className="text-muted" style={{ fontSize: '.85rem' }}>Applies to reports marked "date range". Limit: 10,000 rows per file.</span>
+      </div>
+    </section>
+    <section className="report-grid">{REPORT_TYPES.map(r => <article className="report-card" key={r.type}>
+      <div><span className="report-kicker">{r.ranged ? 'CSV · date range' : 'CSV · current state'}</span><h2>{r.title}</h2><p>{r.description}</p></div>
+      <div className="report-card-footer"><span>{last[r.type] || ' '}</span>
+        <button type="button" className="btn btn-secondary btn-sm" disabled={busy !== null} onClick={() => void run(r.type, r.ranged)}>
+          <AppIcon name="download" size={15} /> {busy === r.type ? 'Exporting…' : 'Export'}
+        </button></div>
+    </article>)}</section>
+    <section className="report-guidance"><div><h2>Review cadence</h2><p>Reports are evidence for review; the audit trail remains the permanent record.</p></div><ul><li><strong>Daily:</strong> email failures and locked accounts</li><li><strong>Weekly:</strong> access denials and failed sign-ins</li><li><strong>Monthly:</strong> account inventory, sessions, devices, privileged changes and backups</li></ul><Link to="/admin/audit" className="btn btn-secondary btn-sm">Open audit trail</Link></section>
   </div>;
 };
