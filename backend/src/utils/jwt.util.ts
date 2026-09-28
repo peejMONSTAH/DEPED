@@ -8,6 +8,8 @@ export interface JwtPayload {
   email: string;
   jti?: string;
   pwdv: string;
+  /** Access tokens only: the stored (hashed) refresh token of the session that issued it. */
+  sid?: string;
 }
 
 export const passwordTokenVersion = (passwordHash: string): string =>

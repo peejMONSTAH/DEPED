@@ -42,7 +42,26 @@ export const invalidateAuthUserCache = (userId?: number): void => {
   } else {
     authUserCache.clear();
   }
+  // Session answers are cheap to rebuild; drop them all so a sign-out lands now.
+  sessionCache.clear();
 };
+
+/** Whether the session behind an access token is still live, cached briefly. */
+const sessionCache = new Map<string, { live: boolean; at: number }>();
+const SESSION_CACHE_TTL_MS = 10_000;
+async function sessionIsLive(userId: number, sid: string | undefined): Promise<boolean> {
+  const key = sid || `user:${userId}`;
+  const hit = sessionCache.get(key);
+  if (hit && Date.now() - hit.at < SESSION_CACHE_TTL_MS) return hit.live;
+  const now = new Date();
+  // Tokens issued before sessions were stamped (no sid) need any live session.
+  const live = sid
+    ? Boolean(await prisma.refreshToken.findFirst({ where: { token: sid, userId, revoked: false, expiresAt: { gt: now } }, select: { id: true } }))
+    : (await prisma.refreshToken.count({ where: { userId, revoked: false, expiresAt: { gt: now } } })) > 0;
+  if (sessionCache.size > 5000) sessionCache.clear();
+  sessionCache.set(key, { live, at: Date.now() });
+  return live;
+}
 
 /**
  * Middleware: Verifies JWT access token and attaches user to req.user
@@ -138,6 +157,11 @@ export const authenticate = async (
     }
     if (payload.pwdv !== passwordTokenVersion(user.passwordHash)) {
       sendUnauthorized(res, 'This session is no longer valid. Please sign in again.');
+      return;
+    }
+    // A signed-out session ends its access tokens now, not when they expire.
+    if (!docTokenPayload && !(await sessionIsLive(user.id, (payload as any).sid))) {
+      sendError(res, 'You were signed out. Please sign in again.', 401, 'SESSION_REVOKED');
       return;
     }
     // A document link is bound to the role it was issued under. Scope is still

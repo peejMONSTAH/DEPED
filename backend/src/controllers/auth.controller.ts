@@ -142,8 +142,10 @@ const completeSignIn = async (user: any, req: Request, res: Response, extra: Rec
   // Surfaced so the client can go straight to the change screen; the API enforces
   // it regardless of what the client does with this.
   const mustChangePassword = user.mustChangePassword === true;
-  const accessToken = generateAccessToken(tokenPayload);
   const refreshToken = generateRefreshToken(tokenPayload);
+  // sid ties this access token to its session, so signing the session out
+  // ends the access token on the next request, not when it expires.
+  const accessToken = generateAccessToken({ ...tokenPayload, sid: hashRefreshToken(refreshToken) });
 
   // Save refresh token & reset failed attempts
   const expiresAt = new Date();
@@ -300,7 +302,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const newAccessToken = generateAccessToken({ userId: user.id, email: user.email, role: user.role.name, pwdv: passwordTokenVersion(user.passwordHash) });
+    const newAccessToken = generateAccessToken({ userId: user.id, email: user.email, role: user.role.name, pwdv: passwordTokenVersion(user.passwordHash), sid: storedToken.token });
 
     sendSuccess(res, { accessToken: newAccessToken });
   } catch {
@@ -447,18 +449,19 @@ export const magicLogin = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const accessToken = generateAccessToken({
+    const refreshToken = generateRefreshToken({
       userId: user.id,
       role: user.role.name,
       email: user.email,
       pwdv: passwordTokenVersion(user.passwordHash),
     });
 
-    const refreshToken = generateRefreshToken({
+    const accessToken = generateAccessToken({
       userId: user.id,
       role: user.role.name,
       email: user.email,
       pwdv: passwordTokenVersion(user.passwordHash),
+      sid: hashRefreshToken(refreshToken),
     });
 
     // Consume the one-time link and create its session atomically.
@@ -561,8 +564,8 @@ export const completeAccountSetup = async (req: Request, res: Response): Promise
 
   const newHash = await hashPassword(newPassword);
   const pwdv = passwordTokenVersion(newHash);
-  const accessToken = generateAccessToken({ userId: user.id, role: user.role.name, email: user.email, pwdv });
   const refreshTokenValue = generateRefreshToken({ userId: user.id, role: user.role.name, email: user.email, pwdv });
+  const accessToken = generateAccessToken({ userId: user.id, role: user.role.name, email: user.email, pwdv, sid: hashRefreshToken(refreshTokenValue) });
   const linkExpiresAt = payload.exp ? new Date(payload.exp * 1000) : new Date(Date.now() + 48 * 60 * 60 * 1000);
 
   try {

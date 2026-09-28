@@ -124,6 +124,9 @@ test('sessions: listed without tokens, revocation stops refresh, bulk sign-out n
   assert.equal(revoked.json.data.result, 'REVOKED');
   const refresh = await http(null, 'POST', '/auth/refresh', { refreshToken: teacher.refreshToken });
   assert.notEqual(refresh.status, 200, 'revoked session cannot refresh');
+  const now = await http(teacher.accessToken, 'GET', '/notifications');
+  assert.equal(now.status, 401, 'the access token stops working at once');
+  assert.equal(now.json.code, 'SESSION_REVOKED');
   const own = await http(accessToken, 'DELETE', `/admin/accounts/${U.admin.id}/sessions`, {});
   assert.equal(own.json.code, 'OWN_SESSION_CONFIRM_REQUIRED');
   const all = await http(accessToken, 'DELETE', `/admin/accounts/${U.teacher.id}/sessions`, { reason: 'test' });
