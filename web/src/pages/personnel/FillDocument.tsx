@@ -161,7 +161,7 @@ export default function FillDocument() {
     {error && <p className="form-error" role="alert">{error}</p>}
     {loading ? <p role="status">Loading your template and saved draft…</p> : template && <>
       <aside className="form-notice"><strong>Before you fill this form</strong><p>{template.notice}</p><a href={template.source} target="_blank" rel="noreferrer">Official template source ↗</a></aside>
-      {locked && <p className="form-notice">This transaction or document is locked. You can view or download the saved draft, but cannot edit or attach it.</p>}
+      {locked && <p className="form-notice">Locked. You can view or download the draft, but not change it.</p>}
       <div className="form-toolbar">
         <button className="btn btn-secondary" disabled={busy || locked} onClick={() => perform('save')}>Save draft</button>
         <button className="btn btn-secondary" disabled={busy} onClick={() => perform('preview')}>Preview PDF</button>
@@ -171,7 +171,7 @@ export default function FillDocument() {
       <div className="form-editor-grid">
         <section className="form-controls" aria-label="Detected form fields">
           <h2>Fields on page {pageIndex + 1}</h2>
-          <p>The blanks in this official template are already mapped. Choose a named field and enter the answer—no positioning or text-size adjustment is needed.</p>
+          <p>Fill in each field below; the form is laid out for you.</p>
           {pageFields.length === 0 ? <p className="form-empty-fields">This page has no personnel fields to complete.</p> :
             <div className="form-field-list">{pageFields.map(field => {
               const entry = draft.entries.find(item => item.id === fieldEntryId(field, pageIndex, draft.pages));
@@ -187,7 +187,7 @@ export default function FillDocument() {
             <h2>Previous draft answers</h2><p>These older answers covered multiple blanks. Copy each answer into the matching fields, then clear it here before exporting.</p>
             {previousAnswers.map(entry => <div key={entry.id}><label>{entry.id.replace('field:', '')}<textarea readOnly value={entry.text} /></label><button type="button" className="btn btn-secondary" onClick={() => change({ ...draft, entries: draft.entries.filter(item => item.id !== entry.id) })}>Clear transferred answer</button></div>)}
           </fieldset>}
-          <p className="form-caption">Drafts are stored with your transaction—not in browser storage. Save before leaving. Typed names do not replace required signatures.</p>
+          <p className="form-caption">Save before leaving. Typed names do not replace signatures.</p>
         </section>
         <section className="form-page-section" aria-label="Official template pages">
           <div className="form-toolbar">

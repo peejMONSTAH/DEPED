@@ -93,7 +93,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'You are logging in with a temporary password. You must update your password to continue (min 12 characters).',
+                'Set your own password to continue (at least 12 characters).',
                 style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 20),

@@ -353,7 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             SizedBox(height: isCompact ? 16 : 24),
                             Text(
-                              'Protected by DepEd Enterprise Security · 201 File Automation',
+                              'City Schools Division of Koronadal',
                               textAlign: TextAlign.center,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,

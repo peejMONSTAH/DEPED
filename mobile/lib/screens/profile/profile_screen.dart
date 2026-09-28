@@ -96,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Fetching your verified DepEd personnel records from the SDO database.',
+                  'Loading your records…',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
                     color: AppTheme.textSecondary,

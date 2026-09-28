@@ -689,7 +689,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
     if (_isSubmitting) return;
 
     if (widget.cycle['status'] == 'CANCELLED') {
-      _showErrorSnackBar('This promotion cycle has been cancelled or discontinued and is no longer accepting applications.');
+      _showErrorSnackBar('This vacancy is closed to applications.');
       return;
     }
 
@@ -719,13 +719,13 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
     if (!_omnibusSwornAgreed) {
       _showErrorSnackBar(
-          'You must agree to the Omnibus Sworn Statement on Certification of Authenticity & Veracity.');
+          'Tick the certification of authenticity to continue.');
       return;
     }
 
     if (!_dataPrivacyConsentAgreed) {
       _showErrorSnackBar(
-          'You must agree to the Data Privacy Consent before submitting.');
+          'Tick the data privacy consent to continue.');
       return;
     }
 
@@ -928,7 +928,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                             color: AppTheme.textPrimary),
                       ),
                       Text(
-                        'Items (a)–(k) · Scan, upload, or choose from My 201 Files',
+                        'Scan, upload or pick from your 201 files',
                         style: GoogleFonts.inter(
                             fontSize: 12,
                             height: 1.35,

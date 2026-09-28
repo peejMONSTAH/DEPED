@@ -34,7 +34,7 @@ export const Settings: React.FC = () => {
 
   return <div className="animate-fade-in sysops-page">
     <header className="sysops-header">
-      <div><p className="sysops-eyebrow">System administration</p><h1>System operations</h1><p>Monitor account access, authentication safeguards, and notification delivery from live system records.</p></div>
+      <div><p className="sysops-eyebrow">System administration</p><h1>Security overview</h1><p>Accounts, sign-ins and email at a glance.</p></div>
       <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}><AppIcon name="refresh" size={16} /> {loading ? 'Refreshing…' : 'Refresh status'}</button>
     </header>
 
@@ -80,7 +80,7 @@ export const Settings: React.FC = () => {
         </section>
 
         <section className="sysops-panel sysops-span">
-          <div className="sysops-panel-heading"><div><h2>Email delivery queue</h2><p>Messages retry automatically; exhausted deliveries require configuration or recipient review.</p></div><Link to="/admin/reports">Export report</Link></div>
+          <div className="sysops-panel-heading"><div><h2>Email delivery queue</h2><p>Failed messages are listed under Email delivery.</p></div><Link to="/admin/reports">Export report</Link></div>
           <div className="sysops-delivery-strip"><div><span>Pending</span><strong>{data.delivery.pending}</strong></div><div><span>Retrying</span><strong>{data.delivery.retrying}</strong></div><div><span>Failed</span><strong className={data.delivery.failed ? 'danger' : ''}>{data.delivery.failed}</strong></div><div><span>Delivered, 24h</span><strong>{data.delivery.delivered24h}</strong></div></div>
           {data.recentDeliveryFailures.length > 0 && <div className="sysops-event-list compact">{data.recentDeliveryFailures.map(item => <article key={item.id}><span className="sysops-event-mark warning" /><div><strong>{humanize(item.kind)}</strong><span>{item.error || 'Delivery failed without a provider response.'}</span></div><span>{item.attempts} attempt{item.attempts === 1 ? '' : 's'}</span></article>)}</div>}
         </section>

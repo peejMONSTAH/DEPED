@@ -320,7 +320,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
         _uploadState = const UploadStateInfo(
           state: UploadProgressState.error,
           errorMessage:
-              'A document is already on file for this requirement. Tap "Replace" to update it with your selected file.',
+              'Already on file. Tap Replace to use this file instead.',
         );
       });
       return;
@@ -443,7 +443,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
         _uploadState = UploadStateInfo(
           state: UploadProgressState.error,
           errorMessage: isConflict
-              ? 'A document is already on file for this requirement. Tap "Replace" to update it with your selected file.'
+              ? 'Already on file. Tap Replace to use this file instead.'
               : errorStr.replaceAll('Exception:', '').trim(),
         );
       });
@@ -551,7 +551,7 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
           ),
           const SizedBox(height: 10),
           Text(
-            'You already have an active document for this requirement. To update it with a new file or scan, use Replace to preserve your submission history.',
+            'Already on file. Use Replace to update it; the old copy is kept in history.',
             style: GoogleFonts.inter(
               fontSize: 12,
               height: 1.4,

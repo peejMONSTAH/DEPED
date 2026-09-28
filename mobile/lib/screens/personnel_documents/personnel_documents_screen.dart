@@ -682,8 +682,8 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
       icon: LucideIcons.fileUp,
       title: filtered ? 'Nothing matches that' : 'No documents yet',
       message: filtered
-          ? 'No documents match this filter. Try a different status, or clear the search.'
-          : 'Scan a physical credential with your camera, or upload a PDF, to start building your 201 file.',
+          ? 'Nothing matches. Clear the search or pick another filter.'
+          : 'Scan a document or upload a PDF to start.',
       action: filtered
           ? null
           : ElevatedButton.icon(
