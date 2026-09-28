@@ -631,7 +631,7 @@ export const PersonnelHome: React.FC = () => {
           {roleLabel && (
             <span
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 padding: '3px 10px',
                 borderRadius: 9999,
@@ -742,7 +742,7 @@ export const PersonnelHome: React.FC = () => {
                   </h3>
                   <span
                     style={{
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: 700,
                       padding: '2px 8px',
                       borderRadius: 9999,
@@ -768,7 +768,7 @@ export const PersonnelHome: React.FC = () => {
                   justifyContent: 'center',
                   gap: 8,
                   padding: '10px 18px',
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: 700,
                   borderRadius: 12,
                   textDecoration: 'none',
@@ -786,7 +786,7 @@ export const PersonnelHome: React.FC = () => {
                   justifyContent: 'center',
                   gap: 8,
                   padding: '10px 20px',
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: 700,
                   borderRadius: 12,
                   textDecoration: 'none',
@@ -837,7 +837,7 @@ export const PersonnelHome: React.FC = () => {
                         <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
                           All 201 Applications Up to Date
                         </div>
-                        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                        <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginTop: 2 }}>
                           No pending submissions or bottlenecks. Your 201 records are verified and archived.
                         </div>
                       </div>
@@ -851,7 +851,7 @@ export const PersonnelHome: React.FC = () => {
                         gap: 8,
                         textDecoration: 'none',
                         padding: '10px 20px',
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: 700,
                         borderRadius: 999
                       }}
@@ -874,20 +874,20 @@ export const PersonnelHome: React.FC = () => {
                       gap: 12
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--color-primary)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--color-primary)' }}>
                           TRX-{latestApproved.id}
                         </span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>
                           {latestApproved.transactionType?.name || 'Promotion / Appointment'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span className="badge badge-success" style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999 }}>
+                        <span className="badge badge-success" style={{ fontSize: 13, padding: '4px 10px', borderRadius: 999 }}>
                           APPROVED BY HRMO
                         </span>
                         <Link
                           to={`/personnel/checklist?txId=${latestApproved.id}`}
-                          style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}
+                          style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}
                         >
                           View Dossier →
                         </Link>
@@ -949,11 +949,11 @@ export const PersonnelHome: React.FC = () => {
                       borderRadius: 999,
                       background: 'var(--color-bg-tertiary)',
                       border: '1px solid var(--color-border)',
-                      fontSize: 11.5,
+                      fontSize: 13,
                       fontWeight: 600,
                       color: 'var(--color-text-secondary)'
                     }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>1</span>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>1</span>
                       Open Assigned Transaction
                     </div>
                     <div style={{
@@ -964,11 +964,11 @@ export const PersonnelHome: React.FC = () => {
                       borderRadius: 999,
                       background: 'var(--color-bg-tertiary)',
                       border: '1px solid var(--color-border)',
-                      fontSize: 11.5,
+                      fontSize: 13,
                       fontWeight: 600,
                       color: 'var(--color-text-secondary)'
                     }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>2</span>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>2</span>
                       Upload PDF Checklist
                     </div>
                     <div style={{
@@ -979,11 +979,11 @@ export const PersonnelHome: React.FC = () => {
                       borderRadius: 999,
                       background: 'var(--color-bg-tertiary)',
                       border: '1px solid var(--color-border)',
-                      fontSize: 11.5,
+                      fontSize: 13,
                       fontWeight: 600,
                       color: 'var(--color-text-secondary)'
                     }}>
-                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>3</span>
+                      <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--color-primary)', color: 'var(--color-text-inverse, #1f3a2c)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800 }}>3</span>
                       AO II & HRMO Live Evaluation
                     </div>
                   </div>
@@ -1024,7 +1024,7 @@ export const PersonnelHome: React.FC = () => {
                         Submitted: {new Date(tx.createdAt).toLocaleDateString()}
                       </div>
                       <div style={{ marginTop: 12 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
                           <span className="text-muted">Document Compliance Score</span>
                           <span className="font-semibold" style={{ color: 'var(--color-primary)' }}>
                             {tx.complianceScore !== undefined ? `${tx.complianceScore}%` : 'In Progress'}
@@ -1055,7 +1055,7 @@ export const PersonnelHome: React.FC = () => {
                       onClick={() => setPromotionFilter('ALL')}
                       style={{
                         padding: '4px 10px',
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: 700,
                         borderRadius: '9999px',
                         border: 'none',
@@ -1072,7 +1072,7 @@ export const PersonnelHome: React.FC = () => {
                       onClick={() => setPromotionFilter('MY_APPLICATIONS')}
                       style={{
                         padding: '4px 10px',
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: 700,
                         borderRadius: '9999px',
                         border: 'none',
@@ -1102,7 +1102,7 @@ export const PersonnelHome: React.FC = () => {
                     borderRadius: '9999px',
                     border: '1px solid var(--color-border)',
                     fontWeight: 700,
-                    fontSize: 11,
+                    fontSize: 13,
                     background: 'var(--color-bg-secondary)',
                     color: 'var(--color-primary)',
                     cursor: 'pointer',
@@ -1142,7 +1142,7 @@ export const PersonnelHome: React.FC = () => {
                 <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6, color: 'var(--color-text-primary)' }}>
                   No Active Vacancies Right Now
                 </div>
-                <div style={{ maxWidth: 420, margin: '0 auto', fontSize: 13, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
+                <div style={{ maxWidth: 420, margin: '0 auto', fontSize: 14, lineHeight: 1.5, color: 'var(--color-text-secondary)' }}>
                   All promotion and reclassification cycles are currently closed or in evaluation. Check back soon for upcoming DepEd cycles!
                 </div>
               </div>
@@ -1417,7 +1417,7 @@ export const PersonnelHome: React.FC = () => {
                   onChange={(e) => setPlantillaSearch(e.target.value)}
                   style={{
                     width: '100%',
-                    fontSize: 13,
+                    fontSize: 14,
                     padding: '9px 16px 9px 42px',
                     paddingLeft: '42px',
                     borderRadius: 10,
@@ -1428,7 +1428,7 @@ export const PersonnelHome: React.FC = () => {
               </div>
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: 13,
                   color: 'var(--color-text-secondary)',
                   whiteSpace: 'nowrap',
                   background: 'var(--color-bg-secondary)',
@@ -1509,7 +1509,7 @@ export const PersonnelHome: React.FC = () => {
                           </span>
                           <span
                             style={{
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: 700,
                               padding: '2px 8px',
                               borderRadius: 6,
@@ -1523,7 +1523,7 @@ export const PersonnelHome: React.FC = () => {
                           </span>
                           <span
                             style={{
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: 600,
                               padding: '2px 8px',
                               borderRadius: 6,
@@ -1535,13 +1535,13 @@ export const PersonnelHome: React.FC = () => {
                             {trackName} Track
                           </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--color-text-secondary)', flexWrap: 'wrap' }}>
                           <span
                             style={{
                               fontFamily: 'var(--font-mono)',
                               color: 'var(--color-text-primary)',
                               fontWeight: 700,
-                              fontSize: 11.5,
+                              fontSize: 13,
                               background: 'var(--color-bg-card)',
                               border: '1px solid var(--color-border)',
                               padding: '1px 7px',
@@ -1562,7 +1562,7 @@ export const PersonnelHome: React.FC = () => {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 6,
-                              fontSize: 11.5,
+                              fontSize: 13,
                               color: 'var(--color-text-primary)',
                               background: 'rgba(59, 130, 246, 0.08)',
                               padding: '4px 10px',
@@ -1574,7 +1574,7 @@ export const PersonnelHome: React.FC = () => {
                             <AppIcon name="promotions" size={13} color="#2f7d52" />
                             <span>
                               Linked Cycle: <strong>{cycle.name}</strong>{' '}
-                              <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 11 }}>({transactionStatusLabel(cycle.status)})</span>
+                              <span style={{ color: '#16a34a', fontWeight: 700, fontSize: 13 }}>({transactionStatusLabel(cycle.status)})</span>
                             </span>
                           </div>
                         )}
@@ -1585,7 +1585,7 @@ export const PersonnelHome: React.FC = () => {
                           <span
                             style={{
                               padding: '6px 14px',
-                              fontSize: 11.5,
+                              fontSize: 13,
                               fontWeight: 700,
                               borderRadius: 8,
                               background: 'var(--color-bg-tertiary)',
@@ -1604,7 +1604,7 @@ export const PersonnelHome: React.FC = () => {
                                 <span
                                   style={{
                                     padding: '5px 10px',
-                                    fontSize: 11,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     borderRadius: 6,
                                     background: statusInfo.badgeBg,
@@ -1624,7 +1624,7 @@ export const PersonnelHome: React.FC = () => {
                                 onClick={() => handleOpenChecklistModal(cycle)}
                                 style={{
                                   padding: '6px 12px',
-                                  fontSize: 11.5,
+                                  fontSize: 13,
                                   fontWeight: 700,
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -1645,7 +1645,7 @@ export const PersonnelHome: React.FC = () => {
                           <span
                             style={{
                               padding: '6px 14px',
-                              fontSize: 11.5,
+                              fontSize: 13,
                               fontWeight: 700,
                               borderRadius: 8,
                               background: 'rgba(239, 68, 68, 0.1)',
@@ -1668,7 +1668,7 @@ export const PersonnelHome: React.FC = () => {
                                 padding: 0,
                                 margin: 0,
                                 font: 'inherit',
-                                fontSize: 11.5,
+                                fontSize: 13,
                                 fontWeight: 700,
                                 color: '#ef4444',
                                 textDecoration: 'underline',
@@ -1702,7 +1702,7 @@ export const PersonnelHome: React.FC = () => {
                         ) : hasCycle ? (
                           <span
                             style={{
-                              fontSize: 11.5,
+                              fontSize: 13,
                               fontWeight: 600,
                               padding: '6px 14px',
                               borderRadius: 8,
@@ -1717,7 +1717,7 @@ export const PersonnelHome: React.FC = () => {
                         ) : (
                           <span
                             style={{
-                              fontSize: 11.5,
+                              fontSize: 13,
                               fontWeight: 600,
                               padding: '6px 14px',
                               borderRadius: 8,
@@ -1857,7 +1857,7 @@ export const PersonnelHome: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                     <span
                       style={{
-                        fontSize: 10.5,
+                        fontSize: 13,
                         fontWeight: 800,
                         letterSpacing: '0.04em',
                         padding: '3px 8px',
@@ -1869,7 +1869,7 @@ export const PersonnelHome: React.FC = () => {
                     >
                       {isChecklistReadOnly ? 'Checklist Submitted (Read-Only)' : (selectedCycleForChecklist.hasApplied ? 'Checklist Submission Required' : 'DepEd Promotion Dossier')}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                    <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
                       DepEd Order No. 007, s. 2023
                     </span>
                   </div>
@@ -1885,7 +1885,7 @@ export const PersonnelHome: React.FC = () => {
                     </strong>
                     {' · '}{vacancyTypeLabel(selectedCycleForChecklist.type)}
                     {((selectedCycleForChecklist as any).rulesConfigurationJson || {}).plantillaItemNumber && (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.76rem', color: 'var(--color-text-muted)' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                         {' · '}{((selectedCycleForChecklist as any).rulesConfigurationJson || {}).plantillaItemNumber}
                       </span>
                     )}
@@ -1945,7 +1945,7 @@ export const PersonnelHome: React.FC = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         Name of Applicant
                       </label>
                       <input
@@ -1959,7 +1959,7 @@ export const PersonnelHome: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         Application Code
                       </label>
                       <input
@@ -1972,7 +1972,7 @@ export const PersonnelHome: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         Office / School Station
                       </label>
                       <input
@@ -1986,7 +1986,7 @@ export const PersonnelHome: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         Contact Number
                       </label>
                       <input
@@ -2000,7 +2000,7 @@ export const PersonnelHome: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         Region
                       </label>
                       <input
@@ -2014,7 +2014,7 @@ export const PersonnelHome: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
+                      <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: 4 }}>
                         Ethnicity / Cultural Community
                       </label>
                       <input
@@ -2061,7 +2061,7 @@ export const PersonnelHome: React.FC = () => {
                       <div style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--color-text-primary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         2. Documentary Requirements Checklist (Annex C Items a – k)
                       </div>
-                      <div style={{ fontSize: '0.76rem', color: 'var(--color-text-muted)' }}>
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                         Items marked <strong style={{ color: 'var(--color-text-secondary)' }}>Required</strong> must be attached before you can submit.
                       </div>
                     </div>
@@ -2111,7 +2111,7 @@ export const PersonnelHome: React.FC = () => {
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: 5,
-                                  fontSize: '0.76rem',
+                                  fontSize: '0.8125rem',
                                   fontWeight: 700,
                                   color: '#059669',
                                   background: 'rgba(16, 185, 129, 0.12)',
@@ -2140,7 +2140,7 @@ export const PersonnelHome: React.FC = () => {
                                     background: 'none',
                                     border: 'none',
                                     color: 'var(--color-primary)',
-                                    fontSize: '0.76rem',
+                                    fontSize: '0.8125rem',
                                     cursor: 'pointer',
                                     textDecoration: 'underline',
                                     padding: 0,
@@ -2157,7 +2157,7 @@ export const PersonnelHome: React.FC = () => {
                                     background: 'none',
                                     border: 'none',
                                     color: '#dc2626',
-                                    fontSize: '0.76rem',
+                                    fontSize: '0.8125rem',
                                     cursor: 'pointer',
                                     textDecoration: 'underline',
                                     padding: 0,
@@ -2181,7 +2181,7 @@ export const PersonnelHome: React.FC = () => {
                                 gap: 4,
                                 padding: '6px 12px',
                                 borderRadius: 6,
-                                fontSize: '0.75rem',
+                                fontSize: '0.8125rem',
                                 fontWeight: 700,
                                 background: 'var(--color-bg-secondary, #ffffff)',
                                 border: '1px solid var(--color-border)',
@@ -2209,7 +2209,7 @@ export const PersonnelHome: React.FC = () => {
                                 gap: 4,
                                 padding: '6px 12px',
                                 borderRadius: 6,
-                                fontSize: '0.75rem',
+                                fontSize: '0.8125rem',
                                 fontWeight: 700,
                                 background: 'rgba(59, 130, 246, 0.08)',
                                 border: '1px solid rgba(59, 130, 246, 0.25)',
@@ -2226,7 +2226,7 @@ export const PersonnelHome: React.FC = () => {
                         {item.submitted && isChecklistReadOnly && (
                           <span
                             style={{
-                              fontSize: '0.76rem',
+                              fontSize: '0.8125rem',
                               fontWeight: 700,
                               color: '#059669',
                               display: 'inline-flex',
@@ -2239,7 +2239,7 @@ export const PersonnelHome: React.FC = () => {
                         )}
 
                         {!item.submitted && isChecklistReadOnly && (
-                          <span style={{ fontSize: '0.76rem', color: 'var(--color-text-muted)' }}>
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                             Not submitted
                           </span>
                         )}
@@ -2260,7 +2260,7 @@ export const PersonnelHome: React.FC = () => {
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 10,
-                      fontSize: '0.8rem',
+                      fontSize: '0.8125rem',
                       lineHeight: 1.5,
                       color: 'var(--color-text-primary)',
                       cursor: isChecklistReadOnly ? 'default' : 'pointer',
@@ -2284,7 +2284,7 @@ export const PersonnelHome: React.FC = () => {
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 10,
-                      fontSize: '0.8rem',
+                      fontSize: '0.8125rem',
                       lineHeight: 1.5,
                       color: 'var(--color-text-primary)',
                       cursor: isChecklistReadOnly ? 'default' : 'pointer',
@@ -2463,7 +2463,7 @@ export const PersonnelHome: React.FC = () => {
                     <h4 id="picker-201-title" style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800 }}>
                       Select 201 File for Item ({picking201ForCode.toUpperCase()})
                     </h4>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
                       {targetReq?.title ? `Requirement: ${targetReq.title}` : 'Attach an existing file from your digital 201 profile records.'}
                     </div>
                   </div>
@@ -2513,7 +2513,7 @@ export const PersonnelHome: React.FC = () => {
                           ? 'No uploaded files found in your digital 201 records.'
                           : 'No 201 files match your search.'}
                       </p>
-                      <span style={{ fontSize: '0.78rem' }}>
+                      <span style={{ fontSize: '0.8125rem' }}>
                         {validDocs.length === 0
                           ? 'Please use the "Upload File" option in the checklist or upload documents in My 201 Files first.'
                           : 'Try adjusting your search query to find your document.'}
@@ -2541,16 +2541,16 @@ export const PersonnelHome: React.FC = () => {
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
                               {isRecommended && (
-                                <span style={{ fontSize: '0.625rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#059669', textTransform: 'uppercase' }}>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(16, 185, 129, 0.15)', color: '#059669', textTransform: 'uppercase' }}>
                                   Recommended
                                 </span>
                               )}
                               {isDocExpired && (
-                                <span style={{ fontSize: '0.625rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', textTransform: 'uppercase' }}>
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', textTransform: 'uppercase' }}>
                                   Expired
                                 </span>
                               )}
-                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
                                 {doc.documentTypeName || '201 File'}
                               </span>
                             </div>
@@ -2567,7 +2567,7 @@ export const PersonnelHome: React.FC = () => {
                             >
                               {doc.originalFileName || doc.documentTypeName || '201 Document'}
                             </div>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
                               {[
                                 formatFileSize(doc.fileSize),
                                 formatUploadedOn(doc.uploadedAt || doc.createdAt),
@@ -2585,7 +2585,7 @@ export const PersonnelHome: React.FC = () => {
                                 fileSize: doc.fileSize || undefined,
                                 fileUrl: doc.fileUrl || `/personnel/documents/${doc.id}/file`,
                               })}
-                              style={{ fontSize: '0.75rem', padding: '6px 10px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              style={{ fontSize: '0.8125rem', padding: '6px 10px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                               title="Preview document before attaching"
                             >
                               <AppIcon name="view" size={13} /> Preview
@@ -2594,7 +2594,7 @@ export const PersonnelHome: React.FC = () => {
                               type="button"
                               className="btn btn-primary btn-sm"
                               onClick={() => handleAttachFrom201(picking201ForCode, doc)}
-                              style={{ fontSize: '0.75rem', padding: '6px 12px', borderRadius: 6, fontWeight: 700 }}
+                              style={{ fontSize: '0.8125rem', padding: '6px 12px', borderRadius: 6, fontWeight: 700 }}
                             >
                               Attach File
                             </button>

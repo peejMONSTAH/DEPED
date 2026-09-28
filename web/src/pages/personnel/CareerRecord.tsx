@@ -156,7 +156,7 @@ export const CareerRecord: React.FC = () => {
           <h3 style={{ fontWeight: 700, fontSize: 'var(--text-sm)', margin: 0, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Service Record Details (Verified 201 File)
           </h3>
-          <span className="badge badge-approved" style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span className="badge badge-approved" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <AppIcon name="security" size={11} /> DB Synchronized
           </span>
         </div>
@@ -188,7 +188,7 @@ export const CareerRecord: React.FC = () => {
         <h3 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, color: 'var(--color-text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Interactive Career Timeline
         </h3>
-        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
           {careerTimeline.length} Milestone{careerTimeline.length === 1 ? '' : 's'} Recorded
         </span>
       </div>
@@ -222,7 +222,7 @@ export const CareerRecord: React.FC = () => {
                   <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
                     {entry.event}
                   </span>
-                  <span className={`badge ${entry.status === 'PENDING' ? 'badge-pending' : 'badge-approved'}`} style={{ fontSize: 10 }}>{entry.status === 'PENDING' ? 'PENDING REQUIREMENTS' : entry.status}</span>
+                  <span className={`badge ${entry.status === 'PENDING' ? 'badge-pending' : 'badge-approved'}`} style={{ fontSize: 13 }}>{entry.status === 'PENDING' ? 'PENDING REQUIREMENTS' : entry.status}</span>
                 </div>
                 <div className="text-xs text-muted flex gap-3" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -231,7 +231,7 @@ export const CareerRecord: React.FC = () => {
                   <span>Ref: {entry.ref}</span>
                   <span style={{ fontWeight: 600, color: 'var(--color-primary-light)' }}>{entry.salary}</span>
                   {entry.remarks && (
-                    <span style={{ color: 'var(--color-text-muted)', fontSize: 11 }}>• {entry.remarks}</span>
+                    <span style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>• {entry.remarks}</span>
                   )}
                 </div>
               </div>

@@ -154,7 +154,7 @@ export const UploadDocument: React.FC = () => {
           <AppIcon name="lock" size={20} color="#f85149" />
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f85149' }}>Uploads are closed</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: 2 }}>
               {lockReason}
             </div>
           </div>
@@ -213,7 +213,7 @@ export const UploadDocument: React.FC = () => {
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 12, maxHeight: 420, overflowY: 'auto', paddingRight: 4 }}>
                 {fieldsForTemplate(structuredData.templateId).filter(field => structuredData.fields[field.key]?.trim()).map(field => (
-                  <label key={field.key} style={{ display: 'grid', gap: 5, fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                  <label key={field.key} style={{ display: 'grid', gap: 5, fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
                     {field.label}
                     <input
                       className="form-input"

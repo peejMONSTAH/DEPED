@@ -77,7 +77,7 @@ export const MyTransactions: React.FC = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                   <div style={{ minWidth: 0, flex: '1 1 200px' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#007bff', fontSize: 12, marginRight: 8 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#007bff', fontSize: 13, marginRight: 8 }}>
                       TRX-{tx.id}
                     </span>
                     <strong style={{ fontSize: 14 }}>{tx.transactionType?.name || 'HR Transaction'}</strong>
@@ -91,7 +91,7 @@ export const MyTransactions: React.FC = () => {
 
                 {/* 4-Stage Live Progress Bar */}
                 <div style={{ background: 'var(--color-bg-secondary, rgba(0,0,0,0.03))', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--color-border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontSize: 11, marginBottom: 6, fontWeight: 600 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6, fontSize: 13, marginBottom: 6, fontWeight: 600 }}>
                     <span style={{ color: tracker.color, display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
                       <AppIcon name="location" size={12} color={tracker.color} /> {tracker.label}
                     </span>

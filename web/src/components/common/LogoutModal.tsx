@@ -199,16 +199,16 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 <div style={{ fontWeight: 800, fontSize: '14px', color: '#1f3a2c' }}>
                   {fullName}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>
+                <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>
                   {roleName}
                 </div>
-                <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {displayUser?.email || ''}
                 </div>
               </div>
             </div>
 
-            <p style={{ fontSize: '13px', color: '#4B5563', lineHeight: 1.5, margin: '0 0 16px 0' }}>
+            <p style={{ fontSize: '14px', color: '#4B5563', lineHeight: 1.5, margin: '0 0 16px 0' }}>
               Are you sure you want to end your active session? You will need to re-authenticate with your DepEd credentials to access the 201 HRIS portal.
             </p>
 
@@ -217,7 +217,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                fontSize: '12px',
+                fontSize: '13px',
                 color: '#6B7280',
                 cursor: 'pointer',
                 userSelect: 'none',
@@ -254,7 +254,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 border: '1px solid #E5E7EB',
                 borderRadius: '9999px',
                 padding: '8px 18px',
-                fontSize: '12.5px',
+                fontSize: '13px',
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
@@ -271,7 +271,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
                 border: 'none',
                 borderRadius: '9999px',
                 padding: '8px 20px',
-                fontSize: '12.5px',
+                fontSize: '13px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)',
@@ -320,7 +320,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1f3a2c', margin: '0 0 4px 0' }}>
             Logging Out...
           </h3>
-          <p style={{ fontSize: '12px', color: '#6B7280', margin: '0 0 20px 0' }}>
+          <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 20px 0' }}>
             Safely closing your DepEd 201 HRIS session
           </p>
 
@@ -345,7 +345,7 @@ export const LogoutModal: React.FC<LogoutModalProps> = ({ isOpen, onClose }) => 
             />
           </div>
 
-          <div style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#4B5563' }}>
             {activeStep === 1 && 'Securing audit log & session state...'}
             {activeStep === 2 && 'Revoking active authorization tokens...'}
             {activeStep === 3 && 'Clearing session cache...'}

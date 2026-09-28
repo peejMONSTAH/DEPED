@@ -41,6 +41,15 @@ class EminenceMobileApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // Everyday users read at arm's length: text is 10% larger than the phone's
+      // setting, on top of any larger size the person chose themselves.
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        return MediaQuery(
+          data: media.copyWith(textScaler: TextScaler.linear(media.textScaler.scale(1) * 1.1)),
+          child: child!,
+        );
+      },
       title: 'Digital 201 Mobile',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,

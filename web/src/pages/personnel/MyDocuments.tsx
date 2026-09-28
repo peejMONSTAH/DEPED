@@ -975,7 +975,7 @@ export const MyDocuments: React.FC = () => {
                       })}
                     </select>
                     {selectedType?.description && (
-                      <p className="text-muted" style={{ fontSize: '0.75rem', margin: '4px 0 0' }}>
+                      <p className="text-muted" style={{ fontSize: '0.8125rem', margin: '4px 0 0' }}>
                         {selectedType.description}
                       </p>
                     )}
@@ -1080,7 +1080,7 @@ export const MyDocuments: React.FC = () => {
                             <>
                               <AppIcon name="check" size={28} color="#059669" />
                               <div style={{ fontWeight: 700, color: '#059669' }}>{file.name}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                                 {formatSize(file.size)} · Click or drop another file to replace
                               </div>
                             </>
@@ -1088,7 +1088,7 @@ export const MyDocuments: React.FC = () => {
                             <>
                               <AppIcon name="upload" size={28} color="var(--color-primary)" />
                               <div style={{ fontWeight: 700 }}>Choose a file or drag and drop here</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                                 PDF, JPEG, or PNG up to 10 MB
                               </div>
                             </>
@@ -1192,7 +1192,7 @@ export const MyDocuments: React.FC = () => {
                   {/* Upload Progress */}
                   {uploadProgress !== null && (
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem', fontWeight: 600 }}>
                         <span>Uploading…</span>
                         <span>{uploadProgress}%</span>
                       </div>

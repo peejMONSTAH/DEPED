@@ -97,7 +97,8 @@ html, body {
   height: 100vh;
   background-color: var(--color-bg);
   font-family: var(--font-sans);
-  font-size: 15px;
+  /* Readable base for everyday users; rem sizes across the app scale from it. */
+  font-size: 16px;
   color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -209,12 +210,12 @@ button.btn-secondary, .btn-secondary {
 
 .btn-sm {
   padding: 6px 14px !important;
-  font-size: 12.5px !important;
+  font-size: 13px !important;
 }
 
 .btn-xs {
   padding: 4px 10px !important;
-  font-size: 11.5px !important;
+  font-size: 13px !important;
   border-radius: var(--radius-pill) !important;
 }
 
@@ -332,7 +333,7 @@ table, .table, .editorial-table {
 }
 
 th {
-  font-size: 11.5px !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
   letter-spacing: 0.07em !important;
   text-transform: uppercase !important;
@@ -368,7 +369,7 @@ tr:hover td {
   gap: 5px !important;
   padding: 4px 11px !important;
   border-radius: var(--radius-pill) !important;
-  font-size: 11.5px !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
   letter-spacing: 0.02em !important;
   white-space: nowrap !important;
@@ -498,7 +499,7 @@ tr:hover td {
 
 .sidebar-logo-separator {
   color: #E3C36A;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   opacity: 0.85;
 }
@@ -527,7 +528,7 @@ tr:hover td {
 }
 
 .brand-hrmis-pill {
-  font-size: 11px !important;
+  font-size: 13px !important;
   font-weight: 900 !important;
   color: #1f3a2c !important;
   background: #E3C36A !important;
@@ -538,7 +539,7 @@ tr:hover td {
 }
 
 .brand-org-subtitle {
-  font-size: 11.5px !important;
+  font-size: 13px !important;
   color: #526171 !important;
   font-weight: 600 !important;
   letter-spacing: 0.01em !important;
@@ -594,7 +595,7 @@ tr:hover td {
 }
 
 .nav-section-header, .sidebar-section-title {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -640,7 +641,7 @@ tr:hover td {
 .lime-badge-pill {
   background: #E3C36A;
   color: #1f3a2c;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
@@ -650,7 +651,7 @@ tr:hover td {
 .lavender-badge-pill {
   background: #A8DDBB;
   color: #1f3a2c;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
@@ -696,7 +697,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   flex-shrink: 0;
 }
@@ -717,7 +718,7 @@ tr:hover td {
 }
 
 .user-role-text, .sidebar-user-role {
-  font-size: 11.5px;
+  font-size: 13px;
   color: #526171;
   white-space: nowrap;
   overflow: hidden;
@@ -726,7 +727,7 @@ tr:hover td {
 }
 
 .user-caret {
-  font-size: 11px;
+  font-size: 13px;
   color: #526171;
   margin-left: auto;
   transition: transform 0.2s ease;
@@ -885,7 +886,7 @@ tr:hover td {
 }
 
 .mobile-app-badge {
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
@@ -1003,7 +1004,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -1022,14 +1023,14 @@ tr:hover td {
 }
 
 .top-user-role-badge {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--color-text-secondary);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .top-user-arrow {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--color-text-muted);
   margin-left: 4px;
 }
@@ -1112,7 +1113,7 @@ tr:hover td {
   border-radius: 9999px;
   background: #DC2626;
   color: #FFFFFF;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -1174,7 +1175,7 @@ tr:hover td {
 }
 
 .topbar-flyout-subtext {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
   font-weight: 500;
 }
@@ -1182,7 +1183,7 @@ tr:hover td {
 .topbar-unread-chip {
   background: #EEF7F1;
   color: #2F7D52;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 9999px;
@@ -1198,7 +1199,7 @@ tr:hover td {
 .topbar-mark-read-btn {
   background: transparent;
   border: none;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #2F7D52;
   cursor: pointer;
@@ -1275,7 +1276,7 @@ tr:hover td {
 }
 
 .notif-row-time {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--color-text-muted);
   margin-top: 4px;
 }
@@ -1309,7 +1310,7 @@ tr:hover td {
 }
 
 .notif-empty-desc {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--color-text-muted);
 }
 
@@ -1329,7 +1330,7 @@ tr:hover td {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
   cursor: pointer;
@@ -1356,7 +1357,7 @@ tr:hover td {
 }
 
 .topbar-section-label {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -1383,7 +1384,7 @@ tr:hover td {
   border-radius: 7px;
   border: none;
   background: transparent;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1453,7 +1454,7 @@ tr:hover td {
 }
 
 .topbar-menu-hint {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--color-text-muted);
   margin-top: 2px;
 }
@@ -1471,7 +1472,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
 }
 
@@ -1481,7 +1482,7 @@ tr:hover td {
   padding: 2px 6px;
   border-radius: 4px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -1494,7 +1495,7 @@ tr:hover td {
   border: 1px solid var(--color-border);
   padding: 8px 14px;
   border-radius: 9999px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-primary);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
@@ -1552,7 +1553,7 @@ tr:hover td {
 }
 
 .metric-label {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.05em;
   color: var(--color-text-secondary);
@@ -1564,7 +1565,7 @@ tr:hover td {
 }
 
 .metric-lime-pill {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: #1f3a2c;
   background: #E3C36A;
@@ -1576,7 +1577,7 @@ tr:hover td {
 }
 
 .metric-lavender-pill {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: #1f3a2c;
   background: #A8DDBB;
@@ -1588,7 +1589,7 @@ tr:hover td {
 }
 
 .metric-gray-pill {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--color-text-secondary);
   background: rgba(0, 0, 0, 0.06);
@@ -1606,7 +1607,7 @@ tr:hover td {
   border-radius: 9999px;
   background: #FDE68A;
   color: #713F12;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
@@ -1633,7 +1634,7 @@ tr:hover td {
 }
 
 .metric-footer-note {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--color-text-muted);
   font-weight: 500;
   white-space: nowrap;
@@ -1651,7 +1652,7 @@ tr:hover td {
 
 .metric-context-note {
   color: var(--color-text-muted);
-  font-size: 10.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1667,7 +1668,7 @@ tr:hover td {
   padding-top: 7px;
   border-top: 2px solid var(--color-border);
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: 13px;
   line-height: 1.15;
 }
 
@@ -1682,7 +1683,7 @@ tr:hover td {
   display: block;
   margin-top: 2px;
   color: var(--color-text-primary);
-  font-size: 11px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1937,7 +1938,7 @@ tr:hover td {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-primary);
   text-decoration: none;
@@ -1965,7 +1966,7 @@ tr:hover td {
 }
 
 .editorial-table th {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1985,7 +1986,7 @@ tr:hover td {
 
 .code-cell {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-primary);
 }
@@ -2006,7 +2007,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -2026,7 +2027,7 @@ tr:hover td {
   align-items: center;
   padding: 4px 11px;
   border-radius: 9999px;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -2042,7 +2043,7 @@ tr:hover td {
 
 .date-cell {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: #9CA3AF;
 }
 
@@ -2062,7 +2063,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #94A3B8;
@@ -2118,7 +2119,7 @@ tr:hover td {
 }
 
 .bar-top-value {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #94A3B8;
 }
@@ -2148,7 +2149,7 @@ tr:hover td {
 }
 
 .bar-day-label {
-  font-size: 10.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #5B6B60;
 }
@@ -2165,7 +2166,7 @@ tr:hover td {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .info-label {
@@ -2354,7 +2355,7 @@ tr:hover td {
 }
 
 .popover-email {
-  font-size: 12px !important;
+  font-size: 13px !important;
   color: #526171 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
@@ -2646,7 +2647,7 @@ tr:hover td {
   border-radius: 50%;
   background: #E0E7FF;
   color: #1F5C3B;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -2666,13 +2667,13 @@ tr:hover td {
 }
 
 .tq-personnel-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
 }
 
 .tq-trx-id-badge {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #2F7D52;
   background: #EEF7F1;
@@ -2690,7 +2691,7 @@ tr:hover td {
 
 .tq-btn-view {
   padding: 6px 14px !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   border-radius: var(--radius-pill) !important;
   background: var(--color-bg-tertiary) !important;
@@ -2710,7 +2711,7 @@ tr:hover td {
 
 .tq-btn-action {
   padding: 6px 14px !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   border-radius: var(--radius-pill) !important;
   background: var(--color-primary) !important;
@@ -2921,7 +2922,7 @@ tr:hover td {
   }
   .audit-filter-pill {
     padding: 6px 11px !important;
-    font-size: 12.5px !important;
+    font-size: 13px !important;
     gap: 5px !important;
   }
   .audit-pill-label-full {
@@ -2939,14 +2940,14 @@ tr:hover td {
   }
   .audit-filter-pill {
     padding: 5px 9px !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     gap: 4px !important;
   }
 }
 
 .audit-timestamp-badge {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
@@ -2971,7 +2972,7 @@ tr:hover td {
   background: var(--color-bg-tertiary);
   color: var(--color-primary);
   border: 1px solid var(--color-border);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -2999,7 +3000,7 @@ tr:hover td {
   padding: 3px 10px !important;
   border-radius: var(--radius-pill) !important;
   font-family: var(--font-mono) !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   letter-spacing: 0.02em !important;
   white-space: nowrap !important;
@@ -3077,7 +3078,7 @@ tr:hover td {
   border: 1px solid var(--color-border);
   padding: 3px 8px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-primary);
   display: inline-flex;
   align-items: center;
@@ -3102,7 +3103,7 @@ tr:hover td {
 .audit-detail-danger-text {
   color: #DC2626;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .audit-detail-clean {
@@ -3369,7 +3370,7 @@ tr:hover td {
 }
 
 .form-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-secondary);
   margin-bottom: 6px;
@@ -3440,7 +3441,7 @@ tr:hover td {
 .pb-2 { padding-bottom: 8px !important; }
 
 /* Typography & Alert Helpers */
-.text-xs { font-size: 12.5px !important; }
+.text-xs { font-size: 13px !important; }
 .text-sm { font-size: 14px !important; }
 .text-muted { color: var(--color-text-muted) !important; }
 .font-semibold { font-weight: 600 !important; }
@@ -3687,7 +3688,7 @@ tr:hover td {
 }
 
 .checklist-desc {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-secondary);
   margin-top: 3px;
   line-height: 1.4;
@@ -3771,7 +3772,7 @@ tr:hover td {
   border: 1px solid var(--color-border);
   background: var(--color-bg-card);
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
@@ -3841,7 +3842,7 @@ tr:hover td {
 .notif-unread-count-pill {
   background: var(--color-primary, #2f7d52);
   color: #ffffff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   padding: 3px 10px;
   border-radius: 999px;
@@ -3859,7 +3860,7 @@ tr:hover td {
   border: 1px solid var(--color-border);
   background: var(--color-bg-card);
   color: var(--color-text-secondary);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -3873,7 +3874,7 @@ tr:hover td {
 }
 
 .notif-inbox-caught-up {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-muted);
 }
@@ -3882,7 +3883,7 @@ tr:hover td {
   background: transparent;
   border: none;
   color: var(--color-primary);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   padding: 4px 8px;
@@ -3900,7 +3901,7 @@ tr:hover td {
 }
 
 .notif-group-heading {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -3971,7 +3972,7 @@ tr:hover td {
 }
 
 .notif-inbox-badge {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 6px;
@@ -3980,7 +3981,7 @@ tr:hover td {
 }
 
 .notif-inbox-ref {
-  font-size: 11.5px;
+  font-size: 13px;
   font-family: monospace;
   font-weight: 600;
   color: var(--color-text-muted);
@@ -3996,7 +3997,7 @@ tr:hover td {
 }
 
 .notif-inbox-preview {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-secondary);
   line-height: 1.45;
   display: -webkit-box;
@@ -4015,7 +4016,7 @@ tr:hover td {
 }
 
 .notif-inbox-time {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -4129,7 +4130,7 @@ tr:hover td {
 
 .notif-error-text {
   flex: 1;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .notif-error-text strong {
@@ -4174,7 +4175,7 @@ tr:hover td {
 }
 
 .notif-empty-subtitle {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-muted);
   max-width: 320px;
   line-height: 1.4;
@@ -4427,7 +4428,7 @@ tr:hover td {
   text-align: right !important;
 }
 .text-xs {
-  font-size: 12.5px !important;
+  font-size: 13px !important;
 }
 .text-sm {
   font-size: 14px !important;
@@ -4495,7 +4496,7 @@ tr:hover td {
   border-radius: .7rem; color: #b4473c; background: #fff1ef; border: 1px solid #ffd1cb;
 }
 .eligibility-dialog__eyebrow {
-  display: block; margin-bottom: .2rem; color: #7a8795; font-size: .69rem; font-weight: 750;
+  display: block; margin-bottom: .2rem; color: #7a8795; font-size: 0.8125rem; font-weight: 750;
   letter-spacing: .08em; text-transform: uppercase;
 }
 .eligibility-dialog h3 { margin: 0; color: #152235; font-size: 1.18rem; letter-spacing: -.025em; }
@@ -4507,10 +4508,10 @@ tr:hover td {
 }
 .eligibility-dialog__position { display: flex; flex-direction: column; gap: .34rem; min-width: 0; }
 .eligibility-dialog__position > span, .eligibility-dialog__reason > span {
-  color: #7b8895; font-size: .68rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase;
+  color: #7b8895; font-size: 0.8125rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase;
 }
 .eligibility-dialog__position strong { color: #243346; font-size: .84rem; line-height: 1.35; overflow-wrap: anywhere; }
-.eligibility-dialog__position em { color: #708094; font-size: .72rem; font-style: normal; font-weight: 650; text-transform: capitalize; }
+.eligibility-dialog__position em { color: #708094; font-size: 0.8125rem; font-style: normal; font-weight: 650; text-transform: capitalize; }
 .eligibility-dialog__position--target strong { color: #8f4038; }
 .eligibility-dialog__blocked-arrow { display: flex; align-items: center; justify-content: center; gap: .2rem; color: #bf5147; }
 .eligibility-dialog__blocked-arrow span { width: .55rem; height: 1px; background: #e7a49e; }
@@ -4519,7 +4520,7 @@ tr:hover td {
 .eligibility-dialog__reason p { margin: .38rem 0 0; color: #4c5968; font-size: .85rem; line-height: 1.55; }
 .eligibility-dialog__footer {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.65rem;
-  background: #f5f7f8; border-top: 1px solid #e7ebef; color: #738090; font-size: .74rem;
+  background: #f5f7f8; border-top: 1px solid #e7ebef; color: #738090; font-size: 0.8125rem;
 }
 .eligibility-dialog__footer button {
   min-width: 5.5rem; padding: .56rem .9rem; border: 0; border-radius: .55rem;

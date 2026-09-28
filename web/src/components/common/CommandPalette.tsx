@@ -129,7 +129,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
             border: '1px solid var(--color-border)',
             borderRadius: 4,
             padding: '2px 6px',
-            fontSize: 11,
+            fontSize: 13,
             color: 'var(--color-text-muted)'
           }}>
             ESC
@@ -171,7 +171,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
                     </span>
                   </div>
                   <span style={{
-                    fontSize: 10,
+                    fontSize: 13,
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                     padding: '2px 8px',
@@ -195,7 +195,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: 11,
+          fontSize: 13,
           color: 'var(--color-text-muted)'
         }}>
           <div className="flex items-center gap-3">

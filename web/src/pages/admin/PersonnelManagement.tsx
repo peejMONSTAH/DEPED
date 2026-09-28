@@ -438,11 +438,11 @@ export const PersonnelManagement: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h1 className="topbar-title" style={{ margin: 0 }}>Personnel Records Management</h1>
           {user?.role === 'AO_II' ? (
-            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
+            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
               <AppIcon name="school" size={13} /> {user?.personnel?.school ? `Administrative Officer II - ${user.personnel.school}${user.personnel.district ? ` (${user.personnel.district})` : ''}` : ((user as any).designation || user.lastName || 'Assigned School')}
             </span>
           ) : user?.role === 'HRMO' ? (
-            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
+            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
               <AppIcon name="settings" size={13} /> SDO Koronadal City
             </span>
           ) : null}
@@ -550,19 +550,19 @@ export const PersonnelManagement: React.FC = () => {
                     <td data-label="Station & District">
                       {['SYSTEM_ADMIN', 'HRMO'].includes(p.user?.role?.name || '') ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             <AppIcon name="settings" size={12} /> SDO Koronadal City
                           </span>
-                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 13, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             Schools Division Office
                           </span>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             <AppIcon name="school" size={12} /> {p.school || p.plantillaItem?.department || p.address?.split(',')[0] || 'Assigned School'}
                           </span>
-                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 13, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             <AppIcon name="location" size={12} /> {p.district || p.plantillaItem?.division || (p.address?.includes('District') ? p.address.split(',').slice(1).join(',').trim() : (p.address?.includes(',') ? p.address.split(',').slice(1).join(',').trim() : 'District Station'))}
                           </span>
                         </div>
@@ -665,7 +665,7 @@ export const PersonnelManagement: React.FC = () => {
                         {fullName}
                       </h3>
                       <StatusBadge status={selected.status} />
-                      <span className={`badge ${selected.profileComplete ? 'badge-approved' : 'badge-deficiency'}`} style={{ fontSize: 11 }}>
+                      <span className={`badge ${selected.profileComplete ? 'badge-approved' : 'badge-deficiency'}`} style={{ fontSize: 13 }}>
                         {selected.profileComplete ? '✓ PDS Profile Complete' : '⚠ Incomplete Profile'}
                       </span>
                     </div>
@@ -679,7 +679,7 @@ export const PersonnelManagement: React.FC = () => {
                       <button
                         type="button"
                         className="btn btn-ghost btn-xs"
-                        style={{ padding: '1px 6px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        style={{ padding: '1px 6px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                         onClick={() => {
                           navigator.clipboard.writeText(selected.employeeId);
                           addToast(`Copied ${selected.employeeId} to clipboard!`, 'INFO');
@@ -728,13 +728,13 @@ export const PersonnelManagement: React.FC = () => {
                       <Building2 size={22} />
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#c79a2e' }}>
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#c79a2e' }}>
                         {isDivisionRole ? 'Division Governance & Operational Scope' : 'Assigned School Station & District'}
                       </div>
                       <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-text-primary)', marginTop: 2 }}>
                         {schoolName}
                       </div>
-                      <div style={{ fontSize: '0.78125rem', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                         {isDivisionRole ? (
                           <>
                             <AppIcon name="settings" size={13} color="var(--color-primary-light)" />
@@ -753,44 +753,44 @@ export const PersonnelManagement: React.FC = () => {
                   {/* Personal Details (PDS CS Form 212) */}
                   <div className="card" style={{ padding: 18, background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 14, boxShadow: 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 7 }}>
                         <FileText size={15} /> Personal Details (PDS CS Form 212)
                       </div>
                       {isEditing201 && (
-                        <span className="badge badge-info" style={{ fontSize: 10 }}>Editing Mode Active</span>
+                        <span className="badge badge-info" style={{ fontSize: 13 }}>Editing Mode Active</span>
                       )}
                     </div>
                     
                     {selected.user?.role?.name === 'AO_II' ? <p>{fullName}</p> : !isEditing201 ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '14px 18px' }}>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Legal Name</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Legal Name</div>
                           <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text-primary)' }}>{fullName}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Date of Birth</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Date of Birth</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
                             {selected.birthDate ? new Date(selected.birthDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Sex / Gender</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Sex / Gender</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', textTransform: 'capitalize', color: 'var(--color-text-primary)' }}>
                             {selected.gender ? selected.gender.toLowerCase() : 'Not Specified'}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Civil Status</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Civil Status</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', textTransform: 'capitalize', color: 'var(--color-text-primary)' }}>
                             {selected.civilStatus || 'Single'}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Citizenship</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Citizenship</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>Filipino (DepEd Permanent)</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>DepEd ID Number</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>DepEd ID Number</div>
                           <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.875rem', color: 'var(--color-primary)' }}>
                             {selected.employeeId}
                           </div>
@@ -800,21 +800,21 @@ export const PersonnelManagement: React.FC = () => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>First Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                            <label className="form-label" style={{ fontSize: 13 }}>First Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                             <input aria-label="First Name" type="text" className="form-input" value={editFirstName} onChange={e => setEditFirstName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Middle Name</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Middle Name</label>
                             <input type="text" className="form-input" value={editMiddleName} onChange={e => setEditMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} aria-label="Middle Name" />
                           </div>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Last Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Last Name <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                             <input aria-label="Last Name" type="text" className="form-input" value={editLastName} onChange={e => setEditLastName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))} required />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Suffix</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Suffix</label>
                             <select
                               aria-label="Suffix"
                               className="form-input"
@@ -832,11 +832,11 @@ export const PersonnelManagement: React.FC = () => {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Date of Birth</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Date of Birth</label>
                             <input type="date" className="form-input" max={todayDateInput()} value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)} aria-label="Date of Birth" />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Gender</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Gender</label>
                             <select className="form-select" value={editGender} onChange={e => setEditGender(e.target.value as any)} aria-label="Gender">
                               <option value="MALE">Male</option>
                               <option value="FEMALE">Female</option>
@@ -844,7 +844,7 @@ export const PersonnelManagement: React.FC = () => {
                             </select>
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Civil Status</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Civil Status</label>
                             <select className="form-select" value={editCivilStatus} onChange={e => setEditCivilStatus(e.target.value)} aria-label="Civil Status">
                               <option value="SINGLE">Single</option>
                               <option value="MARRIED">Married</option>
@@ -859,25 +859,25 @@ export const PersonnelManagement: React.FC = () => {
 
                   {/* Contact & Residential Location */}
                   <div className="card" style={{ padding: 18, background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 14, boxShadow: 'none' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
                       <Phone size={15} /> Contact & Residential Location
                     </div>
                     {!isEditing201 ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '14px 18px' }}>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>DepEd Workspace Email</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>DepEd Workspace Email</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)', wordBreak: 'break-all' }}>
                             {selected.user?.email || 'N/A'}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Mobile Contact</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Mobile Contact</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
                             {selected.contactNumber || 'Not Provided'}
                           </div>
                         </div>
                         <div style={{ gridColumn: '1 / -1' }}>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Permanent Residential Address</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Permanent Residential Address</div>
                           <div style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--color-text-primary)', lineHeight: 1.5 }}>
                             {selected.address || 'SDO Koronadal City, South Cotabato, Region XII'}
                           </div>
@@ -886,11 +886,11 @@ export const PersonnelManagement: React.FC = () => {
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: 11 }}>Mobile Contact Number</label>
+                          <label className="form-label" style={{ fontSize: 13 }}>Mobile Contact Number</label>
                           <input type="tel" inputMode="numeric" maxLength={13} className="form-input" placeholder="e.g. 09123456789" value={editContactNumber} onChange={e => setEditContactNumber(e.target.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, ''))} aria-label="Mobile Contact Number" />
                         </div>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: 11 }}>Permanent Residential Address</label>
+                          <label className="form-label" style={{ fontSize: 13 }}>Permanent Residential Address</label>
                           <input type="text" className="form-input" placeholder="e.g. Brgy. Zone 3, Koronadal City" value={editAddress} onChange={e => setEditAddress(e.target.value)} aria-label="Permanent Residential Address" />
                         </div>
                       </div>
@@ -902,29 +902,29 @@ export const PersonnelManagement: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                   {/* Employment & System Assignment */}
                   <div className="card" style={{ padding: 18, background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 14, boxShadow: 'none' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
                       <Briefcase size={15} /> Employment & System Assignment
                     </div>
                     {!isEditing201 ? (
                       <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '14px 18px' }}>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Position / Designation</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Position / Designation</div>
                           <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text-primary)' }}>{selected.designation}</div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Employment Status</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Employment Status</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span className="badge badge-approved" style={{ fontSize: 11 }}>{selected.status || 'Active'}</span>
+                            <span className="badge badge-approved" style={{ fontSize: 13 }}>{selected.status || 'Active'}</span>
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Original Date Hired</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Original Date Hired</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
                             {selected.dateHired ? new Date(selected.dateHired).toLocaleDateString() : 'N/A'}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Tenure in Service</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Tenure in Service</div>
                           <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
                             Active Service
                           </div>
@@ -933,16 +933,16 @@ export const PersonnelManagement: React.FC = () => {
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div className="form-group" style={{ margin: 0 }}>
-                          <label className="form-label" style={{ fontSize: 11 }}>Position / Designation Title <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+                          <label className="form-label" style={{ fontSize: 13 }}>Position / Designation Title <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                           <input aria-label="Position / Designation Title" type="text" className="form-input" value={editDesignation} onChange={e => setEditDesignation(e.target.value)} required />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Original Date Hired</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Original Date Hired</label>
                             <input type="date" className="form-input" max={todayDateInput()} value={editDateHired} onChange={e => setEditDateHired(e.target.value)} aria-label="Original Date Hired" />
                           </div>
                           <div className="form-group" style={{ margin: 0 }}>
-                            <label className="form-label" style={{ fontSize: 11 }}>Employment Status</label>
+                            <label className="form-label" style={{ fontSize: 13 }}>Employment Status</label>
                             <select className="form-select" value={editStatus} onChange={e => setEditStatus(e.target.value)} aria-label="Employment Status">
                               <option value="ACTIVE">Permanent (Active)</option>
                               <option value="INACTIVE">Inactive</option>
@@ -959,11 +959,11 @@ export const PersonnelManagement: React.FC = () => {
                   {/* Plantilla Item & Compensation */}
                   <div className="card" style={{ padding: 18, background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 14, boxShadow: 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 7 }}>
                         <Award size={15} /> Plantilla Item Allocation
                       </div>
                       {selected.plantillaItem?.salaryGrade && (
-                        <span className="badge badge-info" style={{ fontSize: 11, fontWeight: 700 }}>
+                        <span className="badge badge-info" style={{ fontSize: 13, fontWeight: 700 }}>
                           Salary Grade {selected.plantillaItem.salaryGrade}
                         </span>
                       )}
@@ -971,7 +971,7 @@ export const PersonnelManagement: React.FC = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div style={{ background: 'var(--color-bg-tertiary)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--color-border)' }}>
-                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Plantilla Item Number</div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Plantilla Item Number</div>
                         <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.9375rem', color: selected.plantillaItem ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>
                           {selected.plantillaItem?.itemNumber || 'P-Unassigned (Pending DBM Item Creation)'}
                         </div>
@@ -979,13 +979,13 @@ export const PersonnelManagement: React.FC = () => {
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 10 }}>
                         <div style={{ background: 'var(--color-bg-tertiary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Authorized Title</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Authorized Title</div>
                           <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--color-text-primary)' }}>
                             {selected.plantillaItem?.positionTitle || selected.designation}
                           </div>
                         </div>
                         <div style={{ background: 'var(--color-bg-tertiary)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Department / Scope</div>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 2 }}>Department / Scope</div>
                           <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: 'var(--color-text-primary)' }}>
                             {selected.plantillaItem?.department || 'Curriculum & Implementation'}
                           </div>
@@ -996,7 +996,7 @@ export const PersonnelManagement: React.FC = () => {
 
                   {/* Digital 201 Credentials & Archival Compliance */}
                   <div className="card" style={{ padding: 18, background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 14, boxShadow: 'none' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
                       <ShieldCheck size={15} /> 201 Dossier & Archival Compliance
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.8125rem' }}>
@@ -1007,7 +1007,7 @@ export const PersonnelManagement: React.FC = () => {
                             {verified ? <CheckCircle2 size={14} color="var(--color-success)" /> : <AlertCircle size={14} color="var(--color-text-muted)" />}
                             <span>{row.label}</span>
                           </span>
-                          <span className={`badge ${verified ? 'badge-approved' : row.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`} style={{ fontSize: 10 }}>
+                          <span className={`badge ${verified ? 'badge-approved' : row.status === 'REJECTED' ? 'badge-danger' : 'badge-info'}`} style={{ fontSize: 13 }}>
                             {row.status.replace(/_/g, ' ')}
                           </span>
                         </div>;
@@ -1068,7 +1068,7 @@ export const PersonnelManagement: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                       DepEd SDO Koronadal • Personnel Records Management Subsystem
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1147,17 +1147,17 @@ export const PersonnelManagement: React.FC = () => {
                 {/* Auto-generated Employee Number */}
                 <div style={{ background: 'var(--color-bg-tertiary)', borderRadius: 12, padding: '12px 16px', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>System Employee Number</div>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>System Employee Number</div>
                     <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--color-primary)', fontSize: '0.9375rem' }}>EMP-2026-XXXX</div>
                   </div>
-                  <span className="badge badge-info" style={{ fontSize: 10, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <span className="badge badge-info" style={{ fontSize: 13, padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <AppIcon name="security" size={10} /> Auto-Generated
                   </span>
                 </div>
 
                 {/* Station accounts have no personal identity fields. */}
                 {newCategory !== 'AO_II' && <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="personnel" size={14} /> 1. Personal Information
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
@@ -1216,7 +1216,7 @@ export const PersonnelManagement: React.FC = () => {
                 }
                 {/* Section 2: Contact & Address — 3-column */}
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="phone" size={14} /> 2. Contact & Address
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-3, 1fr 1fr 1fr)', gap: '12px' }}>
@@ -1237,7 +1237,7 @@ export const PersonnelManagement: React.FC = () => {
 
                 {/* Section 3: Employment & Credentials — 2×2 grid */}
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="employment" size={14} /> 3. Employment & Credentials
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
@@ -1298,7 +1298,7 @@ export const PersonnelManagement: React.FC = () => {
                     {['AO_II', 'HRMO', 'SYSTEM_ADMIN'].includes(newCategory) ? (
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">
-                          Designation / Position <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(Auto)</span>
+                          Designation / Position <span style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(Auto)</span>
                         </label>
                         <input aria-label="Designation / Position (Auto)"
                           type="text"
@@ -1314,12 +1314,12 @@ export const PersonnelManagement: React.FC = () => {
                           <label className="form-label" style={{ fontWeight: 700, margin: 0 }}>
                             {isNonPlantilla ? 'Contractual Position Title' : 'Authorized Vacant Plantilla Item'} <span style={{ color: 'var(--color-danger)' }}>*</span>
                             {!isNonPlantilla && (
-                              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginLeft: 8, fontWeight: 500 }}>
+                              <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginLeft: 8, fontWeight: 500 }}>
                                 (Select to auto-assign Position, Salary Grade & Station)
                               </span>
                             )}
                           </label>
-                          <label style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--color-text-muted)', userSelect: 'none' }}>
+                          <label style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--color-text-muted)', userSelect: 'none' }}>
                             <input
                               type="checkbox"
                               checked={isNonPlantilla}
@@ -1374,10 +1374,10 @@ export const PersonnelManagement: React.FC = () => {
                               return (
                                 <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                    <span className="badge badge-success" style={{ fontSize: '0.7rem', padding: '3px 8px', fontWeight: 700 }}>
+                                    <span className="badge badge-success" style={{ fontSize: '0.8125rem', padding: '3px 8px', fontWeight: 700 }}>
                                       ● Plantilla Assigned
                                     </span>
-                                    <div style={{ fontSize: '0.8rem' }}>
+                                    <div style={{ fontSize: '0.8125rem' }}>
                                       <strong>Item:</strong> <span style={{ fontFamily: 'var(--font-mono)' }}>{p.itemNumber}</span>
                                       <span style={{ margin: '0 8px', opacity: 0.4 }}>•</span>
                                       <strong>Position:</strong> {p.positionTitle} (Salary Grade {p.salaryGrade})
@@ -1388,7 +1388,7 @@ export const PersonnelManagement: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => { setSelectedPlantillaId(''); }}
-                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'underline' }}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600, textDecoration: 'underline' }}
                                   >
                                     Clear
                                   </button>
@@ -1415,7 +1415,7 @@ export const PersonnelManagement: React.FC = () => {
                           <label className="form-label" style={{ fontWeight: 700 }}>
                             Assigned District <span style={{ color: 'var(--color-danger)' }}>*</span>
                             {newCategory === 'AO_II' && (
-                              <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
+                              <span style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
                           <select aria-label="Assigned District"
@@ -1446,7 +1446,7 @@ export const PersonnelManagement: React.FC = () => {
                           <label className="form-label" style={{ fontWeight: 700 }}>
                             Assigned School <span style={{ color: 'var(--color-danger)' }}>*</span>
                             {newCategory === 'AO_II' && (
-                              <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
+                              <span style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
                           <select aria-label="Assigned School"

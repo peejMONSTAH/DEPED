@@ -93,7 +93,7 @@ export const AttachExistingModal: React.FC<{
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.documentTypeName}</span>
-                          {recommended && <span className="badge badge-approved" style={{ fontSize: 10, padding: '2px 8px', flexShrink: 0 }}>Recommended</span>}
+                          {recommended && <span className="badge badge-approved" style={{ fontSize: 13, padding: '2px 8px', flexShrink: 0 }}>Recommended</span>}
                         </span>
                         <span className="text-xs text-muted" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={doc.originalFileName ?? undefined}>{doc.originalFileName}</span>
                       </span>

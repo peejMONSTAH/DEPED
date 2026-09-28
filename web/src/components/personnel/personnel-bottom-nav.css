@@ -49,7 +49,7 @@ body.has-scanner-open .personnel-bottom-nav {
   min-height: 48px; /* >= 48px touch target */
   color: #5b6b60;
   text-decoration: none;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   transition: all 0.15s ease;
   user-select: none;

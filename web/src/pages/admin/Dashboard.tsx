@@ -463,7 +463,7 @@ export const AdminDashboard: React.FC = () => {
           {userRoleBadge && (
             <span
               style={{
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 700,
                 padding: '3px 10px',
                 borderRadius: 9999,
@@ -566,7 +566,7 @@ export const AdminDashboard: React.FC = () => {
                         onClick={() => setSysAdminViewTab('USERS')}
                         style={{
                           padding: '4px 10px',
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: 600,
                           borderRadius: 6,
                           background: sysAdminViewTab === 'USERS' ? 'var(--color-primary)' : 'transparent',
@@ -582,7 +582,7 @@ export const AdminDashboard: React.FC = () => {
                         onClick={() => setSysAdminViewTab('REQUESTS')}
                         style={{
                           padding: '4px 10px',
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: 600,
                           borderRadius: 6,
                           background: sysAdminViewTab === 'REQUESTS' ? 'var(--color-primary)' : 'transparent',
@@ -596,7 +596,7 @@ export const AdminDashboard: React.FC = () => {
                       >
                         <span>Requests</span>
                         {pendingRequestsCount > 0 && (
-                          <span style={{ background: '#EF4444', color: '#fff', padding: '1px 5px', borderRadius: 9999, fontSize: 9 }}>
+                          <span style={{ background: '#EF4444', color: '#fff', padding: '1px 5px', borderRadius: 9999, fontSize: 13 }}>
                             {pendingRequestsCount}
                           </span>
                         )}
@@ -625,7 +625,7 @@ export const AdminDashboard: React.FC = () => {
                     <tbody>
                       {usersList.length === 0 ? (
                         <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '13px' }}>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>
                             {loading ? 'Fetching provisioned accounts...' : 'No provisioned user accounts found.'}
                           </td>
                         </tr>
@@ -651,7 +651,7 @@ export const AdminDashboard: React.FC = () => {
                                   <div>
                                     <span className="user-full-name">{name}</span>
                                     {u.personnel?.employeeId && (
-                                      <div style={{ fontSize: 10, color: 'var(--color-text-muted)' }}>{u.personnel.employeeId}</div>
+                                      <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{u.personnel.employeeId}</div>
                                     )}
                                   </div>
                                 </div>
@@ -660,7 +660,7 @@ export const AdminDashboard: React.FC = () => {
                               <td>
                                 <span
                                   style={{
-                                    fontSize: 11,
+                                    fontSize: 13,
                                     fontWeight: 600,
                                     padding: '2px 8px',
                                     borderRadius: 6,
@@ -700,7 +700,7 @@ export const AdminDashboard: React.FC = () => {
                     <tbody>
                       {accountRequests.length === 0 ? (
                         <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '13px' }}>
+                          <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>
                             No pending account creation requests.
                           </td>
                         </tr>
@@ -726,7 +726,7 @@ export const AdminDashboard: React.FC = () => {
                               <Link
                                 to="/admin/credentials"
                                 style={{
-                                  fontSize: 11,
+                                  fontSize: 13,
                                   fontWeight: 600,
                                   color: 'var(--color-primary)',
                                   textDecoration: 'none',
@@ -759,7 +759,7 @@ export const AdminDashboard: React.FC = () => {
               {/* Recent Audit Events List */}
               <div style={{ margin: '16px 0', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
                 {recentAuditLogs.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', padding: '12px 0' }}>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', padding: '12px 0' }}>
                     No recent security audit logs recorded.
                   </div>
                 ) : (
@@ -774,7 +774,7 @@ export const AdminDashboard: React.FC = () => {
                         borderRadius: 8,
                         background: 'rgba(255,255,255,0.05)',
                         border: '1px solid rgba(255,255,255,0.08)',
-                        fontSize: 11,
+                        fontSize: 13,
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
@@ -782,7 +782,7 @@ export const AdminDashboard: React.FC = () => {
                           style={{
                             padding: '2px 6px',
                             borderRadius: 4,
-                            fontSize: 9,
+                            fontSize: 13,
                             fontWeight: 700,
                             background: 'rgba(215, 248, 74, 0.2)',
                             color: '#E3C36A',
@@ -804,7 +804,7 @@ export const AdminDashboard: React.FC = () => {
                           {log.userEmail ? log.userEmail.split('@')[0] : 'System'}
                         </span>
                       </div>
-                      <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, flexShrink: 0 }}>
+                      <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, flexShrink: 0 }}>
                         {formatTimeAgo(log.timestamp)}
                       </span>
                     </div>
@@ -996,7 +996,7 @@ export const AdminDashboard: React.FC = () => {
                   <tbody>
                     {recentTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '13px' }}>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>
                           {loading ? 'Fetching database records...' : 'No recent transactions found in database.'}
                         </td>
                       </tr>

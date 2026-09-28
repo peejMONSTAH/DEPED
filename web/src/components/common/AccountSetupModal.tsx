@@ -261,7 +261,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   gap: 7,
                   padding: '8px 16px',
                   borderRadius: 9999,
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: 700,
                   cursor: 'pointer',
                   transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -304,7 +304,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   backgroundColor: 'var(--color-info-light)',
                   border: '1px solid var(--color-info)',
                   color: 'var(--color-info-text)',
-                  fontSize: 13,
+                  fontSize: 14,
                   marginBottom: 18,
                 }}
               >
@@ -327,7 +327,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <label
                     style={{
                       display: 'block',
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 700,
                       color: 'var(--color-text-secondary)',
                       marginBottom: 6,
@@ -358,7 +358,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <label
                     style={{
                       display: 'block',
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 700,
                       color: 'var(--color-text-secondary)',
                       marginBottom: 6,
@@ -399,7 +399,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 >
                   <label
                     style={{
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 700,
                       color: 'var(--color-text-secondary)',
                       margin: 0,
@@ -409,7 +409,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   </label>
                   <span
                     style={{
-                      fontSize: 10.5,
+                      fontSize: 13,
                       fontWeight: 700,
                       padding: '2px 8px',
                       borderRadius: 9999,
@@ -444,7 +444,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 />
                 <div
                   style={{
-                    fontSize: 11.5,
+                    fontSize: 13,
                     color: 'var(--color-text-muted)',
                     marginTop: 4,
                   }}
@@ -473,7 +473,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   >
                     <label
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: 700,
                         color: 'var(--color-text-secondary)',
                         margin: 0,
@@ -500,7 +500,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   />
                   <div
                     style={{
-                      fontSize: 11.5,
+                      fontSize: 13,
                       color: 'var(--color-text-muted)',
                       marginTop: 4,
                     }}
@@ -513,7 +513,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   <label
                     style={{
                       display: 'block',
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 700,
                       color: 'var(--color-text-secondary)',
                       marginBottom: 6,
@@ -541,7 +541,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                   />
                   <div
                     style={{
-                      fontSize: 11.5,
+                      fontSize: 13,
                       color: 'var(--color-text-muted)',
                       marginTop: 4,
                     }}
@@ -569,7 +569,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    fontSize: 12.5,
+                    fontSize: 13,
                   }}
                 >
                   <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>
@@ -583,7 +583,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                       padding: '3px 10px',
                       borderRadius: 9999,
                       fontWeight: 800,
-                      fontSize: 11,
+                      fontSize: 13,
                       letterSpacing: '0.02em',
                     }}
                   >
@@ -595,7 +595,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    fontSize: 12.5,
+                    fontSize: 13,
                   }}
                 >
                   <span style={{ color: 'var(--color-text-secondary)', fontWeight: 600 }}>
@@ -606,7 +606,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                       fontFamily: 'var(--font-mono)',
                       color: 'var(--color-text-primary)',
                       fontWeight: 700,
-                      fontSize: 12,
+                      fontSize: 13,
                     }}
                   >
                     EMP-2026-08{user?.id}
@@ -634,7 +634,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     backgroundColor: primaryActionBg,
                     color: primaryActionColor,
                     border: 'none',
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: 700,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
@@ -661,7 +661,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     backgroundColor: 'var(--color-success-light)',
                     border: '1px solid var(--color-success)',
                     color: 'var(--color-success-text)',
-                    fontSize: 13,
+                    fontSize: 14,
                     marginBottom: 18,
                   }}
                 >
@@ -674,7 +674,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 <label
                   style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 700,
                     color: 'var(--color-text-secondary)',
                     marginBottom: 6,
@@ -707,7 +707,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 <label
                   style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 700,
                     color: 'var(--color-text-secondary)',
                     marginBottom: 6,
@@ -745,7 +745,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     borderRadius: 12,
                     padding: '14px 18px',
                     marginBottom: 16,
-                    fontSize: 12,
+                    fontSize: 13,
                   }}
                 >
                   <div
@@ -780,7 +780,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                           gap: 8,
                           color: req.valid ? 'var(--color-success)' : 'var(--color-text-muted)',
                           fontWeight: req.valid ? 600 : 500,
-                          fontSize: 12,
+                          fontSize: 13,
                         }}
                       >
                         {req.valid ? (
@@ -808,7 +808,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                 <label
                   style={{
                     display: 'block',
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 700,
                     color: 'var(--color-text-secondary)',
                     marginBottom: 6,
@@ -858,7 +858,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     backgroundColor: primaryActionBg,
                     color: primaryActionColor,
                     border: 'none',
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: 700,
                     cursor: newPassword.length > 0 && !isPasswordValid ? 'not-allowed' : 'pointer',
                     opacity: newPassword.length > 0 && !isPasswordValid ? 0.6 : 1,
@@ -936,7 +936,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     </div>
                     <div
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         color: 'var(--color-text-secondary)',
                         lineHeight: 1.4,
                       }}
@@ -998,7 +998,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     backgroundColor: primaryActionBg,
                     color: primaryActionColor,
                     border: 'none',
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: 700,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',

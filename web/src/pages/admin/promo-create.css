@@ -36,7 +36,7 @@
 .pc-notice__place { margin: 4px 0 0; font-size: .9375rem; color: #4A5A50; }
 .pc-notice__title { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid #E4E9E3; font-size: .875rem; color: #4A5A50; overflow-wrap: anywhere; }
 .pc-notice__facts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0 0; }
-.pc-notice__facts dt { font-size: .75rem; color: #6A786F; }
+.pc-notice__facts dt { font-size: 0.8125rem; color: #6A786F; }
 .pc-notice__facts dd { margin: 1px 0 0; font-size: 1rem; font-weight: 800; }
 .pc-notice__who { margin: 14px 0 0; font-size: .8125rem; color: #4A5A50; }
 .pc-notice__state { margin: 12px 2px 0; font-size: .8125rem; color: var(--color-text-secondary); }

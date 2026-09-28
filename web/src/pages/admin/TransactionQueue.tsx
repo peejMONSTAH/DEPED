@@ -344,7 +344,7 @@ export const TransactionQueue: React.FC = () => {
                         className="tabular-nums"
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          fontSize: 13,
+                          fontSize: 14,
                           color: '#4B5563',
                           fontWeight: 500,
                         }}
@@ -366,7 +366,7 @@ export const TransactionQueue: React.FC = () => {
                                 color: '#A07A1F',
                                 border: '1px solid rgba(139, 92, 246, 0.25)',
                                 fontWeight: 700,
-                                fontSize: 10,
+                                fontSize: 13,
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: 4,
@@ -388,7 +388,7 @@ export const TransactionQueue: React.FC = () => {
                       {/* Submission Date */}
                       <td
                         className="tabular-nums"
-                        style={{ color: '#6B7280', fontSize: 13 }}
+                        style={{ color: '#6B7280', fontSize: 14 }}
                       >
                         {tx.submissionDate || (tx as any).createdAt
                           ? new Date(
@@ -557,7 +557,7 @@ export const TransactionQueue: React.FC = () => {
                   >
                     {selectedTx.transactionType?.name || 'Personnel Transaction'}
                   </h3>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                     Transaction Dossier & Verification Overview
                   </div>
                 </div>
@@ -661,7 +661,7 @@ export const TransactionQueue: React.FC = () => {
                         ? `${selectedTx.personnel.firstName} ${selectedTx.personnel.lastName}`
                         : 'DepEd Personnel'}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                       {selectedTx.personnel?.designation || 'Division Personnel'} •{' '}
                       <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>
                         {selectedTx.personnel?.station || selectedTx.personnel?.school || 'SDO Koronadal City'}
@@ -673,7 +673,7 @@ export const TransactionQueue: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span
                     style={{
-                      fontSize: '0.75rem',
+                      fontSize: '0.8125rem',
                       fontFamily: 'var(--font-mono)',
                       backgroundColor: 'var(--color-bg-secondary)',
                       color: 'var(--color-text-primary)',
@@ -709,7 +709,7 @@ export const TransactionQueue: React.FC = () => {
                       <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#A07A1F' }}>
                         Official Promotion Cycle Appointment
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                         {selectedTx.promotionDetails?.cycleName || 'DepEd Merit Selection & Promotion Cycle'}
                       </div>
                     </div>
@@ -718,7 +718,7 @@ export const TransactionQueue: React.FC = () => {
                   {selectedTx.promotionDetails?.targetPosition && (
                     <span
                       style={{
-                        fontSize: '0.75rem',
+                        fontSize: '0.8125rem',
                         fontWeight: 800,
                         backgroundColor: '#A07A1F',
                         color: '#FFFFFF',
@@ -748,7 +748,7 @@ export const TransactionQueue: React.FC = () => {
                     border: '1px solid var(--color-border)',
                   }}
                 >
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
                     Submission Date
                   </div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)', marginTop: '4px' }}>
@@ -770,7 +770,7 @@ export const TransactionQueue: React.FC = () => {
                     border: '1px solid var(--color-border)',
                   }}
                 >
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
                     Current Assignee
                   </div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)', marginTop: '4px' }}>
@@ -786,7 +786,7 @@ export const TransactionQueue: React.FC = () => {
                     border: '1px solid var(--color-border)',
                   }}
                 >
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>
                     Compliance Score
                   </div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '4px' }}>
@@ -832,7 +832,7 @@ export const TransactionQueue: React.FC = () => {
                     <Link
                       to={`/admin/documents?txId=${selectedTx.id}`}
                       style={{
-                        fontSize: '0.75rem',
+                        fontSize: '0.8125rem',
                         fontWeight: 700,
                         color: 'var(--color-primary)',
                         textDecoration: 'none',
@@ -874,7 +874,7 @@ export const TransactionQueue: React.FC = () => {
                             >
                               {doc.requirementTemplate?.name || doc.fileName}
                             </div>
-                            <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
                               {doc.fileName} {doc.validatedBy?.email && `• Verified by ${doc.validatedBy.email}`}
                             </div>
                           </div>
@@ -939,7 +939,7 @@ export const TransactionQueue: React.FC = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          fontSize: '0.75rem',
+                          fontSize: '0.8125rem',
                         }}
                       >
                         <div>

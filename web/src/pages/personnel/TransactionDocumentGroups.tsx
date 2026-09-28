@@ -78,7 +78,7 @@ export const TransactionDocumentGroups: React.FC = () => {
                     <span className="tx-doc-name">{title}</span>
                     <span className="text-xs text-muted tx-doc-file" title={doc.fileName}>{doc.fileName}</span>
                   </span>
-                  <span className={`badge ${status.cls}`} style={{ fontSize: 10, padding: '2px 8px' }}>{status.label}</span>
+                  <span className={`badge ${status.cls}`} style={{ fontSize: 13, padding: '2px 8px' }}>{status.label}</span>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setViewing({ title, id: doc.id, fileName: doc.fileName })}>
                     <AppIcon name="view" size={14} /> View
                   </button>

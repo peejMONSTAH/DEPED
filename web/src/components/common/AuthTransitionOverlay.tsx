@@ -171,7 +171,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
             <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 6 }}>
               Signing In...
             </h2>
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 24 }}>
+            <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 24 }}>
               Authenticating credentials with DepEd Enterprise Security
             </p>
 
@@ -204,7 +204,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
               flexDirection: 'column',
               gap: 12
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14 }}>
                 <span style={{ color: stepIndex >= 1 ? '#10b981' : 'var(--color-text-muted)', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
                   {stepIndex >= 1 ? <AppIcon name="check" size={13} color="#10b981" /> : '•'}
                 </span>
@@ -213,7 +213,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14 }}>
                 <span style={{ color: stepIndex >= 2 ? '#10b981' : 'var(--color-text-muted)', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
                   {stepIndex >= 2 ? <AppIcon name="check" size={13} color="#10b981" /> : '•'}
                 </span>
@@ -222,7 +222,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14 }}>
                 <span style={{ color: stepIndex >= 3 ? '#10b981' : 'var(--color-text-muted)', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
                   {stepIndex >= 3 ? <AppIcon name="check" size={13} color="#10b981" /> : '•'}
                 </span>
@@ -263,7 +263,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: 'bold'
               }}>
                 <AppIcon name="check" size={12} color="#fff" />
@@ -277,7 +277,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
               background: 'rgba(16, 185, 129, 0.12)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               color: '#10b981',
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 600,
               marginBottom: 12
             }}>
@@ -293,7 +293,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              fontSize: 11,
+              fontSize: 13,
               color: 'var(--color-text-muted)',
               background: 'var(--color-bg-secondary)',
               padding: '4px 10px',
@@ -305,7 +305,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
               <span>Security Check: Last login today at 11:58 from 192.168.1.15</span>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>
+            <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginBottom: 20 }}>
               Launching your DepEd 201 HRIS dashboard...
             </p>
 
@@ -338,7 +338,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
               justifyContent: 'space-between',
               gap: 12
             }}>
-              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontStyle: 'italic', textAlign: 'left', flex: 1 }}>
+              <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', textAlign: 'left', flex: 1 }}>
                 "{WELCOME_TIPS[tipIndex]}"
               </span>
               <button
@@ -349,7 +349,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
                   border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--color-text-primary)',
-                  fontSize: 11,
+                  fontSize: 13,
                   padding: '4px 8px',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',

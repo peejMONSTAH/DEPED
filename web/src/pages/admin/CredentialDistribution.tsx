@@ -608,7 +608,7 @@ export const CredentialDistribution: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <h1 className="topbar-title" style={{ margin: 0 }}>Account Creation & Credential Handoff</h1>
           {!isSysAdmin && (
-            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', fontWeight: 600 }}>
+            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
               <AppIcon name="school" size={13} /> {aoStationInfo?.schoolName || 'Assigned School'}
             </span>
           )}
@@ -643,7 +643,7 @@ export const CredentialDistribution: React.FC = () => {
               </p>
             </div>
             {pendingRequestsCount > 0 && isSysAdmin && (
-              <span className="badge badge-warning" style={{ fontSize: 12, padding: '4px 10px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span className="badge badge-warning" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <AppIcon name="quick-action" size={12} /> {pendingRequestsCount} Pending Approval
               </span>
             )}
@@ -682,7 +682,7 @@ export const CredentialDistribution: React.FC = () => {
                         <div style={{ fontWeight: 600 }}>{req.designation}</div>
                         <div className="text-xs text-muted">{req.role}</div>
                       </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{req.email}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{req.email}</td>
                       <td>
                         <div className="text-xs font-semibold">{req.requestedByUser?.email}</div>
                       </td>
@@ -780,7 +780,7 @@ export const CredentialDistribution: React.FC = () => {
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                 <AppIcon name="school" size={13} /> {u.personnel?.lastName || 'District School AO'}
                               </span>
-                              <span className="badge badge-primary" style={{ fontSize: 9, fontWeight: 700 }}>AO II</span>
+                              <span className="badge badge-primary" style={{ fontSize: 13, fontWeight: 700 }}>AO II</span>
                             </div>
                             <div className="text-xs text-muted" style={{ marginTop: 2, fontWeight: 500 }}>
                               {u.personnel?.designation || 'Administrative Officer II'}
@@ -795,7 +795,7 @@ export const CredentialDistribution: React.FC = () => {
                           <div>
                             <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                               <span>{u.personnel ? `${u.personnel.lastName}, ${u.personnel.firstName}` : u.email}</span>
-                              <span className={`badge ${u.role === 'SYSTEM_ADMIN' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 9, fontWeight: 700 }}>
+                              <span className={`badge ${u.role === 'SYSTEM_ADMIN' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 13, fontWeight: 700 }}>
                                 {u.role === 'SYSTEM_ADMIN' ? 'SYS ADMIN' : 'HRMO'}
                               </span>
                             </div>
@@ -940,7 +940,7 @@ export const CredentialDistribution: React.FC = () => {
 
                 {/* Row 1: Role + Position + District + School — 4-col */}
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="employment" size={14} /> Role & Assignment
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
@@ -987,7 +987,7 @@ export const CredentialDistribution: React.FC = () => {
                     {['AO_II', 'HRMO', 'SYSTEM_ADMIN'].includes(formData.personnelType) ? (
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label" style={{ fontWeight: 700 }}>
-                          Position / Designation <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(Auto)</span>
+                          Position / Designation <span style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(Auto)</span>
                         </label>
                         <input aria-label="Position / Designation (Auto)"
                           type="text"
@@ -1003,12 +1003,12 @@ export const CredentialDistribution: React.FC = () => {
                           <label className="form-label" style={{ fontWeight: 700, margin: 0 }}>
                             {isNonPlantilla ? 'Contractual Position Title' : 'Authorized Vacant Plantilla Item'} <span style={{ color: 'var(--color-danger)' }}>*</span>
                             {!isNonPlantilla && (
-                              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginLeft: 8, fontWeight: 500 }}>
+                              <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginLeft: 8, fontWeight: 500 }}>
                                 (Select to auto-assign Position, Salary Grade & Station)
                               </span>
                             )}
                           </label>
-                          <label style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--color-text-muted)', userSelect: 'none' }}>
+                          <label style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: 'var(--color-text-muted)', userSelect: 'none' }}>
                             <input
                               type="checkbox"
                               checked={isNonPlantilla}
@@ -1063,10 +1063,10 @@ export const CredentialDistribution: React.FC = () => {
                               return (
                                 <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 10, background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                    <span className="badge badge-success" style={{ fontSize: '0.7rem', padding: '3px 8px', fontWeight: 700 }}>
+                                    <span className="badge badge-success" style={{ fontSize: '0.8125rem', padding: '3px 8px', fontWeight: 700 }}>
                                       ● Plantilla Assigned
                                     </span>
-                                    <div style={{ fontSize: '0.8rem' }}>
+                                    <div style={{ fontSize: '0.8125rem' }}>
                                       <strong>Item:</strong> <span style={{ fontFamily: 'var(--font-mono)' }}>{p.itemNumber}</span>
                                       <span style={{ margin: '0 8px', opacity: 0.4 }}>•</span>
                                       <strong>Position:</strong> {p.positionTitle} (Salary Grade {p.salaryGrade})
@@ -1077,7 +1077,7 @@ export const CredentialDistribution: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => { setSelectedPlantillaId(''); }}
-                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'underline' }}
+                                    style={{ background: 'transparent', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 600, textDecoration: 'underline' }}
                                   >
                                     Clear
                                   </button>
@@ -1094,7 +1094,7 @@ export const CredentialDistribution: React.FC = () => {
                           <label className="form-label" style={{ fontWeight: 700 }}>
                             Assigned District <span style={{ color: 'var(--color-danger)' }}>*</span>
                             {formData.personnelType === 'AO_II' && (
-                              <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
+                              <span style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
                           <select aria-label="Assigned District"
@@ -1124,7 +1124,7 @@ export const CredentialDistribution: React.FC = () => {
                           <label className="form-label" style={{ fontWeight: 700 }}>
                             School Station <span style={{ color: 'var(--color-danger)' }}>*</span>
                             {formData.personnelType === 'AO_II' && (
-                              <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
+                              <span style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', marginLeft: '0.4rem' }}>(AO Assignment)</span>
                             )}
                           </label>
                           <select aria-label="School Station"
@@ -1155,7 +1155,7 @@ export const CredentialDistribution: React.FC = () => {
 
                 {isAo && ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(formData.personnelType) && (
                   <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <AppIcon name="document" size={14} /> Personnel PDS
                     </div>
                     <div style={{ padding: 14, border: '1px solid var(--color-border)', borderRadius: 12, background: 'var(--color-bg-secondary)' }}>
@@ -1170,16 +1170,16 @@ export const CredentialDistribution: React.FC = () => {
                         disabled={extractingPds || creatingAccount.pending}
                         style={{ display: 'block', width: '100%', marginTop: 6 }}
                       />
-                      <div style={{ marginTop: 7, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      <div style={{ marginTop: 7, fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                         PDF, PNG, or JPEG up to 10 MB. Recognized identity fields will be filled automatically; the PDS will become part of the personnel's Digital 201 file after approval.
                       </div>
                       {extractingPds && (
-                        <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        <div style={{ marginTop: 8, fontSize: '0.8125rem', color: 'var(--color-primary)', fontWeight: 600 }}>
                           Reading PDS fields…
                         </div>
                       )}
                       {pdsExtractionNote && !extractingPds && (
-                        <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--color-text-secondary)' }}>
+                        <div style={{ marginTop: 8, fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
                           {pdsExtractionNote}
                         </div>
                       )}
@@ -1190,7 +1190,7 @@ export const CredentialDistribution: React.FC = () => {
                 {/* Row 2: Personal Info — Hidden for AO II */}
                 {formData.personnelType !== 'AO_II' && (
                   <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <AppIcon name="profile" size={14} /> Personal Information
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
@@ -1253,7 +1253,7 @@ export const CredentialDistribution: React.FC = () => {
 
                 {/* Row 3: Credentials */}
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="credentials" size={14} /> {formData.personnelType === 'AO_II' ? 'Account Credentials' : 'Contact & Credentials'}
                   </div>
                   {formData.personnelType === 'AO_II' ? (
@@ -1338,7 +1338,7 @@ export const CredentialDistribution: React.FC = () => {
             </div>
 
             <form onSubmit={handleResetPasswordSubmit}>
-              <div className="alert alert-info mb-4" style={{ fontSize: 12 }}>
+              <div className="alert alert-info mb-4" style={{ fontSize: 13 }}>
                 <span>
                   This resets the password for <strong>{resetModalUser.email}</strong>, signs out their sessions and forgets their trusted devices. The new temporary password and a one-time setup link are <strong>emailed to them</strong>. Hand the password over yourself only if their email cannot be reached.
                 </span>
@@ -1469,13 +1469,13 @@ export const CredentialDistribution: React.FC = () => {
                 <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600 }}>{selectedAccount.personnel?.designation || selectedAccount.role}</span>
                   <span style={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: 'var(--color-text-muted)', flexShrink: 0 }} />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--color-primary)' }}>
                     {selectedAccount.personnel?.employeeId || 'Pending'}
                   </span>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`} style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
+                <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`} style={{ fontSize: '0.8125rem', padding: '4px 10px' }}>
                   {ACCOUNT_STATUS_LABEL[selectedAccount.accountStatus as keyof typeof ACCOUNT_STATUS_LABEL] || selectedAccount.accountStatus}
                 </span>
                 <button
@@ -1491,23 +1491,23 @@ export const CredentialDistribution: React.FC = () => {
             <div style={{ padding: '20px 28px', overflowY: 'auto', flex: '1 1 auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: 14, background: 'var(--color-bg-tertiary)', padding: 16, borderRadius: 12, border: '1px solid var(--color-border)' }}>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Employee ID</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Employee ID</div>
                   <div style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--color-primary)', fontSize: '0.9375rem' }}>
                     {selectedAccount.personnel?.employeeId || 'Pending Generation'}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Name</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Full Name</div>
                   <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
                     {personnelDisplayName(selectedAccount.personnel, selectedAccount.role) || 'N/A'}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Designation / Role</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Designation / Role</div>
                   <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{selectedAccount.personnel?.designation || selectedAccount.role}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Station / Scope</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Station / Scope</div>
                   <div style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {['SYSTEM_ADMIN', 'HRMO'].includes(selectedAccount.role) ? (
                       <>
@@ -1520,11 +1520,11 @@ export const CredentialDistribution: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Email Address</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Email Address</div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>{selectedAccount.email}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Account Status</div>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: 3 }}>Account Status</div>
                   <span className={`badge ${selectedAccount.accountStatus === 'ACTIVE' ? 'badge-approved' : 'badge-pending'}`}>
                     {ACCOUNT_STATUS_LABEL[selectedAccount.accountStatus as keyof typeof ACCOUNT_STATUS_LABEL] || selectedAccount.accountStatus}
                   </span>

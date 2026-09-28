@@ -126,7 +126,7 @@ export const MagicLogin: React.FC = () => {
         </div>
 
         <div style={{
-          fontSize: '0.75rem',
+          fontSize: '0.8125rem',
           fontWeight: 800,
           letterSpacing: '1.5px',
           color: '#F59E0B',
@@ -238,7 +238,7 @@ export const MagicLogin: React.FC = () => {
           marginTop: '28px',
           paddingTop: '16px',
           borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          fontSize: '0.6875rem',
+          fontSize: '0.8125rem',
           color: '#5B6B60',
         }}>
           Official DepEd SDO Koronadal City HRIS • Encrypted Transmission

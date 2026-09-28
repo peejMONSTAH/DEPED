@@ -257,7 +257,7 @@ export const AdminNotifications: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <span 
                           style={{ 
-                            fontSize: '10px', 
+                            fontSize: '13px', 
                             fontWeight: 700, 
                             textTransform: 'uppercase', 
                             padding: '2px 8px', 
@@ -269,7 +269,7 @@ export const AdminNotifications: React.FC = () => {
                           {action.badge}
                         </span>
                         {n.relatedEntityId && (
-                          <span style={{ fontSize: '11px', opacity: 0.7, fontWeight: 600 }}>
+                          <span style={{ fontSize: '13px', opacity: 0.7, fontWeight: 600 }}>
                             ID #{n.relatedEntityId}
                           </span>
                         )}
@@ -284,7 +284,7 @@ export const AdminNotifications: React.FC = () => {
                   </div>
 
                   <div className="notif-card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingTop: 8, borderTop: '1px solid rgba(0, 0, 0, 0.06)', gap: 12 }}>
-                    <span style={{ fontSize: '11px', opacity: 0.75, display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    <span style={{ fontSize: '13px', opacity: 0.75, display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                       <AppIcon name="pending" size={11} /> {new Date(n.createdAt).toLocaleString()}
                     </span>
 
@@ -293,7 +293,7 @@ export const AdminNotifications: React.FC = () => {
                       type="button"
                       className={`btn ${action.btnClass} btn-xs notif-card-action`}
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         padding: '6px 14px',
                         fontWeight: 600,
                         display: 'inline-flex',

@@ -336,7 +336,7 @@ export const AuditLog: React.FC = () => {
                       <div className="empty-state-title" style={{ fontWeight: 800, fontSize: '15px', marginBottom: 6 }}>
                         No audit log records found
                       </div>
-                      <div className="empty-state-text" style={{ fontSize: 13, color: '#6B7280', maxWidth: '420px', margin: '0 auto 16px auto' }}>
+                      <div className="empty-state-text" style={{ fontSize: 14, color: '#6B7280', maxWidth: '420px', margin: '0 auto 16px auto' }}>
                         No logged events matched your search query or category filter.
                       </div>
                       {(search || activeCategory !== 'All Activities') && (

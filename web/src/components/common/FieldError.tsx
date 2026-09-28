@@ -15,7 +15,7 @@ export const FieldError: React.FC<{ message?: string; id?: string }> = ({ messag
       style={{
         display: 'block',
         marginTop: 4,
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: 600,
         color: 'var(--color-error)',
       }}

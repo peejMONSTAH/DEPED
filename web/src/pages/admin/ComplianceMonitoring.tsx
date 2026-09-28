@@ -205,7 +205,7 @@ export const ComplianceMonitoring: React.FC = () => {
               background: activeTab === 'compliance' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'compliance' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -228,7 +228,7 @@ export const ComplianceMonitoring: React.FC = () => {
               background: activeTab === 'years' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'years' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -276,7 +276,7 @@ export const ComplianceMonitoring: React.FC = () => {
                       </div>
                       {card.pct && (
                         <span style={{
-                          fontSize: '11px',
+                          fontSize: '13px',
                           fontWeight: 800,
                           color: card.color,
                           background: `${card.color}15`,
@@ -301,7 +301,7 @@ export const ComplianceMonitoring: React.FC = () => {
                         {card.value.toLocaleString()}
                       </div>
                       <div style={{
-                        fontSize: '11px',
+                        fontSize: '13px',
                         fontWeight: 700,
                         color: 'var(--color-text-secondary)',
                         textTransform: 'uppercase',
@@ -433,7 +433,7 @@ export const ComplianceMonitoring: React.FC = () => {
                                   transition: 'width 0.3s ease'
                                 }} />
                               </div>
-                              <span style={{ fontWeight: 800, fontSize: 12, color: colorInfo.border, minWidth: 38 }}>
+                              <span style={{ fontWeight: 800, fontSize: 13, color: colorInfo.border, minWidth: 38 }}>
                                 {p.complianceScore}%
                               </span>
                             </div>
@@ -445,7 +445,7 @@ export const ComplianceMonitoring: React.FC = () => {
                               border: `1px solid ${colorInfo.border}`,
                               padding: '3px 10px',
                               borderRadius: 9999,
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: 700,
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -484,7 +484,7 @@ export const ComplianceMonitoring: React.FC = () => {
                   <AppIcon name="compliance" size={20} color="var(--color-primary)" />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--color-text-primary)', marginBottom: 4 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)', marginBottom: 4 }}>
                     Service Computation Engine Active
                   </div>
                   <div className="text-xs text-muted" style={{ lineHeight: 1.6 }}>
@@ -521,7 +521,7 @@ export const ComplianceMonitoring: React.FC = () => {
                   </button>
                 )}
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)' }}>
                 Showing <strong style={{ color: 'var(--color-text-primary)' }}>{sortedByService.length}</strong> Personnel sorted by tenure
               </div>
             </div>
@@ -576,8 +576,8 @@ export const ComplianceMonitoring: React.FC = () => {
                             {p.yearsInService == null ? 'Not recorded' : `${p.yearsInService} ${p.yearsInService === 1 ? 'yr' : 'yrs'}`}
                           </span>
                         </td>
-                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{p.firstAppointmentDate}</td>
-                        <td style={{ fontSize: 13, color: p.latestPromotionDate.includes('None') ? 'var(--color-text-muted)' : 'var(--color-primary)', fontWeight: p.latestPromotionDate.includes('None') ? 400 : 700 }}>
+                        <td style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>{p.firstAppointmentDate}</td>
+                        <td style={{ fontSize: 14, color: p.latestPromotionDate.includes('None') ? 'var(--color-text-muted)' : 'var(--color-primary)', fontWeight: p.latestPromotionDate.includes('None') ? 400 : 700 }}>
                           {p.latestPromotionDate}
                         </td>
                         <td>

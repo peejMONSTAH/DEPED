@@ -265,7 +265,7 @@ export const Checklist: React.FC = () => {
           <h1 className="topbar-title" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
             Requirement Checklist & Submission
           </h1>
-          <span className="badge badge-neutral" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700 }}>
+          <span className="badge badge-neutral" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700 }}>
             TRX-{txId || rawTxId || '—'}
           </span>
           <StatusBadge status={txStatus} />
@@ -279,7 +279,7 @@ export const Checklist: React.FC = () => {
             <AppIcon name="clock" size={20} color="#f59e0b" />
             <strong style={{ color: '#f59e0b', fontSize: 14 }}>Under AO II Review & Receiving</strong>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             Your 201 transaction dossier has been successfully submitted and is currently in the queue for evaluation & document pre-checking by the Administrative Officer II (AO II). Any validation updates or deficiency notes will appear here in real time.
           </div>
         </div>
@@ -292,7 +292,7 @@ export const Checklist: React.FC = () => {
             <AppIcon name="approved" size={20} color="#c79a2e" />
             <strong style={{ color: '#c79a2e', fontSize: 14 }}>Validated by AO II — Forwarded to HRMO for Final Approval</strong>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             All documentary requirements have been successfully validated and verified by AO II. Your application is now in the Division HRMO approval queue awaiting official appointment signing.
           </div>
         </div>
@@ -305,7 +305,7 @@ export const Checklist: React.FC = () => {
             <AppIcon name="approved" size={20} color="#10b981" />
             <strong style={{ color: '#10b981', fontSize: 14 }}>🎉 Appointment Officially Approved & Finalized by HRMO</strong>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             Congratulations! Your transaction has been approved by the Division Human Resource Management Officer (HRMO) and your updated appointment record is synchronized into your Master 201 File.
           </div>
         </div>
@@ -318,7 +318,7 @@ export const Checklist: React.FC = () => {
             <AppIcon name="warning" size={20} color="#ef4444" />
             <strong style={{ color: '#ef4444', fontSize: 14 }}>Application Rejected by HRMO</strong>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             {txRemarks ? `HRMO Reason: "${txRemarks}"` : 'Your application was rejected during division review.'}
           </div>
         </div>
@@ -331,7 +331,7 @@ export const Checklist: React.FC = () => {
             <AppIcon name="warning" size={20} color="#f85149" />
             <strong style={{ color: '#f85149', fontSize: 14 }}>{returningAuthority} Deficiency Action Required</strong>
           </div>
-          <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+          <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             {txRemarks ? `${returningAuthority} Remarks: "${txRemarks}"` : `Your application was returned by ${returningAuthority} due to document deficiencies.`}
             <br />
             <span style={{ color: 'var(--color-primary-light)', fontWeight: 600, marginTop: 4, display: 'inline-block' }}>
@@ -374,7 +374,7 @@ export const Checklist: React.FC = () => {
                   <span className="text-sm text-muted">complete · {completedReqs.length} of {items.length} uploaded</span>
                 </div>
               </div>
-              <span className={`badge ${pill.cls}`} style={{ fontSize: 13, padding: '6px 14px' }}>{pill.text}</span>
+              <span className={`badge ${pill.cls}`} style={{ fontSize: 14, padding: '6px 14px' }}>{pill.text}</span>
             </div>
 
             <div style={{ height: 8, background: 'var(--color-border)', borderRadius: 999, overflow: 'hidden', margin: '14px 0 4px' }}>
@@ -427,7 +427,7 @@ export const Checklist: React.FC = () => {
         <div className="card-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
           <h3 className="card-heading-title" style={{ margin: 0 }}>Required Checklist Documents</h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="badge badge-info" style={{ fontSize: 11, padding: '4px 10px' }}>
+            <span className="badge badge-info" style={{ fontSize: 13, padding: '4px 10px' }}>
               {items.length} Documents Required
             </span>
           </div>
@@ -461,23 +461,23 @@ export const Checklist: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                     <span className="checklist-name">{item.name}</span>
                     {isApprovedDoc && (
-                      <span className="badge badge-approved" style={{ fontSize: 10, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span className="badge badge-approved" style={{ fontSize: 13, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <AppIcon name="approved" size={11} /> APPROVED BY AO II
                       </span>
                     )}
                     {isDeficientDoc && (
-                      <span className="badge badge-deficiency" style={{ fontSize: 10, padding: '2px 8px', background: '#f85149', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span className="badge badge-deficiency" style={{ fontSize: 13, padding: '2px 8px', background: '#f85149', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <AppIcon name="warning" size={11} color="#ffffff" /> DEFICIENT — ACTION REQUIRED
                       </span>
                     )}
                     {!isApprovedDoc && !isDeficientDoc && item.isMandatory && (
-                      <span className="badge badge-deficiency" style={{ fontSize: 10, padding: '2px 6px' }}>REQUIRED</span>
+                      <span className="badge badge-deficiency" style={{ fontSize: 13, padding: '2px 6px' }}>REQUIRED</span>
                     )}
-                    <span className="badge badge-info font-mono" style={{ fontSize: 10, padding: '2px 6px' }}>{item.version}</span>
+                    <span className="badge badge-info font-mono" style={{ fontSize: 13, padding: '2px 6px' }}>{item.version}</span>
                   </div>
                   <div className="checklist-desc">{item.description}</div>
                   {isDeficientDoc && item.rejectionNotes && (
-                    <div style={{ fontSize: 12, color: '#f85149', marginTop: 6, fontWeight: 600 }}>
+                    <div style={{ fontSize: 13, color: '#f85149', marginTop: 6, fontWeight: 600 }}>
                       {returningAuthority} Evaluation Note: {item.rejectionNotes}
                     </div>
                   )}

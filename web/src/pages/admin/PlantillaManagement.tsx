@@ -560,10 +560,10 @@ export const PlantillaManagement: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
-            <span className="badge badge-info" style={{ fontSize: '0.6875rem', fontWeight: 800, letterSpacing: '0.5px' }}>
+            <span className="badge badge-info" style={{ fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.5px' }}>
               DEPED DBM AUTHORIZED INVENTORY
             </span>
-            <span className="badge badge-neutral" style={{ fontSize: '0.6875rem', fontWeight: 700 }}>
+            <span className="badge badge-neutral" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
               SDO Koronadal City
             </span>
           </div>
@@ -609,49 +609,49 @@ export const PlantillaManagement: React.FC = () => {
       {/* KPI Overview Metrics Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
             Total Authorized Items
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--color-text-primary)', lineHeight: 1 }}>
             {stats.totalItems}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '6px' }}>
             Official DBM Division Plantilla
           </div>
         </div>
 
         <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(16, 185, 129, 0.3)', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.05)' : '#F0FDF4' }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
             Filled (Occupied) Positions
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10B981', lineHeight: 1 }}>
             {stats.occupiedItems}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', color: '#059669', marginTop: '6px' }}>
             {stats.totalItems > 0 ? Math.round((stats.occupiedItems / stats.totalItems) * 100) : 0}% Active Personnel Occupancy
           </div>
         </div>
 
         <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.3)', background: theme === 'dark' ? 'rgba(245, 158, 11, 0.05)' : '#FFFBEB' }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
             Vacant Positions (Availability)
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 900, color: '#F59E0B', lineHeight: 1 }}>
             {stats.vacantItems}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#D97706', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', color: '#D97706', marginTop: '6px' }}>
             {stats.availabilityRate}% Ready for Ranking / Hiring
           </div>
         </div>
 
         <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(59, 130, 246, 0.3)', background: theme === 'dark' ? 'rgba(59, 130, 246, 0.05)' : '#EEF7F1' }}>
-          <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
             Open for Merit Ranking
           </div>
           <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3F9265', lineHeight: 1 }}>
             {stats.openForRanking}
           </div>
-          <div style={{ fontSize: '0.75rem', color: '#2F7D52', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.8125rem', color: '#2F7D52', marginTop: '6px' }}>
             Active Promotion Cycle Linked
           </div>
         </div>
@@ -798,7 +798,7 @@ export const PlantillaManagement: React.FC = () => {
           <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
             Plantilla Items List ({filteredPlantillas.length} position{filteredPlantillas.length === 1 ? '' : 's'})
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
             Showing {filteredPlantillas.length} of {plantillas.length} records
           </div>
         </div>
@@ -807,19 +807,19 @@ export const PlantillaManagement: React.FC = () => {
           <table className="table" style={{ margin: 0 }}>
             <thead>
               <tr style={{ background: 'var(--color-bg-card)', borderBottom: '2px solid var(--color-border)' }}>
-                <th style={{ width: '18%', padding: '12px 16px', fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ width: '18%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
                   Item Code / Plantilla No.
                 </th>
-                <th style={{ width: '20%', padding: '12px 16px', fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ width: '20%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
                   Authorized Title & Grade
                 </th>
-                <th style={{ width: '20%', padding: '12px 16px', fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ width: '20%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
                   School Station / Assignment
                 </th>
-                <th style={{ width: '26%', padding: '12px 16px', fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                <th style={{ width: '26%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
                   Assigned Personnel (Occupant)
                 </th>
-                <th style={{ width: '16%', padding: '12px 16px', fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
+                <th style={{ width: '16%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
                   Actions
                 </th>
               </tr>
@@ -904,11 +904,11 @@ export const PlantillaManagement: React.FC = () => {
                         </div>
                         <div style={{ marginTop: '4px' }}>
                           {isOccupied ? (
-                            <span className="badge badge-neutral" style={{ fontSize: '0.625rem', fontWeight: 700, color: '#059669', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' }}>
+                            <span className="badge badge-neutral" style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#059669', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' }}>
                               ● OCCUPIED
                             </span>
                           ) : (
-                            <span className="badge badge-warning" style={{ fontSize: '0.625rem', fontWeight: 800, color: '#D97706', background: theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7' }}>
+                            <span className="badge badge-warning" style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D97706', background: theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7' }}>
                               ● VACANT (AVAILABLE)
                             </span>
                           )}
@@ -921,10 +921,10 @@ export const PlantillaManagement: React.FC = () => {
                           {item.positionTitle}
                         </div>
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
-                          <span className="badge badge-outline" style={{ fontSize: '0.6875rem', fontWeight: 800 }}>
+                          <span className="badge badge-outline" style={{ fontSize: '0.8125rem', fontWeight: 800 }}>
                             SG {item.salaryGrade}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                             {isTeacher ? 'Teaching Track' : 'Non-Teaching Track'}
                           </span>
                         </div>
@@ -935,7 +935,7 @@ export const PlantillaManagement: React.FC = () => {
                         <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
                           {item.department}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                           {item.division}
                         </div>
                       </td>
@@ -963,7 +963,7 @@ export const PlantillaManagement: React.FC = () => {
                               <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {occupant.firstName} {occupant.lastName}
                               </div>
-                              <div style={{ fontSize: '0.6875rem', fontFamily: 'monospace', color: 'var(--color-text-muted)' }}>
+                              <div style={{ fontSize: '0.8125rem', fontFamily: 'monospace', color: 'var(--color-text-muted)' }}>
                                 {occupant.employeeId} • {occupant.designation || 'Active Staff'}
                               </div>
                             </div>
@@ -977,14 +977,14 @@ export const PlantillaManagement: React.FC = () => {
                               {item.isOpenForRanking && item.activePromotionCycle ? (
                                 <span
                                   className="badge badge-info"
-                                  style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '2px 8px', cursor: 'pointer' }}
+                                  style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '2px 8px', cursor: 'pointer' }}
                                   {...clickable<HTMLSpanElement>(() => navigate('/admin/promotions'), 'View promotion ranking for this cycle')}
                                   title="Active cycle — click to view promotion ranking"
                                 >
                                   🎯 Open in: {item.activePromotionCycle.name?.slice(0, 24)}…
                                 </span>
                               ) : (
-                                <span className="badge badge-neutral" style={{ fontSize: '0.6875rem', fontWeight: 600, padding: '2px 8px' }}>
+                                <span className="badge badge-neutral" style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '2px 8px' }}>
                                   Ready for Ranking
                                 </span>
                               )}
@@ -1006,7 +1006,7 @@ export const PlantillaManagement: React.FC = () => {
                                   onClick={() => navigate('/admin/promotions')}
                                   title={`Active in ranking cycle: ${item.activePromotionCycle.name}. Click to view ranking.`}
                                   style={{
-                                    fontSize: '0.75rem',
+                                    fontSize: '0.8125rem',
                                     fontWeight: 700,
                                     padding: '4px 10px',
                                     borderRadius: '8px',
@@ -1028,7 +1028,7 @@ export const PlantillaManagement: React.FC = () => {
                                   onClick={() => handleOpenForRanking(item)}
                                   title="Open this vacant plantilla for active merit promotion"
                                   style={{
-                                    fontSize: '0.75rem',
+                                    fontSize: '0.8125rem',
                                     fontWeight: 800,
                                     padding: '4px 10px',
                                     borderRadius: '8px',
@@ -1051,7 +1051,7 @@ export const PlantillaManagement: React.FC = () => {
                                   className="btn btn-secondary btn-xs"
                                   onClick={() => handleOpenAssign(item)}
                                   title="Directly assign an active personnel occupant"
-                                  style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                                  style={{ fontSize: '0.8125rem', padding: '4px 8px' }}
                                 >
                                   <UserCheck size={12} />
                                   Assign
@@ -1067,7 +1067,7 @@ export const PlantillaManagement: React.FC = () => {
                                   className="btn btn-secondary btn-xs"
                                   onClick={() => handleOpenAssign(item)}
                                   title="Change assigned personnel occupant"
-                                  style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                                  style={{ fontSize: '0.8125rem', padding: '4px 8px' }}
                                 >
                                   <UserCheck size={12} />
                                   Change Occupant
@@ -1077,7 +1077,7 @@ export const PlantillaManagement: React.FC = () => {
                                   className="btn btn-ghost btn-xs"
                                   onClick={() => handleVacateItem(item)}
                                   title="Vacate this plantilla item and unbind current occupant"
-                                  style={{ color: '#EF4444', fontSize: '0.75rem', padding: '4px 8px' }}
+                                  style={{ color: '#EF4444', fontSize: '0.8125rem', padding: '4px 8px' }}
                                 >
                                   <UserMinus size={12} />
                                   Vacate
@@ -1128,7 +1128,7 @@ export const PlantillaManagement: React.FC = () => {
           <div className="modal animate-scale-in" style={{ maxWidth: '560px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>
                   DBM Authorized Item Record
                 </div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--color-text-primary)' }}>
@@ -1143,7 +1143,7 @@ export const PlantillaManagement: React.FC = () => {
             <form onSubmit={handleSubmitForm} style={{ padding: '20px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                     Plantilla Item Number (CSC / DBM Code) *
                   </label>
                   <input
@@ -1156,14 +1156,11 @@ export const PlantillaManagement: React.FC = () => {
                     onChange={(e) => { setFormItemNumber(e.target.value); setItemNumberEdited(true); }}
                     style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
                   />
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                    Suggested from the position. Replace it with the DBM-issued number if it differs.
-                  </div>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, minmax(0, 2fr) minmax(0, 1fr))', gap: '12px' }}>
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                    <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                       Authorized Position Title *
                     </label>
                     <select
@@ -1212,9 +1209,8 @@ export const PlantillaManagement: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>Salary Grade *</span>
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>(Fixed by DBM)</span>
                     </label>
                     <div style={{ position: 'relative' }}>
                       <input aria-label="Salary Grade (fixed by DBM)"
@@ -1237,7 +1233,7 @@ export const PlantillaManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                     District *
                   </label>
                   <select
@@ -1260,7 +1256,7 @@ export const PlantillaManagement: React.FC = () => {
 
                 {selectedFormDistrict && (
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>School *</label>
+                    <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>School *</label>
                     <select aria-label="School" className="form-control" value={formDepartment}
                       onChange={e => setFormDepartment(e.target.value)} style={{ fontSize: '0.8125rem' }}>
                       <option value="">Select school</option>
@@ -1271,7 +1267,7 @@ export const PlantillaManagement: React.FC = () => {
                 )}
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                     Initial Availability Status
                   </label>
                   <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
@@ -1324,7 +1320,7 @@ export const PlantillaManagement: React.FC = () => {
                           type="button"
                           className="btn btn-ghost btn-xs"
                           onClick={() => setFormPersonnelId('')}
-                          style={{ fontSize: '0.6875rem', color: '#EF4444', padding: '2px 6px' }}
+                          style={{ fontSize: '0.8125rem', color: '#EF4444', padding: '2px 6px' }}
                         >
                           Clear Selection
                         </button>
@@ -1367,7 +1363,7 @@ export const PlantillaManagement: React.FC = () => {
                             <div style={{ fontWeight: 800, fontSize: '0.875rem', color: 'var(--color-text-primary)' }}>
                               {selectedOccupantCandidate.firstName} {selectedOccupantCandidate.lastName}
                             </div>
-                            <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', display: 'flex', gap: '6px' }}>
+                            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', display: 'flex', gap: '6px' }}>
                               <span>ID: <strong>{selectedOccupantCandidate.employeeId}</strong></span>
                               <span>•</span>
                               <span>{selectedOccupantCandidate.designation}</span>
@@ -1379,7 +1375,7 @@ export const PlantillaManagement: React.FC = () => {
                           type="button"
                           className="btn btn-secondary btn-xs"
                           onClick={() => setFormPersonnelId('')}
-                          style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                          style={{ fontSize: '0.8125rem', padding: '4px 10px' }}
                         >
                           Change
                         </button>
@@ -1433,7 +1429,7 @@ export const PlantillaManagement: React.FC = () => {
                           }}
                         >
                           {candidatePersonnelList.length === 0 ? (
-                            <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                               No matching personnel found in database.
                             </div>
                           ) : (
@@ -1472,7 +1468,7 @@ export const PlantillaManagement: React.FC = () => {
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         fontWeight: 700,
-                                        fontSize: '0.6875rem',
+                                        fontSize: '0.8125rem',
                                       }}
                                     >
                                       {p.firstName?.[0]}{p.lastName?.[0]}
@@ -1481,7 +1477,7 @@ export const PlantillaManagement: React.FC = () => {
                                       <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: 'var(--color-text-primary)' }}>
                                         {p.firstName} {p.lastName}
                                       </div>
-                                      <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                                         {p.employeeId} • {p.designation} • <span style={{ color: 'var(--color-primary-light)', fontWeight: 600 }}>{p.school || p.plantillaItem?.department || p.address?.split(',')[0] || 'Unassigned Station'}</span>
                                       </div>
                                     </div>
@@ -1491,7 +1487,7 @@ export const PlantillaManagement: React.FC = () => {
                                     {selectedPlantillaForAssign?.department && p.school && selectedPlantillaForAssign.department.trim().toLowerCase() !== p.school.trim().toLowerCase() && (
                                       <span
                                         style={{
-                                          fontSize: '0.625rem',
+                                          fontSize: '0.8125rem',
                                           padding: '2px 6px',
                                           borderRadius: '4px',
                                           background: 'rgba(59, 130, 246, 0.1)',
@@ -1506,7 +1502,7 @@ export const PlantillaManagement: React.FC = () => {
                                     {isAlreadyInAnother ? (
                                       <span
                                         style={{
-                                          fontSize: '0.625rem',
+                                          fontSize: '0.8125rem',
                                           padding: '2px 6px',
                                           borderRadius: '4px',
                                           background: 'rgba(245, 158, 11, 0.1)',
@@ -1520,7 +1516,7 @@ export const PlantillaManagement: React.FC = () => {
                                     ) : (
                                       <span
                                         style={{
-                                          fontSize: '0.625rem',
+                                          fontSize: '0.8125rem',
                                           padding: '2px 6px',
                                           borderRadius: '4px',
                                           background: 'rgba(16, 185, 129, 0.1)',
@@ -1536,7 +1532,7 @@ export const PlantillaManagement: React.FC = () => {
                                       type="button"
                                       className="btn btn-primary btn-xs"
                                       style={{
-                                        fontSize: '0.6875rem',
+                                        fontSize: '0.8125rem',
                                         padding: '2px 8px',
                                         background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
                                         color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
@@ -1582,7 +1578,7 @@ export const PlantillaManagement: React.FC = () => {
           <div className="modal animate-scale-in" style={{ maxWidth: '580px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>
                   Occupant Assignment Workspace
                 </div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--color-text-primary)' }}>
@@ -1596,11 +1592,11 @@ export const PlantillaManagement: React.FC = () => {
 
             <form onSubmit={handleAssignSubmit} style={{ padding: '20px' }}>
               <div style={{ background: 'var(--color-bg-tertiary)', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', border: '1px solid var(--color-border)' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>Target Plantilla Position:</div>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>Target Plantilla Position:</div>
                 <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
                   {selectedPlantillaForAssign.positionTitle} (SG {selectedPlantillaForAssign.salaryGrade})
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                   {selectedPlantillaForAssign.department} • {selectedPlantillaForAssign.division}
                 </div>
               </div>
@@ -1608,14 +1604,14 @@ export const PlantillaManagement: React.FC = () => {
               {selectedPlantillaForAssign.isOpenForRanking && (
                 <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <AlertCircle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text-primary)', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-primary)', lineHeight: 1.4 }}>
                     <strong style={{ color: '#D97706' }}>Plantilla Open for Grab in Promotion Cycle:</strong> This item is currently tied to active promotion cycle <em>"{selectedPlantillaForAssign.activePromotionCycle?.name}"</em>. Direct manual assignment is locked to protect the official ranking and deliberation process.
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                   Search & Select Personnel to Assign:
                 </label>
                 <div style={{ position: 'relative', marginBottom: '10px' }}>
@@ -1691,7 +1687,7 @@ export const PlantillaManagement: React.FC = () => {
                           <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
                             {p.firstName} {p.lastName}
                           </div>
-                          <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
                             {p.employeeId} • {p.designation} {hasPlantilla ? `(Currently on ${p.plantillaItem?.itemNumber})` : ''}
                           </div>
                         </div>
@@ -1732,7 +1728,7 @@ export const PlantillaManagement: React.FC = () => {
           <div className="modal animate-scale-in" style={{ maxWidth: '580px', borderRadius: '16px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
             <div className="modal-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-primary)', textTransform: 'uppercase' }}>
                   Merit Selection & Promotion Launch
                 </div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--color-text-primary)' }}>
@@ -1746,20 +1742,20 @@ export const PlantillaManagement: React.FC = () => {
 
             <form onSubmit={handleLaunchCycleSubmit} style={{ padding: '20px' }}>
               <div style={{ background: 'rgba(59, 130, 246, 0.08)', padding: '14px 16px', borderRadius: '10px', marginBottom: '16px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                <div style={{ fontSize: '0.6875rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Target Plantilla Position
                 </div>
                 <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--color-text-primary)', marginTop: '2px' }}>
                   {selectedPlantillaForCycle.positionTitle} (SG {selectedPlantillaForCycle.salaryGrade})
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
                   Item Code: {selectedPlantillaForCycle.itemNumber} • Station: {selectedPlantillaForCycle.department}
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                     Promotion Cycle Title *
                   </label>
                   <input
@@ -1775,7 +1771,7 @@ export const PlantillaManagement: React.FC = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '12px' }}>
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                    <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                       Application Start Date *
                     </label>
                     <input
@@ -1790,7 +1786,7 @@ export const PlantillaManagement: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                    <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                       Submission Deadline *
                     </label>
                     <input
@@ -1806,7 +1802,7 @@ export const PlantillaManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
                     Max Applicants Capacity
                   </label>
                   <input

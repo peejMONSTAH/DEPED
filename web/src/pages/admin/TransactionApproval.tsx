@@ -397,7 +397,7 @@ export const TransactionApproval: React.FC = () => {
                   <AppIcon name="pending" size={20} color="#F59E0B" />
                 </div>
                 <span style={{
-                  fontSize: 10, fontWeight: 800, color: forApprovalList.length > 0 ? '#F59E0B' : '#10B981',
+                  fontSize: 13, fontWeight: 800, color: forApprovalList.length > 0 ? '#F59E0B' : '#10B981',
                   background: forApprovalList.length > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.12)',
                   padding: '2px 8px', borderRadius: 9999
                 }}>
@@ -408,7 +408,7 @@ export const TransactionApproval: React.FC = () => {
                 <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
                   {forApprovalList.length}
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
                   Awaiting Final Approval
                 </div>
               </div>
@@ -423,7 +423,7 @@ export const TransactionApproval: React.FC = () => {
                 }}>
                   <AppIcon name="approved" size={20} color="#10B981" />
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
                   201 UPDATED
                 </span>
               </div>
@@ -431,7 +431,7 @@ export const TransactionApproval: React.FC = () => {
                 <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
                   {approvedList.length}
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
                   Certified & Approved
                 </div>
               </div>
@@ -446,7 +446,7 @@ export const TransactionApproval: React.FC = () => {
                 }}>
                   <AppIcon name="returned" size={20} color="#F97316" />
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#F97316', background: 'rgba(249, 115, 22, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#F97316', background: 'rgba(249, 115, 22, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
                   CORRECTIONS
                 </span>
               </div>
@@ -454,7 +454,7 @@ export const TransactionApproval: React.FC = () => {
                 <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
                   {returnedList.length}
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
                   Returned by HRMO
                 </div>
               </div>
@@ -469,7 +469,7 @@ export const TransactionApproval: React.FC = () => {
                 }}>
                   <AppIcon name="repository" size={20} color="#C79A2E" />
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#C79A2E', background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#C79A2E', background: 'rgba(139, 92, 246, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
                   REAL-TIME
                 </span>
               </div>
@@ -477,7 +477,7 @@ export const TransactionApproval: React.FC = () => {
                 <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
                   100%
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
                   201 Vault Sync Health
                 </div>
               </div>
@@ -510,7 +510,7 @@ export const TransactionApproval: React.FC = () => {
               background: activeTab === 'FOR_APPROVAL' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'FOR_APPROVAL' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -533,7 +533,7 @@ export const TransactionApproval: React.FC = () => {
               background: activeTab === 'APPROVED' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'APPROVED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -556,7 +556,7 @@ export const TransactionApproval: React.FC = () => {
               background: activeTab === 'RETURNED' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'RETURNED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -579,7 +579,7 @@ export const TransactionApproval: React.FC = () => {
               background: activeTab === 'REJECTED' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'REJECTED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -602,7 +602,7 @@ export const TransactionApproval: React.FC = () => {
               background: activeTab === 'ALL' ? 'var(--color-primary)' : 'transparent',
               color: activeTab === 'ALL' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
               fontWeight: 700,
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -791,7 +791,7 @@ export const TransactionApproval: React.FC = () => {
                             width: 40, height: 40, borderRadius: '50%',
                             background: isApproved ? 'rgba(16, 185, 129, 0.15)' : isReturned ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)',
                             color: isApproved ? '#10B981' : isReturned ? '#F97316' : '#3F9265',
-                            fontWeight: 800, fontSize: 13,
+                            fontWeight: 800, fontSize: 14,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                           }}>
                             {tx.personnelName.substring(0, 2).toUpperCase()}
@@ -800,7 +800,7 @@ export const TransactionApproval: React.FC = () => {
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                               <span style={{
-                                fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
+                                fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700,
                                 background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: 6,
                                 border: '1px solid var(--color-border)', color: 'var(--color-text-primary)'
                               }}>
@@ -809,11 +809,11 @@ export const TransactionApproval: React.FC = () => {
                               <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)' }}>
                                 {tx.personnelName}
                               </span>
-                              <span className={tx.personnelCategory.includes('Teaching') ? 'badge badge-info' : 'badge badge-secondary'} style={{ fontSize: 10 }}>
+                              <span className={tx.personnelCategory.includes('Teaching') ? 'badge badge-info' : 'badge badge-secondary'} style={{ fontSize: 13 }}>
                                 {tx.personnelCategory}
                               </span>
                             </div>
-                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
                               ID: <strong className="font-mono">{tx.employeeId}</strong> &bull; {tx.currentPosition}
                             </div>
                           </div>
@@ -823,7 +823,7 @@ export const TransactionApproval: React.FC = () => {
                           {tx.isPromotion && (
                             <span className="badge" style={{
                               background: 'rgba(139, 92, 246, 0.15)', color: '#C79A2E',
-                              border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 10,
+                              border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 13,
                               display: 'inline-flex', alignItems: 'center', gap: 4
                             }}>
                               <AppIcon name="promotions" size={12} color="#C79A2E" /> Promotion
@@ -859,7 +859,7 @@ export const TransactionApproval: React.FC = () => {
                       {/* Details Grid */}
                       <div style={{
                         display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))', gap: 10,
-                        fontSize: 12, background: 'var(--color-bg-secondary)',
+                        fontSize: 13, background: 'var(--color-bg-secondary)',
                         padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--color-border)',
                         marginBottom: 12
                       }}>
@@ -871,7 +871,7 @@ export const TransactionApproval: React.FC = () => {
 
                       {/* Action Bar */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                        <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
                           Click to inspect full 201 dossier & validation logs &rarr;
                         </div>
 
@@ -931,7 +931,7 @@ export const TransactionApproval: React.FC = () => {
                   <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.15rem', color: 'var(--color-text-primary)' }}>
                     Review Transaction #{selected.id}
                   </h3>
-                  <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
                     Official Digital 201 File Evaluation
                   </span>
                 </div>
@@ -954,10 +954,10 @@ export const TransactionApproval: React.FC = () => {
                 padding: '14px 16px',
                 marginBottom: 14
               }}>
-                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)', marginBottom: 8 }}>
                   Personnel Profile
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px 12px', fontSize: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, 1fr 1fr)', gap: '8px 12px', fontSize: 13 }}>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Name:</span> <strong style={{ color: 'var(--color-text-primary)' }}>{selected.personnelName}</strong></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Employee ID:</span> <strong className="font-mono" style={{ color: 'var(--color-text-primary)' }}>{selected.employeeId}</strong></div>
                   <div><span style={{ color: 'var(--color-text-secondary)' }}>Category:</span> <strong>{selected.personnelCategory}</strong></div>
@@ -976,7 +976,7 @@ export const TransactionApproval: React.FC = () => {
                 marginBottom: 14
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
                     Compliance & Validation Score
                   </span>
                   <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-success)' }}>
@@ -997,10 +997,10 @@ export const TransactionApproval: React.FC = () => {
                 marginBottom: 16
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-secondary)' }}>
                     Submitted Requirements ({selected.detailedDocuments?.length ?? selected.documents.length})
                   </span>
-                  <span className={`badge ${selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'badge-approved' : 'badge-info'}`} style={{ fontSize: 9 }}>
+                  <span className={`badge ${selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'badge-approved' : 'badge-info'}`} style={{ fontSize: 13 }}>
                     {selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'AO II CERTIFIED' : 'LOADING REVIEW STATUS'}
                   </span>
                 </div>
@@ -1017,7 +1017,7 @@ export const TransactionApproval: React.FC = () => {
                         borderRadius: 8,
                         background: 'var(--color-bg-tertiary)',
                         border: '1px solid var(--color-border)',
-                        fontSize: 12
+                        fontSize: 13
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1066,7 +1066,7 @@ export const TransactionApproval: React.FC = () => {
                   borderRadius: 10,
                   background: selected.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(249, 115, 22, 0.12)',
                   border: `1px solid ${selected.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(249, 115, 22, 0.3)'}`,
-                  fontSize: 12,
+                  fontSize: 13,
                   textAlign: 'center',
                   fontWeight: 700,
                   color: selected.status === 'APPROVED' ? 'var(--color-success-text)' : 'var(--color-warning-text)'
@@ -1110,7 +1110,7 @@ export const TransactionApproval: React.FC = () => {
                       <AppIcon name={field.icon} size={16} color="var(--color-success-text)" />
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--color-success-text)' }}>{field.label}</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-success-text)' }}>{field.label}</div>
                       <div className="text-xs text-muted" style={{ marginTop: 2 }}>{field.description}</div>
                     </div>
                   </div>
@@ -1120,7 +1120,7 @@ export const TransactionApproval: React.FC = () => {
               <div style={{
                 padding: '10px 14px', background: 'var(--color-bg-secondary)',
                 border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)',
-                fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.5
+                fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5
               }}>
                 Transaction #{showCareerUpdate.id} is now locked and authenticated as part of <strong>{showCareerUpdate.personnelName}'s</strong> official digital 201 career portfolio.
               </div>
@@ -1163,7 +1163,7 @@ export const TransactionApproval: React.FC = () => {
                           style={{ marginTop: 2 }}
                         />
                         <span>
-                          <strong style={{ display: 'block', fontSize: 13 }}>{document.name}</strong>
+                          <strong style={{ display: 'block', fontSize: 14 }}>{document.name}</strong>
                           <span className="text-xs text-muted">{document.type || 'Uploaded document'}</span>
                         </span>
                       </label>

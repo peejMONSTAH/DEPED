@@ -473,7 +473,7 @@ export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
           {/* Captured Pages Thumbnail Tray */}
           {pages.length > 0 && (
             <div className="doc-scanner-tray">
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>
+              <span style={{ fontSize: '0.8125rem', color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>
                 {pages.length} {pages.length === 1 ? 'Page' : 'Pages'}:
               </span>
               {pages.map((imgUrl, idx) => (

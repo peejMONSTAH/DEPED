@@ -88,7 +88,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
               {options.reason && (
                 <label style={{ display: 'block', marginTop: 16 }}>
-                  <span style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--color-text-primary)' }}>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6, color: 'var(--color-text-primary)' }}>
                     {options.reason.label}
                     {options.reason.required && <span style={{ color: 'var(--color-error)' }}> *</span>}
                   </span>
@@ -99,7 +99,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     onChange={event => setReason(event.target.value)}
                     placeholder={options.reason.placeholder}
                     style={{
-                      width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 13,
+                      width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 14,
                       borderRadius: 10, border: '1px solid var(--color-border)', resize: 'vertical',
                       background: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)',
                       fontFamily: 'inherit',
@@ -116,7 +116,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 style={{
                   background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)',
                   border: '1px solid var(--color-border)', borderRadius: 9999,
-                  padding: '8px 18px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                  padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                 }}
               >
                 {options.cancelLabel || 'Cancel'}
@@ -130,7 +130,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
                   background: reasonMissing ? 'var(--color-border)' : (danger ? 'var(--color-error)' : 'var(--color-primary)'),
                   color: reasonMissing ? 'var(--color-text-secondary)' : '#fff',
                   border: 'none', borderRadius: 9999,
-                  padding: '8px 20px', fontSize: 12.5, fontWeight: 700,
+                  padding: '8px 20px', fontSize: 13, fontWeight: 700,
                   cursor: reasonMissing ? 'not-allowed' : 'pointer',
                 }}
               >

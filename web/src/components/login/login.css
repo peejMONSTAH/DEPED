@@ -191,7 +191,7 @@
 }
 
 .neuro-cross {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #F5A623;
   opacity: 0.9;
@@ -204,14 +204,14 @@
 }
 
 .neuro-brand-title {
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
   letter-spacing: 0.06em !important;
   color: #FFFFFF !important;
 }
 
 .neuro-brand-sub {
-  font-size: 9.5px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   color: #94A3B8 !important;
   letter-spacing: 0.04em !important;
@@ -225,7 +225,7 @@
   padding: 5px 13px;
   border-radius: 9999px;
   border: 1px solid;
-  font-size: 10.5px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
@@ -252,7 +252,7 @@
   padding: 5px 12px;
   border-radius: 9999px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   transition: all 0.2s ease;
   backdrop-filter: blur(8px);
@@ -348,7 +348,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   padding: 2.5px 9px;
-  font-size: 10px;
+  font-size: 13px;
   color: #94A3B8;
   font-family: var(--font-mono);
 }
@@ -358,7 +358,7 @@
 }
 
 .ssl-badge {
-  font-size: 8px;
+  font-size: 13px;
   background: rgba(16, 185, 129, 0.18);
   color: #34D399;
   padding: 1px 4px;
@@ -382,7 +382,7 @@
 }
 
 .live-text {
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 800;
   color: #DCE6DE;
   letter-spacing: 0.05em;
@@ -418,7 +418,7 @@
   padding: 6px 13px;
   border-radius: 9999px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.7), 0 0 1px rgba(255, 255, 255, 0.2);
-  font-size: 10.5px;
+  font-size: 13px;
   font-weight: 700;
   color: #FFFFFF;
   pointer-events: none;
@@ -436,7 +436,7 @@
 }
 
 .chip-icon {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* Proof Metrics Bar */
@@ -469,7 +469,7 @@
 }
 
 .metric-lbl {
-  font-size: 9.5px;
+  font-size: 13px;
   color: #94A3B8;
   font-weight: 600;
   white-space: nowrap;
@@ -495,7 +495,7 @@
 }
 
 .neuro-slide-tag {
-  font-size: 10.5px !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
   letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
@@ -512,7 +512,7 @@
 
 .neuro-slide-subtitle {
   margin: 0 !important;
-  font-size: 12.5px !important;
+  font-size: 13px !important;
   line-height: 1.5 !important;
   color: rgba(226, 232, 240, 0.85) !important;
   max-width: 580px !important;
@@ -558,7 +558,7 @@
 }
 
 .neuro-slide-counter {
-  font-size: 11px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   color: rgba(255, 255, 255, 0.5) !important;
   letter-spacing: 0.08em !important;
@@ -693,7 +693,7 @@
   align-items: center;
   gap: 10px;
   color: #FCA5A5;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -836,7 +836,7 @@
 }
 
 .neuro-divider-text {
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   color: #5B6B60 !important;
   text-transform: uppercase !important;
@@ -892,7 +892,7 @@
   color: #FFFFFF;
   padding: 5px 10px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   pointer-events: none;
@@ -963,18 +963,18 @@
 }
 
 .neuro-role-card-title {
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   color: #FFFFFF !important;
 }
 
 .neuro-role-card-desc {
-  font-size: 11px !important;
+  font-size: 13px !important;
   color: #8E9BAE !important;
 }
 
 .neuro-role-card-action {
-  font-size: 11px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   color: #F5A623 !important;
   display: flex;
@@ -994,7 +994,7 @@
 
 .neuro-form-footer p {
   margin: 0 !important;
-  font-size: 10.5px !important;
+  font-size: 13px !important;
   color: #5B6B60 !important;
   line-height: 1.4 !important;
 }
@@ -1070,7 +1070,7 @@
 }
 
 .neuro-login-viewport .modal .modal-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #94A3B8;
   margin-bottom: 6px;
@@ -1131,7 +1131,7 @@
   }
 
   .neuro-slide-subtitle {
-    font-size: 13px !important;
+    font-size: 14px !important;
   }
 
   .neuro-brand-sub {

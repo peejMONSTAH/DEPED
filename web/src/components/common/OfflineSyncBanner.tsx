@@ -33,14 +33,14 @@ export const OfflineSyncBanner: React.FC = () => {
       display: 'flex',
       alignItems: 'center',
       gap: 10,
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: 600,
       animation: 'fadeIn 0.3s ease'
     }}>
       <AppIcon name="warning" size={18} color="#000" />
       <div>
         <span>Offline Mode Active</span>
-        <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>
+        <div style={{ fontSize: 13, fontWeight: 400, opacity: 0.85 }}>
           Drafts & 201 updates will sync automatically when reconnected.
         </div>
       </div>
