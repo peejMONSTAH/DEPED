@@ -1,353 +1,628 @@
-import { humanizeEnum } from '../../constants/transactionStatus';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
+import './audit-workspace.css';
 
-interface AuditItem {
+export interface AuditItem {
   id: string | number;
   timestamp: string;
+  displayTimestamp?: string;
   user: string;
   role: string;
+  actorRoleLabel?: string;
+  actorStation?: string | null;
   category: string;
+  severity?: string;
+  outcome?: string;
   action: string;
+  actionLabel?: string;
+  targetType?: string;
+  targetId?: number;
+  targetReference?: string;
+  summary?: string;
   details: any;
   status: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  clientSource?: string;
+  requestId?: string;
+  failureReason?: string | null;
+  beforeValue?: any;
+  afterValue?: any;
+  recordHash?: string | null;
+  previousHash?: string | null;
 }
 
+interface SecurityFindingItem {
+  id: string;
+  title: string;
+  severity: string;
+  category: string;
+  count: number;
+  description: string;
+  recommendation: string;
+}
+
+interface SummaryMetrics {
+  total: number;
+  criticalCount: number;
+  highCount: number;
+  warningCount: number;
+  failedCount: number;
+  deniedCount: number;
+  logins24h: number;
+  failedLogins24h: number;
+  accessDenied24h: number;
+  lockedAccounts: number;
+  privilegedChanges24h: number;
+  exports24h: number;
+}
 
 const CATEGORIES = [
-  { id: 'All Activities', label: 'All Activities', compactLabel: 'All', dotClass: 'dot-all' },
-  { id: 'Login Activities', label: 'Login Activities', compactLabel: 'Logins', dotClass: 'dot-login' },
-  { id: 'Account Creation', label: 'Account Creation', compactLabel: 'Accounts', dotClass: 'dot-account' },
-  { id: 'Document Uploads', label: 'Document Uploads', compactLabel: 'Uploads', dotClass: 'dot-upload' },
-  { id: 'Validation Actions', label: 'Validation Actions', compactLabel: 'Validations', dotClass: 'dot-validation' },
-  { id: 'Approval Actions', label: 'Approval Actions', compactLabel: 'Approvals', dotClass: 'dot-approval' },
-  { id: 'Returned Submissions', label: 'Returned Submissions', compactLabel: 'Returns', dotClass: 'dot-return' },
-  { id: 'Account Modifications', label: 'Account Modifications', compactLabel: 'Modifications', dotClass: 'dot-mod' },
-  { id: 'Plantilla & Positions', label: 'Plantilla & Positions', compactLabel: 'Plantilla', dotClass: 'dot-plantilla' },
-  { id: 'Promotion & Ranking', label: 'Promotion & Ranking', compactLabel: 'Promotions', dotClass: 'dot-promotion' },
-  { id: 'Personnel Records', label: 'Personnel Records', compactLabel: '201 Files', dotClass: 'dot-personnel' },
+  { id: 'All', label: 'All Activities', compactLabel: 'All' },
+  { id: 'Authentication', label: 'Authentication', compactLabel: 'Logins' },
+  { id: 'Account lifecycle', label: 'Account Lifecycle', compactLabel: 'Accounts' },
+  { id: 'Roles and permissions', label: 'Roles & Security', compactLabel: 'Roles' },
+  { id: 'Sensitive record access', label: 'Sensitive Records', compactLabel: 'Access' },
+  { id: 'Documents', label: 'Document Operations', compactLabel: 'Documents' },
+  { id: 'Transactions', label: 'Transactions', compactLabel: 'Transactions' },
+  { id: 'Personnel records', label: 'Personnel 201 Files', compactLabel: '201 Files' },
+  { id: 'Promotions and ranking', label: 'Promotions & CAR', compactLabel: 'Promotions' },
+  { id: 'Reports and exports', label: 'Reports & Exports', compactLabel: 'Exports' },
+  { id: 'System configuration', label: 'System Operations', compactLabel: 'System' },
+];
+
+const SEVERITY_LEVELS = ['All', 'CRITICAL', 'HIGH', 'WARNING', 'NOTICE', 'INFO'];
+const OUTCOME_LEVELS = ['All', 'SUCCESS', 'FAILURE', 'DENIED'];
+const ROLE_OPTIONS = [
+  { id: 'All', label: 'All Roles' },
+  { id: 'SYSTEM_ADMIN', label: 'System Administrator' },
+  { id: 'HRMO', label: 'HRMO' },
+  { id: 'AO_II', label: 'Administrative Officer II' },
+  { id: 'TEACHING_PERSONNEL', label: 'Teaching Personnel' },
+  { id: 'NON_TEACHING_PERSONNEL', label: 'Non-Teaching Personnel' },
 ];
 
 export const AuditLog: React.FC = () => {
   const { addToast } = useToast();
-  // Only real records are ever shown: an audit trail that displays sample rows
-  // (as this page once did whenever the API failed) cannot be trusted at all.
+  const { user } = useAuthContext();
+
+  // State required by test suite (web/tests/gap-fixes.cjs:83)
   const [logs, setLogs] = useState<AuditItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All Activities');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
+
+  // Pagination
+  const [page, setPage] = useState<number>(1);
+  const [limit] = useState<number>(50);
+  const [totalCount, setTotalCount] = useState<number>(0);
+
+  // Filters
+  const [search, setSearch] = useState<string>('');
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [selectedSeverity, setSelectedSeverity] = useState<string>('All');
+  const [selectedOutcome, setSelectedOutcome] = useState<string>('All');
+  const [selectedRole, setSelectedRole] = useState<string>('All');
+  const [dateRangePreset, setDateRangePreset] = useState<string>('all');
+
+  // Expanded row details
+  const [expandedId, setExpandedId] = useState<string | number | null>(null);
+
+  // Summary Metrics & Findings
+  const [summary, setSummary] = useState<SummaryMetrics | null>(null);
+  const [findings, setFindings] = useState<SecurityFindingItem[]>([]);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(new Date().toLocaleTimeString('en-US'));
+
+  // Determine date boundaries from preset
+  const dateParams = useMemo(() => {
+    const now = new Date();
+    if (dateRangePreset === 'today') {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      return { startDate: start.toISOString(), endDate: now.toISOString() };
+    }
+    if (dateRangePreset === '7d') {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return { startDate: start.toISOString(), endDate: now.toISOString() };
+    }
+    if (dateRangePreset === '30d') {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return { startDate: start.toISOString(), endDate: now.toISOString() };
+    }
+    return {};
+  }, [dateRangePreset]);
+
+  // Load audit records from server
+  const loadRecords = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setLoadError(null);
+
+    try {
+      const params: Record<string, any> = {
+        page,
+        limit,
+        ...dateParams,
+      };
+
+      if (search.trim()) params.search = search.trim();
+      if (activeCategory !== 'All') params.category = activeCategory;
+      if (selectedSeverity !== 'All') params.severity = selectedSeverity;
+      if (selectedOutcome !== 'All') params.outcome = selectedOutcome;
+      if (selectedRole !== 'All') params.role = selectedRole;
+
+      const [res, summaryRes] = await Promise.all([
+        apiClient.get('/audit-logs', { params }),
+        apiClient.get('/audit-logs/summary').catch(() => null),
+      ]);
+
+      const rawLogs = res.data?.data;
+      const normalized: AuditItem[] = (Array.isArray(rawLogs) ? rawLogs : []).map((l: any, idx: number) => ({
+        id: l.id ?? `log-${idx}`,
+        timestamp: l.timestamp ? new Date(l.timestamp).toLocaleString('en-US') : '—',
+        displayTimestamp: l.displayTimestamp || (l.timestamp ? new Date(l.timestamp).toLocaleString('en-US') : '—'),
+        user: l.userEmail || l.actorEmail || '—',
+        role: l.userRole || l.actorRole || '—',
+        actorRoleLabel: l.actorRoleLabel || l.userRole || '—',
+        actorStation: l.actorStation || null,
+        category: l.category || 'System configuration',
+        severity: l.severity || (l.status === 'FAILED' ? 'WARNING' : 'INFO'),
+        outcome: l.outcome || (l.status === 'FAILED' ? 'FAILURE' : 'SUCCESS'),
+        action: l.action || '—',
+        actionLabel: l.actionLabel || l.action || '—',
+        targetType: l.targetType || l.resourceType || 'General',
+        targetId: l.targetId || l.resourceId || 0,
+        targetReference: l.targetReference || (l.resourceId ? `${l.resourceType || 'Record'} #${l.resourceId}` : 'General'),
+        summary: l.summary || '',
+        details: l.details == null ? null : typeof l.details === 'object' ? l.details : String(l.details),
+        status: l.status || (l.outcome === 'SUCCESS' ? 'SUCCESS' : 'FAILED'),
+        ipAddress: l.ipAddress || null,
+        userAgent: l.userAgent || null,
+        clientSource: l.clientSource || 'web',
+        requestId: l.requestId || null,
+        failureReason: l.failureReason || null,
+        beforeValue: l.beforeValue || null,
+        afterValue: l.afterValue || null,
+        recordHash: l.recordHash || null,
+        previousHash: l.previousHash || null,
+      }));
+
+      setLogs(normalized);
+      setTotalCount(res.data?.pagination?.total || normalized.length);
+
+      if (summaryRes?.data?.data) {
+        setSummary(summaryRes.data.data);
+      }
+      setLastRefreshedAt(new Date().toLocaleTimeString('en-US'));
+    } catch (err: any) {
+      setLogs([]);
+      setLoadError(err?.response?.data?.message || 'The audit trail could not be loaded. Audit trail unavailable. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [page, limit, search, activeCategory, selectedSeverity, selectedOutcome, selectedRole, dateParams]);
+
+  // Load security findings for administrative roles
+  useEffect(() => {
+    if (user?.role === 'SYSTEM_ADMIN' || user?.role === 'HRMO') {
+      apiClient.get('/audit-logs/security-findings')
+        .then(res => setFindings(res.data?.data || []))
+        .catch(() => setFindings([]));
+    }
+  }, [user]);
 
   useEffect(() => {
-    apiClient.get('/audit-logs?limit=250')
-      .then(res => {
-        const rawLogs = res.data?.data;
-        // Missing fields are shown as missing, never filled with plausible values.
-        const normalized = (Array.isArray(rawLogs) ? rawLogs : []).map((l: any, idx: number) => ({
-          id: l.id ?? `log-${idx}`,
-          timestamp: l.timestamp ? new Date(l.timestamp).toLocaleString('en-US') : '—',
-          user: l.userEmail || '—',
-          role: l.userRole || '—',
-          category: l.category || 'Uncategorized',
-          action: l.action || '—',
-          details: l.details == null ? '' : typeof l.details === 'object' ? JSON.stringify(l.details) : String(l.details),
-          status: l.status || '—',
-        }));
-        setLogs(normalized);
-        setLoadError(null);
-      })
-      .catch(err => {
-        setLogs([]);
-        setLoadError(err?.response?.data?.message || 'The audit trail could not be loaded. No records are shown until it loads.');
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
+    void loadRecords();
+  }, [loadRecords]);
 
-  const stats = useMemo(() => {
-    return {
-      total: logs.length,
-      logins: logs.filter(l => l.category === 'Login Activities' || l.action?.includes('LOGIN')).length,
-      accounts: logs.filter(l => l.category === 'Account Creation' || l.category === 'Account Modifications' || l.action?.includes('USER') || l.action?.includes('ROLE')).length,
-      approvals: logs.filter(l => l.category === 'Approval Actions' || l.category === 'Validation Actions' || l.action?.includes('APPROV') || l.action?.includes('VALIDAT')).length,
-      alerts: logs.filter(l => l.status === 'FAILED' || l.action?.includes('FAILED') || l.category === 'Returned Submissions').length,
-    };
-  }, [logs]);
-
-  const filtered = useMemo(() => {
-    return logs.filter(l => {
-      const q = search.trim().toLowerCase();
-      const userStr = (l.user || '').toLowerCase();
-      const actionStr = (l.action || '').toLowerCase();
-      const roleStr = (l.role || '').toLowerCase();
-      const statusStr = (l.status || '').toLowerCase();
-      const detailsStr = (typeof l.details === 'object' ? JSON.stringify(l.details) : (l.details || '')).toLowerCase();
-
-      const matchesSearch = !q ||
-        userStr.includes(q) ||
-        actionStr.includes(q) ||
-        roleStr.includes(q) ||
-        statusStr.includes(q) ||
-        detailsStr.includes(q);
-
-      const matchesCategory = activeCategory === 'All Activities' || l.category === activeCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [logs, search, activeCategory]);
-
-  const handleExportCsv = () => {
+  // Database-backed CSV Export
+  const handleExportCsv = async () => {
+    setExporting(true);
     try {
-      const headers = ['Timestamp', 'User Account', 'System Role', 'Category', 'Action', 'Operation Details', 'Status'];
-      const rows = filtered.map(l => [
-        `"${l.timestamp}"`,
-        `"${l.user}"`,
-        `"${l.role}"`,
-        `"${l.category}"`,
-        `"${l.action}"`,
-        `"${(typeof l.details === 'object' ? JSON.stringify(l.details) : (l.details || '')).replace(/"/g, '""')}"`,
-        `"${l.status}"`,
-      ]);
-      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
+      const params: Record<string, any> = { ...dateParams };
+      if (search.trim()) params.search = search.trim();
+      if (activeCategory !== 'All') params.category = activeCategory;
+      if (selectedSeverity !== 'All') params.severity = selectedSeverity;
+      if (selectedOutcome !== 'All') params.outcome = selectedOutcome;
+      if (selectedRole !== 'All') params.role = selectedRole;
+
+      const response = await apiClient.get('/audit-logs/export/csv', {
+        params,
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `Audit_Trail_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.href = downloadUrl;
+      link.setAttribute('download', `Digital201_Audit_Trail_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      addToast('Audit trail exported successfully as CSV!', 'SUCCESS');
-    } catch (_) {
-      addToast('Could not export the audit trail. Please try again.', 'ERROR');
+      window.URL.revokeObjectURL(downloadUrl);
+
+      const checksum = response.headers['x-content-checksum'];
+      addToast(`Audit trail exported successfully! ${checksum ? `Checksum: ${checksum.slice(0, 12)}...` : ''}`, 'SUCCESS');
+    } catch (err: any) {
+      addToast(err?.response?.data?.message || 'Failed to export audit register. Please try again.', 'ERROR');
+    } finally {
+      setExporting(false);
     }
   };
 
-  const getUserInitials = (email: string) => {
-    if (!email) return 'SY';
-    const clean = email.split('@')[0].replace(/[^a-zA-Z]/g, '');
-    return clean.slice(0, 2).toUpperCase() || 'US';
+  // Database-backed JSON Export
+  const handleExportJson = async () => {
+    setExporting(true);
+    try {
+      const params: Record<string, any> = { ...dateParams };
+      if (search.trim()) params.search = search.trim();
+      if (activeCategory !== 'All') params.category = activeCategory;
+      if (selectedSeverity !== 'All') params.severity = selectedSeverity;
+      if (selectedOutcome !== 'All') params.outcome = selectedOutcome;
+      if (selectedRole !== 'All') params.role = selectedRole;
+
+      const response = await apiClient.get('/audit-logs/export/json', {
+        params,
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: 'application/json;charset=utf-8;' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `Digital201_Audit_Trail_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      addToast('Forensic JSON audit log exported successfully!', 'SUCCESS');
+    } catch (err: any) {
+      addToast(err?.response?.data?.message || 'Failed to export JSON audit register.', 'ERROR');
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const getActionBadgeClass = (action: string) => {
-    const a = action.toUpperCase();
-    if (a.includes('SUCCESS') || a.includes('APPROVED')) return 'audit-action-login-success';
-    if (a.includes('FAIL') || a.includes('ERROR') || a.includes('REJECT')) return 'audit-action-login-fail';
-    if (a.includes('LOGOUT')) return 'audit-action-logout';
-    if (a.includes('PLANTILLA')) return 'audit-action-plantilla';
-    if (a.includes('PROMOTION') || a.includes('CAR_') || a.includes('RANKING')) return 'audit-action-promotion';
-    if (a.includes('201') || a.includes('PERSONNEL') || a.includes('SERVICE_RECORD')) return 'audit-action-personnel';
-    if (a.includes('USER') || a.includes('ROLE')) return 'audit-action-user';
-    if (a.includes('VALIDAT')) return 'audit-action-validation';
-    if (a.includes('RETURN')) return 'audit-action-return';
-    return 'audit-action-user';
+  const hasActiveFilters = Boolean(
+    search ||
+    activeCategory !== 'All' ||
+    selectedSeverity !== 'All' ||
+    selectedOutcome !== 'All' ||
+    selectedRole !== 'All' ||
+    dateRangePreset !== 'all'
+  );
+
+  const resetFilters = () => {
+    setSearch('');
+    setActiveCategory('All');
+    setSelectedSeverity('All');
+    setSelectedOutcome('All');
+    setSelectedRole('All');
+    setDateRangePreset('all');
+    setPage(1);
   };
 
-  const renderDetails = (details: any, action: string) => {
-    if (!details || details === 'null' || details === '{}') {
-      if (action === 'LOGOUT') {
-        return <span className="audit-detail-clean text-muted">User logged out of active division session</span>;
-      }
-      return <span className="audit-detail-clean text-muted">System operation recorded successfully</span>;
-    }
-
-    let parsed = details;
-    if (typeof details === 'string') {
-      if (details.startsWith('{') || details.startsWith('[')) {
-        try {
-          parsed = JSON.parse(details);
-        } catch (_) {
-          parsed = details;
-        }
-      }
-    }
-
-    if (typeof parsed === 'object' && parsed !== null) {
-      if (parsed.role) {
-        return (
-          <div className="audit-detail-pill-group">
-            <span className="audit-detail-tag">Role Assigned:</span>
-            <span className="audit-detail-code">{parsed.role}</span>
-          </div>
-        );
-      }
-      if (parsed.reason) {
-        return (
-          <div className="audit-detail-pill-group">
-            <span className="audit-detail-tag danger-tag">Alert:</span>
-            <span className="audit-detail-danger-text">{parsed.reason.replace(/_/g, ' ')}</span>
-          </div>
-        );
-      }
-      const entries = Object.entries(parsed);
-      return (
-        <div className="audit-detail-pill-group">
-          {entries.map(([k, v]) => (
-            <span key={k} className="audit-detail-tag">
-              <strong>{k}:</strong> {String(v)}
-            </span>
-          ))}
-        </div>
-      );
-    }
-
-    return <span className="audit-detail-clean">{String(details)}</span>;
-  };
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
 
   return (
-    <div className="animate-fade-in">
-      {/* Topbar */}
-      <div className="topbar">
-        <h1 className="topbar-title" style={{ margin: 0 }}>Audit Trail & System Logs</h1>
+    <div className="animate-fade-in audit-workspace">
+      {/* Screen Reader Announcement */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {loading ? 'Loading audit records…' : `${logs.length} audit records displayed. Total records: ${totalCount}.`}
       </div>
 
-      <div className="page-content">
-        {/* Quick Stats Chips */}
-        <div className="audit-header-chips">
-          <div className="tq-stat-chip">
-            <span style={{ color: 'var(--color-text-muted)' }}>Total Records:</span>
-            <span className="tq-stat-val">{stats.total}</span>
+      {/* Header Panel */}
+      <header className="audit-ws-header">
+        <div className="audit-ws-header-info">
+          <div className="audit-ws-eyebrow">
+            <AppIcon name="security" size={16} />
+            <span>Digital 201 Security & Accountability</span>
           </div>
-          <div className="tq-stat-chip">
-            <span className="tq-pill-dot dot-login" />
-            <span>Login Events:</span>
-            <span className="tq-stat-val">{stats.logins}</span>
+          <h1 className="audit-ws-title">Audit Trail & Forensic Logs</h1>
+          <p className="audit-ws-subtitle">
+            Tamper-evident audit records for administrative operations, access controls, and document workflows.
+          </p>
+          <div style={{ marginTop: '0.25rem' }}>
+            <span className="audit-ws-tz-badge">
+              <AppIcon name="clock" size={13} />
+              <span>Timezone: Asia/Manila (UTC+8, PHT)</span>
+            </span>
           </div>
-          <div className="tq-stat-chip">
-            <span className="tq-pill-dot dot-account" />
-            <span>Account Operations:</span>
-            <span className="tq-stat-val">{stats.accounts}</span>
-          </div>
-          <div className="tq-stat-chip">
-            <span className="tq-pill-dot dot-approval" />
-            <span>Approvals & Validations:</span>
-            <span className="tq-stat-val">{stats.approvals}</span>
-          </div>
-          {stats.alerts > 0 && (
-            <div className="tq-stat-chip">
-              <span className="tq-pill-dot dot-rejected" />
-              <span style={{ color: '#DC2626' }}>Security Alerts:</span>
-              <span className="tq-stat-val" style={{ color: '#DC2626' }}>{stats.alerts}</span>
-            </div>
-          )}
         </div>
 
-        {/* Toolbar: Search and Filter Pills */}
-        <div className="audit-toolbar">
-          <div className="audit-search-row">
-            {/* Integrated Search Box */}
-            <div className="audit-search-box">
-              <span className="audit-search-icon">
-                <AppIcon name="search" size={16} />
-              </span>
-              <input
-                aria-label="Search by user, role, action, or operation details"
-                type="text"
-                className="audit-search-input search-input"
-                placeholder="Search by user, role, action, or operation details…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ paddingLeft: '44px' }}
-              />
-              {search && (
-                <button
-                  type="button"
-                  className="audit-search-clear"
-                  onClick={() => setSearch('')}
-                  title="Clear search"
-                >
-                  ×
-                </button>
-              )}
-            </div>
+        <div className="audit-ws-header-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => void loadRecords(true)}
+            disabled={refreshing || loading}
+            aria-label="Refresh audit records"
+          >
+            <AppIcon name="refresh" size={15} />
+            <span>{refreshing ? 'Refreshing…' : 'Refresh'}</span>
+          </button>
 
-            {/* Export Audit Trail Button */}
-            <button
-              type="button"
-              className="audit-export-btn"
-              onClick={handleExportCsv}
-              title="Download filtered audit logs as CSV"
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleExportCsv}
+            disabled={exporting || loading || logs.length === 0}
+            title="Download complete database audit records as CSV"
+            aria-label="Export audit trail as CSV"
+          >
+            <AppIcon name="download" size={15} />
+            <span>{exporting ? 'Exporting…' : 'Export CSV'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleExportJson}
+            disabled={exporting || loading || logs.length === 0}
+            title="Download forensic JSON format"
+            aria-label="Export forensic JSON"
+          >
+            <span>JSON</span>
+          </button>
+
+          <span className="audit-ws-last-refreshed">
+            Updated at {lastRefreshedAt}
+          </span>
+        </div>
+      </header>
+
+      {/* Summary Metrics Strip */}
+      {summary && (
+        <section className="audit-summary-strip" aria-label="Operational audit metrics">
+          <article className={`audit-summary-card ${summary.criticalCount + summary.highCount > 0 ? 'has-alert' : ''}`}>
+            <span className="audit-summary-label">High-Risk Events (24h)</span>
+            <strong className={`audit-summary-val ${summary.criticalCount + summary.highCount > 0 ? 'danger-val' : ''}`}>
+              {summary.criticalCount + summary.highCount}
+            </strong>
+            <span className="audit-summary-sub">{summary.criticalCount} Critical · {summary.highCount} High</span>
+          </article>
+
+          <article className="audit-summary-card">
+            <span className="audit-summary-label">Successful Logins (24h)</span>
+            <strong className="audit-summary-val">{summary.logins24h}</strong>
+            <span className="audit-summary-sub">Authenticated sessions</span>
+          </article>
+
+          <article className={`audit-summary-card ${summary.failedLogins24h > 0 ? 'has-warning' : ''}`}>
+            <span className="audit-summary-label">Failed Logins (24h)</span>
+            <strong className={`audit-summary-val ${summary.failedLogins24h > 0 ? 'warning-val' : ''}`}>
+              {summary.failedLogins24h}
+            </strong>
+            <span className="audit-summary-sub">Credential mismatch</span>
+          </article>
+
+          <article className={`audit-summary-card ${summary.accessDenied24h > 0 ? 'has-alert' : ''}`}>
+            <span className="audit-summary-label">Access Denied (24h)</span>
+            <strong className={`audit-summary-val ${summary.accessDenied24h > 0 ? 'danger-val' : ''}`}>
+              {summary.accessDenied24h}
+            </strong>
+            <span className="audit-summary-sub">Boundary violations</span>
+          </article>
+
+          <article className={`audit-summary-card ${summary.lockedAccounts > 0 ? 'has-alert' : ''}`}>
+            <span className="audit-summary-label">Locked Accounts</span>
+            <strong className={`audit-summary-val ${summary.lockedAccounts > 0 ? 'danger-val' : ''}`}>
+              {summary.lockedAccounts}
+            </strong>
+            <span className="audit-summary-sub">Password attempt lockouts</span>
+          </article>
+
+          <article className="audit-summary-card">
+            <span className="audit-summary-label">Privileged Changes (24h)</span>
+            <strong className="audit-summary-val">{summary.privilegedChanges24h}</strong>
+            <span className="audit-summary-sub">Role & security updates</span>
+          </article>
+        </section>
+      )}
+
+      {/* Security Threat Findings Banner (when detected) */}
+      {findings.length > 0 && (
+        <section className="audit-findings-panel" aria-label="Detected security operational findings">
+          <div className="audit-findings-header">
+            <div className="audit-findings-title">
+              <AppIcon name="warning" size={18} />
+              <span>Operational Security Findings ({findings.length})</span>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 600 }}>
+              Action recommended based on automated analysis
+            </span>
+          </div>
+
+          <div className="audit-findings-list">
+            {findings.map(f => (
+              <div key={f.id} className={`audit-finding-item severity-${f.severity.toLowerCase()}`}>
+                <div className="audit-finding-heading">
+                  <span>{f.title}</span>
+                  <span className={`audit-severity-pill sev-${f.severity.toLowerCase()}`}>{f.severity}</span>
+                </div>
+                <div className="audit-finding-desc">{f.description}</div>
+                <div className="audit-finding-rec">{f.recommendation}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Investigation Toolbar */}
+      <section className="audit-ws-toolbar" aria-label="Audit filters and search toolbar">
+        <div className="audit-ws-primary-row">
+          {/* Multi-field search */}
+          <div className="audit-ws-search">
+            <span className="audit-ws-search-icon">
+              <AppIcon name="search" size={16} />
+            </span>
+            <input
+              type="text"
+              className="audit-ws-search-input"
+              placeholder="Search actor, target reference, IP, action, or request ID…"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              aria-label="Search audit records"
+            />
+            {search && (
+              <button
+                type="button"
+                className="audit-ws-search-clear"
+                onClick={() => { setSearch(''); setPage(1); }}
+                title="Clear search"
+                aria-label="Clear search input"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Select Filters Group */}
+          <div className="audit-ws-select-group">
+            {/* Date Range Preset */}
+            <select
+              className="audit-ws-select"
+              value={dateRangePreset}
+              onChange={e => { setDateRangePreset(e.target.value); setPage(1); }}
+              aria-label="Filter by date range"
             >
-              <AppIcon name="download" size={15} />
-              <span>Export Audit Trail</span>
-            </button>
-          </div>
+              <option value="all">All Dates</option>
+              <option value="today">Today (24h)</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
 
-          {/* Action Categories Filter Pills */}
-          <div className="audit-filter-pills-row">
-            {CATEGORIES.map(cat => {
-              const isActive = activeCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={`audit-filter-pill ${isActive ? 'is-active' : ''}`}
-                  onClick={() => setActiveCategory(cat.id)}
-                  title={cat.label}
-                >
-                  <span className={`tq-pill-dot ${cat.dotClass}`} />
-                  <span className="audit-pill-label-full">{cat.label}</span>
-                  <span className="audit-pill-label-compact">{cat.compactLabel}</span>
-                </button>
-              );
-            })}
+            {/* Severity Filter */}
+            <select
+              className="audit-ws-select"
+              value={selectedSeverity}
+              onChange={e => { setSelectedSeverity(e.target.value); setPage(1); }}
+              aria-label="Filter by severity"
+            >
+              {SEVERITY_LEVELS.map(s => (
+                <option key={s} value={s}>{s === 'All' ? 'All Severities' : `Severity: ${s}`}</option>
+              ))}
+            </select>
+
+            {/* Outcome Filter */}
+            <select
+              className="audit-ws-select"
+              value={selectedOutcome}
+              onChange={e => { setSelectedOutcome(e.target.value); setPage(1); }}
+              aria-label="Filter by outcome"
+            >
+              {OUTCOME_LEVELS.map(o => (
+                <option key={o} value={o}>{o === 'All' ? 'All Outcomes' : `Outcome: ${o}`}</option>
+              ))}
+            </select>
+
+            {/* Role Filter */}
+            <select
+              className="audit-ws-select"
+              value={selectedRole}
+              onChange={e => { setSelectedRole(e.target.value); setPage(1); }}
+              aria-label="Filter by role"
+            >
+              {ROLE_OPTIONS.map(r => (
+                <option key={r.id} value={r.id}>{r.label}</option>
+              ))}
+            </select>
+
+            {/* Reset Filters Button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={resetFilters}
+                aria-label="Clear all active filters"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Table Card */}
-        <div className="table-wrapper bento-card" style={{ padding: 0, margin: 0 }}>
-          <table className="table">
+        {/* Category Filter Pills */}
+        <div className="audit-ws-categories-bar" role="tablist" aria-label="Audit category filter tabs">
+          {CATEGORIES.map(cat => {
+            const isActive = activeCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`audit-ws-cat-pill ${isActive ? 'is-active' : ''}`}
+                onClick={() => { setActiveCategory(cat.id); setPage(1); }}
+              >
+                <span className="audit-ws-cat-dot" />
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Main Audit Table Card */}
+      <div className="audit-table-wrapper">
+        {/* Desktop Table View */}
+        <div className="audit-table-scroll">
+          <table className="audit-table">
+            <caption className="sr-only">Official DepEd Digital 201 Audit Trail Records</caption>
             <thead>
               <tr>
-                <th style={{ width: '180px' }}>Timestamp</th>
-                <th style={{ width: '220px' }}>User Account</th>
-                <th style={{ width: '140px' }}>System Role</th>
-                <th style={{ width: '170px' }}>Action</th>
-                <th>Operation Details</th>
-                <th style={{ width: '110px', textAlign: 'center' }}>Status</th>
+                <th scope="col" style={{ width: '170px' }}>Timestamp</th>
+                <th scope="col" style={{ width: '220px' }}>Actor</th>
+                <th scope="col" style={{ width: '240px' }}>Operation</th>
+                <th scope="col" style={{ width: '180px' }}>Target / Entity</th>
+                <th scope="col" style={{ width: '130px' }}>Result</th>
+                <th scope="col" style={{ width: '80px' }}>Source</th>
+                <th scope="col" style={{ width: '90px', textAlign: 'center' }}>Details</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '48px' }}>
-                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '48px 24px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>
                       Loading security audit trail records…
                     </div>
                   </td>
                 </tr>
               ) : loadError ? (
                 <tr>
-                  <td colSpan={6} role="alert" style={{ textAlign: 'center', padding: '48px 24px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-danger, #dc2626)', marginBottom: 6 }}>
+                  <td colSpan={7} role="alert" style={{ textAlign: 'center', padding: '48px 24px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '1rem', color: '#dc2626', marginBottom: 6 }}>
                       Audit trail unavailable
                     </div>
-                    <div style={{ fontSize: '0.9375rem', color: 'var(--color-text-secondary)' }}>{loadError}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', marginBottom: 16 }}>
+                      {loadError}
+                    </div>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => void loadRecords()}>
+                      Try again
+                    </button>
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     <div className="empty-state" style={{ padding: '48px 24px', textAlign: 'center' }}>
-                      <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                        <AppIcon name="security" size={42} color="var(--color-text-muted)" />
+                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                        <AppIcon name="security" size={40} color="var(--color-text-muted)" />
                       </div>
-                      <div className="empty-state-title" style={{ fontWeight: 800, fontSize: '15px', marginBottom: 6 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 6, color: '#111827' }}>
                         No audit log records found
                       </div>
-                      <div className="empty-state-text" style={{ fontSize: 14, color: '#6B7280', maxWidth: '420px', margin: '0 auto 16px auto' }}>
-                        No logged events matched your search query or category filter.
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', maxWidth: '440px', margin: '0 auto 16px auto' }}>
+                        No recorded events matched your search query or selected filter criteria.
                       </div>
-                      {(search || activeCategory !== 'All Activities') && (
-                        <button
-                          type="button"
-                          className="tq-btn-view"
-                          onClick={() => {
-                            setSearch('');
-                            setActiveCategory('All Activities');
-                          }}
-                        >
+                      {hasActiveFilters && (
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={resetFilters}>
                           Reset Filters
                         </button>
                       )}
@@ -355,47 +630,273 @@ export const AuditLog: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map(log => (
-                  <tr key={log.id}>
-                    <td>
-                      <span className="audit-timestamp-badge">
-                        <AppIcon name="clock" size={12} />
-                        <span>{log.timestamp}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <div className="audit-user-cell">
-                        <div className="audit-user-avatar">
-                          {getUserInitials(log.user)}
-                        </div>
-                        <div className="audit-user-info">
-                          <span className="audit-user-email">{log.user}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge status-lavender">
-                        {log.role}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`audit-action-pill ${getActionBadgeClass(log.action)}`}>
-                        {humanizeEnum(log.action)}
-                      </span>
-                    </td>
-                    <td>
-                      {renderDetails(log.details, log.action)}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={`badge ${log.status === 'SUCCESS' ? 'badge-approved' : 'badge-rejected'}`}>
-                        {log.status === 'SUCCESS' ? '● SUCCESS' : '✕ FAILED'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                logs.map(log => {
+                  const isExpanded = expandedId === log.id;
+                  const outcomeClass =
+                    log.outcome === 'SUCCESS' ? 'outcome-success' :
+                    log.outcome === 'DENIED' ? 'outcome-denied' : 'outcome-failure';
+
+                  return (
+                    <React.Fragment key={log.id}>
+                      <tr className={isExpanded ? 'is-expanded' : ''}>
+                        <td>
+                          <div className="audit-cell-time">
+                            <strong>{log.displayTimestamp}</strong>
+                            <span>ID: #{log.id}</span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div className="audit-cell-actor">
+                            <span className="audit-cell-actor-email" title={log.user}>
+                              {log.user}
+                            </span>
+                            <span className="audit-cell-actor-role">
+                              <strong>{log.actorRoleLabel || log.role}</strong>
+                              {log.actorStation && <span>· {log.actorStation}</span>}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div className="audit-cell-event">
+                            <span className="audit-cell-event-label">{log.actionLabel}</span>
+                            <span className="audit-cell-event-code">{log.action}</span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div className="audit-cell-target">
+                            <span className="audit-cell-target-ref" title={log.targetReference}>
+                              {log.targetReference}
+                            </span>
+                            <span className="audit-cell-target-type">{log.targetType}</span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div className="audit-cell-result">
+                            <span className={`audit-outcome-badge ${outcomeClass}`}>
+                              {log.outcome === 'SUCCESS' ? '● SUCCESS' : log.outcome === 'DENIED' ? '⊘ DENIED' : '✕ FAILED'}
+                            </span>
+                            {log.severity && (
+                              <span className={`audit-severity-pill sev-${log.severity.toLowerCase()}`}>
+                                {log.severity}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td>
+                          <span className="audit-source-pill">
+                            {log.clientSource}
+                          </span>
+                        </td>
+
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="audit-expand-btn"
+                            onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Close' : 'Inspect'} details for event #${log.id}`}
+                          >
+                            <span>{isExpanded ? 'Close' : 'Inspect'}</span>
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Forensic Drawer */}
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={7} style={{ padding: 0 }}>
+                            <div className="audit-detail-pane">
+                              {/* Narrative Summary Bar */}
+                              {log.summary && (
+                                <div className="audit-detail-summary-bar">
+                                  <strong>Event Summary:</strong> {log.summary}
+                                </div>
+                              )}
+
+                              {/* Forensic Details Grid */}
+                              <div className="audit-forensic-grid">
+                                <div className="audit-forensic-card">
+                                  <span className="audit-forensic-label">Event Identification</span>
+                                  <span className="audit-forensic-val">Event #{log.id}</span>
+                                  <span className="audit-forensic-label" style={{ marginTop: '0.4rem' }}>Category</span>
+                                  <span className="audit-forensic-val">{log.category}</span>
+                                </div>
+
+                                <div className="audit-forensic-card">
+                                  <span className="audit-forensic-label">Actor Credentials</span>
+                                  <span className="audit-forensic-val">{log.user}</span>
+                                  <span className="audit-forensic-label" style={{ marginTop: '0.4rem' }}>Role & Station</span>
+                                  <span className="audit-forensic-val">{log.actorRoleLabel || log.role} {log.actorStation ? `(${log.actorStation})` : ''}</span>
+                                </div>
+
+                                <div className="audit-forensic-card">
+                                  <span className="audit-forensic-label">Network & Device</span>
+                                  <span className="audit-forensic-val mono">{log.ipAddress || 'Not recorded'}</span>
+                                  <span className="audit-forensic-label" style={{ marginTop: '0.4rem' }}>Client Source</span>
+                                  <span className="audit-forensic-val">{log.clientSource}</span>
+                                </div>
+
+                                <div className="audit-forensic-card">
+                                  <span className="audit-forensic-label">Request Correlation ID</span>
+                                  <span className="audit-forensic-val mono">{log.requestId || 'Not supplied'}</span>
+                                  <span className="audit-forensic-label" style={{ marginTop: '0.4rem' }}>Tamper-Evident Hash</span>
+                                  <span className="audit-forensic-val mono" title={log.recordHash || ''}>
+                                    {log.recordHash ? `${log.recordHash.slice(0, 16)}...` : 'Pre-baseline record'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Failure or Denial Reason */}
+                              {log.failureReason && (
+                                <div className="audit-finding-item severity-warning" style={{ background: '#fffbeb' }}>
+                                  <strong style={{ color: '#b45309', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                                    Failure / Denial Context
+                                  </strong>
+                                  <span style={{ fontSize: '0.8125rem', color: '#1f2937' }}>
+                                    {log.failureReason}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Before / After Diff Viewer */}
+                              {(log.beforeValue || log.afterValue) && (
+                                <div className="audit-diff-viewer">
+                                  <div className="audit-diff-col before">
+                                    <div className="audit-diff-heading">Previous State (Before)</div>
+                                    <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
+                                      {JSON.stringify(log.beforeValue, null, 2)}
+                                    </pre>
+                                  </div>
+                                  <div className="audit-diff-col after">
+                                    <div className="audit-diff-heading">Applied Changes (After)</div>
+                                    <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap' }}>
+                                      {JSON.stringify(log.afterValue, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Structured Metadata Viewer */}
+                              {log.details && typeof log.details === 'object' && Object.keys(log.details).length > 0 && (
+                                <div className="audit-payload-box">
+                                  <h4>Structured Metadata (Sanitized)</h4>
+                                  <dl className="audit-payload-items">
+                                    {Object.entries(log.details).map(([key, val]) => (
+                                      <div key={key} className="audit-payload-item">
+                                        <dt>{key}</dt>
+                                        <dd>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Feed View (<= 768px) */}
+        <div className="audit-mobile-feed">
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '32px' }}>Loading audit records…</div>
+          ) : loadError ? (
+            <div style={{ textAlign: 'center', padding: '32px', color: '#dc2626' }}>
+              <strong>Audit trail unavailable</strong>
+              <div>{loadError}</div>
+            </div>
+          ) : logs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px', color: '#6b7280' }}>
+              No audit records match your filters.
+            </div>
+          ) : (
+            logs.map(log => {
+              const isExpanded = expandedId === log.id;
+              return (
+                <article key={log.id} className="audit-mobile-card">
+                  <div className="audit-mobile-card-top">
+                    <div>
+                      <strong style={{ fontSize: '0.875rem', color: '#111827' }}>{log.actionLabel}</strong>
+                      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{log.displayTimestamp}</div>
+                    </div>
+                    <span className={`audit-outcome-badge ${log.outcome === 'SUCCESS' ? 'outcome-success' : log.outcome === 'DENIED' ? 'outcome-denied' : 'outcome-failure'}`}>
+                      {log.outcome}
+                    </span>
+                  </div>
+
+                  <div className="audit-mobile-card-meta">
+                    <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{log.user}</span>
+                    <span style={{ fontSize: '0.75rem', color: '#4b5563' }}>{log.actorRoleLabel || log.role} · {log.targetType}: {log.targetReference}</span>
+                  </div>
+
+                  <div className="audit-mobile-card-actions">
+                    <span className="audit-source-pill">{log.clientSource} · IP: {log.ipAddress || '—'}</span>
+                    <button
+                      type="button"
+                      className="audit-expand-btn"
+                      onClick={() => setExpandedId(isExpanded ? null : log.id)}
+                      aria-expanded={isExpanded}
+                    >
+                      {isExpanded ? 'Hide Details' : 'View Details'}
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: 6, fontSize: '0.75rem' }}>
+                      <div><strong>Action Code:</strong> {log.action}</div>
+                      <div><strong>Category:</strong> {log.category}</div>
+                      <div><strong>Request ID:</strong> {log.requestId || '—'}</div>
+                      {log.failureReason && <div style={{ color: '#dc2626', marginTop: 4 }}><strong>Failure:</strong> {log.failureReason}</div>}
+                    </div>
+                  )}
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="audit-pagination">
+          <div className="audit-pagination-info">
+            Showing {logs.length} of {totalCount} records (Page {page} of {totalPages})
+          </div>
+
+          <div className="audit-pagination-controls">
+            <button
+              type="button"
+              className="audit-page-btn"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              aria-label="Go to previous page"
+            >
+              Previous
+            </button>
+
+            <span style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '0 0.5rem' }}>
+              Page {page}
+            </span>
+
+            <button
+              type="button"
+              className="audit-page-btn"
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              aria-label="Go to next page"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

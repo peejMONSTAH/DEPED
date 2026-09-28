@@ -6,6 +6,7 @@ import { generateAccessToken, generateRefreshToken, verifyRefreshToken, verifyMa
 import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound } from '../utils/response.util';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { recordAuditLog } from '../utils/audit.util';
 import { capSessions, hashRefreshToken, isPhoneApp, isRefusedOnPhone, isSessionIdle, PHONE_APP_REFUSAL, refreshTokenRow } from '../services/session.service';
 import {
   isTrustedDevice, startChallenge, verifyChallenge, resendChallenge, trustDevice, notifyNewDevice,
@@ -88,17 +89,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   if (!isValid) {
     // Log failed login attempt
     try {
-      await prisma.validationLog.create({
-        data: {
-          entityType: 'User',
-          entityId: user.id,
-          action: 'LOGIN_FAILED',
-          detailsJson: { reason: 'invalid_password' },
-          userId: user.id,
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-          status: 'FAILED',
-        },
+      await recordAuditLog({
+        entityType: 'User', entityId: user.id, action: 'LOGIN_FAILED',
+        details: { reason: 'invalid_password', email: user.email },
+        userId: user.id, ipAddress: req.ip, userAgent: req.headers['user-agent'],
+        status: 'FAILED', targetReference: `User: ${user.email}`,
+        failureReason: 'Invalid password',
       });
       res.locals.auditLogged = true;
     } catch (logErr) {
@@ -160,19 +156,13 @@ const completeSignIn = async (user: any, req: Request, res: Response, extra: Rec
         where: { id: user.id },
         data: { lastLogin: new Date() },
       }),
-      prisma.validationLog.create({
-        data: {
-          entityType: 'User',
-          entityId: user.id,
-          action: 'LOGIN_SUCCESS',
-          detailsJson: { role: user.role.name },
-          userId: user.id,
-          ipAddress: req.ip,
-          userAgent: req.headers['user-agent'],
-          status: 'SUCCESS',
-        },
-      }),
     ]);
+    await recordAuditLog({
+      entityType: 'User', entityId: user.id, action: 'LOGIN_SUCCESS',
+      details: { authenticatedRole: user.role.name }, userId: user.id,
+      ipAddress: req.ip, userAgent: req.headers['user-agent'], status: 'SUCCESS',
+      targetReference: `User: ${user.email}`,
+    });
     res.locals.auditLogged = true;
   } catch (txErr) {
     logger.warn({ err: txErr }, 'Login succeeded but its transaction failed; refresh token written via fallback');

@@ -3,6 +3,8 @@ import { verifyAccessToken, JwtPayload, passwordTokenVersion, verifyDocumentAcce
 import { sendUnauthorized, sendError } from '../utils/response.util';
 import prisma from '../config/prisma';
 import { isRefusedOnPhone, PHONE_APP_REFUSAL } from '../services/session.service';
+import { recordAuditLog } from '../utils/audit.util';
+import { AuditCategory, AuditOutcome, AuditSeverity } from '../types/audit.types';
 
 // Extend Express Request to include the authenticated user
 declare global {
@@ -191,6 +193,33 @@ export const authorize = (...roles: string[]) => {
     }
 
     if (!roles.includes(req.user.role)) {
+      if (req.user.userId) {
+        const requestId = (req as any).id || (req.headers?.['x-request-id'] as string) || null;
+        void recordAuditLog({
+          userId: req.user.userId,
+          action: 'ACCESS_DENIED',
+          entityType: 'Endpoint',
+          entityId: 0,
+          details: {
+            path: req.originalUrl || req.path || '',
+            method: req.method || 'GET',
+            requiredRoles: roles,
+            userRole: req.user.role,
+          },
+          ipAddress: req.ip || null,
+          userAgent: (req.headers?.['user-agent'] as string) || null,
+          status: 'FAILED',
+          outcome: AuditOutcome.DENIED,
+          severity: AuditSeverity.HIGH,
+          actionLabel: 'Unauthorized access attempt denied',
+          failureReason: `Access denied. Required role(s): ${roles.join(', ')}`,
+          requestId,
+        });
+        if (res.locals) {
+          res.locals.auditLogged = true;
+        }
+      }
+
       res.status(403).json({
         status: 'error',
         message: `Access denied. Required role(s): ${roles.join(', ')}.`,

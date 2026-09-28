@@ -21,6 +21,7 @@ import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
 import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
 import { config } from '../config';
 import { logger } from '../utils/logger';
+import { recordAuditLog } from '../utils/audit.util';
 import { generateInitialPassword } from '../utils/password-issue.util';
 import { invalidateAuthUserCache } from '../middleware/auth.middleware';
 import { generateMagicToken, passwordTokenVersion } from '../utils/jwt.util';
@@ -468,16 +469,25 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
   // authenticate() caches role and status for 30s; the change applies from the next request.
   invalidateAuthUserCache(userId);
 
-  await prisma.validationLog.create({
-    data: {
-      entityType: 'User',
-      entityId: userId,
-      action: 'USER_UPDATED',
-      detailsJson: { changes: updateData } as any,
-      userId: req.user!.userId,
-      status: 'SUCCESS',
-    },
-  });
+  if (roleChanged) {
+    await recordAuditLog({
+      entityType: 'User', entityId: userId, action: 'ROLE_MODIFIED',
+      details: { beforeRole: existing.role.name, afterRole: updated.role.name, changes: updateData },
+      beforeValue: { role: existing.role.name, roleId: existing.roleId },
+      afterValue: { role: updated.role.name, roleId: updateData.roleId },
+      targetReference: `User: ${existing.email}`,
+      userId: req.user!.userId, status: 'SUCCESS',
+    });
+  } else {
+    await recordAuditLog({
+      entityType: 'User', entityId: userId, action: 'USER_UPDATED',
+      details: { changes: updateData },
+      beforeValue: { email: existing.email, status: existing.accountStatus },
+      afterValue: updateData, targetReference: `User: ${existing.email}`,
+      userId: req.user!.userId, status: 'SUCCESS',
+    });
+  }
+  res.locals.auditLogged = true;
 
   sendSuccess(res, { id: updated.id, email: updated.email, role: updated.role.name, accountStatus: updated.accountStatus }, 'User updated successfully.');
 };
