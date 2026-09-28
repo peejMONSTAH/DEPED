@@ -177,7 +177,7 @@ class TransactionService {
       int transactionId, int requirementId, int personnelDocumentId) async {
     try {
       await _apiService.dio.post<dynamic>(
-        '/transactions//documents/attach-existing',
+        '/transactions/$transactionId/documents/attach-existing',
         data: {
           'requirementId': requirementId,
           'personnelDocumentId': personnelDocumentId,
