@@ -13,3 +13,6 @@
 .wtd__text span { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .wtd__task .btn { flex: none; white-space: nowrap; }
 @media (max-width: 560px) { .wtd__task { flex-direction: column; align-items: stretch; } .wtd__task .btn { align-self: flex-start; } }
+.wtd--waiting h2 { font-size: 1rem; }
+.wtd--waiting .wtd__none { margin-bottom: 10px; font-size: .875rem; }
+.wtd__task .btn { min-height: 40px; }

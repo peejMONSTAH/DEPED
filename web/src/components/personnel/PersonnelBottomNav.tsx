@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, FileText, ClipboardList, User, type LucideIcon } from 'lucide-react';
+import { Home, FileText, ClipboardList, Briefcase, type LucideIcon } from 'lucide-react';
 import './personnel-bottom-nav.css';
 
 interface BottomNavItem {
@@ -13,7 +13,7 @@ const items: BottomNavItem[] = [
   { label: 'Home', path: '/personnel/home', icon: Home },
   { label: '201 Files', path: '/personnel/documents', icon: FileText },
   { label: 'Applications', path: '/personnel/transactions', icon: ClipboardList },
-  { label: 'Profile', path: '/personnel/profile', icon: User },
+  { label: 'Vacancies', path: '/personnel/vacancies', icon: Briefcase },
 ];
 
 export const PersonnelBottomNav: React.FC = () => {

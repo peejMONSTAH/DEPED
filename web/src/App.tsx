@@ -39,6 +39,7 @@ const PlantillaManagement = React.lazy(() => import('./pages/admin/PlantillaMana
 // Personnel Pages (Mobile Web Portal)
 const PersonnelHome = React.lazy(() => import('./pages/personnel/Home').then(m => ({ default: m.PersonnelHome })));
 const MyTransactions = React.lazy(() => import('./pages/personnel/MyTransactions').then(m => ({ default: m.MyTransactions })));
+const Vacancies = React.lazy(() => import('./pages/personnel/Vacancies').then(m => ({ default: m.Vacancies })));
 const ProfileCompletion = React.lazy(() => import('./pages/personnel/ProfileCompletion').then(m => ({ default: m.ProfileCompletion })));
 const Checklist = React.lazy(() => import('./pages/personnel/Checklist').then(m => ({ default: m.Checklist })));
 const UploadDocument = React.lazy(() => import('./pages/personnel/UploadDocument').then(m => ({ default: m.UploadDocument })));
@@ -223,6 +224,9 @@ export const App: React.FC = () => {
 
               {/* My Transactions list */}
               <Route path="transactions" element={<MyTransactions />} />
+
+              {/* Open promotion vacancies and the Annex C application checklist */}
+              <Route path="vacancies" element={<Vacancies />} />
 
               {/* My Documents (Digital 201 file) */}
               <Route path="documents" element={<MyDocuments />} />
