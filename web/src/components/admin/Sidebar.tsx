@@ -15,6 +15,7 @@ import { OfflineSyncBanner } from '../common/OfflineSyncBanner';
 import { personnelDisplayName } from '../../utils/personnel-display';
 import { clickable } from '../../a11y/clickable';
 import { NAV_SECTIONS as navSections, NavItem } from '../../navigation/navItems';
+import './sidebar-collapse.css';
 
 
 
@@ -43,6 +44,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   }
   const displayUser = user || lastUserRef.current;
 
+  // Desktop only: the sidebar can shrink to an icon rail. The choice is remembered per browser.
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('sidebar-collapsed') === '1'; } catch { return false; }
+  });
+  const toggleCollapsed = () => setCollapsed(prev => {
+    const next = !prev;
+    try { localStorage.setItem('sidebar-collapsed', next ? '1' : '0'); } catch { /* keep the in-memory choice */ }
+    return next;
+  });
+
   const [showUserMenu, setShowUserMenu] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
@@ -56,9 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     document.body.style.width = '100%';
     document.body.classList.add('has-drawer-open');
 
-    // Auto-focus mobile close button or drawer
-    const closeBtn = sidebarRef.current?.querySelector<HTMLElement>('.shell-sidebar-mobile-close');
-    closeBtn?.focus();
+    // Move focus into the drawer: its first link.
+    sidebarRef.current?.querySelector<HTMLElement>('.shell-nav-link')?.focus();
 
     // Trap focus inside the open mobile drawer
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -177,28 +187,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         id="primary-navigation"
         aria-label="Main navigation"
         aria-modal={isOpen ? 'true' : undefined}
-        className={`shell-sidebar ${isOpen ? 'open' : ''}`}
+        className={`shell-sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'is-collapsed' : ''}`}
       >
         {/* Brand Header */}
         <div className="shell-sidebar-header">
           <div className="sidebar-brand-top-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div className="sidebar-brand-title-block">
               <div className="brand-title-row">
-                <Digital201Logo variant="wordmark" showTag />
+                <Digital201Logo variant="wordmark" size="md" className="sidebar-logo-full" />
+                <Digital201Logo variant="mark" size="md" className="sidebar-logo-compact" />
               </div>
               <div className="brand-org-subtitle">
                 City Schools Division of Koronadal
               </div>
             </div>
-            {/* Mobile close button */}
-            <button
-              type="button"
-              className="shell-sidebar-mobile-close"
-              aria-label="Close navigation"
-              onClick={onClose}
-            >
-              <AppIcon name="close" size={18} />
-            </button>
           </div>
         </div>
 
@@ -213,6 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   to={item.path}
                   className={({ isActive }) => `shell-nav-link ${isActive ? 'active-pill' : ''}`}
                   onClick={onClose}
+                  title={collapsed ? item.label : undefined}
                 >
                   <AppIcon name={item.icon} size={17} className="shell-nav-icon" />
                   <span className="shell-nav-label">{item.label}</span>
@@ -270,6 +273,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </button>
             </div>
           )}
+
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            aria-pressed={collapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : undefined}
+            onClick={toggleCollapsed}
+          >
+            <AppIcon name="chevron-left" size={16} className="sidebar-collapse-icon" />
+            <span className="sidebar-collapse-label">Collapse</span>
+          </button>
 
           <div
             className="shell-user-card"

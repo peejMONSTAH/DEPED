@@ -1,0 +1,42 @@
+/* Collapsible sidebar. On phones the sidebar is a drawer, so none of this applies there. */
+.sidebar-logo-compact { display: none; }
+.sidebar-collapse-toggle { display: none; }
+
+@media (min-width: 1025px) {
+  .shell-sidebar { transition: width .2s ease, padding .2s ease; }
+
+  .sidebar-collapse-toggle {
+    display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 8px; padding: 8px 12px;
+    border: 0; border-radius: 10px; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: .875rem; font-weight: 700; cursor: pointer;
+  }
+  .sidebar-collapse-toggle:hover { background: rgba(23, 71, 46, .08); color: var(--color-text-primary); }
+  .sidebar-collapse-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  .sidebar-collapse-icon { transition: transform .2s ease; }
+
+  .shell-sidebar.is-collapsed { width: 76px; padding-left: 10px; padding-right: 10px; }
+  .is-collapsed .sidebar-logo-full,
+  .is-collapsed .brand-org-subtitle,
+  .is-collapsed .shell-nav-label,
+  .is-collapsed .nav-section-header,
+  .is-collapsed .sidebar-collapse-label,
+  .is-collapsed .user-meta,
+  .is-collapsed .user-caret { display: none; }
+  .is-collapsed .sidebar-logo-compact { display: inline-flex; margin: 0 auto; }
+  .is-collapsed .sidebar-brand-title-block,
+  .is-collapsed .brand-title-row { width: 100%; display: flex; justify-content: center; }
+
+  /* A hairline between sections replaces the hidden headings. */
+  .is-collapsed .nav-section-block + .nav-section-block { margin-top: 8px; padding-top: 8px; border-top: 1px solid #C5D3C9; }
+
+  .is-collapsed .shell-nav-link { position: relative; justify-content: center; gap: 0; padding-left: 0; padding-right: 0; }
+  .is-collapsed .lime-badge-pill, .is-collapsed .lavender-badge-pill {
+    position: absolute; top: 2px; right: 6px; min-width: 8px; height: 8px; padding: 0; font-size: 0; border-radius: 999px;
+  }
+
+  .is-collapsed .sidebar-collapse-toggle { justify-content: center; padding-left: 0; padding-right: 0; }
+  .is-collapsed .sidebar-collapse-icon { transform: rotate(180deg); }
+
+  .is-collapsed .shell-user-card { justify-content: center; padding-left: 0; padding-right: 0; }
+  /* Fixed, so the account menu is not clipped by the narrow rail. */
+  .shell-sidebar.is-collapsed .user-popover-card { position: fixed !important; left: 86px !important; right: auto !important; bottom: 16px !important; width: 260px !important; }
+}
