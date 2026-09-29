@@ -1,18 +1,23 @@
-.personnel-notification {
-  min-width: 0;
-  box-shadow: none;
-}
-
-.personnel-notification + .personnel-notification {
-  margin-top: .5rem;
-}
-
-.personnel-notification:focus-within {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
+.pn__filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.pn__hint { margin: 0 0 8px; font-size: .875rem; color: var(--color-text-secondary); }
+.pn__error, .pn__empty { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 0; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-card); color: var(--color-text-primary); }
+.pn__error p { margin: 0; flex: 1 1 240px; }
+.pn__group { margin-bottom: 22px; }
+.pn__group h2 { margin: 0 0 8px; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); }
+.pn__group h2 span { font-size: .875rem; font-weight: 700; color: var(--color-text-muted); }
+.pn__group > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pn__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: start; padding: 12px 14px; border: 1px solid var(--color-border); border-left-width: 4px; border-left-color: var(--color-border); border-radius: 12px; background: var(--color-bg-card); }
+.pn__item.is-unread { border-left-color: #2F7D52; }
+.pn__item.is-action { border-left-color: #C2410C; background: #FFF7F2; }
+.pn__text { display: grid; gap: 3px; min-width: 0; }
+.pn__text strong { font-size: .9375rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.pn__msg { font-size: .875rem; line-height: 1.45; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.pn__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: .8125rem; color: var(--color-text-muted); }
+.pn__kind { font-weight: 800; color: var(--color-text-secondary); }
+.pn__kind.k-account { color: #8A621B; }
+.pn__dot { font-weight: 700; color: #2F7D52; }
+.pn__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pn__actions .btn { min-height: 40px; }
 @media (max-width: 600px) {
-  .personnel-notification { align-items: stretch !important; }
-  .personnel-notification > div:last-child { width: 100%; justify-content: flex-start; }
+  .pn__item { grid-template-columns: minmax(0, 1fr); }
 }
