@@ -23,3 +23,9 @@
 .acd__warn { margin: 0; padding: 10px 14px; border-radius: 10px; background: #FDF3DC; color: #8A5A0B; font-weight: 600; font-size: .9375rem; }
 .acr-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-radius: 14px; background: #FDF3DC; color: #8A5A0B; font-weight: 700; }
 .acr-history summary { cursor: pointer; font-weight: 700; color: var(--color-text-secondary); padding: 6px 0; }
+.acd__steps { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.acd__steps li { display: grid; gap: 2px; padding: 8px 12px 8px 30px; border: 1px solid var(--color-border); border-radius: 10px; position: relative; font-size: .9rem; }
+.acd__steps li::before { content: ''; position: absolute; left: 11px; top: 13px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #9CA3AF; }
+.acd__steps li.is-done::before { background: #1F6B43; border-color: #1F6B43; }
+.acd__steps li.is-bad::before { background: #A1263A; border-color: #A1263A; }
+.acd__steps span { color: var(--color-text-muted); font-size: .8125rem; }

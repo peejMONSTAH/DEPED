@@ -18,7 +18,7 @@ import { validateAccountInput, validatePersonnelInput, isPersonnelRole } from '.
 import { canAssignRole, canChangeRole, canManageAccount, MANAGE_REFUSAL, ROLE_REFUSAL } from '../utils/role-assignment.util';
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { getPlantillaActivePromotionCycle } from '../utils/deped.util';
-import { processWorkflowOutbox, queueTransactionalEmail } from '../services/workflow-outbox.service';
+import { processWorkflowOutbox, queueTransactionalEmail, OUTBOX_MAX_ATTEMPTS } from '../services/workflow-outbox.service';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { recordAuditLog } from '../utils/audit.util';
@@ -675,20 +675,24 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
 async function sendAccountSetup(
   user: { id: number; email: string; role: { name: string }; personnel: { firstName: string; lastName: string } | null },
   actorId: number,
+  // A transaction client (resend runs under a lock) and the outbox key: each
+  // resend needs its own key, since the outbox ignores a repeated one.
+  opts: { client?: any; eventKey?: string; skipPostCommit?: boolean } = {},
 ): Promise<void> {
+  const db = opts.client ?? prisma;
   const userId = user.id;
   // Active, with a fresh temporary password that is emailed below (only a hash
   // of the one typed at creation is stored, so it cannot be sent). Signing in
   // with it leads straight to a forced change.
   const temporaryPassword = generateInitialPassword();
-  const activated = await prisma.user.update({
+  const activated = await db.user.update({
     where: { id: userId },
     data: { accountStatus: 'ACTIVE', mustChangePassword: true, passwordHash: await hashPassword(temporaryPassword) },
     select: { passwordHash: true },
   });
 
   // Create notification
-  await prisma.notification.create({
+  await db.notification.create({
     data: {
       userId,
       message: 'Your account is active. Check your email for the setup link and temporary password.',
@@ -696,7 +700,7 @@ async function sendAccountSetup(
     },
   });
 
-  await prisma.validationLog.create({
+  await db.validationLog.create({
     data: {
       entityType: 'User',
       entityId: userId,
@@ -708,8 +712,7 @@ async function sendAccountSetup(
 
   // Distribution flips accountStatus to ACTIVE, which authenticate() caches for
   // 30s. Without this the account keeps being refused as PENDING after it is live.
-  invalidateAuthUserCache(userId);
-  notifyUserNotifications(userId);
+  if (!opts.skipPostCommit) { invalidateAuthUserCache(userId); notifyUserNotifications(userId); }
   // A single-use setup link (48 h): it opens the website, which asks for a
   // new password in place of the temporary one and then signs the user in.
   // It cannot sign anyone in without that step (see completeAccountSetup).
@@ -720,7 +723,7 @@ async function sendAccountSetup(
     purpose: 'ACCOUNT_SETUP',
     pwdv: passwordTokenVersion(activated.passwordHash),
   });
-  await queueTransactionalEmail(`user:${user.id}:credentials-distributed`, {
+  await queueTransactionalEmail(opts.eventKey ?? `user:${user.id}:credentials-distributed`, {
     recipientEmail: user.email,
     recipientName: user.personnel ? `${user.personnel.firstName} ${user.personnel.lastName}` : user.email,
     subject: 'Set up your Digital 201 account',
@@ -732,8 +735,8 @@ async function sendAccountSetup(
     actionUrl: `${config.clientUrl}/auth/setup-account?token=${encodeURIComponent(setupToken)}`,
     // The password and link are working credentials: removed from the outbox row once sent.
     sensitive: true,
-  });
-  void processWorkflowOutbox();
+  }, db);
+  if (!opts.skipPostCommit) void processWorkflowOutbox();
 }
 
 /**
@@ -1292,4 +1295,94 @@ export const rejectAccountRequest = async (req: Request, res: Response): Promise
   notifyUserNotifications(accountRequest.requestedByUserId);
 
   sendSuccess(res, null, 'Account creation request rejected.');
+};
+
+/** The setup emails for one account, newest first (the first send and every resend). */
+const inviteRows = (userId: number, client: any = prisma) => client.workflowOutbox.findMany({
+  where: { OR: [{ eventKey: `user:${userId}:credentials-distributed` }, { eventKey: { startsWith: `user:${userId}:invite:` } }] },
+  orderBy: { createdAt: 'desc' },
+  select: { createdAt: true, processedAt: true, attempts: true, lastError: true },
+});
+
+/** Short, non-sensitive reason an email did not go out (no addresses, no tokens). */
+const deliveryReason = (error: string | null) => {
+  if (!error) return null;
+  const e = error.toLowerCase();
+  if (/auth|credential|login|535/.test(e)) return 'The email service rejected the sign-in. Check the SMTP settings.';
+  if (/timeout|timed out|econn|enotfound|network/.test(e)) return 'The email service could not be reached.';
+  if (/mailbox|recipient|550|553|invalid address|does not exist/.test(e)) return 'The recipient mailbox refused the message. Check the email address.';
+  return 'The email service did not accept the message.';
+};
+
+/**
+ * GET /users/:id/onboarding — created, setup email, setup completed and first
+ * sign-in as separate facts. "Sent" means the email service accepted the
+ * message; delivery to the inbox is not something this system can confirm.
+ */
+export const getAccountOnboarding = async (req: Request, res: Response): Promise<void> => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) { sendBadRequest(res, 'Invalid user ID.'); return; }
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+  if (!user || !canManageAccount(req.user?.role, user.role.name) || !(await userInScope(await getStationScope(req.user), userId))) {
+    sendNotFound(res, 'User not found.'); return;
+  }
+  const rows = await inviteRows(userId);
+  const last = rows[0];
+  const invitation = !last ? { state: 'NOT_SENT' as const }
+    : last.processedAt ? { state: 'SENT' as const, at: last.processedAt }
+    : last.attempts >= OUTBOX_MAX_ATTEMPTS ? { state: 'FAILED' as const, at: last.createdAt, reason: deliveryReason(last.lastError) }
+    : last.attempts > 0 ? { state: 'RETRYING' as const, at: last.createdAt, attempts: last.attempts, reason: deliveryReason(last.lastError) }
+    : { state: 'QUEUED' as const, at: last.createdAt };
+  const setupCompleted = user.accountStatus === 'ACTIVE' && !user.mustChangePassword;
+  sendSuccess(res, {
+    createdAt: user.createdAt,
+    accountStatus: user.accountStatus,
+    invitation: { ...invitation, sends: rows.length },
+    setupCompleted,
+    firstSignInAt: user.lastLogin,
+    canResend: user.accountStatus === 'ACTIVE' && user.mustChangePassword && !user.lastLogin,
+  });
+};
+
+const RESEND_WINDOW_MS = 2 * 60 * 1000;
+
+/**
+ * POST /users/:id/resend-invitation — a new setup email for an account that has
+ * not finished setting up. Under a per-account lock, so a double click cannot
+ * rotate the temporary password twice or queue two emails.
+ */
+export const resendInvitation = async (req: Request, res: Response): Promise<void> => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) { sendBadRequest(res, 'Invalid user ID.'); return; }
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true, personnel: true } });
+  if (!user) { sendNotFound(res, 'User not found.'); return; }
+  if (!canManageAccount(req.user?.role, user.role.name)) { sendForbidden(res, MANAGE_REFUSAL); return; }
+  if (!(await userInScope(await getStationScope(req.user), userId))) {
+    await denyOutOfScope(req, res, { entityType: 'User', entityId: userId, action: 'INVITATION_RESEND' }, 'User not found.');
+    return;
+  }
+  if (user.accountStatus !== 'ACTIVE' || !user.mustChangePassword || user.lastLogin) {
+    sendBadRequest(res, user.accountStatus === 'PENDING'
+      ? 'This account has not been approved yet. Send the first setup email instead.'
+      : 'This person has already set up the account. Use Reset password if they cannot sign in.', 'INVITATION_NOT_NEEDED');
+    return;
+  }
+  try {
+    await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${910_000_000 + userId})`;
+      const [recent] = await inviteRows(userId, tx);
+      const failedFinally = recent && !recent.processedAt && recent.attempts >= OUTBOX_MAX_ATTEMPTS;
+      if (recent && !failedFinally && Date.now() - new Date(recent.createdAt).getTime() < RESEND_WINDOW_MS) {
+        throw Object.assign(new Error('A setup email was just sent. Wait two minutes before sending another.'), { statusCode: 409 });
+      }
+      await sendAccountSetup(user, req.user!.userId, { client: tx, eventKey: `user:${userId}:invite:${Date.now()}`, skipPostCommit: true });
+    });
+  } catch (err: any) {
+    if (err?.statusCode === 409) { res.status(409).json({ status: 'error', code: 'INVITATION_RECENTLY_SENT', message: err.message }); return; }
+    throw err;
+  }
+  invalidateAuthUserCache(userId);
+  notifyUserNotifications(userId);
+  void processWorkflowOutbox();
+  sendSuccess(res, null, 'A new setup email is queued. The earlier link and temporary password no longer work.');
 };

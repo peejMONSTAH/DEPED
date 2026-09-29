@@ -214,3 +214,29 @@ test('exports are generated server-side with filters, row count, checksum and an
   assert.ok(await db.validationLog.findFirst({ where: { action: 'OPERATIONAL_REPORT_EXPORTED', targetReference: 'accounts' } }));
   assert.equal((await http(accessToken, 'GET', '/admin/reports/promotion-rankings/export')).json.code, 'UNKNOWN_REPORT', 'HR reports are not here');
 });
+
+test('onboarding: separate states, a queued email is never reported as sent, one resend per double click', async () => {
+  const roleId = (await db.role.findUnique({ where: { name: 'TEACHING_PERSONNEL' } })).id;
+  const fresh = await db.user.create({ data: { email: 'newbie@sa.invalid', passwordHash: 'x', roleId, accountStatus: 'ACTIVE', mustChangePassword: true } });
+  const { accessToken } = await login('admin@sa.invalid');
+  const before = await http(accessToken, 'GET', `/users/${fresh.id}/onboarding`);
+  assert.equal(before.status, 200);
+  assert.equal(before.json.data.invitation.state, 'NOT_SENT');
+  assert.equal(before.json.data.setupCompleted, false);
+  assert.equal(before.json.data.firstSignInAt, null);
+  assert.equal(before.json.data.canResend, true);
+
+  const [a, b] = await Promise.all([1, 2].map(() => http(accessToken, 'POST', `/users/${fresh.id}/resend-invitation`)));
+  assert.deepEqual([a.status, b.status].sort(), [200, 409], 'a double click queues one setup email');
+  assert.equal(await db.workflowOutbox.count({ where: { eventKey: { startsWith: `user:${fresh.id}:invite:` } } }), 1);
+
+  const after = await http(accessToken, 'GET', `/users/${fresh.id}/onboarding`);
+  assert.notEqual(after.json.data.invitation.state, 'SENT', 'no email service is configured, so it is not reported as sent');
+  assert.ok(['QUEUED', 'RETRYING'].includes(after.json.data.invitation.state));
+  assert.doesNotMatch(after.text, /initialPassword|setup-account\?token/, 'no credential in the onboarding view');
+
+  const done = await http(accessToken, 'POST', `/users/${U.teacher.id}/resend-invitation`);
+  assert.equal(done.json.code, 'INVITATION_NOT_NEEDED', 'an account already set up gets Reset password, not an invitation');
+  const hr = await login('hrmo@sa.invalid');
+  assert.notEqual((await http(hr.accessToken, 'POST', `/users/${U.admin.id}/resend-invitation`)).status, 200, 'HRMO cannot act on an administrator account');
+});

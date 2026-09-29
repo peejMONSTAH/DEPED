@@ -12,6 +12,7 @@ import { queryKeys } from '../../api/queryClient';
 import { AccountSetupModal } from '../../components/common/AccountSetupModal';
 import { clickable } from '../../a11y/clickable';
 import { notificationPromotionPath } from '../../promotions/deepLink';
+import { SystemExceptions } from './SystemExceptions';
 
 type TransactionItem = {
   id: string;
@@ -484,6 +485,7 @@ export const AdminDashboard: React.FC = () => {
            SYSADMIN SOLE VIEW: USER PROVISIONING & SYSTEM GOVERNANCE
         ═══════════════════════════════════════════════════════════════ */
         <>
+          <SystemExceptions />
           {/* ─── 3. SYSADMIN METRICS ROW ──────────────────────────────── */}
           <div className="metrics-grid-row">
             {/* Metric 1: Active Accounts */}

@@ -10,6 +10,14 @@ type Account = {
 };
 type Session = { id: number; client: string; lastUsedAt: string; createdAt: string };
 type Device = { id: number; label: string; lastUsedAt: string };
+type Onboarding = {
+  createdAt: string; setupCompleted: boolean; firstSignInAt: string | null; canResend: boolean;
+  invitation: { state: 'NOT_SENT' | 'QUEUED' | 'SENT' | 'RETRYING' | 'FAILED'; at?: string; reason?: string | null; attempts?: number; sends: number };
+};
+const INVITE: Record<Onboarding['invitation']['state'], string> = {
+  NOT_SENT: 'Not sent yet', QUEUED: 'Waiting to be sent', SENT: 'Accepted by the email service',
+  RETRYING: 'Not sent yet, retrying', FAILED: 'Could not be sent',
+};
 
 const ROLE: Record<string, string> = {
   SYSTEM_ADMIN: 'System Administrator', HRMO: 'HRMO', AO_II: 'AO II',
@@ -37,6 +45,20 @@ export const AccountDetail: React.FC<{ account: Account; canSeeAccess: boolean; 
   const [sessions, setSessions] = useState<Session[] | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
   const [accessError, setAccessError] = useState('');
+  const [onboarding, setOnboarding] = useState<Onboarding | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
+  const loadOnboarding = useCallback(async () => {
+    try { setOnboarding((await apiClient.get(`/users/${account.id}/onboarding`)).data.data); } catch { setOnboarding(null); }
+  }, [account.id]);
+  useEffect(() => { void loadOnboarding(); }, [loadOnboarding]);
+  const resend = async () => {
+    if (resending) return;
+    setResending(true); setResendMsg('');
+    try { const r = await apiClient.post(`/users/${account.id}/resend-invitation`); setResendMsg(r.data?.message || 'Queued.'); }
+    catch (e: any) { setResendMsg(e?.response?.data?.message || 'The setup email could not be queued.'); }
+    finally { setResending(false); void loadOnboarding(); }
+  };
 
   const loadAccess = useCallback(async () => {
     if (!canSeeAccess) return;
@@ -77,6 +99,24 @@ export const AccountDetail: React.FC<{ account: Account; canSeeAccess: boolean; 
             <div><dt>Email</dt><dd className="acd__mono">{account.email}</dd></div>
             <div><dt>Station</dt><dd>{station}</dd></div>
           </dl>
+
+          {onboarding && (
+            <section className="acd__section" aria-labelledby="acd-onb">
+              <h4 id="acd-onb">Getting started</h4>
+              <ol className="acd__steps">
+                <li className="is-done"><strong>Account created</strong><span>{when(onboarding.createdAt)}</span></li>
+                <li className={onboarding.invitation.state === 'SENT' ? 'is-done' : onboarding.invitation.state === 'FAILED' ? 'is-bad' : ''}>
+                  <strong>Setup email: {INVITE[onboarding.invitation.state]}</strong>
+                  <span>{onboarding.invitation.at ? when(onboarding.invitation.at) : ''}{onboarding.invitation.sends > 1 ? ` · sent ${onboarding.invitation.sends} times` : ''}</span>
+                  {onboarding.invitation.reason && <span className="acd__danger">{onboarding.invitation.reason}</span>}
+                </li>
+                <li className={onboarding.setupCompleted ? 'is-done' : ''}><strong>{onboarding.setupCompleted ? 'Password set' : 'Password not set yet'}</strong></li>
+                <li className={onboarding.firstSignInAt ? 'is-done' : ''}><strong>{onboarding.firstSignInAt ? 'First signed in' : 'Has not signed in yet'}</strong><span>{onboarding.firstSignInAt ? when(onboarding.firstSignInAt) : ''}</span></li>
+              </ol>
+              {onboarding.canResend && <button type="button" className="btn btn-secondary btn-sm" onClick={() => void resend()} disabled={resending} aria-busy={resending}>{resending ? 'Sending…' : 'Resend setup email'}</button>}
+              {resendMsg && <p className="acd__muted" role="status">{resendMsg}</p>}
+            </section>
+          )}
 
           {canSeeAccess && (
             <section className="acd__section" aria-labelledby="acd-access">

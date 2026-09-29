@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { personnelDocumentUpload } from '../middleware/personnel-document-upload.middleware';
 import {
-  getUsers, createUser, getUserById, updateUser, deleteUser, distributeCredentials, resetUserPassword,
+  getUsers, createUser, getUserById, updateUser, deleteUser, distributeCredentials, getAccountOnboarding, resendInvitation, resetUserPassword,
   extractAccountRequestPds, submitAccountRequest, getAccountRequests, approveAccountRequest, rejectAccountRequest,
 } from '../controllers/users.controller';
 
@@ -24,6 +24,8 @@ router.get('/:id', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getUserById);
 router.put('/:id', authorize('SYSTEM_ADMIN', 'HRMO'), updateUser);
 router.delete('/:id', authorize('SYSTEM_ADMIN', 'HRMO'), deleteUser);
 router.post('/:id/distribute-credentials', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), distributeCredentials);
+router.get('/:id/onboarding', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), getAccountOnboarding);
+router.post('/:id/resend-invitation', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), resendInvitation);
 router.post('/:id/reset-password', authorize('SYSTEM_ADMIN', 'HRMO'), resetUserPassword);
 
 export default router;
