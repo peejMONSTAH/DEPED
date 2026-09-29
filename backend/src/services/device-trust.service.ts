@@ -65,7 +65,11 @@ const sendCodeEmail = async (user: { email: string; name: string }, code: string
     recipientName: user.name,
     subject: `${code} is your Digital 201 sign-in code`,
     heading: 'Confirm it is you',
-    message: `Someone signed in to your Digital 201 account from ${label}. If this was you, enter this code to finish signing in: ${code}. It expires in ${config.deviceVerification.codeMinutes} minutes. If it was not you, change your password now.`,
+    message: `Someone is signing in to your Digital 201 account from a new device. If this is you, enter this code to finish signing in. It expires in ${config.deviceVerification.codeMinutes} minutes.\n\nIf it is not you, do not share the code and change your password now.`,
+    code,
+    details: [{ label: 'Device', value: label }],
+    tone: 'security',
+    preheader: `Your sign-in code expires in ${config.deviceVerification.codeMinutes} minutes.`,
     sensitive: true,
   });
 };
@@ -144,7 +148,9 @@ export const notifyNewDevice = (user: { email: string; name: string }, req: Requ
     recipientName: user.name,
     subject: 'New sign-in to your Digital 201 account',
     heading: 'New device signed in',
-    message: `Your account was signed in from ${describeDevice(req)} on ${when}. If this was you, there is nothing to do. If not, change your password now and remove the device from your Profile page.`,
+    message: 'Your account was signed in from a new device. If this was you, there is nothing to do.\n\nIf it was not you, change your password now and remove the device from your Profile page.',
+    details: [{ label: 'Device', value: describeDevice(req) }, { label: 'When', value: `${when} (Philippine time)` }],
+    tone: 'security',
     actionLabel: 'Open Digital 201',
     actionUrl: config.clientUrl,
   }).catch(err => logger.warn({ err }, 'New-device notice failed'));
