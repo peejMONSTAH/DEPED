@@ -28,6 +28,10 @@ type DetailedDocument = {
   status?: string;
   validationNotes?: string;
   validatedBy?: string;
+  validationDate?: string | null;
+  /** Replaced after a reviewer returned it: the change since the previous submission. */
+  replacedAfterReturn?: boolean;
+  previousNotes?: string | null;
 };
 
 type Transaction = {
@@ -173,6 +177,9 @@ export const TransactionApproval: React.FC = () => {
               status: d.status || 'REQUIRES_MANUAL_REVIEW',
               validationNotes: d.validationNotes || '',
               validatedBy: d.validatedBy?.email || 'Not yet recorded',
+              validationDate: d.validationDate ?? null,
+              replacedAfterReturn: Boolean(d.replacedAfterReturn),
+              previousNotes: d.previousVersion?.reviewNotes ?? null,
             }))
           : tx.documents.map(d => ({ name: d, status: 'REQUIRES_MANUAL_REVIEW' }));
 
@@ -253,9 +260,15 @@ export const TransactionApproval: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await Promise.all(selectedTxIds.map(id => apiClient.post(`/transactions/${id}/approve`, { isApproved: true, notes: 'Bulk approved by HRMO' })));
-      playSuccessChime();
-      addToast(`Batch approved ${selectedTxIds.length} transactions successfully! Career records updated.`, 'SUCCESS');
+      // One at a time, and say exactly which ones did not go through.
+      const failed: string[] = [];
+      for (const id of selectedTxIds) {
+        try { await apiClient.post(`/transactions/${id}/approve`, { isApproved: true, notes: 'Bulk approved by HRMO' }); }
+        catch (e: any) { failed.push(`TRX-${id}: ${e.response?.data?.message || 'not approved'}`); }
+      }
+      const done = selectedTxIds.length - failed.length;
+      if (done) playSuccessChime();
+      addToast(failed.length ? `${done} approved. Not approved: ${failed.join('; ')}` : `${done} approved. Career records updated.`, failed.length ? 'WARNING' : 'SUCCESS');
       setSelectedTxIds([]);
       fetchApprovals();
     } catch (err: any) {
@@ -294,6 +307,13 @@ export const TransactionApproval: React.FC = () => {
     }
   };
 
+  // Only after a decision is saved: open the next transaction waiting for approval.
+  const openNextAfter = (doneId: number) => {
+    const next = forApprovalList.find(t => t.id !== doneId);
+    if (next) { void handleOpenTransactionDetails(next); addToast(`Next: TRX-${next.id}, ${next.personnelName}.`, 'INFO'); }
+    else setSelected(null);
+  };
+
   // Step 2: Approve → Status: Approved → triggers Step 3 Career Lifecycle Update
   const handleApprove = async (tx: Transaction) => {
     const { confirmed } = await confirm({
@@ -312,8 +332,8 @@ export const TransactionApproval: React.FC = () => {
         notes: 'Final Approved by HRMO',
       });
       playSuccessChime();
-      addToast(`Transaction #${tx.id} APPROVED by HRMO. Career record updated!`, 'SUCCESS');
-      setSelected(null);
+      addToast(`TRX-${tx.id} approved. Career record updated.`, 'SUCCESS');
+      openNextAfter(tx.id);
       fetchApprovals();
       setShowCareerUpdate(tx);
     } catch (err: any) {
@@ -342,9 +362,9 @@ export const TransactionApproval: React.FC = () => {
         deficientDocumentIds: returnDocumentIds,
         notes: returnRemarks,
       });
-      addToast(`Transaction #${selected.id} returned by HRMO. Personnel notified with remarks.`, 'WARNING');
+      addToast(`TRX-${selected.id} returned for correction. The personnel is notified with your remarks.`, 'WARNING');
       setShowReturnModal(false);
-      setSelected(null);
+      openNextAfter(selected.id);
       setReturnRemarks('');
       setReturnDocumentIds([]);
       fetchApprovals();
@@ -1007,7 +1027,17 @@ export const TransactionApproval: React.FC = () => {
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <AppIcon name="repository" size={14} color="#3F9265" />
-                        <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{doc.name}</span>
+                        <span style={{ display: 'grid', minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{doc.name}</span>
+                          <span className="text-xs text-muted">
+                            {doc.status === 'VALIDATED' ? `Checked by AO II${(doc as DetailedDocument).validationDate ? ` on ${new Date((doc as DetailedDocument).validationDate!).toLocaleDateString('en-PH', { dateStyle: 'medium' })}` : ''}` : doc.status === 'REJECTED' ? 'Returned for correction' : 'Not checked yet'}
+                          </span>
+                          {(doc as DetailedDocument).replacedAfterReturn && (
+                            <span className="text-xs" style={{ color: '#8A5A0B', fontWeight: 700 }}>
+                              Changed since last submission{(doc as DetailedDocument).previousNotes ? ` · was returned: ${(doc as DetailedDocument).previousNotes}` : ''}
+                            </span>
+                          )}
+                        </span>
                       </div>
                       <button
                         type="button"

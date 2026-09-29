@@ -18,7 +18,7 @@ import './transaction-review.css';
  */
 
 type Verdict = 'PENDING' | 'VERIFIED' | 'DEFICIENT';
-type Doc = { id: number; name: string; fileName: string; mimeType: string | null; status: string; notes: string | null };
+type Doc = { id: number; name: string; fileName: string; mimeType: string | null; status: string; notes: string | null; changed: boolean; previousNotes: string | null };
 type Tx = {
   id: number; status: string; remarks: string | null; submissionDate: string | null;
   typeName: string; personName: string; employeeId: string; station: string; docs: Doc[];
@@ -49,6 +49,7 @@ const toTx = (d: any): Tx => ({
     .map((u: any) => ({
       id: u.id, name: u.requirementTemplate?.name || u.fileName, fileName: u.fileName, mimeType: u.mimeType ?? null,
       status: u.status, notes: u.validationNotes ?? null,
+      changed: Boolean(u.replacedAfterReturn), previousNotes: u.previousVersion?.reviewNotes ?? null,
     })),
 });
 
@@ -161,7 +162,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
                   <span className="trv-mark" aria-hidden="true">{verdicts[d.id] === 'VERIFIED' ? '✓' : verdicts[d.id] === 'DEFICIENT' ? '!' : ''}</span>
                   <span className="trv-doc-text">
                     <span className="trv-doc-name">{d.name}</span>
-                    <span className="trv-doc-state">{verdicts[d.id] === 'VERIFIED' ? 'Verified' : verdicts[d.id] === 'DEFICIENT' ? 'Deficient' : 'To review'}</span>
+                    <span className="trv-doc-state">{verdicts[d.id] === 'VERIFIED' ? 'Verified' : verdicts[d.id] === 'DEFICIENT' ? 'Returned' : 'To review'}{d.changed ? ' · replaced since last check' : ''}</span>
                   </span>
                 </button>
               ))}
@@ -176,6 +177,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
                     </span>
                     <PreviewZoomControls zoom={zoom} onZoomChange={setZoom} disabled={preview.status !== 'ready'} buttonClassName="doc-viewer-btn doc-viewer-btn-icon" />
                   </div>
+                  {active.changed && <p className="text-sm" role="note" style={{ margin: '0 0 8px', color: '#8A5A0B' }}><strong>Replaced since the last check.</strong>{active.previousNotes ? ` It was returned because: ${active.previousNotes}` : ''}</p>}
                   <PrecheckStrip url={`/documents/${active.id}/precheck`} />
                   <div className="trv-stage">
                     {preview.status === 'ready' && preview.url ? (
