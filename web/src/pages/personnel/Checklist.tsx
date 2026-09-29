@@ -40,6 +40,9 @@ export const Checklist: React.FC = () => {
   const [txRemarks, setTxRemarks] = useState<string>('');
   const [returningAuthority, setReturningAuthority] = useState<'AO II' | 'HRMO'>('AO II');
   const [loading, setLoading] = useState<boolean>(true);
+  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const focusRequirement = Number(searchParams.get('requirement')) || null;
+  const focusedOnce = React.useRef(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [uploadingReqId, setUploadingReqId] = useState<number | null>(null);
   const [activeReqItem, setActiveReqItem] = useState<RequirementItem | null>(null);
@@ -102,6 +105,7 @@ export const Checklist: React.FC = () => {
       if (txData) {
         setTxStatus(txData.status || 'UNKNOWN');
         setTxRemarks(txData.remarks || '');
+        setSubmittedAt(txData.submissionDate || null);
         setReturningAuthority(
           Array.isArray(txData.history) && txData.history.some((entry: any) => entry.action === 'HRMO_RETURNED_FOR_CORRECTION')
             ? 'HRMO'
@@ -245,6 +249,17 @@ export const Checklist: React.FC = () => {
   };
 
   const isReturnedState = txStatus === 'DEFICIENCY';
+
+  // A link naming a requirement (from a notice or email) opens that item;
+  // otherwise a returned transaction opens its first returned item. Once per visit.
+  useEffect(() => {
+    if (focusedOnce.current || loading || !items.length) return;
+    const target = focusRequirement ?? (isReturnedState ? items.find(i => i.status === 'DEFICIENT')?.requirementId : null);
+    if (!target) return;
+    focusedOnce.current = true;
+    const el = document.getElementById(`req-${target}`);
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus({ preventScroll: true }); }
+  }, [items, loading, focusRequirement, isReturnedState]);
   const canEdit = ['DRAFT', 'DEFICIENCY'].includes(txStatus) && !checklistError && Boolean(txId);
   const { missing: mandatoryMissing, complete: isComplete } = checklistReadiness(items);
   const completedReqs = items.filter(item => item.status === 'VALIDATED' || item.status === 'UPLOADED');
@@ -261,9 +276,13 @@ export const Checklist: React.FC = () => {
     const activeTargetId = txId;
     try {
       setSubmitting(true);
-      await apiClient.put(`/transactions/${activeTargetId}/submit`);
-      addToast('Document(s) successfully submitted to AO II for validation!', 'SUCCESS');
-      navigate('/personnel/transactions');
+      const res = await apiClient.put(`/transactions/${activeTargetId}/submit`);
+      const sent = res.data?.data || {};
+      const who = sent.status === 'FOR_APPROVAL' ? 'HRMO' : 'AO II';
+      const when = sent.submissionDate ? new Date(sent.submissionDate).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+      addToast(`${isReturnedState ? 'Resubmitted' : 'Submitted'}. Now waiting for ${who}${when ? ` (received ${when})` : ''}.`, 'SUCCESS');
+      setSubmittedAt(sent.submissionDate || null);
+      await fetchTransactionData(activeTargetId);
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Unable to submit the transaction for validation.', 'ERROR');
     } finally { setSubmitting(false); }
@@ -288,7 +307,7 @@ export const Checklist: React.FC = () => {
         <div className="card mb-4" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <AppIcon name="clock" size={20} color="#f59e0b" />
-            <strong style={{ color: '#f59e0b', fontSize: 14 }}>Under AO II Review & Receiving</strong>
+            <strong style={{ color: '#f59e0b', fontSize: 14 }}>Waiting for AO II{submittedAt ? ` · received ${new Date(submittedAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}</strong>
           </div>
           <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             Your 201 transaction dossier has been successfully submitted and is currently in the queue for evaluation & document pre-checking by the Administrative Officer II (AO II). Any validation updates or deficiency notes will appear here in real time.
@@ -455,7 +474,9 @@ export const Checklist: React.FC = () => {
             return (
               <div
                 key={item.requirementId}
-                className={`checklist-item ${isApprovedDoc || isUploaded ? 'completed' : item.isMandatory ? 'required' : 'optional'}`}
+                id={`req-${item.requirementId}`}
+                tabIndex={-1}
+                className={`checklist-item${focusRequirement === item.requirementId ? ' is-focused' : ''} ${isApprovedDoc || isUploaded ? 'completed' : item.isMandatory ? 'required' : 'optional'}`}
                 style={isDeficientDoc ? { borderLeft: '4px solid #f85149', background: 'rgba(248, 81, 73, 0.05)' } : {}}
               >
                 <div className="checklist-check">
@@ -478,7 +499,7 @@ export const Checklist: React.FC = () => {
                     )}
                     {isDeficientDoc && (
                       <span className="badge badge-deficiency" style={{ fontSize: 13, padding: '2px 8px', background: '#f85149', color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <AppIcon name="warning" size={11} color="#ffffff" /> DEFICIENT — ACTION REQUIRED
+                        <AppIcon name="warning" size={11} color="#ffffff" /> Returned for correction
                       </span>
                     )}
                     {!isApprovedDoc && !isDeficientDoc && item.isMandatory && (
@@ -489,7 +510,13 @@ export const Checklist: React.FC = () => {
                   <div className="checklist-desc">{item.description}</div>
                   {isDeficientDoc && item.rejectionNotes && (
                     <div style={{ fontSize: 13, color: '#f85149', marginTop: 6, fontWeight: 600 }}>
-                      {returningAuthority} Evaluation Note: {item.rejectionNotes}
+                      {item.returnedBy || returningAuthority} note{item.returnedAt ? ` (${new Date(item.returnedAt).toLocaleDateString('en-PH', { dateStyle: 'medium' })})` : ''}: {item.rejectionNotes}
+                    </div>
+                  )}
+                  {isReturnedState && item.replacedAfterReturn && (
+                    <div role="status" style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 6 }}>
+                      <strong>Replacement saved, not sent yet.</strong> Check it with View, then press Resubmit below.
+                      {item.previousNotes ? ` It was returned because: ${item.previousNotes}` : ''}
                     </div>
                   )}
                 </div>
@@ -555,7 +582,7 @@ export const Checklist: React.FC = () => {
                         title="Pick and upload a document directly to save into the database"
                       >
                         <AppIcon name={isDeficientDoc ? 'warning' : 'upload'} size={13} />
-                        {uploadingReqId === item.requirementId ? 'Uploading…' : isDeficientDoc ? 'Fix & Re-upload' : isUploaded ? 'Replace File' : 'Upload File'}
+                        {uploadingReqId === item.requirementId ? 'Uploading…' : isDeficientDoc ? 'Replace file' : isUploaded ? 'Replace file' : 'Upload file'}
                       </button>
                       <button type="button" className="btn btn-secondary btn-sm"
                         disabled={loading || uploadingReqId !== null || submitting}
@@ -664,8 +691,8 @@ export const Checklist: React.FC = () => {
               style={{ opacity: isComplete ? 1 : 0.6, cursor: isComplete ? 'pointer' : 'not-allowed', padding: '10px 24px', fontWeight: 700 }}
             >
               {submitting
-                ? 'Submitting to AO II…'
-                : isReturnedState ? 'Resubmit Deficient Document(s) to AO II →' : 'Submit Transaction to AO II for Validation →'}
+                ? 'Sending…'
+                : isReturnedState ? 'Resubmit corrections' : 'Submit to AO II'}
             </button>
           )}
         </div>

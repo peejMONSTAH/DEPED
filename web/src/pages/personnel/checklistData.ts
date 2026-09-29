@@ -7,6 +7,12 @@ export type RequirementItem = {
   version: string;
   documentId: number | null;
   rejectionNotes?: string;
+  /** Who returned it (HRMO or AO II) and when, from the reviewer recorded on the file. */
+  returnedBy?: string;
+  returnedAt?: string;
+  /** A replacement saved after a return and not yet resubmitted. */
+  replacedAfterReturn?: boolean;
+  previousNotes?: string;
   needsExtractionReview: boolean;
 };
 
@@ -23,7 +29,11 @@ export function checklistFromTransaction(transaction: any): RequirementItem[] {
       status: !document || document.status === 'PENDING_UPLOAD' ? 'PENDING_UPLOAD' : rejected ? 'DEFICIENT' : document.status === 'VALIDATED' ? 'VALIDATED' : 'UPLOADED',
       documentId: document?.id ?? null,
       version: document ? 'On file' : 'Not uploaded',
-      rejectionNotes: rejected ? document.validationNotes || 'Replace this rejected document.' : undefined,
+      rejectionNotes: rejected ? document.validationNotes || 'Replace this returned document.' : undefined,
+      returnedBy: rejected ? (document.validatedBy?.role?.name === 'HRMO' ? 'HRMO' : document.validatedBy ? 'AO II' : undefined) : undefined,
+      returnedAt: rejected ? document.validationDate ?? undefined : undefined,
+      replacedAfterReturn: Boolean(document?.replacedAfterReturn) && !rejected && document?.status !== 'VALIDATED',
+      previousNotes: document?.previousVersion?.reviewNotes ?? undefined,
       needsExtractionReview: Boolean(document?.ocrExtractedDataJson && !document?.correctedOcrDataJson?.confirmation && document?.status !== 'VALIDATED'),
     };
   });

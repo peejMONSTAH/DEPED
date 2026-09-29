@@ -312,6 +312,7 @@ export const getAuditSummary = async (req: Request, res: Response): Promise<void
       lockedAccounts,
       privilegedChanges24h,
       exports24h,
+      severity24h,
     ] = await Promise.all([
       prisma.validationLog.count({ where }),
       prisma.validationLog.count({ where: { ...where, status: 'FAILED' } }),
@@ -339,13 +340,17 @@ export const getAuditSummary = async (req: Request, res: Response): Promise<void
           timestamp: { gte: since24h },
         },
       }),
+      // Severity totals come from the recorded severity of each entry, never
+      // from action names (privileged changes used to be reported as Critical).
+      prisma.validationLog.groupBy({ by: ['severity'], where: { ...where, timestamp: { gte: since24h } }, _count: { _all: true } }),
     ]);
+    const bySeverity = (level: string) => severity24h.find(g => g.severity === level)?._count._all ?? 0;
 
     const stats: AuditSummaryStats = {
       total,
-      criticalCount: privilegedChanges24h,
-      highCount: accessDenied24h,
-      warningCount: failedLogins24h + lockedAccounts,
+      criticalCount: bySeverity('CRITICAL'),
+      highCount: bySeverity('HIGH'),
+      warningCount: bySeverity('WARNING'),
       failedCount,
       deniedCount: accessDenied24h,
       logins24h,
@@ -690,21 +695,21 @@ export const exportAuditJson = async (req: Request, res: Response): Promise<void
 
 /**
  * GET /api/v1/audit-logs/verify-integrity
- * Evaluates tamper-evidence cryptographic chain for recent audit events
+ * Checks the hash chain of the newest audit records and says exactly what it covered
  */
 export const verifyAuditIntegrity = async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = 1000;
-    const logs = await prisma.validationLog.findMany({
-      take: limit,
-      orderBy: { id: 'asc' },
-    });
+    // The newest records, checked oldest-first. The first record's link to the
+    // entry before the window cannot be checked here and is reported as such.
+    const logs = (await prisma.validationLog.findMany({ take: limit, orderBy: { id: 'desc' } })).reverse();
 
     let verifiableCount = 0;
     let intactCount = 0;
     let unverifiableCount = 0;
     const failures: Array<{ id: number; reason: string }> = [];
-    let precedingHash = 'GENESIS';
+    const firstHashed = logs.find(l => l.hashVersion === 2 && l.recordHash && l.previousHash);
+    let precedingHash = firstHashed?.previousHash ?? 'GENESIS';
 
     for (const log of logs) {
       if (log.hashVersion !== 2 || !log.recordHash || !log.previousHash || !log.actorEmail || !log.category || !log.targetType) {
@@ -739,8 +744,15 @@ export const verifyAuditIntegrity = async (req: Request, res: Response): Promise
       failures: failures.slice(0, 25),
       algorithm: 'SHA-256 hash chain (version 2)',
       coverageLimited: logs.length === limit,
+      checkedRange: logs.length ? { fromId: logs[0].id, toId: logs[logs.length - 1].id, from: logs[0].timestamp.toISOString(), to: logs[logs.length - 1].timestamp.toISOString() } : null,
+      limitations: [
+        ...(logs.length === limit ? [`Only the newest ${limit} records were checked; older records were not.`] : []),
+        ...(unverifiableCount ? [`${unverifiableCount} older record(s) were written without a hash and cannot be verified.`] : []),
+        'The link from the first checked record to the record before it is not checked.',
+      ],
       verifiedAt: new Date().toISOString(),
-      status: tamperingDetected ? 'INTEGRITY_FAILURE' : verifiableCount > 0 ? 'VERIFIED' : 'NO_VERIFIABLE_RECORDS',
+      // VERIFIED covers only the hashed records in the checked range, never the unhashed ones.
+      status: tamperingDetected ? 'INTEGRITY_FAILURE' : verifiableCount === 0 ? 'NO_VERIFIABLE_RECORDS' : unverifiableCount > 0 ? 'PARTIALLY_VERIFIED' : 'VERIFIED',
     });
   } catch (error: any) {
     logger.error({ err: error }, 'Failed to verify audit trail integrity');

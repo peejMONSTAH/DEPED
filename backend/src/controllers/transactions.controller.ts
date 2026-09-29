@@ -540,6 +540,8 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
             include: {
               requirementTemplate: { select: { name: true } },
               validatedBy: { select: { id: true, email: true, role: { select: { name: true } } } },
+              // The version this file replaced, with its review, so reviewers see what changed.
+              revisions: { orderBy: { createdAt: 'desc' }, take: 1, select: { snapshot: true, createdAt: true } },
             },
           },
           currentAssignee: { select: { id: true, email: true } },
@@ -559,8 +561,22 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
     const targetPos = (promoApp?.promotionCycle?.rulesConfigurationJson as any)?.targetPosition || null;
     const cycleName = promoApp?.promotionCycle?.name || null;
 
+    const uploadedDocuments = transaction.uploadedDocuments.map(({ revisions, ...doc }) => {
+      const prev = revisions[0]?.snapshot as any;
+      return {
+        ...doc,
+        previousVersion: prev ? {
+          fileName: prev.fileName ?? null, status: prev.status ?? null, reviewNotes: prev.validationNotes ?? null,
+          reviewedByUserId: prev.validatedByUserId ?? null, reviewedAt: prev.validationDate ?? null, replacedAt: revisions[0].createdAt,
+        } : null,
+        // Replaced after a reviewer returned it: the correction the next reviewer should look at.
+        replacedAfterReturn: prev?.status === 'REJECTED',
+      };
+    });
+
     sendSuccess(res, {
       ...transaction,
+      uploadedDocuments,
       complianceScore,
       isPromotion: isPromo,
       promotionDetails: isPromo && promoApp ? {
@@ -1224,8 +1240,8 @@ export const approveTransaction = async (req: Request, res: Response) => {
               ? `Replace only these document${returnedDocuments.length === 1 ? '' : 's'}: ${returnedDocuments.map(document => document.requirementTemplate.name).join(', ')}. HRMO instructions: ${notes}`
               : `HRMO did not approve your ${transaction.transactionType.name} transaction. Review the recorded reason in Digital 201: ${notes || 'No additional remarks were provided.'}`,
           reference: `TRX-${id}`,
-          actionLabel: 'View transaction',
-          actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
+          actionLabel: isReturnedForCorrection ? 'Open the returned document' : 'View transaction',
+          actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}${isReturnedForCorrection && returnedDocuments[0] ? `&requirement=${returnedDocuments[0].requirementTemplateId}` : ''}`,
         }, tx);
       }
     }

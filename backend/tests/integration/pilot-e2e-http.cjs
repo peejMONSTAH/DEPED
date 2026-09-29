@@ -380,14 +380,32 @@ test('3. appointment: requirements, AO check, HR approval, official appointment'
   redo.append('file', pdfFile('corrected'), 'corrected.pdf');
   redo.append('requirementId', String(flawed.requirementTemplateId));
   ok(await http(T.teacher, 'POST', `/transactions/${T.txId}/documents`, { form: redo }), 201, 'the personnel re-uploads the returned document');
-  ok(await http(T.teacher, 'POST', `/transactions/${T.txId}/submit`), 200, 'the personnel resubmits');
+  // Saving a replacement is not resubmitting: the transaction waits for the owner.
+  const saved = await http(T.teacher, 'GET', `/transactions/${T.txId}`);
+  assert.equal(saved.json.data.status, 'DEFICIENCY', 'a saved replacement does not resubmit the transaction');
+  const replaced = saved.json.data.uploadedDocuments.find(d => d.requirementTemplateId === flawed.requirementTemplateId);
+  assert.equal(replaced.replacedAfterReturn, true, 'the replacement is marked as a correction');
+  assert.equal(replaced.previousVersion.reviewNotes, 'Unsigned page 2', 'the returned version and its reason are kept');
+  assert.ok(saved.json.data.uploadedDocuments.filter(d => d.id !== replaced.id).every(d => d.status === 'VALIDATED' && !d.replacedAfterReturn), 'accepted documents are untouched');
+  assert.ok(await db.documentRevision.findFirst({ where: { documentId: replaced.id, snapshot: { path: ['status'], equals: 'REJECTED' } } }), 'the returned file version stays in history');
+  // Resubmitting twice at once creates one submission; it goes back to AO II.
+  const [s1, s2] = await Promise.all([http(T.teacher, 'PUT', `/transactions/${T.txId}/submit`), http(T.teacher, 'PUT', `/transactions/${T.txId}/submit`)]);
+  assert.ok([s1, s2].some(r => r.status === 200), 'the personnel resubmits');
+  const sent = [s1, s2].find(r => r.status === 200).json.data;
+  assert.equal(sent.status, 'PENDING_VALIDATION', 'a corrected transaction returns to AO II (established policy)');
+  assert.ok(sent.submissionDate, 'the resubmission says when it was received');
+  assert.equal(await db.validationLog.count({ where: { entityType: 'Transaction', entityId: T.txId, action: 'TRANSACTION_RESUBMITTED' } }), 1, 'a double click resubmits once');
   const redocs = await db.uploadedDocument.findMany({ where: { transactionId: T.txId } });
   ok(await http(T.morAo, 'POST', `/transactions/${T.txId}/validate`, { body: { documentValidations: redocs.map(d => ({ documentId: d.id, isValid: true })), targetStatus: 'FOR_APPROVAL' } }), 200, 'AO II validates the correction');
   // Like TRX-5 in production: the PDS carries OCR data nobody confirmed.
   const pdsDoc = (await db.uploadedDocument.findMany({ where: { transactionId: T.txId }, include: { requirementTemplate: true } }))
     .find(d => /personal data sheet|pds/i.test(d.requirementTemplate.name));
   if (pdsDoc) await db.uploadedDocument.update({ where: { id: pdsDoc.id }, data: { ocrExtractedDataJson: { templateId: 'pds-2025', fields: { firstName: 'Rosa' } } } });
-  ok(await http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true, notes: 'Pilot approval' } }), 200, 'HR approves');
+  // A double click (or two open tabs) sends the decision twice at once: it is recorded once.
+  const decisions = await Promise.all([1, 2].map(() => http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true, notes: 'Pilot approval' } })));
+  assert.equal(decisions.filter(r => r.status === 200).length, 1, 'HR approves once');
+  assert.ok(decisions.some(r => r.status === 409 || r.status === 400), 'the second decision is refused, not applied twice');
+  assert.equal(await db.validationLog.count({ where: { entityType: 'Transaction', entityId: T.txId, action: 'TRANSACTION_APPROVED' } }), 1, 'one approval recorded');
 
   const person = await db.personnel.findUnique({ where: { id: T.teacherPersonnelId } });
   assert.equal(person.designation, 'Teacher II', 'the teacher is officially Teacher II');

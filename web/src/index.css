@@ -4612,3 +4612,6 @@ tr:hover td {
 @media (prefers-reduced-motion: reduce) {
   .panel-close-button { transition: none !important; }
 }
+
+/* A requirement opened from a notice or email. */
+.checklist-item.is-focused, .checklist-item:focus-visible { outline: 3px solid var(--color-warning, #d97706); outline-offset: 2px; }
