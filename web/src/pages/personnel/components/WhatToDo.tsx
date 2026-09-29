@@ -6,12 +6,12 @@ import './what-to-do.css';
 const when = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
 /** What needs this person first, then what is with AO II or HRMO. One button per row. */
-export const WhatToDo: React.FC<{ tasks: HomeTask[]; waiting: WaitingItem[] }> = ({ tasks, waiting }) => (
+export const WhatToDo: React.FC<{ tasks: HomeTask[]; waiting: WaitingItem[]; allClearHint?: string }> = ({ tasks, waiting, allClearHint }) => (
   <>
     <section className="wtd" aria-labelledby="wtd-title">
       <h2 id="wtd-title">What you need to do</h2>
       {tasks.length === 0
-        ? <p className="wtd__none">Nothing needs you right now. {waiting.length ? 'Your items below are with a reviewer.' : 'Your next step will appear here when there is one.'}</p>
+        ? <div className="wtd__clear"><span className="wtd__check" aria-hidden="true">✓</span><div><strong>You're all set</strong><span>{waiting.length ? 'Nothing needs you. Your items below are with a reviewer.' : allClearHint || 'Nothing needs you right now. Your next step will appear here when there is one.'}</span></div></div>
         : <ul className="wtd__list">
           {tasks.map(t => (
             <li key={t.key} className={`wtd__task is-${t.kind}`}>

@@ -16,3 +16,8 @@
 .wtd--waiting h2 { font-size: 1rem; }
 .wtd--waiting .wtd__none { margin-bottom: 10px; font-size: .875rem; }
 .wtd__task .btn { min-height: 40px; }
+.wtd__clear { display: flex; align-items: center; gap: 12px; }
+.wtd__check { flex: none; width: 36px; height: 36px; border-radius: 999px; background: #E9F5EE; color: #1F5A3A; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.125rem; }
+.wtd__clear div { display: grid; gap: 2px; min-width: 0; }
+.wtd__clear strong { font-size: 1rem; color: var(--color-text-primary); }
+.wtd__clear span { font-size: .9375rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }

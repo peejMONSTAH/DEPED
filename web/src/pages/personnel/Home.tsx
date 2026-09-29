@@ -4,19 +4,26 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { AsyncState } from '../../components/common/AsyncState';
+import { AppIcon } from '../../components/common/AppIcon';
 import { WhatToDo } from './components/WhatToDo';
 import { homeTasks } from './components/homeTasks';
 import { PromotionCycleItem } from './components/promotionCycle';
+import { PROMOTION_STEPS, nextExpiry, promotionProgress, vacancyLine } from './components/homeSummary';
 import { TransactionRecord } from '../../models/transactionState';
 import { PersonnelDocumentRecord, computeReadiness } from '../../models/documentStatus';
 import { applicationStage, transactionStage } from '../../constants/workflowStages';
 import { sortVacancies } from './vacancyView';
 import { filesNeedingAttention, filingReturns } from './filingReturns';
+import { routeNotification, collapseRepeats, PersonnelNotification } from './notificationRoute';
 import './personnel-home.css';
 
+const day = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+const monthYear = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' });
+
 /**
- * Personnel home: what needs you, what is with a reviewer, and short links to
- * the three places work happens. Everything shown comes from the person's own records.
+ * Personnel home: what needs you, what is with a reviewer, where your career and
+ * any promotion stand, and recent activity. Everything shown comes from the
+ * person's own records; optional panels hide rather than guess when they fail.
  */
 export const PersonnelHome: React.FC = () => {
   const { user } = useAuthContext();
@@ -27,6 +34,8 @@ export const PersonnelHome: React.FC = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [cycles, setCycles] = useState<PromotionCycleItem[]>([]);
   const [documents, setDocuments] = useState<PersonnelDocumentRecord[]>([]);
+  const [record, setRecord] = useState<Array<{ label: string; value: string }> | null>(null);
+  const [notices, setNotices] = useState<PersonnelNotification[] | null>(null);
 
   const loadPortalData = useCallback(async () => {
     setLoadError(null);
@@ -50,6 +59,9 @@ export const PersonnelHome: React.FC = () => {
     } finally {
       setLoading(false);
     }
+    // Side panels: shown when they load, hidden (never faked) when they do not.
+    apiClient.get('/personnel/me/service-record').then(r => setRecord(r.data?.data?.serviceRecordDetails || null)).catch(() => setRecord(null));
+    apiClient.get('/notifications').then(r => setNotices(r.data?.data || [])).catch(() => setNotices(null));
   }, []);
   useRealtimeTransactions(loadPortalData);
   useEffect(() => { void loadPortalData(); }, [loadPortalData]);
@@ -72,16 +84,32 @@ export const PersonnelHome: React.FC = () => {
   const station = personnel?.school || personnel?.station || null;
   const inProgress = applications.filter(a => !a.transactionId && !applicationStage(a).done).length
     + transactions.filter(t => !transactionStage(t.status).done).length;
-  const canApply = sortVacancies(cycles as any).filter(v => v.view.state === 'can-apply' || v.view.state === 'not-checked').length;
   // Same count the 201 Files page shows under Needs attention.
   const fileAttention = filesNeedingAttention(documents).length + filingReturns(transactions as any, applications).length;
-  const applied = cycles.filter(c => c.hasApplied).length;
+  const expiry = nextExpiry(documents);
+  const progress = promotionProgress(applications, transactions as any);
+  const recordValue = (label: string) => {
+    const v = record?.find(r => r.label === label)?.value;
+    if (!v || v === 'Not recorded') return null;
+    return /No Promotions Yet/i.test(v) ? 'None yet' : v;
+  };
 
   const links = [
-    { to: '/personnel/transactions', title: 'Applications', line: inProgress ? `${inProgress} in progress` : 'None in progress' },
-    { to: '/personnel/documents', title: '201 Files', line: fileAttention ? `${fileAttention} need${fileAttention === 1 ? 's' : ''} attention` : readiness.total ? 'All listed files uploaded' : 'No files listed yet' },
-    { to: '/personnel/vacancies', title: 'Vacancies', line: canApply ? `${canApply} you can apply to` : applied ? `${applied} applied · none new for you` : 'None open to you now' },
+    { to: '/personnel/transactions', icon: 'transactions', title: 'Applications', line: inProgress ? `${inProgress} in progress` : 'None in progress · see vacancies to apply' },
+    { to: '/personnel/documents', icon: 'document', title: '201 Files',
+      line: fileAttention ? `${fileAttention} need${fileAttention === 1 ? 's' : ''} attention`
+        : readiness.total ? `${readiness.total - readiness.missing} of ${readiness.total} uploaded${expiry ? ` · next expiry ${monthYear(expiry.date)}` : ''}` : 'No files listed yet' },
+    { to: '/personnel/vacancies', icon: 'employment', title: 'Vacancies', line: vacancyLine(sortVacancies(cycles as any).map(v => v.view.state)) },
   ];
+
+  const allClearHint = expiry
+    ? `Your files are in order. Next to expire: ${expiry.name}, ${day(expiry.date)}.`
+    : readiness.total && !readiness.missing ? `All ${readiness.total} listed 201 files are uploaded.` : undefined;
+
+  const recent = notices ? collapseRepeats(notices).slice(0, 3) : null;
+  const facts = ([['Position', position], ['Salary grade', recordValue('Latest Salary Grade')], ['Station', station],
+    ['Years in service', recordValue('Years in Service')], ['Last promotion', recordValue('Latest Promotion Date')]] as Array<[string, string | null]>)
+    .filter(([, v]) => v);
 
   return (
     <div className="animate-fade-in personnel-content-container ph">
@@ -91,27 +119,60 @@ export const PersonnelHome: React.FC = () => {
       </header>
 
       <AsyncState loading={loading} error={loadError} onRetry={() => { setLoading(true); void loadPortalData(); }} loadingText="Loading your tasks…">
-        <WhatToDo tasks={tasks} waiting={waiting} />
+        <div className="ph__grid">
+          <div className="ph__main">
+            <WhatToDo tasks={tasks} waiting={waiting} allClearHint={allClearHint} />
 
-        <nav className="ph__links" aria-label="Go to">
-          {links.map(l => (
-            <Link key={l.to} to={l.to} className="ph__link">
-              <strong>{l.title}</strong>
-              <span>{l.line}</span>
-            </Link>
-          ))}
-        </nav>
+            <nav className="ph__links" aria-label="Go to">
+              {links.map(l => (
+                <Link key={l.to} to={l.to} className="ph__link">
+                  <span className="ph__link-icon" aria-hidden="true"><AppIcon name={l.icon as any} size={18} /></span>
+                  <span className="ph__link-text"><strong>{l.title}</strong><span>{l.line}</span></span>
+                </Link>
+              ))}
+            </nav>
 
-        <details className="ph__how" open={applications.length === 0 && transactions.length === 0}>
-          <summary>How a promotion application becomes an appointment</summary>
-          <ol>
-            <li><b>You apply</b> to a vacancy and attach the Annex C requirements.</li>
-            <li><b>AO II checks</b> that the requirements are complete. Returned items come back to you to fix.</li>
-            <li><b>HRMO rates, ranks and selects.</b> Being eligible or checked does not mean selected.</li>
-            <li><b>If selected, you submit the appointment documents.</b> AO II validates them; HRMO gives final approval.</li>
-            <li><b>Only HRMO approval</b> changes your position and service record.</li>
-          </ol>
-        </details>
+            {recent && (
+              <section className="ph__card" aria-labelledby="ph-recent">
+                <div className="ph__card-head"><h2 id="ph-recent">Recent activity</h2><Link to="/personnel/notifications">See all</Link></div>
+                {recent.length === 0
+                  ? <p className="ph__muted">No activity yet. Reviews, returns and approvals will appear here.</p>
+                  : <ul className="ph__activity">
+                    {recent.map(n => {
+                      const r = routeNotification(n);
+                      const body = <><span className="ph__activity-kind">{r.label} · {day(n.createdAt)}</span><strong>{r.title}</strong></>;
+                      return <li key={n.id} className={n.isRead ? '' : 'is-unread'}>{r.path ? <Link to={r.path}>{body}</Link> : <div>{body}</div>}</li>;
+                    })}
+                  </ul>}
+              </section>
+            )}
+          </div>
+
+          <aside className="ph__side">
+            {record && facts.length > 0 && (
+              <section className="ph__card" aria-labelledby="ph-career">
+                <div className="ph__card-head"><h2 id="ph-career">Your career</h2><Link to="/personnel/service-record">Service record</Link></div>
+                <dl className="ph__facts">
+                  {facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+                </dl>
+              </section>
+            )}
+
+            <section className="ph__card" aria-labelledby="ph-steps">
+              <div className="ph__card-head"><h2 id="ph-steps">{progress ? progress.title : 'How a promotion works'}</h2></div>
+              {progress && <p className="ph__stage"><b>{progress.label}</b>{progress.needsYou ? ' · you need to act' : ''}</p>}
+              <ol className="ph__steps">
+                {PROMOTION_STEPS.map((s, i) => (
+                  <li key={s} className={progress ? (i < progress.step ? 'is-done' : i === progress.step ? 'is-current' : '') : ''} aria-current={progress?.step === i ? 'step' : undefined}>
+                    <span className="ph__dot" aria-hidden="true">{progress && i < progress.step ? '✓' : i + 1}</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="ph__muted">Only HRMO approval of the appointment changes your position and service record. Being eligible or checked does not mean selected.</p>
+            </section>
+          </aside>
+        </div>
       </AsyncState>
     </div>
   );

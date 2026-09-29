@@ -149,7 +149,8 @@ test('home shows tasks and reviewer items, compact links, and no empty appointme
   const home = src('pages/personnel/Home.tsx');
   assert.doesNotMatch(home, /No active|No appointment in progress|CurrentTransaction/);
   for (const to of ['/personnel/transactions', '/personnel/documents', '/personnel/vacancies']) assert.ok(home.includes(`to: '${to}'`), to);
-  assert.match(home, /How a promotion application becomes an appointment/);
+  assert.match(home, /How a promotion works/);
+  assert.match(home, /PROMOTION_STEPS.map/);
   assert.match(home, /Navigate to=\{`\/personnel\/vacancies\?cycle=/, 'old ?cycle links still work');
 });
 
@@ -234,4 +235,35 @@ test('keyboard focus is visible on every personnel control', () => {
 
 test('vacancies show no plantilla directory; applicants apply only to opened vacancies', () => {
   assert.doesNotMatch(src('pages/personnel/Vacancies.tsx'), /plantilla/i);
+});
+
+// ── Home summaries ─────────────────────────────────────────────────────────
+const { promotionProgress, nextExpiry, vacancyLine } = require('../src/pages/personnel/components/homeSummary.ts');
+
+test('the promotion stepper marks the real current step and never the approval early', () => {
+  assert.equal(promotionProgress([], []), null);
+  assert.equal(promotionProgress([{ id: 1, status: 'SUBMITTED', cycle: { targetPosition: 'MT I' } }], []).step, 1);
+  const returned = promotionProgress([{ id: 1, status: 'UNDER_REVIEW', stageStatus: 'REQUIREMENTS_DEFICIENT', canResubmit: true, cycle: {} }], []);
+  assert.equal(returned.step, 1); assert.equal(returned.needsYou, true);
+  assert.equal(promotionProgress([{ id: 1, status: 'RANKED', cycle: {} }], []).step, 2);
+  assert.equal(promotionProgress([{ id: 1, status: 'APPROVED', stageStatus: 'SELECTED_PENDING_DOCS', transactionId: 7, cycle: {} }], [{ id: 7, status: 'PENDING_VALIDATION' }]).step, 3);
+  const hrmo = promotionProgress([{ id: 1, transactionId: 7, cycle: {} }], [{ id: 7, status: 'FOR_APPROVAL' }]);
+  assert.equal(hrmo.step, 4); assert.match(hrmo.label, /Validated by AO II/);
+  assert.equal(promotionProgress([{ id: 1, transactionId: 7, cycle: {} }], [{ id: 7, status: 'APPROVED' }]), null, 'a finished promotion is not shown as in progress');
+});
+
+test('tile lines say what is there instead of just "none"', () => {
+  assert.equal(vacancyLine(['not-eligible']), '1 open · not eligible yet · see why');
+  assert.equal(vacancyLine(['can-apply', 'not-eligible']), '1 you can apply to');
+  assert.equal(vacancyLine([]), 'No open vacancies right now');
+  const e = nextExpiry([{ id: 1, documentTypeId: 'PRC', documentTypeName: 'PRC ID', status: 'SUBMITTED', hasFile: true, expirationDate: '2027-03-01' },
+    { id: 2, documentTypeId: 'X', documentTypeName: 'Old', status: 'SUBMITTED', hasFile: true, expirationDate: '2020-01-01' }], new Date('2026-09-30'));
+  assert.equal(e.name, 'PRC ID');
+});
+
+test('home side panels hide instead of guessing when they cannot load', () => {
+  const home = src('pages/personnel/Home.tsx');
+  assert.match(home, /service-record'\)\.then\(r => setRecord\([^)]*\)\)\.catch\(\(\) => setRecord\(null\)\)/);
+  assert.match(home, /\{record && facts\.length > 0 &&/);
+  assert.match(home, /\{recent && \(/);
 });
