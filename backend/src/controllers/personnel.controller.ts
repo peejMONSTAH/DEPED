@@ -309,6 +309,8 @@ export const buildServiceRecordPayload = (p: any) => {
       suffix: p.suffix,
       email: p.user?.email,
       designation: currentPosition,
+      school: p.school,
+      district: p.district,
       dateHired: p.dateHired,
       plantillaItem: p.plantillaItem,
       status: p.status,
