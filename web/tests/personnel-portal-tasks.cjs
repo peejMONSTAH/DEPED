@@ -231,3 +231,7 @@ test('a data refresh never resets what the person attached in the open checklist
 test('keyboard focus is visible on every personnel control', () => {
   assert.match(src('index.css'), /\.personnel-content-container :is\(a, button, summary, input, select, textarea, \[tabindex\]\):focus-visible,\n\.personnel-bottom-nav-item:focus-visible \{\n  outline: 3px solid #2F7D52 !important;/);
 });
+
+test('vacancies show no plantilla directory; applicants apply only to opened vacancies', () => {
+  assert.doesNotMatch(src('pages/personnel/Vacancies.tsx'), /plantilla/i);
+});

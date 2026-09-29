@@ -32,7 +32,6 @@ export const Vacancies: React.FC = () => {
   const [cycles, setCycles] = useState<PromotionCycleItem[]>([]);
   const [personnel, setPersonnel] = useState<any>(null);
   const [documents, setDocuments] = useState<PersonnelDocumentRecord[]>([]);
-  const [plantilla, setPlantilla] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,8 +50,6 @@ export const Vacancies: React.FC = () => {
       setPersonnel(p.data?.data || null);
       setDocuments(d.data?.data || []);
       setApplications(a.data?.data || []);
-      // Reference list only; the page works without it.
-      apiClient.get('/plantilla/available').then(r => setPlantilla(r.data?.data || [])).catch(() => setPlantilla([]));
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Vacancies could not be loaded. Check your connection and try again.');
     } finally { setLoading(false); }
@@ -126,18 +123,6 @@ export const Vacancies: React.FC = () => {
                 </li>
               ))}
             </ul>}
-
-          {plantilla.length > 0 && (
-            <details className="vac__plantilla">
-              <summary>Vacant plantilla items ({plantilla.length})</summary>
-              <p className="vac__muted">For reference. You can apply only after HRMO opens a promotion vacancy for an item.</p>
-              <ul>
-                {plantilla.map(p => (
-                  <li key={p.id}><strong>{p.positionTitle}</strong><span>{p.itemNumber} · SG {p.salaryGrade}{p.office ? ` · ${p.office}` : ''}</span></li>
-                ))}
-              </ul>
-            </details>
-          )}
         </>}
 
       {openCycle && (
