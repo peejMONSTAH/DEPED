@@ -1,6 +1,18 @@
-.ph__head { margin: 0 0 16px; }
-.ph__head h1 { margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--color-text-primary); }
-.ph__head p { margin: 4px 0 0; font-size: .9375rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.ph__hero { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin: 0 0 16px; padding: 24px 28px; border-radius: 16px; color: #FFFFFF; background: #17472E; }
+.ph__avatar { flex: none; width: 64px; height: 64px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 800; background: #E9F5EE; color: #17472E; }
+.ph__hero-text { flex: 1 1 280px; min-width: 0; }
+/* index.css forces h1 styles with !important; match it so the banner name stays white. */
+.ph .ph__hero h1 { margin: 0 !important; font-size: 2.125rem !important; letter-spacing: -.02em !important; line-height: 1.1 !important; color: #FFFFFF !important; }
+.ph__hero-text p { margin: 8px 0 0; font-size: .9375rem; color: rgba(255,255,255,.8); overflow-wrap: anywhere; }
+.ph__hero-facts { margin: 0; display: flex; }
+.ph__hero-facts > div { padding: 0 20px; border-left: 1px solid rgba(255,255,255,.25); }
+.ph__hero-facts dt { font-size: .8125rem; color: rgba(255,255,255,.72); }
+.ph__hero-facts dd { margin: 2px 0 0; font-size: 1.0625rem; font-weight: 800; }
+.ph__folder { flex: 1 1 100%; display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.18); }
+.ph__folder-cells { display: flex; gap: 4px; }
+.ph__folder-cells i { flex: 1 1 0; max-width: 56px; height: 8px; border-radius: 3px; background: rgba(255,255,255,.2); }
+.ph__folder-cells i.is-on { background: #9BE2B8; }
+.ph__folder-label { font-size: .875rem; color: rgba(255,255,255,.85); }
 
 /* One column on phones; tasks and activity beside career and progress on wide screens. */
 .ph__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -14,7 +26,8 @@
 .ph__link-text { display: grid; gap: 2px; min-width: 0; }
 .ph__link-text strong { font-size: .9375rem; font-weight: 800; }
 .ph__link-text span { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
-.ph__link:hover { border-color: var(--color-primary); }
+.ph__link { box-shadow: 0 1px 2px rgba(23,71,46,.06); transition: border-color .15s, box-shadow .15s; }
+.ph__link:hover { border-color: var(--color-primary); box-shadow: 0 4px 12px rgba(23,71,46,.12); }
 .ph__link:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 .ph__card { border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-card); padding: 16px 18px; min-width: 0; }
@@ -45,4 +58,20 @@
 .ph__steps li.is-current .ph__dot { border-color: #2F7D52; color: #1F5A3A; box-shadow: 0 0 0 3px #E9F5EE; }
 
 @media (max-width: 760px) { .ph__links { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .ph__hero { padding: 18px; } .ph .ph__hero h1 { font-size: 1.625rem !important; } .ph__hero-facts > div:first-child { padding-left: 0; border-left: 0; } }
+.ph__cases { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ph__cases > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 12px; }
+.ph__cases > li.is-act { background: linear-gradient(rgba(194,65,12,.08), rgba(194,65,12,.08)), var(--color-bg-card); border-color: rgba(194,65,12,.4); }
+.ph__case-main { display: grid; gap: 3px; min-width: 0; flex: 1 1 240px; justify-items: start; }
+.ph__case-main strong { font-size: 1rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.ph__case-main > span { font-size: .875rem; color: var(--color-text-secondary); }
+.ph__cases .btn { min-height: 40px; }
+/* Who has it now: the current holder is filled. */
+.ph__track { list-style: none; margin: 4px 0 0; padding: 0; display: flex; }
+.ph__track li { padding: 3px 12px; font-size: .8125rem; font-weight: 700; color: #6B7A71; background: #EEF1EF; }
+.ph__track li:first-child { border-radius: 999px 0 0 999px; }
+.ph__track li:last-child { border-radius: 0 999px 999px 0; }
+.ph__track li + li { margin-left: 2px; }
+.ph__track li.is-now { background: #17472E; color: #FFFFFF; }
+.ph__cases > li.is-act .ph__track li.is-now { background: #C2410C; }
 @media (max-width: 380px) { .ph__facts { grid-template-columns: minmax(0, 1fr); } }

@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHeader } from '../../components/common/PageHeader';
+import { PortalBand } from './components/PortalBand';
 import { TransactionTimeline } from '../../components/personnel/TransactionTimeline';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
@@ -85,7 +85,10 @@ export const MyTransactions: React.FC = () => {
 
   return (
     <div className="animate-fade-in personnel-content-container">
-      <PageHeader title="Applications" subtitle="Your promotion applications and appointments, and who has each one now" />
+      <PortalBand
+        title="Applications"
+        facts={loading || error || entries.length === 0 ? undefined : groups.map(g => ({ label: g.title, value: g.rows.length }))}
+      />
       {loading ? <p className="mya__muted" aria-busy="true">Loading your applications…</p>
         : error ? <div className="mya__error" role="alert"><p>{error}</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => { setLoading(true); void load(); }}>Try again</button></div>
         : entries.length === 0 ? <div className="mya__empty"><p>You have no applications yet.</p><Link className="btn btn-primary btn-sm" to="/personnel/vacancies">See open vacancies</Link></div>
@@ -100,7 +103,9 @@ export const MyTransactions: React.FC = () => {
                     <strong>{e.title}</strong>
                     <span className="mya__meta">{e.references.join(' · ')} · submitted {when(e.submitted)}{e.updated ? ` · last update ${when(e.updated)}` : ''}</span>
                     <span className="mya__stage"><b>{e.stage.label}</b></span>
-                    <span className="mya__owner">{e.stage.who ? `Who has it now: ${e.stage.who === 'You' ? 'you' : e.stage.who}` : 'Closed — no one needs to act'}</span>
+                    <ol className="mya__track" aria-label={e.stage.who ? `Who has it now: ${e.stage.who === 'You' ? 'you' : e.stage.who}` : 'Closed — no one needs to act'}>
+                      {(['You', 'AO II', 'HRMO'] as const).map(w => <li key={w} className={e.stage.done ? 'is-past' : e.stage.who === w ? 'is-now' : ''}>{w}</li>)}
+                    </ol>
                     {e.stage.next && <span className="mya__next">Next: {e.stage.next}</span>}
                     {e.app?.canResubmit && e.app.requirementsCheck?.remarks && <span className="mya__note">AO II note: {e.app.requirementsCheck.remarks}</span>}
                   </div>

@@ -10,19 +10,32 @@ import { mapEntries } from '../../components/forms/fieldLayout';
 import { FieldOverlay } from '../../components/forms/FieldOverlay';
 import { structuredDataFromEntries } from '../../components/forms/formDataExtraction';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useToast } from '../../contexts/ToastContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 import './fill-document.css';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 type Template = { id: string; title: string; edition: string; pages: number; source: string; notice: string };
+/** Where a finished form is filed in the 201 record: the document type the 201 Files page already uses. */
+const FILE_AS_201: Record<string, { typeId: string; customName?: string }> = {
+  'pds-2025': { typeId: 'PDS' }, wes: { typeId: 'WES' }, 'omnibus-2023': { typeId: 'OMNIBUS_CERT' }, 'saln-2025': { typeId: 'SALN' },
+  'oath-2025': { typeId: 'OATH_OF_OFFICE' }, 'position-2017': { typeId: 'POSITION_DESCRIPTION' }, 'medical-2025': { typeId: 'OTHER', customName: 'Medical Certificate' },
+};
 type Draft = { pages: number[]; entries: FormEntry[]; version: string; updatedAt?: string };
 
 export default function FillDocument() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { addToast } = useToast();
+  const { user } = useAuthContext();
+  // 201 mode: fill a form for your own 201 record, no transaction involved.
+  const is201 = params.get('mode') === '201';
   const txId = params.get('txId') || '';
   const name = params.get('name') || '';
-  const templateId = templateForRequirement(name);
+  const templateId = is201 ? params.get('template') || undefined : templateForRequirement(name);
+  const [catalog, setCatalog] = useState<Template[]>([]);
+  const draftKey = `fill201:${(user as any)?.id ?? 'me'}:${templateId}`;
   const detectedFields = useMemo(() => fieldsForTemplate(templateId), [templateId]);
   const [template, setTemplate] = useState<Template>();
   const [draft, setDraft] = useState<Draft>({ pages: [], entries: [], version: '0' });
@@ -60,12 +73,31 @@ export default function FillDocument() {
   const previousAnswers = draft.entries.filter(entry => !mappedIds.has(entry.id));
   const pageFields = detectedFields.filter(field => field.page === draft.pages[pageIndex]);
   const draftUrl = `/forms/transactions/${txId}/${templateId}`;
+  const backTo = is201 ? '/personnel/documents' : `/personnel/checklist?txId=${txId}`;
 
   useEffect(() => {
     let cancelled = false;
     let loadedPdf: PDFDocumentProxy | undefined;
     async function load() {
       try {
+        if (is201) {
+          const list = await apiClient.get('/forms/templates');
+          const all = list.data.data as Template[];
+          setCatalog(all);
+          if (!templateId) return;
+          const chosen = all.find(t => t.id === templateId);
+          if (!chosen) throw new Error('This form is unavailable. Upload your completed document instead.');
+          const file = await apiClient.get(`/forms/templates/${templateId}/file`, { responseType: 'arraybuffer' });
+          const bytes = file.data as ArrayBuffer;
+          loadedPdf = await getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise;
+          if (cancelled) { await loadedPdf.destroy(); return; }
+          let stored: Draft | null = null;
+          try { stored = JSON.parse(localStorage.getItem(draftKey) || 'null'); } catch { stored = null; }
+          const base: Draft = stored?.pages ? stored : { pages: Array.from({ length: chosen.pages }, (_, i) => i), entries: [], version: '0' };
+          setLocked(false); setTemplate(chosen); setSource(bytes); setPdf(loadedPdf);
+          setDraft({ ...base, entries: mapEntries(base.pages, base.entries, fieldsForTemplate(templateId)) });
+          return;
+        }
         if (!templateId || !/^\d+$/.test(txId) || Number(txId) < 1) throw new Error('Open a supported document from your transaction checklist.');
         const [catalog, transaction, saved, file] = await Promise.all([
           apiClient.get('/forms/templates'), apiClient.get(`/transactions/${txId}`),
@@ -121,6 +153,11 @@ export default function FillDocument() {
     document.getElementById(`input-${id}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   async function save() {
+    if (is201) {
+      try { localStorage.setItem(draftKey, JSON.stringify({ pages: draft.pages, entries: draft.entries, version: '0' })); } catch { throw new Error('This browser could not store the draft. Download the PDF to keep your work.'); }
+      setDirty(false); setMessage('Draft saved on this device. Not submitted.');
+      return;
+    }
     const response = await apiClient.put(draftUrl, { version: draft.version, pages: draft.pages, entries: draft.entries });
     setDraft(response.data.data); setDirty(false);
     setMessage('Draft saved to your account. Not submitted.');
@@ -141,6 +178,20 @@ export default function FillDocument() {
         setMessage('PDF downloaded. Complete any required signatures or officer sections.'); return;
       }
       if (locked || !confirmed || !preview) throw new Error('Preview the PDF and confirm the submission checklist first.');
+      if (is201) {
+        const filing = FILE_AS_201[template.id];
+        if (!filing) throw new Error('This form cannot be filed in your 201 record.');
+        const form = new FormData();
+        form.append('file', blob, `${template.id}-completed.pdf`);
+        form.append('documentTypeId', filing.typeId);
+        if (filing.customName) form.append('customDocumentName', filing.customName);
+        await apiClient.post('/personnel/documents', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        try { localStorage.removeItem(draftKey); } catch { /* nothing stored */ }
+        setDirty(false);
+        addToast(`${template.title} saved as a PDF in your 201 files.`, 'SUCCESS');
+        navigate('/personnel/documents');
+        return;
+      }
       await save();
       const body = new FormData();
       body.append('file', blob, `${template.id}-completed.pdf`);
@@ -155,15 +206,18 @@ export default function FillDocument() {
 
   return <main className="form-workspace">
     <header className="form-heading">
-      <div><p className="form-eyebrow">Personnel documents</p><h1>{template?.title || 'Fill out a document'}</h1><p>{template?.edition}</p></div>
-      <button className="btn btn-secondary" onClick={() => leaveTo(`/personnel/checklist?txId=${txId}`)}>Back to checklist</button>
+      <div><p className="form-eyebrow">{is201 ? '201 Files' : 'Personnel documents'}</p><h1>{template?.title || 'Fill out a document'}</h1><p>{template?.edition}</p></div>
+      <button className="btn btn-secondary" onClick={() => leaveTo(backTo)}>{is201 ? 'Back to 201 Files' : 'Back to checklist'}</button>
     </header>
     {error && <p className="form-error" role="alert">{error}</p>}
-    {loading ? <p role="status">Loading your template and saved draft…</p> : template && <>
+    {loading ? <p role="status">Loading your template and saved draft…</p> : is201 && !templateId ? <section className="form-submit" aria-label="Choose a form">
+      <h2>Which form do you want to fill up?</h2><p>Pick a form, complete it on screen, then submit. It is saved as a PDF in your 201 files.</p>
+      <div className="form-field-list">{catalog.filter(t => FILE_AS_201[t.id]).map(t => <button key={t.id} type="button" className="btn btn-secondary" onClick={() => navigate(`/personnel/fill-document?mode=201&template=${t.id}`)}>{t.title}</button>)}</div>
+    </section> : template && <>
       <aside className="form-notice"><strong>Before you fill this form</strong><p>{template.notice}</p><a href={template.source} target="_blank" rel="noreferrer">Official template source ↗</a></aside>
       {locked && <p className="form-notice">Locked. You can view or download the draft, but not change it.</p>}
       <div className="form-toolbar">
-        <button className="btn btn-secondary" disabled={busy || locked} onClick={() => perform('save')}>Save draft</button>
+        <button className="btn btn-secondary" disabled={busy || locked} onClick={() => perform('save')}>{is201 ? 'Save draft (this device)' : 'Save draft'}</button>
         <button className="btn btn-secondary" disabled={busy} onClick={() => perform('preview')}>Preview PDF</button>
         <button className="btn btn-secondary" disabled={busy} onClick={() => perform('download')}>Download PDF</button>
         <span role="status">{busy ? 'Working…' : message || (draft.updatedAt ? `Draft saved ${new Date(draft.updatedAt).toLocaleString()}` : 'No draft saved yet')}</span>
@@ -207,10 +261,10 @@ export default function FillDocument() {
         </section>
       </div>
       {preview && <section className="form-preview"><h2>Generated PDF preview</h2><p>Check every page for missing answers, overlapping text and required signatures. Use Download PDF if your browser cannot display the preview.</p><iframe src={preview} title="Completed PDF preview" /></section>}
-      <section className="form-submit"><h2>Attach to this requirement</h2><p>This attaches a PDF to “{name}”. It does not submit the entire transaction or approve the document. AO/HRMO review remains required.</p>
+      <section className="form-submit"><h2>{is201 ? 'Submit and save as PDF' : 'Attach to this requirement'}</h2>{is201 ? <p>This saves the completed form as a PDF in your 201 files. It is not checked until you attach it to an application or appointment.</p> : <p>This attaches a PDF to “{name}”. It does not submit the entire transaction or approve the document. AO/HRMO review remains required.</p>}
         <label className="form-confirm"><input type="checkbox" disabled={locked || busy || !preview} checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>I reviewed the PDF, confirmed the accepted template edition, and completed all required signatures and officer certifications. If these are still missing, I will download the draft and upload the completed copy instead.</label>
-        <button className="btn btn-primary" disabled={locked || busy || !confirmed || !preview} onClick={() => perform('attach')}>Attach PDF for review</button>
-        <button className="btn btn-secondary" onClick={() => leaveTo(`/personnel/upload-document?${params.toString()}`)}>Upload a signed / completed file instead</button>
+        <button className="btn btn-primary" disabled={locked || busy || !confirmed || !preview} onClick={() => perform('attach')}>{is201 ? 'Submit and save PDF to 201 files' : 'Attach PDF for review'}</button>
+        <button className="btn btn-secondary" onClick={() => leaveTo(is201 ? '/personnel/documents' : `/personnel/upload-document?${params.toString()}`)}>Upload a signed / completed file instead</button>
       </section>
     </>}
   </main>;

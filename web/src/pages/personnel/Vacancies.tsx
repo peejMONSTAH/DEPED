@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader } from '../../components/common/PageHeader';
+import { PortalBand } from './components/PortalBand';
 import { DocumentViewerModal } from '../../components/common/DocumentViewerModal';
 import { useAuthContext } from '../../contexts/AuthContext';
 import apiClient from '../../api/client';
@@ -40,6 +40,7 @@ export const Vacancies: React.FC = () => {
   const [openCycle, setOpenCycle] = useState<PromotionCycleItem | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
   const [linkGone, setLinkGone] = useState(false);
+  const [whyOpen, setWhyOpen] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -79,11 +80,10 @@ export const Vacancies: React.FC = () => {
 
   return (
     <div className="animate-fade-in personnel-content-container">
-      <PageHeader title="Vacancies" subtitle="Promotion vacancies you can see, whether you may apply, and the deadline" />
-      <p className="vac__intro">
-        “You can apply” means you meet the position-step rule for the vacancy. AO II then checks your documents, and HRMO rates, ranks and selects. Applying does not guarantee selection.
-      </p>
-
+      <PortalBand
+        title="Vacancies"
+        facts={loading || error ? undefined : [{ label: 'You can apply', value: count('apply') }, { label: 'Applied', value: count('applied') }, { label: 'All vacancies', value: cycles.length }]}
+      />
       {linkGone && <div className="vac__box" role="status"><p>That vacancy is no longer open to you. It may have closed, been cancelled, or be outside your station.</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => setLinkGone(false)}>Dismiss</button></div>}
       {loading ? <p className="vac__muted" aria-busy="true">Loading vacancies…</p>
         : error ? <div className="vac__box" role="alert"><p>{error}</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => { setLoading(true); void load(); }}>Try again</button></div>
@@ -108,18 +108,27 @@ export const Vacancies: React.FC = () => {
               {rows.map(({ cycle, view }) => (
                 <li key={cycle.id} className={`vac__item s-${view.state}`}>
                   <div className="vac__main">
+                    <span className="vac__pill">{view.status}</span>
                     <h2>{view.position}</h2>
                     <span className="vac__cycle">{cycle.name}</span>
-                    <span className="vac__status"><b>{view.status}</b></span>
-                    {view.reason && <span className="vac__reason">{view.reason}</span>}
-                    <span className="vac__deadline">{view.deadline}</span>
+                    {view.reason && (
+                      <>
+                        <button type="button" className="vac__why" aria-expanded={whyOpen === cycle.id} onClick={() => setWhyOpen(o => (o === cycle.id ? null : cycle.id))}>
+                          {whyOpen === cycle.id ? 'Hide reason' : view.state === 'not-eligible' ? 'Why not eligible?' : 'See why'}
+                        </button>
+                        {whyOpen === cycle.id && <span className="vac__reason" role="note">{view.reason}</span>}
+                      </>
+                    )}
                     {view.note && <span className="vac__note">{view.note}</span>}
                   </div>
-                  {view.action && (
+                  <div className="vac__side">
+                    <span className="vac__deadline">{view.deadline}</span>
+                    {view.action && (
                     <button type="button" className={`btn btn-sm ${view.action.kind === 'view' ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setOpenCycle(cycle)}>
                       {view.action.label}
                     </button>
-                  )}
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>}

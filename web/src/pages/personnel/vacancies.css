@@ -3,24 +3,35 @@
 .vac__box { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-card); }
 .vac__box p { margin: 0; flex: 1 1 240px; color: var(--color-text-primary); }
 .vac__tools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
-.vac__filters { display: flex; flex-wrap: wrap; gap: 6px; }
+/* One segmented track instead of a row of separate buttons. */
+.vac__filters { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: 12px; background: #E9F0EB; }
+.vac__filters .btn { border: 0; box-shadow: none; background: transparent; color: #1F5A3A; border-radius: 9px; font-weight: 700; }
+.vac__filters .btn:hover { background: rgba(255,255,255,.6); }
+.vac__filters .btn.btn-primary { background: #17472E; color: #FFFFFF; }
 .vac__search { flex: 1 1 200px; max-width: 320px; }
 .vac__search input { width: 100%; min-height: 40px; }
 .vac__search .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .vac__list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 10px; }
-.vac__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: start; padding: 14px 16px; border: 1px solid var(--color-border); border-left-width: 4px; border-left-color: var(--color-border); border-radius: 14px; background: var(--color-bg-card); }
-.vac__item.s-can-apply { border-left-color: #2F7D52; }
-.vac__item.s-applied { border-left-color: #9DB5A4; }
-.vac__item.s-not-eligible, .vac__item.s-not-checked { border-left-color: #B45309; }
-.vac__main { display: grid; gap: 3px; min-width: 0; }
-.vac__main h2 { margin: 0; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.vac__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 24px; align-items: center; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-card); transition: border-color .15s, box-shadow .15s; }
+.vac__item:hover { border-color: #9DB5A4; box-shadow: 0 4px 14px rgba(23,71,46,.09); }
+.vac__item.s-can-apply { background: linear-gradient(rgba(47,125,82,.10), rgba(47,125,82,.10)), var(--color-bg-card); border-color: rgba(47,125,82,.45); }
+.vac__main { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.vac__main h2 { margin: 0; font-size: 1.125rem; font-weight: 800; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.vac__pill { padding: 3px 10px; border-radius: 999px; font-size: .8125rem; font-weight: 700; background: #EEF1EF; color: #44524A; }
+.s-can-apply .vac__pill { background: #17472E; color: #FFFFFF; }
+.s-applied .vac__pill { background: #DCEFE4; color: #1F5A3A; }
+.s-not-eligible .vac__pill, .s-not-checked .vac__pill { background: #FDEBD3; color: #8A3A0B; }
 .vac__cycle, .vac__deadline, .vac__note { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
-.vac__status { font-size: .9375rem; color: var(--color-text-primary); }
 .vac__reason { font-size: .875rem; color: #8A3A0B; overflow-wrap: anywhere; }
+.vac__side { display: grid; justify-items: end; gap: 8px; text-align: right; max-width: 220px; }
+.vac__deadline { font-weight: 700; color: var(--color-text-primary); }
 .vac__item .btn { min-height: 40px; white-space: nowrap; }
 @media (max-width: 600px) {
   .vac__item { grid-template-columns: minmax(0, 1fr); }
+  .vac__side { justify-items: start; text-align: left; max-width: none; }
   .vac__item .btn { justify-self: start; }
   .vac__search { max-width: none; }
 }
 .vac__box + .vac__muted, .vac__box + .vac__tools { margin-top: 12px; }
+.vac__why { padding: 0; border: 0; background: none; font: inherit; font-size: .875rem; font-weight: 700; color: #8A3A0B; text-decoration: underline; cursor: pointer; min-height: 28px; }
+.vac__why:focus-visible { outline: 2px solid #8A3A0B; outline-offset: 2px; border-radius: 4px; }

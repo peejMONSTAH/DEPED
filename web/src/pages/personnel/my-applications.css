@@ -5,14 +5,22 @@
 .mya__group h2 { margin: 0 0 10px; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); }
 .mya__group h2 span { font-size: .875rem; color: var(--color-text-muted); font-weight: 700; }
 .mya__group > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.mya__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; padding: 14px 16px; border: 1px solid var(--color-border); border-left-width: 4px; border-left-color: #9DB5A4; border-radius: 14px; background: var(--color-bg-card); }
-.mya__row.is-act { border-left-color: #C2410C; }
-.mya__main { display: grid; gap: 3px; min-width: 0; }
-.mya__kind { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); }
-.mya__main strong { font-size: 1rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.mya__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 20px; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-card); }
+.mya__row.is-act { background: linear-gradient(rgba(194,65,12,.08), rgba(194,65,12,.08)), var(--color-bg-card); border-color: rgba(194,65,12,.4); }
+.mya__main { display: grid; gap: 3px; min-width: 0; justify-items: start; }
+.mya__kind { font-size: .8125rem; font-weight: 700; color: var(--color-text-muted); }
+.mya__main strong { font-size: 1.0625rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
 .mya__meta, .mya__next { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .mya__stage { font-size: .9375rem; color: var(--color-text-primary); }
-.mya__owner { font-size: .875rem; font-weight: 700; color: var(--color-text-primary); }
+/* Who has it now: the three people a case passes through; the current holder is filled. */
+.mya__track { list-style: none; margin: 4px 0 2px; padding: 0; display: flex; align-items: center; }
+.mya__track li { padding: 3px 12px; font-size: .8125rem; font-weight: 700; color: #6B7A71; background: #EEF1EF; }
+.mya__track li:first-child { border-radius: 999px 0 0 999px; }
+.mya__track li:last-child { border-radius: 0 999px 999px 0; }
+.mya__track li + li { margin-left: 2px; }
+.mya__track li.is-past { background: #DCEFE4; color: #1F5A3A; }
+.mya__track li.is-now { background: #17472E; color: #FFFFFF; }
+.mya__row.is-act .mya__track li.is-now { background: #C2410C; }
 .mya__actions .btn { min-height: 40px; }
 .mya__note { font-size: .875rem; color: #A1263A; overflow-wrap: anywhere; }
 .mya__actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }

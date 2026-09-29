@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
 import { PageHeader } from '../../components/common/PageHeader';
 import { AsyncState } from '../../components/common/AsyncState';
-import { ModalPortal } from '../../components/common/ModalPortal';
-import { ModalOverlay } from '../../components/common/ModalOverlay';
 import apiClient from '../../api/client';
 import './service-record.css';
 
@@ -39,19 +36,12 @@ interface TimelineEntry {
 
 export const CareerRecord: React.FC = () => {
   const { user } = useAuthContext();
-  const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [personnelData, setPersonnelData] = useState<any>(null);
   const [serviceDetails, setServiceDetails] = useState<ServiceDetailField[]>([]);
   const [careerTimeline, setCareerTimeline] = useState<TimelineEntry[]>([]);
-
-  // Discrepancy report modal
-  const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
-  const [discrepancySubject, setDiscrepancySubject] = useState('');
-  const [discrepancyMessage, setDiscrepancyMessage] = useState('');
-  const [submittingDiscrepancy, setSubmittingDiscrepancy] = useState(false);
 
   const fetchServiceRecord = useCallback(async () => {
     setLoading(true);
@@ -93,7 +83,7 @@ export const CareerRecord: React.FC = () => {
             employeeId: p.employeeId,
             fullName: `${p.firstName} ${p.lastName}`.trim(),
             designation,
-            station: p.school || p.station || 'Division of General Santos City',
+            station: p.school || p.station || 'Not recorded',
             plantillaItem: p.plantillaItem,
           });
 
@@ -131,42 +121,15 @@ export const CareerRecord: React.FC = () => {
     fetchServiceRecord();
   }, [fetchServiceRecord]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleSubmitDiscrepancy = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!discrepancyMessage.trim()) return;
-    setSubmittingDiscrepancy(true);
-    try {
-      await apiClient.post('/notifications', {
-        type: 'SERVICE_RECORD_DISCREPANCY',
-        message: `Service Record Inquiry [${discrepancySubject || 'General'}]: ${discrepancyMessage.trim()}`,
-      });
-      addToast('Discrepancy inquiry submitted to HRMO Records Unit.', 'SUCCESS');
-      setShowDiscrepancyModal(false);
-      setDiscrepancySubject('');
-      setDiscrepancyMessage('');
-    } catch {
-      // If notification endpoint is unavailable, acknowledge locally
-      addToast('Discrepancy report recorded. Division HRMO will verify your 201 file.', 'INFO');
-      setShowDiscrepancyModal(false);
-    } finally {
-      setSubmittingDiscrepancy(false);
-    }
-  };
-
   const fullName = personnelData?.fullName || (user?.firstName ? `${user.firstName} ${user.lastName}`.trim() : 'DepEd Personnel');
   const employeeId = personnelData?.employeeId || 'Not recorded';
   const positionTitle = personnelData?.designation || personnelData?.plantillaItem?.positionTitle || 'Not recorded';
-  const stationName = personnelData?.school || personnelData?.station || (user as any)?.school || 'Division of General Santos City';
+  const stationName = personnelData?.school || personnelData?.station || (user as any)?.school || 'Not recorded';
 
   return (
     <div className="animate-fade-in personnel-content-container">
       <PageHeader
         title="Official Service Record & Career Timeline"
-        subtitle="Civil Service Form No. 33 · Certified authentic from Division Personnel Records"
         breadcrumbs={[
           { label: 'Portal Home', to: '/personnel/home' },
           { label: 'Service Record' },
@@ -175,26 +138,6 @@ export const CareerRecord: React.FC = () => {
           label: 'Verified by HRMO',
           tone: 'success',
         }}
-        actions={
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setShowDiscrepancyModal(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-            >
-              <AppIcon name="warning" size={14} color="#d97706" /> Report Discrepancy
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={handlePrint}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-            >
-              <AppIcon name="download" size={14} /> Print / Export Record
-            </button>
-          </div>
-        }
       />
 
       <AsyncState
@@ -205,9 +148,9 @@ export const CareerRecord: React.FC = () => {
       >
         {/* Personnel Identity Card */}
         <div
-          className="card mb-4 print-header"
+          className="mb-4 print-header"
           style={{
-            background: 'linear-gradient(135deg, var(--color-primary) 0%, #8a6a1c 100%)',
+            background: '#17472E',
             color: 'white',
             borderRadius: 16,
             padding: 20,
@@ -450,95 +393,6 @@ export const CareerRecord: React.FC = () => {
           <div>Division Office of General Santos City · Personnel Section</div>
         </div>
       </AsyncState>
-
-      {/* Discrepancy Reporting Modal */}
-      {showDiscrepancyModal && (
-        <ModalPortal>
-          <ModalOverlay onDismiss={() => setShowDiscrepancyModal(false)}>
-            <div
-              className="card"
-              style={{
-                width: '100%',
-                maxWidth: 480,
-                padding: 24,
-                borderRadius: 16,
-                background: 'var(--color-bg-card)',
-                border: '1px solid var(--color-border)',
-              }}
-              onClick={e => e.stopPropagation()}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>
-                  Report Service Record Discrepancy
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setShowDiscrepancyModal(false)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                  aria-label="Close dialog"
-                >
-                  <AppIcon name="close" size={18} />
-                </button>
-              </div>
-
-              <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-                Submit an inquiry or correction request to the Division HRMO Records Unit regarding any missing service milestones, incorrect dates, or salary step details.
-              </p>
-
-              <form onSubmit={handleSubmitDiscrepancy}>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: 4 }}>
-                    Subject / Record Item
-                  </label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="e.g. Missing 2024 Promotion or Incorrect Step Increment"
-                    value={discrepancySubject}
-                    onChange={e => setDiscrepancySubject(e.target.value)}
-                    required
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: '0.875rem' }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: 4 }}>
-                    Details / Explanation
-                  </label>
-                  <textarea
-                    className="form-control"
-                    rows={4}
-                    placeholder="Provide details about the correct appointment paper, school assignment, or date..."
-                    value={discrepancyMessage}
-                    onChange={e => setDiscrepancyMessage(e.target.value)}
-                    required
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: '0.875rem', resize: 'vertical' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowDiscrepancyModal(false)}
-                    disabled={submittingDiscrepancy}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={submittingDiscrepancy}
-                    style={{ fontWeight: 700 }}
-                  >
-                    {submittingDiscrepancy ? 'Submitting...' : 'Submit Inquiry'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </ModalOverlay>
-        </ModalPortal>
-      )}
     </div>
   );
 };

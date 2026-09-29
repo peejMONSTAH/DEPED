@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AppIcon } from '../../components/common/AppIcon';
-import { PageHeader } from '../../components/common/PageHeader';
+import { PortalBand, FolderStrip } from './components/PortalBand';
 import { AsyncState } from '../../components/common/AsyncState';
 import { ActionMenu, ActionMenuItem } from '../../components/common/ActionMenu';
 import { ModalPortal } from '../../components/common/ModalPortal';
@@ -514,42 +514,28 @@ export const MyDocuments: React.FC = () => {
 
   return (
     <div className="page-container personnel-content-container">
-      <PageHeader
+      <PortalBand
         title="201 Files"
-        subtitle="Your personal record of documents. Files are checked only when you attach them to an application or appointment."
-        breadcrumbs={[
-          { label: 'Home', to: '/personnel/home' },
-          { label: '201 Files' },
-        ]}
         actions={
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                setScannerTarget(null);
-                setScannerOpen(true);
-              }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-            >
+          <>
+            <button type="button" className="pb__btn" onClick={() => { setScannerTarget(null); setScannerOpen(true); }}>
               <AppIcon name="camera" size={14} /> Scan with camera
             </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => openUploadModal(null)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-            >
+            <Link className="pb__btn" to="/personnel/fill-document?mode=201">
+              <AppIcon name="document" size={14} /> Fill up a form
+            </Link>
+            <button type="button" className="pb__btn pb__btn--solid" onClick={() => openUploadModal(null)}>
               <AppIcon name="upload" size={14} /> Upload a file
             </button>
-          </div>
+          </>
         }
-      />
-
+      >
+        {!loading && !loadError && readiness.total > 0 && readiness.total <= 24 && <FolderStrip uploaded={readiness.total - readiness.missing} total={readiness.total} />}
+      </PortalBand>
       {/* Summary: what "uploaded", "checked" and "approved" mean here (after the files load) */}
       {!loading && !loadError && (
       <section className="mdoc__summary" aria-labelledby="mdoc-summary">
-        <h2 id="mdoc-summary">{readiness.total - readiness.missing} of {readiness.total} listed files uploaded</h2>
+        <h2 id="mdoc-summary" className="sr-only">What uploaded, checked and approved mean</h2>
         <dl className="mdoc__terms">
           <div><dt>Uploaded</dt><dd>The file is in your 201 record. Nobody has checked it yet.</dd></div>
           <div><dt>Checked</dt><dd>AO II validated the copy you attached to an application or appointment.</dd></div>
@@ -639,7 +625,7 @@ export const MyDocuments: React.FC = () => {
           paddingBottom: 10,
         }}
       >
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div className="pb-seg">
           <button
             type="button"
             onClick={() => setActiveTab('ALL')}

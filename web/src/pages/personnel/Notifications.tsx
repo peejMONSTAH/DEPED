@@ -95,7 +95,6 @@ export const PersonnelNotifications: React.FC = () => {
     <div className="animate-fade-in personnel-content-container">
       <PageHeader
         title="Notifications"
-        subtitle="Requests that need you come first. Each button opens the record the notice is about."
         actions={unread > 0 ? <button type="button" className="btn btn-secondary btn-sm" onClick={markAllRead}>Mark all as read</button> : undefined}
       />
       <div className="pn__filter" role="group" aria-label="Show">

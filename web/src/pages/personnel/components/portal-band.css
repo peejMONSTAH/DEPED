@@ -1,0 +1,33 @@
+.pb { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin: 0 0 18px; padding: 22px 28px; border-radius: 16px; background: #17472E; color: #FFFFFF; }
+.pb__text { flex: 1 1 280px; min-width: 0; }
+/* index.css forces h1 styles with !important; match it so the banner title stays white. */
+.pb .pb__text h1 { margin: 0 !important; font-size: 1.875rem !important; line-height: 1.1 !important; letter-spacing: -.02em !important; color: #FFFFFF !important; }
+.pb__text p { margin: 8px 0 0; max-width: 60ch; font-size: .9375rem; line-height: 1.45; color: rgba(255,255,255,.8); }
+.pb__facts { margin: 0; display: flex; }
+.pb__facts > div { padding: 0 20px; border-left: 1px solid rgba(255,255,255,.25); }
+.pb__facts > div:last-child { padding-right: 0; }
+.pb__facts dt { font-size: .8125rem; color: rgba(255,255,255,.72); }
+.pb__facts dd { margin: 2px 0 0; font-size: 1.375rem; font-weight: 800; line-height: 1.15; }
+@media (max-width: 560px) {
+  .pb { padding: 18px; }
+  .pb .pb__text h1 { font-size: 1.5rem !important; }
+  .pb__facts > div:first-child { padding-left: 0; border-left: 0; }
+}
+.pb__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pb .pb__btn { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.45); background: transparent; color: #FFFFFF; font-weight: 700; cursor: pointer; }
+.pb a.pb__btn { text-decoration: none; }
+.pb .pb__btn:hover { background: rgba(255,255,255,.12); }
+.pb .pb__btn--solid { background: #FFFFFF; color: #17472E; border-color: #FFFFFF; }
+.pb .pb__btn--solid:hover { background: #E9F5EE; }
+.pb .pb__btn:focus-visible { outline: 2px solid #9BE2B8; outline-offset: 2px; }
+.pb__folder { flex: 1 1 100%; display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.18); }
+.pb__folder-cells { display: flex; gap: 4px; }
+.pb__folder-cells i { flex: 1 1 0; max-width: 56px; height: 8px; border-radius: 3px; background: rgba(255,255,255,.2); }
+.pb__folder-cells i.is-on { background: #9BE2B8; }
+.pb__folder-label { font-size: .875rem; color: rgba(255,255,255,.85); }
+
+/* One segmented track instead of a row of separate buttons. */
+.pb-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: 12px; background: #E9F0EB; }
+.pb-seg .btn { border: 0; box-shadow: none; background: transparent; color: #1F5A3A; border-radius: 9px; }
+.pb-seg .btn:hover { background: rgba(255,255,255,.6); }
+.pb-seg .btn.btn-primary { background: #17472E; color: #FFFFFF; }

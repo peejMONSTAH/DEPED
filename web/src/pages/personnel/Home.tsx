@@ -94,6 +94,22 @@ export const PersonnelHome: React.FC = () => {
     return /No Promotions Yet/i.test(v) ? 'None yet' : v;
   };
 
+  // Cases still moving: each promotion application (its appointment transaction once selected) and any other open transaction.
+  const escalated = (t: any) => Boolean(t.escalatedAt && !t.escalationReviewedAt);
+  const linkedTx = new Set<number>();
+  const cases = [
+    ...applications.map(a => {
+      const tx: any = a.transactionId ? (transactions as any[]).find(t => t.id === a.transactionId) : undefined;
+      if (tx) linkedTx.add(tx.id);
+      const stage = tx ? transactionStage(tx.status, { escalated: escalated(tx) }) : applicationStage(a);
+      const to = tx ? `/personnel/checklist?txId=${tx.id}` : a.canResubmit && a.cycle ? `/personnel/vacancies?cycle=${a.cycle.id}` : '/personnel/transactions';
+      return { key: `app-${a.id}`, title: `Promotion to ${a.cycle?.targetPosition || a.cycle?.name || 'a new position'}`, stage, to };
+    }),
+    ...(transactions as any[]).filter(t => !linkedTx.has(t.id)).map(t => ({
+      key: `tx-${t.id}`, title: t.transactionType?.name || 'Transaction', stage: transactionStage(t.status, { escalated: escalated(t) }), to: `/personnel/checklist?txId=${t.id}`,
+    })),
+  ].filter(c => !c.stage.done).sort((a, b) => Number(b.stage.needsYou) - Number(a.stage.needsYou));
+
   const links = [
     { to: '/personnel/transactions', icon: 'transactions', title: 'Applications', line: inProgress ? `${inProgress} in progress` : 'None in progress · see vacancies to apply' },
     { to: '/personnel/documents', icon: 'document', title: '201 Files',
@@ -110,18 +126,62 @@ export const PersonnelHome: React.FC = () => {
   const facts = ([['Position', position], ['Salary grade', recordValue('Latest Salary Grade')], ['Station', station],
     ['Years in service', recordValue('Years in Service')], ['Last promotion', recordValue('Latest Promotion Date')]] as Array<[string, string | null]>)
     .filter(([, v]) => v);
+  // Salary grade and years of service headline the hero, so the career card skips them.
+  const heroStats = ([['Salary grade', recordValue('Latest Salary Grade')], ['Years in service', recordValue('Years in Service')]] as Array<[string, string | null]>)
+    .filter(([, v]) => v) as Array<[string, string]>;
+  const careerFacts = facts.filter(([k]) => k !== 'Salary grade' && k !== 'Years in service');
+  const uploaded = readiness.total - readiness.missing;
+  const filesPct = readiness.total ? Math.round((uploaded / readiness.total) * 100) : null;
+  const initials = [personnel?.firstName || user?.firstName, personnel?.lastName || user?.lastName]
+    .filter(Boolean).map((n: string) => n[0]).join('').toUpperCase();
 
   return (
     <div className="animate-fade-in personnel-content-container ph">
-      <header className="ph__head">
-        <h1>{firstName ? `Hello, ${firstName}` : 'Home'}</h1>
-        {(position || station) && <p>{[position, station].filter(Boolean).join(' · ')}</p>}
+      <header className="ph__hero">
+        <span className="ph__avatar" aria-hidden="true">{initials || '•'}</span>
+        <div className="ph__hero-text">
+          <h1>{firstName ? `Hello, ${firstName}` : 'Home'}</h1>
+          {(position || station) && <p>{[position, station].filter(Boolean).join(' · ')}</p>}
+        </div>
+        {!loading && !loadError && heroStats.length > 0 && (
+          <dl className="ph__hero-facts">
+            {heroStats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+          </dl>
+        )}
+        {!loading && !loadError && filesPct !== null && readiness.total <= 24 && (
+          <div className="ph__folder" role="img" aria-label={`${uploaded} of ${readiness.total} required 201 files uploaded`}>
+            <span className="ph__folder-cells" aria-hidden="true">
+              {Array.from({ length: readiness.total }, (_, i) => <i key={i} className={i < uploaded ? 'is-on' : ''} />)}
+            </span>
+            <span className="ph__folder-label">{uploaded === readiness.total ? '201 folder complete' : `201 folder · ${uploaded} of ${readiness.total} files`}</span>
+          </div>
+        )}
       </header>
 
       <AsyncState loading={loading} error={loadError} onRetry={() => { setLoading(true); void loadPortalData(); }} loadingText="Loading your tasks…">
         <div className="ph__grid">
           <div className="ph__main">
             <WhatToDo tasks={tasks} waiting={waiting} allClearHint={allClearHint} />
+
+            {cases.length > 0 && (
+              <section className="ph__card" aria-labelledby="ph-cases">
+                <div className="ph__card-head"><h2 id="ph-cases">Your applications</h2><Link to="/personnel/transactions">See all{cases.length > 2 ? ` (${cases.length})` : ''}</Link></div>
+                <ul className="ph__cases">
+                  {cases.slice(0, 2).map(c => (
+                    <li key={c.key} className={c.stage.needsYou ? 'is-act' : ''}>
+                      <div className="ph__case-main">
+                        <strong>{c.title}</strong>
+                        <span>{c.stage.label}</span>
+                        <ol className="ph__track" aria-label={c.stage.who ? `Who has it now: ${c.stage.who === 'You' ? 'you' : c.stage.who}` : 'No one needs to act'}>
+                          {(['You', 'AO II', 'HRMO'] as const).map(w => <li key={w} className={c.stage.who === w ? 'is-now' : ''}>{w}</li>)}
+                        </ol>
+                      </div>
+                      <Link className={`btn btn-sm ${c.stage.needsYou ? 'btn-primary' : 'btn-secondary'}`} to={c.to}>{c.stage.needsYou ? 'Continue' : 'Open'}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             <nav className="ph__links" aria-label="Go to">
               {links.map(l => (
@@ -149,11 +209,11 @@ export const PersonnelHome: React.FC = () => {
           </div>
 
           <aside className="ph__side">
-            {record && facts.length > 0 && (
+            {record && careerFacts.length > 0 && (
               <section className="ph__card" aria-labelledby="ph-career">
                 <div className="ph__card-head"><h2 id="ph-career">Your career</h2><Link to="/personnel/service-record">Service record</Link></div>
                 <dl className="ph__facts">
-                  {facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+                  {careerFacts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
                 </dl>
               </section>
             )}
