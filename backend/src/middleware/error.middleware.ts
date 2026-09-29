@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import { uploadLimitError } from '../utils/upload-errors.util';
+import { config } from '../config';
+import { PERSONNEL_DOCUMENT_MAX_BYTES } from './personnel-document-upload.middleware';
 
 interface AppError extends Error {
   statusCode?: number;
@@ -23,6 +26,9 @@ export const errorHandler = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   next: NextFunction
 ): void => {
+  // Multer's limit errors carry no status; without this they became a generic 500.
+  const limit = uploadLimitError(err, req.originalUrl.includes('/personnel/documents') ? PERSONNEL_DOCUMENT_MAX_BYTES : config.documents.maxSizeBytes);
+  if (limit) err = limit;
   const statusCode = err.statusCode || 500;
   const requestId = (req as Request & { id?: string }).id;
   const log = (req as Request & { log?: typeof logger }).log || logger;

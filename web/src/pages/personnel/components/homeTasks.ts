@@ -12,13 +12,15 @@ export interface HomeTask {
   to?: string;
   cycleId?: number;
 }
-export interface WaitingItem { key: string; title: string; who: 'AO II' | 'HRMO'; since: string | null; to: string }
+import { applicationStage } from '../../../constants/workflowStages';
+
+export interface WaitingItem { key: string; title: string; who: 'AO II' | 'HRMO'; since: string | null; to: string; detail?: string }
 
 const fmt = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export function homeTasks(input: {
   transactions: Array<{ id: number; status?: string; remarks?: string | null; transactionType?: { name?: string } | null; submissionDate?: string | null; createdAt?: string }>;
-  applications: Array<{ id: number; canResubmit?: boolean; cycle?: { id: number; name?: string; targetPosition?: string | null } | null; requirementsCheck?: { remarks?: string | null } | null; status?: string; stageStatus?: string | null; applicationDate?: string }>;
+  applications: Array<{ id: number; canResubmit?: boolean; transactionId?: number | null; cycle?: { id: number; name?: string; targetPosition?: string | null; status?: string | null } | null; requirementsCheck?: { status?: string | null; remarks?: string | null } | null; status?: string; stageStatus?: string | null; applicationDate?: string }>;
   missingRequiredFiles: number;
   profileComplete: boolean | null;
   cycles: Array<{ id: number; name?: string; endDate?: string; applicationsOpen?: boolean; isEligible?: boolean; myApplication?: unknown }>;
@@ -40,10 +42,13 @@ export function homeTasks(input: {
   }
 
   for (const a of input.applications) {
+    // Once selected, the appointment transaction above carries the work; not counted twice.
+    if (a.transactionId) continue;
     const name = a.cycle?.targetPosition || a.cycle?.name || 'Promotion';
-    if (a.canResubmit && a.cycle) tasks.push({ key: `app-${a.id}`, kind: 'application', title: `Application returned: ${name}`,
-      detail: a.requirementsCheck?.remarks ? `AO II note: ${a.requirementsCheck.remarks}` : 'Replace the documents AO II marked, then resubmit.', action: 'Fix and resubmit', cycleId: a.cycle.id });
-    else if (a.status === 'SUBMITTED' && a.cycle) waiting.push({ key: `app-${a.id}`, title: `Application: ${name}`, who: 'AO II', since: a.applicationDate ?? null, to: '/personnel/transactions' });
+    const st = applicationStage(a);
+    if (st.needsYou && a.cycle) tasks.push({ key: `app-${a.id}`, kind: 'application', title: `Application returned: ${name}`,
+      detail: a.requirementsCheck?.remarks ? `AO II note: ${a.requirementsCheck.remarks}` : st.next, action: 'Fix and resubmit', cycleId: a.cycle.id });
+    else if (!st.done && (st.who === 'AO II' || st.who === 'HRMO')) waiting.push({ key: `app-${a.id}`, title: `Promotion application: ${name}`, who: st.who, since: a.applicationDate ?? null, to: '/personnel/transactions', detail: st.label });
   }
 
   if (input.missingRequiredFiles > 0) tasks.push({ key: 'files', kind: 'files', title: `${input.missingRequiredFiles} required 201 file${input.missingRequiredFiles === 1 ? '' : 's'} not uploaded`,

@@ -14,6 +14,8 @@ import { AppIcon } from '../../components/common/AppIcon';
 import { PersonnelOverview } from './components/PersonnelOverview';
 import { WhatToDo } from './components/WhatToDo';
 import { homeTasks } from './components/homeTasks';
+import { applicationStage } from '../../constants/workflowStages';
+import { useSearchParams } from 'react-router-dom';
 import { FileReadiness } from './components/FileReadiness';
 import { CurrentTransaction } from './components/CurrentTransaction';
 import { CareerOpportunities, PromotionCycleItem } from './components/CareerOpportunities';
@@ -82,7 +84,7 @@ export const PersonnelHome: React.FC = () => {
 
       // Load available plantilla items
       try {
-        const plantillaRes = await apiClient.get('/promotions/plantilla-directory');
+        const plantillaRes = await apiClient.get('/plantilla/available');
         setAvailablePlantillaItems(plantillaRes.data?.data || []);
       } catch {
         // Optional
@@ -96,6 +98,15 @@ export const PersonnelHome: React.FC = () => {
   }, []);
 
   useRealtimeTransactions(loadPortalData);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const id = Number(searchParams.get('cycle'));
+    if (!id || !openCycles.length) return;
+    const c = openCycles.find(x => x.id === id);
+    if (c) setSelectedCycleForChecklist(c);
+    const next = new URLSearchParams(searchParams); next.delete('cycle'); setSearchParams(next, { replace: true });
+  }, [searchParams, openCycles, setSearchParams]);
 
   useEffect(() => {
     loadPortalData();
@@ -168,6 +179,7 @@ export const PersonnelHome: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <CurrentTransaction
               transactions={transactions}
+              pendingApplications={myApplications.filter(a => !a.transactionId).map(a => applicationStage(a)).filter(st => !st.done && !st.needsYou).map(st => ({ label: st.label, who: st.who }))}
             />
 
             <CareerOpportunities

@@ -67,18 +67,19 @@ test('Completed transactions are never classified as active transactions', () =>
   const currentTxSrc = readWebSrc('pages/personnel/components/CurrentTransaction.tsx');
   assert.match(currentTxSrc, /isActiveTransaction\(tx\.status\)/);
 
-  // Check MyTransactions tabs strictly divide current vs history
+  // Applications page groups active work and history by the shared stage rules
+  // (their behaviour is tested in workflow-stages.cjs).
   const myTxSrc = readWebSrc('pages/personnel/MyTransactions.tsx');
-  assert.match(myTxSrc, /transactions\.filter\(tx => isActiveTransaction\(tx\.status\)\)/);
-  assert.match(myTxSrc, /isCompletedTransaction\(tx\.status\)/);
+  assert.match(myTxSrc, /transactionStage\(/);
+  assert.match(myTxSrc, /applicationStage\(/);
+  assert.match(myTxSrc, /e\.stage\.done/);
 });
 
 test('API network failures show retryable error banners and never render as empty "No transactions" state', () => {
   const myTxSrc = readWebSrc('pages/personnel/MyTransactions.tsx');
   // Check that catch block sets error message and does not simply silence it
   assert.match(myTxSrc, /setError\(/);
-  assert.match(myTxSrc, /<AsyncState/);
-  assert.match(myTxSrc, /onRetry=\{fetchMyTransactions\}/);
+  assert.match(myTxSrc, /role="alert"[\s\S]{0,200}Try again/, 'a failed load shows the error with a retry, not an empty list');
 
   // Check CareerRecord also uses AsyncState with onRetry
   const careerSrc = readWebSrc('pages/personnel/CareerRecord.tsx');

@@ -64,7 +64,7 @@
 
 **BR-26:** AO II must document the reason for any rejection or deficiency flagging in the system. This reason must be visible to the personnel and included in audit logs.
 
-**BR-27:** A transaction cannot be re-submitted more than 3 times. After 3 rejections, the transaction must be escalated to HRMO for manual review or closure.
+**BR-27:** A transaction cannot be re-submitted more than 3 times. After 3 rejections, the transaction is escalated to HRMO for manual review. HRMO either rejects it or returns the problem files with instructions; the corrected submission then goes to AO II for validation (it cannot escalate again), and HRMO approves only after AO II has validated every file.
 
 ### Promotion & Ranking Management
 
@@ -217,7 +217,9 @@
 | Validated | HRMO approves transaction | Approved | Career record updated; digital 201 file updated; personnel notified |
 | Validated | HRMO rejects transaction | Rejected | Personnel notified with rejection reason; transaction archived |
 | Approved | Career record update completes | Completed | Transaction archived; audit log entry created |
-| Escalated | HRMO manual review completes | Approved or Rejected | Outcome notified to personnel and AO II |
+| Escalated | HRMO returns the problem files with instructions | Deficiency (escalation reviewed) | Personnel notified; the next re-submission goes to AO II and cannot escalate again |
+| Escalated (reviewed) | Personnel re-submits; AO II validates | Validated | HRMO may then approve; escalation never bypasses AO II validation |
+| Escalated | HRMO rejects | Rejected | Outcome notified to personnel and AO II |
 
 ### Promotion Cycle Status Lifecycle
 

@@ -41,6 +41,7 @@ export const Checklist: React.FC = () => {
   const [returningAuthority, setReturningAuthority] = useState<'AO II' | 'HRMO'>('AO II');
   const [loading, setLoading] = useState<boolean>(true);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [escalated, setEscalated] = useState(false);
   const focusRequirement = Number(searchParams.get('requirement')) || null;
   const focusedOnce = React.useRef(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -106,6 +107,7 @@ export const Checklist: React.FC = () => {
         setTxStatus(txData.status || 'UNKNOWN');
         setTxRemarks(txData.remarks || '');
         setSubmittedAt(txData.submissionDate || null);
+        setEscalated(Boolean(txData.escalatedAt && !txData.escalationReviewedAt));
         setReturningAuthority(
           Array.isArray(txData.history) && txData.history.some((entry: any) => entry.action === 'HRMO_RETURNED_FOR_CORRECTION')
             ? 'HRMO'
@@ -320,10 +322,12 @@ export const Checklist: React.FC = () => {
         <div className="card mb-4" style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid #c79a2e', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <AppIcon name="approved" size={20} color="#c79a2e" />
-            <strong style={{ color: '#c79a2e', fontSize: 14 }}>Validated by AO II — Forwarded to HRMO for Final Approval</strong>
+            <strong style={{ color: '#c79a2e', fontSize: 14 }}>{escalated ? 'With HRMO after repeated corrections' : 'Validated by AO II — waiting for HRMO approval'}</strong>
           </div>
           <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-            All documentary requirements have been successfully validated and verified by AO II. Your application is now in the Division HRMO approval queue awaiting official appointment signing.
+            {escalated
+              ? 'Your documents were returned several times, so HRMO is reviewing them. HRMO will tell you exactly what to fix; AO II then validates the corrected files before HRMO decides.'
+              : 'AO II validated your documents. HRMO gives the final approval; your position changes only after that approval.'}
           </div>
         </div>
       )}
@@ -494,7 +498,7 @@ export const Checklist: React.FC = () => {
                     <span className="checklist-name">{item.name}</span>
                     {isApprovedDoc && (
                       <span className="badge badge-approved" style={{ fontSize: 13, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <AppIcon name="approved" size={11} /> APPROVED BY AO II
+                        <AppIcon name="approved" size={11} /> Validated by AO II
                       </span>
                     )}
                     {isDeficientDoc && (
@@ -652,7 +656,7 @@ export const Checklist: React.FC = () => {
               {txStatus === 'APPROVED' || txStatus === 'COMPLETED'
                 ? 'Transaction Finalized & Synchronized'
                 : txStatus === 'FOR_APPROVAL'
-                ? 'Validated by AO II — Awaiting HRMO Approval'
+                ? (escalated ? 'With HRMO after repeated corrections' : 'Validated by AO II — waiting for HRMO approval')
                 : txStatus === 'PENDING_VALIDATION'
                 ? 'Submitted — Under AO II Verification'
                 : isComplete
@@ -663,7 +667,7 @@ export const Checklist: React.FC = () => {
               {txStatus === 'APPROVED' || txStatus === 'COMPLETED'
                 ? 'Your appointment has been officially approved and merged into your Master 201 File.'
                 : txStatus === 'FOR_APPROVAL'
-                ? 'All documents were verified by AO II and are currently awaiting final division review by HRMO.'
+                ? (escalated ? 'HRMO will return the files that need fixing with instructions.' : 'AO II validated all documents. HRMO gives the final approval.')
                 : txStatus === 'PENDING_VALIDATION'
                 ? 'Your dossier is actively in the receiving queue for AO II validation. You will be notified of any deficiency or endorsement in real time.'
                 : isComplete
@@ -677,7 +681,7 @@ export const Checklist: React.FC = () => {
             </button>
           ) : txStatus === 'FOR_APPROVAL' ? (
             <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#c79a2e', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="approved" size={16} color="#c79a2e" /> Validated by AO II — In HRMO Queue
+              <AppIcon name="approved" size={16} color="#c79a2e" /> {escalated ? 'With HRMO for review' : 'Validated by AO II — with HRMO'}
             </button>
           ) : txStatus === 'PENDING_VALIDATION' ? (
             <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 6 }}>

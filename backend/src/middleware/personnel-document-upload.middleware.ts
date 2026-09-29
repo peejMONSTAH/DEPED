@@ -1,19 +1,22 @@
 import multer from 'multer';
 import path from 'path';
+import { unsupportedUploadError } from '../utils/upload-errors.util';
+
+export const PERSONNEL_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 
 const allowedExtensions = new Set(['.pdf', '.png', '.jpg', '.jpeg']);
 const allowedMimeTypes = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
 export const personnelDocumentUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: PERSONNEL_DOCUMENT_MAX_BYTES },
   fileFilter: (_req, file, callback) => {
     const extension = path.extname(file.originalname).toLowerCase();
     if (allowedExtensions.has(extension) && allowedMimeTypes.has(file.mimetype)) {
       callback(null, true);
       return;
     }
-    callback(new Error('Invalid file format. Only PDF, PNG, and JPEG files up to 10 MB are allowed.'));
+    callback(unsupportedUploadError(PERSONNEL_DOCUMENT_MAX_BYTES));
   },
 });
 

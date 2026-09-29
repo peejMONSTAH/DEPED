@@ -27,6 +27,8 @@ class TransactionModel {
   final String createdAt;
   final String updatedAt;
   final List<RequirementItemModel> requirements;
+  /// With HRMO after repeated corrections and not yet reviewed by HRMO.
+  final bool escalated;
 
   TransactionModel({
     required this.id,
@@ -38,6 +40,7 @@ class TransactionModel {
     required this.createdAt,
     required this.updatedAt,
     this.requirements = const [],
+    this.escalated = false,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
@@ -94,6 +97,7 @@ class TransactionModel {
       createdAt: (json['createdAt'] ?? json['created_at'] ?? '').toString(),
       updatedAt: (json['updatedAt'] ?? json['updated_at'] ?? '').toString(),
       requirements: reqs,
+      escalated: json['escalatedAt'] != null && json['escalationReviewedAt'] == null,
     );
   }
 

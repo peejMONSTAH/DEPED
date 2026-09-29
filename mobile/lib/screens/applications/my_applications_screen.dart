@@ -38,14 +38,19 @@ _Stage _promotionStage(Map<String, dynamic> app) {
   final status = app['status']?.toString();
   if (app['canResubmit'] == true) return const _Stage('Returned — action needed', _red);
   if (stage == 'RESUBMITTED') return const _Stage('Resubmitted — awaiting AO II', Color(0xFFB45309));
-  if (stage == 'SELECTED_PENDING_DOCS' || status == 'APPROVED') return const _Stage('Selected for promotion', AppTheme.emeraldGreen);
+  // APPROVED is set only when HRMO approves the appointment; selection alone is SELECTED_PENDING_DOCS.
+  if (status == 'APPROVED') return const _Stage('Appointed', AppTheme.emeraldGreen);
+  if (stage == 'SELECTED_PENDING_DOCS') return const _Stage('Selected — appointment in progress', AppTheme.emeraldGreen);
   if (status == 'REJECTED') return const _Stage('Not selected', AppTheme.textMuted);
-  if (stage == 'REQUIREMENTS_VERIFIED') return const _Stage('Verified — for HRMPSB deliberation', AppTheme.emeraldGreen);
+  if (stage == 'REQUIREMENTS_VERIFIED') return const _Stage('Requirements checked — with HRMO', AppTheme.emeraldGreen);
   if (status == 'RANKED') return const _Stage('Ranked', AppTheme.primaryLight);
   return const _Stage('Submitted — awaiting AO II', Color(0xFFB45309));
 }
 
-_Stage _transactionStage(TransactionStatus s) {
+_Stage _transactionStage(TransactionStatus s, {bool escalated = false}) {
+  if (escalated && s == TransactionStatus.FORWARDED_TO_HRMO) {
+    return const _Stage('With HRMO after repeated corrections', Color(0xFFB45309));
+  }
   switch (s) {
     case TransactionStatus.RETURNED_BY_AO2:
     case TransactionStatus.RETURNED_BY_HRMO:
@@ -255,7 +260,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
   }
 
   Widget _transactionCard(TransactionModel tx) {
-    final stage = _transactionStage(tx.status);
+    final stage = _transactionStage(tx.status, escalated: tx.escalated);
     final returned = tx.requirements.where((r) => r.fileStatus == 'REJECTED').toList();
     final needsAction = stage.color == _red;
     final editable = needsAction || tx.status == TransactionStatus.DRAFT;

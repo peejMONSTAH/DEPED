@@ -636,7 +636,7 @@ export const submitTransaction = async (req: Request, res: Response) => {
     sendSuccess(res, { id: transaction.id, referenceNo: `TRX-${transaction.id}`, type: transaction.transactionType.name, status: transaction.status, submissionDate: transaction.submissionDate }, 'Transaction already submitted.');
     return;
   }
-  const submissionTransition = getSubmissionTransition(transaction.status, transaction.resubmissionCount);
+  const submissionTransition = getSubmissionTransition(transaction.status, transaction.resubmissionCount, Boolean(transaction.escalationReviewedAt));
   const { isResubmission, shouldEscalate, nextStatus } = submissionTransition;
   const mandatoryTemplates = transaction.transactionType.requirementTemplates.filter(t => t.isMandatory);
   // DI-H3: Enforce genuine document uploads — do not auto-create fake validated placeholder documents
@@ -669,7 +669,7 @@ export const submitTransaction = async (req: Request, res: Response) => {
         submissionDate: new Date(),
         stageEnteredAt: new Date(),
         ...(submissionTransition.incrementResubmissionCount ? { resubmissionCount: { increment: 1 } } : {}),
-        ...(shouldEscalate ? { remarks: 'Escalated to HRMO after three correction cycles. Review the submission and prior AO II findings.' } : {}),
+        ...(shouldEscalate ? { escalatedAt: new Date(), remarks: 'Escalated to HRMO after three correction cycles. HRMO: review the problem, then return the files that need fixing with instructions. The corrected files go to AO II for validation before your final approval.' } : {}),
       },
     });
     if (claimed.count !== 1) throw workflowConflict(`Transaction #${id} changed in another session. Refresh before submitting again.`);
@@ -1034,7 +1034,9 @@ export const approveTransaction = async (req: Request, res: Response) => {
       const current = await tx.transaction.findUniqueOrThrow({ where: { id }, include: { uploadedDocuments: true, transactionType: { include: { requirementTemplates: true } } } });
       const compliance = transactionCompliance(current.transactionType.requirementTemplates, current.uploadedDocuments);
       if (!compliance.isComplete || current.uploadedDocuments.some(d => d.status !== 'VALIDATED')) {
-        throw workflowConflict('All required documents must be present, confirmed and validated by AO II before approval. Return this transaction for correction.');
+        throw workflowConflict(current.escalatedAt && !current.escalationReviewedAt
+          ? 'This transaction was escalated after repeated corrections and AO II has not validated its latest files. Return the files that need fixing with your instructions; the corrected files go to AO II for validation, then back to you for final approval.'
+          : 'All required documents must be present, confirmed and validated by AO II before approval. Return this transaction for correction.');
       }
     }
     const claimed = await tx.transaction.updateMany({
@@ -1042,6 +1044,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       data: {
         status: newStatus,
         stageEnteredAt: new Date(),
+        ...(isReturnedForCorrection && transaction.escalatedAt && !transaction.escalationReviewedAt ? { escalationReviewedAt: new Date() } : {}),
         approvalDate: isReturnedForCorrection ? null : new Date(),
         remarks: String(notes || '').trim(),
         currentAssigneeId: req.user!.userId,

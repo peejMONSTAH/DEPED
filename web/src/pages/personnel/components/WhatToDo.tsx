@@ -26,7 +26,7 @@ export const WhatToDo: React.FC<{ tasks: HomeTask[]; waiting: WaitingItem[]; onO
       <ul className="wtd__list">
         {waiting.map(w => (
           <li key={w.key} className="wtd__task is-waiting">
-            <div className="wtd__text"><strong>{w.title}</strong><span>Waiting for {w.who}{w.since ? ` since ${when(w.since)}` : ''}. Nothing to do until they reply.</span></div>
+            <div className="wtd__text"><strong>{w.title}</strong><span>{w.detail ? `${w.detail}. ` : ''}Waiting for {w.who}{w.since ? ` since ${when(w.since)}` : ''}. Nothing to do until they reply.</span></div>
             <Link className="btn btn-sm btn-secondary" to={w.to}>View</Link>
           </li>
         ))}

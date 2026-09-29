@@ -1,351 +1,132 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { StatusBadge } from '../../components/shared/StatusBadge';
-import { AppIcon } from '../../components/common/AppIcon';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHeader } from '../../components/common/PageHeader';
-import { AsyncState } from '../../components/common/AsyncState';
 import { TransactionTimeline } from '../../components/personnel/TransactionTimeline';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
-import {
-  TransactionRecord,
-  isActiveTransaction,
-  isCompletedTransaction,
-  getTransactionStageSummary,
-} from '../../models/transactionState';
+import { TransactionRecord } from '../../models/transactionState';
+import { applicationStage, transactionStage, Stage } from '../../constants/workflowStages';
+import './my-applications.css';
+
+type Application = {
+  id: number; applicantNumber?: string | null; status?: string; stageStatus?: string | null; applicationDate?: string;
+  canResubmit?: boolean; transactionId?: number | null; requirementsCheck?: { status?: string | null; remarks?: string | null } | null;
+  cycle?: { id: number; name?: string; status?: string | null; targetPosition?: string | null } | null;
+  items?: Array<{ code: string; title?: string; verificationStatus?: string | null; verificationRemarks?: string | null; submitted?: boolean }>;
+};
+
+/** One entry per promotion: the application and, once selected, its appointment transaction. */
+type Entry = {
+  key: string; kind: 'promotion' | 'appointment'; title: string; references: string[]; submitted?: string | null;
+  stage: Stage; action?: { label: string; to: string }; app?: Application; tx?: TransactionRecord;
+};
+
+const when = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '—');
 
 export const MyTransactions: React.FC = () => {
-  const navigate = useNavigate();
+  const [applications, setApplications] = useState<Application[]>([]);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'CURRENT' | 'HISTORY'>('CURRENT');
-  const [expandedTxId, setExpandedTxId] = useState<number | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
 
-  const fetchMyTransactions = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiClient.get('/transactions/my-transactions');
-      setTransactions(res.data?.data || []);
+      // Both lists must load: a missing one would hide records, not show "none".
+      const [a, t] = await Promise.all([apiClient.get('/promotions/my-applications'), apiClient.get('/transactions/my-transactions')]);
+      setApplications(a.data?.data || []);
+      setTransactions(t.data?.data || []);
     } catch (err: any) {
-      console.error('Failed to load my transactions:', err);
-      // Surface real error, never silently fall back to empty state!
-      setError(
-        err?.response?.data?.message ||
-        'Unable to load your transactions from the Division records server. Please check your network connection.'
-      );
-      setTransactions([]);
-    } finally {
-      setLoading(false);
-    }
+      setError(err?.response?.data?.message || 'Your applications could not be loaded. Check your connection and try again.');
+    } finally { setLoading(false); }
   }, []);
+  useRealtimeTransactions(load);
+  React.useEffect(() => { void load(); }, [load]);
 
-  // Realtime updates
-  useRealtimeTransactions(fetchMyTransactions);
+  const entries = useMemo<Entry[]>(() => {
+    const txById = new Map(transactions.map(t => [t.id, t]));
+    const linked = new Set<number>();
+    const out: Entry[] = applications.map(a => {
+      const tx = a.transactionId ? txById.get(a.transactionId) : undefined;
+      if (tx) linked.add(tx.id);
+      const position = a.cycle?.targetPosition || a.cycle?.name || 'Promotion';
+      // Once selected, the appointment transaction is where the work is.
+      const stage = tx ? transactionStage(tx.status, { escalated: Boolean((tx as any).escalatedAt && !(tx as any).escalationReviewedAt) }) : applicationStage(a);
+      const action = tx
+        ? { label: stage.needsYou ? (tx.status === 'DEFICIENCY' ? 'Fix and resubmit' : 'Continue') : 'Open checklist', to: `/personnel/checklist?txId=${tx.id}` }
+        : a.canResubmit && a.cycle ? { label: 'Fix and resubmit', to: `/personnel/home?cycle=${a.cycle.id}` } : undefined;
+      return {
+        key: `app-${a.id}`, kind: 'promotion', title: `Promotion to ${position}`,
+        references: [a.applicantNumber || `Application #${a.id}`, ...(tx ? [`TRX-${tx.id}`] : [])],
+        submitted: a.applicationDate, stage, action, app: a, tx,
+      };
+    });
+    for (const t of transactions) {
+      if (linked.has(t.id)) continue;
+      const stage = transactionStage(t.status, { escalated: Boolean((t as any).escalatedAt && !(t as any).escalationReviewedAt) });
+      out.push({
+        key: `tx-${t.id}`, kind: 'appointment', title: t.transactionType?.name || 'Transaction', references: [`TRX-${t.id}`],
+        submitted: (t as any).submissionDate, stage,
+        action: { label: stage.needsYou ? (t.status === 'DEFICIENCY' ? 'Fix and resubmit' : 'Continue') : 'Open checklist', to: `/personnel/checklist?txId=${t.id}` }, tx: t,
+      });
+    }
+    return out;
+  }, [applications, transactions]);
 
-  React.useEffect(() => {
-    fetchMyTransactions();
-  }, [fetchMyTransactions]);
-
-  // Separate current active transactions from completed transaction history
-  const currentTransactions = useMemo(
-    () => transactions.filter(tx => isActiveTransaction(tx.status)),
-    [transactions]
-  );
-
-  const historyTransactions = useMemo(
-    () => transactions.filter(tx => isCompletedTransaction(tx.status) || !isActiveTransaction(tx.status)),
-    [transactions]
-  );
-
-  const activeList = activeTab === 'CURRENT' ? currentTransactions : historyTransactions;
-
-  const toggleExpand = (id: number) => {
-    setExpandedTxId(prev => (prev === id ? null : id));
-  };
+  const groups = [
+    { id: 'act', title: 'You need to act', rows: entries.filter(e => e.stage.needsYou) },
+    { id: 'wait', title: 'Waiting for review', rows: entries.filter(e => !e.stage.needsYou && !e.stage.done) },
+    { id: 'done', title: 'History', rows: entries.filter(e => e.stage.done) },
+  ];
 
   return (
     <div className="animate-fade-in personnel-content-container">
-      <PageHeader
-        title="My 201 File Transactions"
-        subtitle="Track ongoing appointment, promotion, reclassification, and credential validation filings"
-        breadcrumbs={[
-          { label: 'Portal Home', to: '/personnel/home' },
-          { label: 'My Transactions' },
-        ]}
-        actions={
-          <Link
-            to="/personnel/documents"
-            className="btn btn-secondary btn-sm"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
-          >
-            <AppIcon name="folder" size={14} /> My 201 Files
-          </Link>
-        }
-      />
-
-      {/* Section Tabs: Current Active vs Transaction History */}
-      <div
-        role="tablist"
-        aria-label="Transaction categories"
-        style={{
-          display: 'flex',
-          gap: 8,
-          marginBottom: 20,
-          borderBottom: '1px solid var(--color-border)',
-          paddingBottom: 8,
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          role="tab"
-          type="button"
-          aria-selected={activeTab === 'CURRENT'}
-          onClick={() => setActiveTab('CURRENT')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 8,
-            border: 'none',
-            background: activeTab === 'CURRENT' ? 'var(--color-primary)' : 'transparent',
-            color: activeTab === 'CURRENT' ? '#fff' : 'var(--color-text-secondary)',
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <AppIcon name="pending" size={15} color={activeTab === 'CURRENT' ? '#fff' : 'currentColor'} />
-          <span>Current Transactions</span>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              padding: '1px 7px',
-              borderRadius: 9999,
-              background: activeTab === 'CURRENT' ? 'rgba(255,255,255,0.25)' : 'var(--color-bg-secondary)',
-              color: activeTab === 'CURRENT' ? '#fff' : 'var(--color-text-muted)',
-            }}
-          >
-            {currentTransactions.length}
-          </span>
-        </button>
-
-        <button
-          role="tab"
-          type="button"
-          aria-selected={activeTab === 'HISTORY'}
-          onClick={() => setActiveTab('HISTORY')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 8,
-            border: 'none',
-            background: activeTab === 'HISTORY' ? 'var(--color-primary)' : 'transparent',
-            color: activeTab === 'HISTORY' ? '#fff' : 'var(--color-text-secondary)',
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <AppIcon name="history" size={15} color={activeTab === 'HISTORY' ? '#fff' : 'currentColor'} />
-          <span>Transaction History</span>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              padding: '1px 7px',
-              borderRadius: 9999,
-              background: activeTab === 'HISTORY' ? 'rgba(255,255,255,0.25)' : 'var(--color-bg-secondary)',
-              color: activeTab === 'HISTORY' ? '#fff' : 'var(--color-text-muted)',
-            }}
-          >
-            {historyTransactions.length}
-          </span>
-        </button>
-      </div>
-
-      {/* Main Content Area with AsyncState */}
-      <AsyncState
-        loading={loading}
-        error={error}
-        onRetry={fetchMyTransactions}
-        isEmpty={activeList.length === 0}
-        emptyTitle={
-          activeTab === 'CURRENT'
-            ? 'No Active Transactions'
-            : 'No Past Transactions Recorded'
-        }
-        emptyMessage={
-          activeTab === 'CURRENT'
-            ? 'You do not have any filings currently undergoing review with AO II or Division HRMO.'
-            : 'Completed, approved, and archived transactions will appear here once finalized.'
-        }
-        emptyAction={
-          activeTab === 'CURRENT'
-            ? {
-                label: 'View Open Promotion Vacancies',
-                to: '/personnel/home',
-              }
-            : undefined
-        }
-        loadingText="Loading transaction records from Division database..."
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {activeList.map(tx => {
-            const summary = getTransactionStageSummary(tx);
-            const isDeficiency = tx.status === 'DEFICIENCY';
-            const isExpanded = expandedTxId === tx.id || isDeficiency; // Auto-expand deficiency to make action obvious
-
-            return (
-              <div
-                key={tx.id}
-                className="card"
-                style={{
-                  padding: 20,
-                  borderRadius: 16,
-                  border: isDeficiency
-                    ? '1.5px solid #ef4444'
-                    : '1px solid var(--color-border)',
-                  background: isDeficiency ? 'rgba(239, 68, 68, 0.02)' : 'var(--color-bg-card)',
-                  boxShadow: isDeficiency ? '0 4px 12px rgba(239, 68, 68, 0.08)' : undefined,
-                }}
-              >
-                {/* Transaction Header */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    gap: 12,
-                    marginBottom: 14,
-                  }}
-                >
-                  <div style={{ minWidth: 0, flex: '1 1 240px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                      <span
-                        className="font-mono"
-                        style={{
-                          fontWeight: 800,
-                          fontSize: '0.8125rem',
-                          color: 'var(--color-primary)',
-                          background: 'rgba(2, 132, 199, 0.08)',
-                          padding: '2px 8px',
-                          borderRadius: 6,
-                        }}
-                      >
-                        TRX-{String(tx.id).padStart(4, '0')}
-                      </span>
-                      <strong style={{ fontSize: '1rem', color: 'var(--color-text-primary)' }}>
-                        {tx.transactionType?.name || 'HR Filing'}
-                      </strong>
+      <PageHeader title="Applications" subtitle="Your promotion applications and appointments, and who has each one now" />
+      {loading ? <p className="mya__muted" aria-busy="true">Loading your applications…</p>
+        : error ? <div className="mya__error" role="alert"><p>{error}</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => { setLoading(true); void load(); }}>Try again</button></div>
+        : entries.length === 0 ? <div className="mya__empty"><p>You have no applications yet.</p><Link className="btn btn-primary btn-sm" to="/personnel/home#vacancies">See open vacancies</Link></div>
+        : groups.filter(g => g.rows.length).map(g => (
+          <section key={g.id} className="mya__group" aria-labelledby={`mya-${g.id}`}>
+            <h2 id={`mya-${g.id}`}>{g.title} <span>{g.rows.length}</span></h2>
+            <ul>
+              {g.rows.map(e => (
+                <li key={e.key} className={`mya__row${e.stage.needsYou ? ' is-act' : ''}`}>
+                  <div className="mya__main">
+                    <span className="mya__kind">{e.kind === 'promotion' ? 'Promotion application' : 'Appointment'}</span>
+                    <strong>{e.title}</strong>
+                    <span className="mya__meta">{e.references.join(' · ')} · submitted {when(e.submitted)}</span>
+                    <span className="mya__stage"><b>{e.stage.label}</b>{e.stage.who ? ` · with ${e.stage.who === 'You' ? 'you' : e.stage.who}` : ''}</span>
+                    {e.stage.next && <span className="mya__next">{e.stage.next}</span>}
+                    {e.app?.canResubmit && e.app.requirementsCheck?.remarks && <span className="mya__note">AO II note: {e.app.requirementsCheck.remarks}</span>}
+                  </div>
+                  <div className="mya__actions">
+                    {e.action && <Link className={`btn btn-sm ${e.stage.needsYou ? 'btn-primary' : 'btn-secondary'}`} to={e.action.to}>{e.action.label}</Link>}
+                    <button type="button" className="btn btn-ghost btn-sm" aria-expanded={open === e.key} onClick={() => setOpen(o => (o === e.key ? null : e.key))}>{open === e.key ? 'Hide details' : 'Details'}</button>
+                  </div>
+                  {open === e.key && (
+                    <div className="mya__details">
+                      {e.app && (
+                        <ul className="mya__items" aria-label="Requirements">
+                          {(e.app.items || []).filter(i => i.submitted).map(i => (
+                            <li key={i.code}>
+                              <span>{i.title || i.code}</span>
+                              <span className={`mya__verdict v-${(i.verificationStatus || 'pending').toLowerCase()}`}>
+                                {i.verificationStatus === 'VERIFIED' ? 'Checked by AO II' : i.verificationStatus === 'INCOMPLETE' ? 'Returned for correction' : i.verificationStatus === 'NOT_APPLICABLE' ? 'Not applicable' : 'Not checked yet'}
+                              </span>
+                              {i.verificationRemarks && <span className="mya__note">{i.verificationRemarks}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {e.tx && <TransactionTimeline transaction={e.tx} />}
                     </div>
-
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                      <span>
-                        Filed: {new Date(tx.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        Stage: <strong style={{ color: summary.stageColor }}>{summary.stageTitle}</strong>
-                      </span>
-                      <span>·</span>
-                      <span>
-                        Reviewer: <strong>{summary.ownerLabel}</strong>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <StatusBadge status={tx.status} />
-
-                    <Link
-                      to={`/personnel/checklist?txId=${tx.id}`}
-                      className={`btn btn-sm ${isDeficiency ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                        background: isDeficiency ? '#dc2626' : undefined,
-                        borderColor: isDeficiency ? '#dc2626' : undefined,
-                        color: isDeficiency ? '#fff' : undefined,
-                      }}
-                    >
-                      <AppIcon name={isDeficiency ? 'upload' : 'checklist'} size={14} color={isDeficiency ? '#fff' : 'currentColor'} />
-                      <span>{isDeficiency ? 'Replace Document' : 'Open Checklist'}</span>
-                    </Link>
-
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => toggleExpand(tx.id)}
-                      aria-expanded={isExpanded}
-                      style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                    >
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>
-                        {isExpanded ? 'Hide Timeline' : 'View Timeline'}
-                      </span>
-                      <AppIcon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Status Guidance Strip */}
-                <div
-                  style={{
-                    background: 'var(--color-bg-secondary)',
-                    borderRadius: 10,
-                    padding: '10px 14px',
-                    border: '1px solid var(--color-border)',
-                    marginBottom: isExpanded ? 16 : 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    fontSize: '0.8125rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AppIcon name="location" size={14} color={summary.stageColor} />
-                    <span style={{ color: 'var(--color-text-secondary)' }}>
-                      <strong>Next Expected Action:</strong> {summary.nextExpectedAction}
-                    </span>
-                  </div>
-                  {tx.complianceScore !== undefined && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
-                      Compliance: {tx.complianceScore}%
-                    </span>
                   )}
-                </div>
-
-                {/* Chronological Event Timeline Drawer */}
-                {isExpanded && (
-                  <div
-                    style={{
-                      borderTop: '1px solid var(--color-border)',
-                      paddingTop: 16,
-                      marginTop: 12,
-                    }}
-                  >
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      DepEd Processing Lifecycle Timeline
-                    </div>
-                    <TransactionTimeline transaction={tx} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </AsyncState>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
     </div>
   );
 };

@@ -1,0 +1,23 @@
+.mya__muted { color: var(--color-text-secondary); }
+.mya__error, .mya__empty { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-bg-card); }
+.mya__error p, .mya__empty p { margin: 0; flex: 1 1 240px; color: var(--color-text-primary); }
+.mya__group { margin-bottom: 22px; }
+.mya__group h2 { margin: 0 0 10px; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); }
+.mya__group h2 span { font-size: .875rem; color: var(--color-text-muted); font-weight: 700; }
+.mya__group > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mya__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; padding: 14px 16px; border: 1px solid var(--color-border); border-left-width: 4px; border-left-color: #9DB5A4; border-radius: 14px; background: var(--color-bg-card); }
+.mya__row.is-act { border-left-color: #C2410C; }
+.mya__main { display: grid; gap: 3px; min-width: 0; }
+.mya__kind { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--color-text-muted); }
+.mya__main strong { font-size: 1rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
+.mya__meta, .mya__next { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.mya__stage { font-size: .9375rem; color: var(--color-text-primary); }
+.mya__note { font-size: .875rem; color: #A1263A; overflow-wrap: anywhere; }
+.mya__actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.mya__details { grid-column: 1 / -1; border-top: 1px solid var(--color-border); padding-top: 10px; }
+.mya__items { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.mya__items li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: .875rem; }
+.mya__verdict { font-weight: 700; color: var(--color-text-secondary); }
+.mya__verdict.v-verified { color: #1F6B43; }
+.mya__verdict.v-incomplete { color: #A1263A; }
+@media (max-width: 600px) { .mya__row { grid-template-columns: minmax(0, 1fr); } }

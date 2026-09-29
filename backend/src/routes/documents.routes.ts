@@ -3,6 +3,7 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 import { uploadDocument, getDocument, downloadDocumentFile, getExtractionReview, confirmExtractionReview, getDocumentViewToken } from '../controllers/documents.controller';
 import { precheckTransactionDocument } from '../controllers/document-precheck.controller';
 import multer from 'multer';
+import { unsupportedUploadError } from '../utils/upload-errors.util';
 import path from 'path';
 import { config } from '../config';
 
@@ -19,7 +20,7 @@ const upload = multer({
     if (isMimeAllowed && isExtAllowed) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file format. Strict policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for transaction document uploads.'));
+      cb(unsupportedUploadError(config.documents.maxSizeBytes));
     }
   },
 });

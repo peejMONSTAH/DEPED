@@ -731,12 +731,13 @@ export const PromotionManagement: React.FC = () => {
 
   const fetchPlantillaItems = useCallback(async () => {
     try {
-      const res = await apiClient.get('/plantilla');
+      // `/plantilla` is HRMO/SA only; AO II looks up the cycle's (vacant) item from the open list.
+      const res = await apiClient.get(user?.role === 'AO_II' ? '/plantilla/available' : '/plantilla');
       setPlantillaItems(res.data?.data || []);
     } catch (err) {
       console.error('Failed to load plantilla items:', err);
     }
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     fetchCycles(true);

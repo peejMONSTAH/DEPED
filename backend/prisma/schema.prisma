@@ -206,6 +206,11 @@ model Transaction {
   resubmissionCount  Int                @default(0) @map("resubmission_count")
   /// When the transaction entered its current status; queue waiting time counts from here.
   stageEnteredAt     DateTime?          @default(now()) @map("stage_entered_at")
+  /// Set when repeated corrections sent this transaction to HRMO (BR-27).
+  escalatedAt        DateTime?          @map("escalated_at")
+  /// Set when HRMO returned the escalated transaction with instructions; later
+  /// corrections then go to AO II for validation instead of escalating again.
+  escalationReviewedAt DateTime?        @map("escalation_reviewed_at")
   deficiencyDeadline DateTime?          @map("deficiency_deadline")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")

@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../utils/errors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -444,7 +445,8 @@ class _AddDocumentSheetState extends State<AddDocumentSheet> {
           state: UploadProgressState.error,
           errorMessage: isConflict
               ? 'Already on file. Tap Replace to use this file instead.'
-              : errorStr.replaceAll('Exception:', '').trim(),
+              // The server's own reason (e.g. too large, wrong type), not the raw exception.
+              : friendlyError(e, fallback: 'The upload did not go through. Check your connection and try again.'),
         );
       });
     }

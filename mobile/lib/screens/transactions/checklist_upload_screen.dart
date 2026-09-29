@@ -556,7 +556,7 @@ class _RequirementCard extends StatelessWidget {
     final (String label, AppStatusTone tone) = deficient
         ? ('Needs correction', AppStatusTone.danger)
         : validated
-            ? ('Verified', AppStatusTone.success)
+            ? ('Validated by AO II', AppStatusTone.success)
             : item.isUploaded
                 ? ('Added', AppStatusTone.info)
                 : item.isMandatory

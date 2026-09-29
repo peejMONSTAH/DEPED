@@ -661,10 +661,34 @@ export const distributeCredentials = async (req: Request, res: Response): Promis
     await denyOutOfScope(req, res, { entityType: 'User', entityId: userId, action: 'CREDENTIALS_DISTRIBUTE' }, 'User not found.');
     return;
   }
+  const alreadySent = (u: { accountStatus: string; mustChangePassword: boolean; lastLogin: Date | null }) =>
+    u.accountStatus === 'ACTIVE' && u.mustChangePassword && !u.lastLogin;
+  const ALREADY_SENT = 'A setup email was already sent to this person and is still valid. If it did not arrive, use Resend setup email.';
+  // A retry after a slow response lands here: the first request already sent it.
+  if (alreadySent(user)) { res.status(409).json({ status: 'error', code: 'INVITATION_ALREADY_SENT', message: ALREADY_SENT }); return; }
   if (user.accountStatus !== 'PENDING') { sendBadRequest(res, 'Only pending accounts can receive initial credentials.'); return; }
 
-  await sendAccountSetup(user, req.user!.userId);
-  sendSuccess(res, null, `Credentials distribution initiated for user ${userId}.`);
+  // Status check, password rotation and the queued email happen together under a
+  // per-account lock. Two simultaneous requests used to both pass the check; the
+  // second rotated the password after the first email was queued, so the emailed
+  // password and link no longer worked.
+  try {
+    await prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${910_000_000 + userId})`;
+      const current = await tx.user.findUnique({ where: { id: userId }, select: { accountStatus: true, mustChangePassword: true, lastLogin: true } });
+      if (!current || current.accountStatus !== 'PENDING') {
+        throw Object.assign(new Error(current && alreadySent(current) ? ALREADY_SENT : 'Only pending accounts can receive initial credentials.'), { statusCode: 409 });
+      }
+      await sendAccountSetup(user, req.user!.userId, { client: tx, skipPostCommit: true });
+    });
+  } catch (err: any) {
+    if (err?.statusCode === 409) { res.status(409).json({ status: 'error', code: 'INVITATION_ALREADY_SENT', message: err.message }); return; }
+    throw err;
+  }
+  invalidateAuthUserCache(userId);
+  notifyUserNotifications(userId);
+  void processWorkflowOutbox();
+  sendSuccess(res, null, `Setup email queued for user ${userId}.`);
 };
 
 /**
@@ -1375,6 +1399,12 @@ export const resendInvitation = async (req: Request, res: Response): Promise<voi
       if (recent && !failedFinally && Date.now() - new Date(recent.createdAt).getTime() < RESEND_WINDOW_MS) {
         throw Object.assign(new Error('A setup email was just sent. Wait two minutes before sending another.'), { statusCode: 409 });
       }
+      // An earlier invitation not yet delivered would arrive later carrying the
+      // password this resend replaces. Withdraw it (it holds credentials) so only
+      // the new, working email can be delivered.
+      await tx.workflowOutbox.deleteMany({
+        where: { processedAt: null, OR: [{ eventKey: `user:${userId}:credentials-distributed` }, { eventKey: { startsWith: `user:${userId}:invite:` } }] },
+      });
       await sendAccountSetup(user, req.user!.userId, { client: tx, eventKey: `user:${userId}:invite:${Date.now()}`, skipPostCommit: true });
     });
   } catch (err: any) {

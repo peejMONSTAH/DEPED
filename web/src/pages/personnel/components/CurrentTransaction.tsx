@@ -10,11 +10,14 @@ import {
 
 interface CurrentTransactionProps {
   transactions: TransactionRecord[];
+  /** Promotion applications still under review (not yet an appointment). */
+  pendingApplications?: Array<{ label: string; who: string | null }>;
   onOpenChecklist?: (txId: number) => void;
 }
 
 export const CurrentTransaction: React.FC<CurrentTransactionProps> = ({
   transactions,
+  pendingApplications = [],
   onOpenChecklist,
 }) => {
   // Only genuinely active transactions (strictly excludes APPROVED, COMPLETED, REJECTED, etc.)
@@ -39,7 +42,7 @@ export const CurrentTransaction: React.FC<CurrentTransactionProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <AppIcon name="transactions" size={18} color="var(--color-primary)" />
           <h2 style={{ fontSize: '0.875rem', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-primary)' }}>
-            Current Active Transaction
+            Appointment in progress
           </h2>
         </div>
 
@@ -55,7 +58,7 @@ export const CurrentTransaction: React.FC<CurrentTransactionProps> = ({
             gap: 4,
           }}
         >
-          <span>All Transactions ({transactions.length})</span>
+          <span>All applications</span>
           <AppIcon name="chevron-right" size={12} />
         </Link>
       </div>
@@ -72,17 +75,19 @@ export const CurrentTransaction: React.FC<CurrentTransactionProps> = ({
         >
           <AppIcon name="check" size={24} color="#059669" />
           <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginTop: 8, color: 'var(--color-text-primary)' }}>
-            No Active Transactions in Progress
+            No appointment in progress
           </div>
           <p style={{ margin: '4px 0 12px 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-            You have no filings currently awaiting AO II verification or Division HRMO endorsement.
+            {pendingApplications.length
+              ? `Your promotion application${pendingApplications.length === 1 ? ' is' : 's are'} still under review: ${pendingApplications.map(a => a.label + (a.who ? ` (with ${a.who})` : '')).join('; ')}. An appointment starts only if you are selected.`
+              : 'An appointment starts when HRMO selects you for a promotion.'}
           </p>
           <Link
             to="/personnel/transactions"
             className="btn btn-secondary btn-sm"
             style={{ fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <AppIcon name="history" size={14} /> View Transaction History
+            <AppIcon name="history" size={14} /> View applications
           </Link>
         </div>
       ) : (

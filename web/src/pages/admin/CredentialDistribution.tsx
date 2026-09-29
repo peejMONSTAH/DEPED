@@ -667,9 +667,9 @@ export const CredentialDistribution: React.FC = () => {
 
   const handleDistribute = async (userId: number, email: string) => {
     const { confirmed } = await confirm({
-      title: 'Distribute credentials',
-      message: `Release login credentials to ${email} and activate the account? They will be able to sign in immediately.`,
-      confirmLabel: 'Distribute & activate',
+      title: 'Send setup email',
+      message: `Activate this account and email a setup link to ${email}? They set their own password from the link. If the email is delayed, it is still valid; use Resend only if it never arrives.`,
+      confirmLabel: 'Send setup email',
       tone: 'primary',
       icon: 'credentials',
     });
@@ -677,7 +677,7 @@ export const CredentialDistribution: React.FC = () => {
 
     try {
       await apiClient.post(`/users/${userId}/distribute-credentials`);
-      addToast(`Credentials distributed and account activated for ${email}!`, 'SUCCESS');
+      addToast(`Setup email queued for ${email}. The account is active.`, 'SUCCESS');
       fetchUsers();
       if (selectedAccount?.id === userId) {
         setSelectedAccount(prev => prev ? { ...prev, accountStatus: 'ACTIVE' } : null);
