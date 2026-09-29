@@ -8,6 +8,8 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useToast } from '../../contexts/ToastContext';
 
 export interface NotificationItem {
+  /** true once the requested action is done; null for information. */
+  actionResolved?: boolean | null;
   id: number;
   message: string;
   type: string;
@@ -280,7 +282,7 @@ export const PersonnelNotifications: React.FC = () => {
 
     for (const item of filteredNotifications) {
       const config = parseNotificationAction(item);
-      if (config.isActionRequired && categoryFilter !== 'ACTION_REQUIRED') {
+      if (config.isActionRequired && item.actionResolved !== true && categoryFilter !== 'ACTION_REQUIRED') {
         actionRequired.push(item);
       } else if (isToday(item.createdAt)) {
         today.push(item);

@@ -9,6 +9,8 @@ import { clickable } from '../../a11y/clickable';
 import { notificationPromotionPath } from '../../promotions/deepLink';
 
 type NotificationItem = {
+  /** true once the requested action is done; null for information. */
+  actionResolved?: boolean | null;
   id: number;
   message: string;
   type: string;
@@ -175,7 +177,7 @@ export const AdminNotifications: React.FC = () => {
   }, [notifications, activeFilter, isSysAdmin]);
 
   // Unread notices that need someone to act come first; the rest is information.
-  const needsAction = (n: typeof notifications[number]) => !n.isRead && (
+  const needsAction = (n: typeof notifications[number]) => !n.isRead && n.actionResolved !== true && (
     n.type === 'WARNING' || n.type === 'ERROR'
     || /request|for validation|for approval|awaiting|pending|resubmit|failed/i.test(n.message));
   const { groupedNotifications, actionCount } = useMemo(() => {
@@ -288,6 +290,7 @@ export const AdminNotifications: React.FC = () => {
                         >
                           {action.badge}
                         </span>
+                        {n.actionResolved === true && <span className="badge badge-approved" style={{ fontSize: 13 }}>Already handled</span>}
                         {n.relatedEntityId && (
                           <span style={{ fontSize: '13px', opacity: 0.7, fontWeight: 600 }}>
                             ID #{n.relatedEntityId}

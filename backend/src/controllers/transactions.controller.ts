@@ -153,6 +153,14 @@ export const getTransactions = async (req: Request, res: Response) => {
     statusCondition = { status: status as string };
   }
 
+  // Review queues. The caller's own stage: AO II validates, HRMO approves.
+  const myStage: any = req.user?.role === 'AO_II' ? 'PENDING_VALIDATION' : req.user?.role === 'HRMO' ? 'FOR_APPROVAL' : { in: ['PENDING_VALIDATION', 'FOR_APPROVAL'] };
+  const queue = String((req.query as any).queue || '').toLowerCase();
+  if (queue === 'awaiting' || queue === 'oldest') statusCondition = { status: myStage };
+  else if (queue === 'resubmitted') statusCondition = { status: myStage, resubmissionCount: { gt: 0 } };
+  const oldestFirst = queue === 'oldest' || String((req.query as any).sort || '') === 'waiting';
+  const withBase = (extra: any) => (nonStatusConditions.length > 0 ? { AND: [...nonStatusConditions, extra] } : extra);
+
   const finalWhere: any = statusCondition
     ? (nonStatusConditions.length > 0 ? { AND: [...nonStatusConditions, statusCondition] } : statusCondition)
     : baseWhereWithoutStatus;
@@ -167,12 +175,15 @@ export const getTransactions = async (req: Request, res: Response) => {
     countAll,
     personnelStations,
     txTypes,
+    countAwaiting,
+    countResubmitted,
   ] = await Promise.all([
     prisma.transaction.findMany({
       where: finalWhere,
       skip,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      // Oldest waiting counts from entry into the current stage, not creation.
+      orderBy: oldestFirst ? [{ stageEnteredAt: 'asc' }, { id: 'asc' }] : { createdAt: 'desc' },
       include: {
         transactionType: { select: { name: true, requirementTemplates: { select: { id: true, name: true, description: true, isMandatory: true } } } },
         personnel: {
@@ -242,6 +253,9 @@ export const getTransactions = async (req: Request, res: Response) => {
       select: { name: true },
       orderBy: { name: 'asc' },
     }),
+    // Queue counts use the same filters as the list, so they always agree.
+    prisma.transaction.count({ where: withBase({ status: myStage }) }),
+    prisma.transaction.count({ where: withBase({ status: myStage, resubmissionCount: { gt: 0 } }) }),
   ]);
 
   // Build filter options from real personnel station records in the database
@@ -275,6 +289,8 @@ export const getTransactions = async (req: Request, res: Response) => {
     returned: countReturned,
     rejected: countRejected,
     all: countAll,
+    awaitingMyReview: countAwaiting,
+    resubmitted: countResubmitted,
   };
 
   const filterOptions = {
@@ -292,6 +308,8 @@ export const getTransactions = async (req: Request, res: Response) => {
     const { complianceScore } = transactionCompliance(tx.transactionType.requirementTemplates, tx.uploadedDocuments);
     return {
       ...tx,
+      // Waiting time starts when the transaction entered its current stage.
+      waitingSince: tx.stageEnteredAt ?? tx.submissionDate ?? tx.updatedAt,
       school: tx.personnel?.school || null,
       district: tx.personnel?.district || null,
       complianceScore,
@@ -646,6 +664,7 @@ export const submitTransaction = async (req: Request, res: Response) => {
       data: {
         status: nextStatus,
         submissionDate: new Date(),
+        stageEnteredAt: new Date(),
         ...(submissionTransition.incrementResubmissionCount ? { resubmissionCount: { increment: 1 } } : {}),
         ...(shouldEscalate ? { remarks: 'Escalated to HRMO after three correction cycles. Review the submission and prior AO II findings.' } : {}),
       },
@@ -819,6 +838,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
         status: newStatus,
         remarks: remarks || transaction.remarks,
         validationDate: new Date(),
+        stageEnteredAt: new Date(),
         currentAssigneeId: req.user!.userId,
       },
     });
@@ -1018,6 +1038,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       where: { id, status: 'FOR_APPROVAL' },
       data: {
         status: newStatus,
+        stageEnteredAt: new Date(),
         approvalDate: isReturnedForCorrection ? null : new Date(),
         remarks: String(notes || '').trim(),
         currentAssigneeId: req.user!.userId,
@@ -1310,7 +1331,7 @@ export const reopenTransaction = async (req: Request, res: Response) => {
     if (byPersonnel && current.personnelId !== req.user?.personnelId) throw Object.assign(new Error('Transaction not found.'), { statusCode: 404 });
     await tx.transaction.update({
       where: { id },
-      data: { status: 'DEFICIENCY', remarks: `${byPersonnel ? 'Reopened by personnel' : 'Reopened by HRMO'}: ${reason}`, currentAssigneeId: req.user!.userId },
+      data: { status: 'DEFICIENCY', stageEnteredAt: new Date(), remarks: `${byPersonnel ? 'Reopened by personnel' : 'Reopened by HRMO'}: ${reason}`, currentAssigneeId: req.user!.userId },
     });
     await tx.validationLog.create({
       data: { entityType: 'Transaction', entityId: id, action: 'TRANSACTION_REOPENED', detailsJson: { from: 'REJECTED', to: 'DEFICIENCY', reason }, userId: req.user!.userId, status: 'SUCCESS' },

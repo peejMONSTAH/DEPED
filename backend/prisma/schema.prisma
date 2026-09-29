@@ -204,6 +204,8 @@ model Transaction {
   remarks            String?
   currentAssigneeId  Int?               @map("current_assignee_id")
   resubmissionCount  Int                @default(0) @map("resubmission_count")
+  /// When the transaction entered its current status; queue waiting time counts from here.
+  stageEnteredAt     DateTime?          @default(now()) @map("stage_entered_at")
   deficiencyDeadline DateTime?          @map("deficiency_deadline")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
@@ -215,6 +217,7 @@ model Transaction {
 
   @@index([personnelId])
   @@index([status])
+  @@index([status, stageEnteredAt])
   @@map("transactions")
 }
 

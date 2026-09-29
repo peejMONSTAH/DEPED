@@ -523,6 +523,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   /// "Action needed"; everything else is information under "Other updates".
   bool _needsAction(Map<String, dynamic> item) {
     if (item['read'] == true || item['isRead'] == true) return false;
+    // The server says when the requested action is already done.
+    if (item['actionResolved'] == true) return false;
     final type = item['type']?.toString() ?? '';
     final msg = (item['message']?.toString() ?? '').toLowerCase();
     return type == 'WARNING' ||

@@ -451,7 +451,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
             id: { in: linkedTransactionIds },
             status: { in: ['DRAFT', 'PENDING_VALIDATION', 'DEFICIENCY', 'ESCALATED'] },
           },
-          data: { status: 'ABANDONED', remarks: `Promotion cycle "${row.name}" was cancelled by HRMO: ${reason}` },
+          data: { status: 'ABANDONED', stageEnteredAt: new Date(), remarks: `Promotion cycle "${row.name}" was cancelled by HRMO: ${reason}` },
         });
       }
 
@@ -1592,7 +1592,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
       }
       await db.transaction.updateMany({
         where: { id: linkedTransactionId, personnelId: app.personnelId, status: { in: ['DRAFT', 'DEFICIENCY'] } },
-        data: { status: 'ABANDONED', remarks: 'Candidate selection was withdrawn before appointment approval.' },
+        data: { status: 'ABANDONED', stageEnteredAt: new Date(), remarks: 'Candidate selection was withdrawn before appointment approval.' },
       });
     }
     if (isTeacherOne && app.personnel?.userId && app.personnel.designation === 'External Applicant') {

@@ -33,6 +33,8 @@ const FILTER_TABS: FilterTab[] = [
 
 // Roles as people say them, not as stored (AO_II -> AO II).
 const ROLE_NAMES: Record<string, string> = { AO_II: 'AO II', HRMO: 'HRMO', SYSTEM_ADMIN: 'System Administrator', TEACHING_PERSONNEL: 'Teaching personnel', NON_TEACHING_PERSONNEL: 'Non-teaching personnel' };
+/** Time in the current stage (from when it arrived, not when it was created). */
+const waitingFor = (since: string) => { const d = Math.floor((Date.now() - new Date(since).getTime()) / 86_400_000); return d <= 0 ? 'Arrived today' : `Waiting ${d} day${d === 1 ? '' : 's'}`; };
 const roleLabel = (role?: string) => (role ? ROLE_NAMES[role] || humanizeEnum(role) : 'System');
 
 export const TransactionQueue: React.FC = () => {
@@ -40,6 +42,9 @@ export const TransactionQueue: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  // Review queues, computed and counted on the server within your scope.
+  const [queue, setQueue] = useState<'' | 'awaiting' | 'resubmitted' | 'oldest'>('awaiting');
+  const [queueCounts, setQueueCounts] = useState<{ awaitingMyReview?: number; resubmitted?: number }>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -135,7 +140,8 @@ export const TransactionQueue: React.FC = () => {
       // Skeleton on the first load only; live reloads refresh in place.
       if (!hasLoadedList.current) setIsLoading(true);
       const params: Record<string, any> = { page, limit: 15 };
-      if (statusFilter !== 'All') params.status = statusFilter;
+      if (queue) params.queue = queue;
+      else if (statusFilter !== 'All') params.status = statusFilter;
       if (search.trim()) params.search = search.trim();
 
       const res = await transactionsApi.getAll(params);
@@ -143,13 +149,14 @@ export const TransactionQueue: React.FC = () => {
       setTransactions(data);
       setTotalPages(res.data?.pagination?.totalPages || 1);
       setTotalItems(res.data?.pagination?.totalItems ?? data.length);
+      setQueueCounts((res.data as any)?.counts || {});
     } catch {
       // Handled by interceptor
     } finally {
       setIsLoading(false);
       hasLoadedList.current = true;
     }
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, search, queue]);
 
   useEffect(() => {
     loadTransactions();
@@ -240,15 +247,24 @@ export const TransactionQueue: React.FC = () => {
           </form>
 
           {/* Clean Segmented Filter Pills (NO DUPLICATES) */}
-          <div className="tq-filter-pills-row">
+          <div className="tq-filter-pills-row" role="group" aria-label="Review queues">
+            {([['awaiting', `Awaiting my review (${queueCounts.awaitingMyReview ?? '…'})`], ['resubmitted', `Returned and resubmitted (${queueCounts.resubmitted ?? '…'})`], ['oldest', 'Oldest waiting']] as const).map(([id, label]) => (
+              <button key={id} type="button" className={`tq-filter-pill ${queue === id ? 'is-active' : ''}`} aria-pressed={queue === id}
+                onClick={() => { setQueue(id); setPage(1); }}>
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+          <div className="tq-filter-pills-row" role="group" aria-label="Filter by status">
             {FILTER_TABS.map(tab => {
-              const isActive = statusFilter === tab.id;
+              const isActive = !queue && statusFilter === tab.id;
               return (
                 <button
                   key={tab.id}
                   type="button"
                   className={`tq-filter-pill ${isActive ? 'is-active' : ''}`}
                   onClick={() => {
+                    setQueue('');
                     setStatusFilter(tab.id);
                     setPage(1);
                   }}
@@ -406,7 +422,9 @@ export const TransactionQueue: React.FC = () => {
                         className="tabular-nums"
                         style={{ color: '#6B7280', fontSize: 14 }}
                       >
-                        {tx.submissionDate || (tx as any).createdAt
+                        {queue && (tx as any).waitingSince
+                          ? waitingFor((tx as any).waitingSince)
+                          : tx.submissionDate || (tx as any).createdAt
                           ? new Date(
                               tx.submissionDate || (tx as any).createdAt
                             ).toLocaleDateString(undefined, {

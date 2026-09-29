@@ -401,6 +401,21 @@ test('3. appointment: requirements, AO check, HR approval, official appointment'
   const pdsDoc = (await db.uploadedDocument.findMany({ where: { transactionId: T.txId }, include: { requirementTemplate: true } }))
     .find(d => /personal data sheet|pds/i.test(d.requirementTemplate.name));
   if (pdsDoc) await db.uploadedDocument.update({ where: { id: pdsDoc.id }, data: { ocrExtractedDataJson: { templateId: 'pds-2025', fields: { firstName: 'Rosa' } } } });
+  // Queues: the HRMO's own stage, counted with the same filters as the list.
+  const awaiting = await http(T.hr, 'GET', '/transactions?queue=awaiting');
+  assert.ok(awaiting.json.data.some(t => t.id === T.txId), 'the validated correction is awaiting HRMO review');
+  assert.equal(awaiting.json.counts.awaitingMyReview, awaiting.json.pagination.totalItems, 'queue count matches the list');
+  assert.ok(awaiting.json.data.every(t => t.status === 'FOR_APPROVAL' && t.waitingSince), 'HRMO queue holds its own stage with a stage-entry time');
+  const resub = await http(T.hr, 'GET', '/transactions?queue=resubmitted');
+  assert.ok(resub.json.data.some(t => t.id === T.txId), 'a corrected transaction is in Returned and resubmitted');
+  const aoQueue = await http(T.morAo, 'GET', '/transactions?queue=awaiting');
+  assert.ok(!aoQueue.json.data.some(t => t.id === T.txId), 'AO II no longer has it once forwarded');
+  const otherAo = await http(T.matAo, 'GET', '/transactions?queue=oldest');
+  assert.ok(!otherAo.json.data.some(t => t.id === T.txId), 'another station never sees it in any queue');
+  // The earlier return notice no longer asks for action.
+  const notes = await http(T.teacher, 'GET', '/notifications?limit=100');
+  const returnNotice = notes.json.data.find(n => n.relatedEntityType === 'Transaction' && n.relatedEntityId === T.txId && /returned/i.test(n.message));
+  assert.equal(returnNotice?.actionResolved, true, 'a return notice is marked handled after resubmission, and kept');
   // A double click (or two open tabs) sends the decision twice at once: it is recorded once.
   const decisions = await Promise.all([1, 2].map(() => http(T.hr, 'POST', `/transactions/${T.txId}/approve`, { body: { isApproved: true, notes: 'Pilot approval' } })));
   assert.equal(decisions.filter(r => r.status === 200).length, 1, 'HR approves once');

@@ -78,6 +78,41 @@ export const withPromotionTargets = async <T extends { relatedEntityId: number |
   });
 };
 
+/**
+ * Marks notices whose requested action is already done (a returned transaction
+ * that was resubmitted, a request someone already approved). History is kept;
+ * the notice just stops asking for action. null = informational, not an action.
+ */
+export const withActionState = async <T extends { relatedEntityId: number | null; relatedEntityType: string | null; type: string }>(
+  rows: T[], role: string | undefined,
+): Promise<Array<T & { actionResolved: boolean | null }>> => {
+  const ids = (type: string) => [...new Set(rows.filter(n => n.relatedEntityType === type && n.relatedEntityId).map(n => n.relatedEntityId as number))];
+  const [txs, reqs, apps] = await Promise.all([
+    ids('Transaction').length ? prisma.transaction.findMany({ where: { id: { in: ids('Transaction') } }, select: { id: true, status: true } }) : [],
+    ids('AccountCreationRequest').length ? prisma.accountCreationRequest.findMany({ where: { id: { in: ids('AccountCreationRequest') } }, select: { id: true, status: true } }) : [],
+    ids('PromotionApplication').length ? prisma.promotionApplication.findMany({ where: { id: { in: ids('PromotionApplication') } }, select: { id: true, status: true, scoreDetailsJson: true } }) : [],
+  ]);
+  const tx = new Map(txs.map(t => [t.id, t.status as string]));
+  const rq = new Map(reqs.map(r => [r.id, r.status as string]));
+  const ap = new Map(apps.map(a => [a.id, a]));
+  // The status in which each role still has something to do.
+  const txOpenFor = role === 'AO_II' ? ['PENDING_VALIDATION'] : role === 'HRMO' ? ['FOR_APPROVAL'] : ['DEFICIENCY', 'DRAFT'];
+  return rows.map(n => {
+    let resolved: boolean | null = null;
+    const id = n.relatedEntityId;
+    if (id && n.type !== 'SUCCESS') {
+      if (n.relatedEntityType === 'Transaction' && tx.has(id)) resolved = !txOpenFor.includes(tx.get(id)!);
+      else if (n.relatedEntityType === 'AccountCreationRequest' && rq.has(id)) resolved = rq.get(id) !== 'PENDING';
+      else if (n.relatedEntityType === 'PromotionApplication' && ap.has(id)) {
+        const a = ap.get(id)!; const stage = (a.scoreDetailsJson as any)?.stageStatus;
+        resolved = role === 'AO_II' ? a.status !== 'SUBMITTED'
+          : ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(role || '') ? !(stage === 'REQUIREMENTS_DEFICIENT' && a.status === 'UNDER_REVIEW') : null;
+      }
+    }
+    return { ...n, actionResolved: resolved };
+  });
+};
+
 export const getNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = getPaginationParams(req.query as Record<string, unknown>);
@@ -102,7 +137,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       prisma.notification.count({ where }),
     ]);
     const clean = data.map(n => ({ ...n, message: plainNotificationText(n.message) }));
-    sendSuccess(res, await withPromotionTargets(clean), undefined, 200, buildPaginationMeta(page, limit, total));
+    sendSuccess(res, await withActionState(await withPromotionTargets(clean), req.user?.role), undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {
     logger.error({ err: error }, 'Failed to get notifications');
     res.status(500).json({ status: 'error', message: 'Failed to retrieve notifications.' });
