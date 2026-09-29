@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AppIcon } from '../../components/common/AppIcon';
 import { PageHeader } from '../../components/common/PageHeader';
 import { AsyncState } from '../../components/common/AsyncState';
@@ -22,6 +22,7 @@ import {
   isDocExpired,
   isDocExpiringSoon,
 } from '../../models/documentStatus';
+import { filingReturns, FilingReturn, filesNeedingAttention } from './filingReturns';
 import './my-documents.css';
 
 export type PersonnelDocument = PersonnelDocumentRecord;
@@ -136,6 +137,8 @@ export const MyDocuments: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState<TabFilter>('ALL');
+  const [returns, setReturns] = useState<FilingReturn[]>([]);
+  const [filingsError, setFilingsError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
   // Modals state
@@ -184,6 +187,11 @@ export const MyDocuments: React.FC = () => {
       ]);
       setDocuments(docsRes.data?.data || []);
       setTypes(typesRes.data?.data || []);
+      // Returns happen inside filings. If they cannot be loaded, say so rather than show none.
+      setFilingsError(false);
+      Promise.all([apiClient.get('/transactions/my-transactions'), apiClient.get('/promotions/my-applications')])
+        .then(([t, a]) => setReturns(filingReturns(t.data?.data || [], a.data?.data || [])))
+        .catch(() => { setReturns([]); setFilingsError(true); });
     } catch (error: any) {
       setLoadError(error?.response?.data?.message || 'Your 201 file could not be loaded. Please check your connection.');
       setDocuments([]);
@@ -507,11 +515,11 @@ export const MyDocuments: React.FC = () => {
   return (
     <div className="page-container personnel-content-container">
       <PageHeader
-        title="My 201 Files & Repository"
-        subtitle="Keep your required files on hand. Reviewers check them when you submit a filing."
+        title="201 Files"
+        subtitle="Your personal record of documents. Files are checked only when you attach them to an application or appointment."
         breadcrumbs={[
-          { label: 'Portal Home', to: '/personnel/home' },
-          { label: 'My 201 Files' },
+          { label: 'Home', to: '/personnel/home' },
+          { label: '201 Files' },
         ]}
         actions={
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -524,7 +532,7 @@ export const MyDocuments: React.FC = () => {
               }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
             >
-              <AppIcon name="camera" size={14} /> Scan with Camera
+              <AppIcon name="camera" size={14} /> Scan with camera
             </button>
             <button
               type="button"
@@ -532,117 +540,59 @@ export const MyDocuments: React.FC = () => {
               onClick={() => openUploadModal(null)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}
             >
-              <AppIcon name="upload" size={14} /> Upload Document
+              <AppIcon name="upload" size={14} /> Upload a file
             </button>
           </div>
         }
       />
 
-      {/* 201 File Readiness Summary Banner (Single Source of Truth) */}
-      <div
-        className="card mb-4"
-        style={{
-          borderRadius: 16,
-          padding: 20,
-          background: 'var(--color-bg-card)',
-          border: '1px solid var(--color-border)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-          <div>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Your 201 files
-            </div>
-            <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginTop: 2 }}>
-              {readiness.verified} of {readiness.total} required files uploaded
-            </div>
-            <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-              Uploaded files are on hand, not automatically approved. AO II and HRMO review them as part of a filing.
-            </p>
-          </div>
+      {/* Summary: what "uploaded", "checked" and "approved" mean here (after the files load) */}
+      {!loading && !loadError && (
+      <section className="mdoc__summary" aria-labelledby="mdoc-summary">
+        <h2 id="mdoc-summary">{readiness.total - readiness.missing} of {readiness.total} listed files uploaded</h2>
+        <dl className="mdoc__terms">
+          <div><dt>Uploaded</dt><dd>The file is in your 201 record. Nobody has checked it yet.</dd></div>
+          <div><dt>Checked</dt><dd>AO II validated the copy you attached to an application or appointment.</dd></div>
+          <div><dt>Approved</dt><dd>HRMO approved the appointment. Only this changes your position and service record.</dd></div>
+        </dl>
+      </section>)}
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                padding: '4px 10px',
-                borderRadius: 9999,
-                background: 'rgba(16, 185, 129, 0.12)',
-                color: '#059669',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
-              }}
-            >
-              {readiness.verified} Uploaded
-            </span>
-            {readiness.underReview > 0 && (
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 9999,
-                  background: 'rgba(245, 158, 11, 0.12)',
-                  color: '#d97706',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                }}
-              >
-                {readiness.underReview} Under Review
-              </span>
-            )}
-            {readiness.missing > 0 && (
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 9999,
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  color: '#dc2626',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                }}
-              >
-                {readiness.missing} Missing
-              </span>
-            )}
-            {readiness.returned > 0 && (
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 9999,
-                  background: 'rgba(239, 68, 68, 0.18)',
-                  color: '#dc2626',
-                  border: '1px solid #ef4444',
-                }}
-              >
-                {readiness.returned} Returned for Correction
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div style={{ height: 8, background: 'var(--color-bg-secondary)', borderRadius: 9999, overflow: 'hidden' }}>
-          <div
-            style={{
-              height: '100%',
-              width: `${readiness.percent}%`,
-              background:
-                readiness.statusLevel === 'complete'
-                  ? '#10b981'
-                  : readiness.statusLevel === 'good'
-                  ? 'var(--color-primary)'
-                  : readiness.statusLevel === 'attention'
-                  ? '#f59e0b'
-                  : '#ef4444',
-              borderRadius: 9999,
-              transition: 'width 0.4s ease',
-            }}
-          />
-        </div>
-      </div>
+      {/* Returned, missing, expired and expiring files first, each with one action */}
+      {!loading && !loadError && (() => {
+        const attention = filesNeedingAttention(documents);
+        if (!attention.length && !returns.length && !filingsError) return null;
+        return (
+          <section className="mdoc__attention" aria-labelledby="mdoc-attention">
+            <h2 id="mdoc-attention">Needs attention <span>{attention.length + returns.length}</span></h2>
+            {filingsError && <p className="mdoc__warn" role="status">Files returned inside your applications could not be checked right now. Open Applications to see them.</p>}
+            <ul>
+              {returns.map(r => (
+                <li key={r.key} className="mdoc__row is-returned">
+                  <div>
+                    <strong>{r.file}</strong>
+                    <span className="mdoc__state">Returned for correction · {r.where}</span>
+                    <span className="mdoc__reason">{r.reason ? `Reviewer's note: ${r.reason}` : 'The reviewer did not add a note.'}</span>
+                  </div>
+                  <Link className="btn btn-sm btn-primary" to={r.to}>{r.cta}</Link>
+                </li>
+              ))}
+              {attention.map(({ doc, lc }) => (
+                <li key={doc.id} className={`mdoc__row${lc === 'EXPIRING_SOON' ? '' : ' is-returned'}`}>
+                  <div>
+                    <strong>{doc.documentTypeName || 'Document'}</strong>
+                    <span className="mdoc__state">{LIFECYCLE_CONFIG[lc].label}{doc.expirationDate ? ` · valid until ${formatDate(doc.expirationDate)}` : ''}</span>
+                    {doc.rejectionReason && <span className="mdoc__reason">Reviewer's note: {doc.rejectionReason}</span>}
+                  </div>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={() => openUploadModal(doc)}>
+                    {lc === 'MISSING' ? 'Upload' : 'Replace'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <p className="mdoc__hint">Replacing a file keeps the earlier version in your record.</p>
+          </section>
+        );
+      })()}
 
       {/* Duplicate File Hash Warning Banner */}
       {duplicateHashMap.size > 0 && (
@@ -675,6 +625,7 @@ export const MyDocuments: React.FC = () => {
         </div>
       )}
 
+      <h2 className="mdoc__all">All files</h2>
       {/* Filter Tabs & Category Selector */}
       <div
         style={{
@@ -802,9 +753,9 @@ export const MyDocuments: React.FC = () => {
                       <AppIcon name={catMeta.icon as any} size={18} />
                     </div>
                     <div>
-                      <h2 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--color-text-primary)' }}>
                         {catMeta.name}
-                      </h2>
+                      </h3>
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
                         {catMeta.description}
                       </div>
@@ -920,15 +871,15 @@ export const MyDocuments: React.FC = () => {
                             {doc.isRequired && (
                               <span
                                 style={{
-                                  fontSize: '0.6875rem',
+                                  fontSize: '0.75rem',
                                   fontWeight: 800,
-                                  color: '#dc2626',
+                                  color: '#B42318',
                                   background: 'rgba(239, 68, 68, 0.1)',
                                   padding: '1px 6px',
                                   borderRadius: 4,
                                 }}
                               >
-                                MANDATORY
+                                Required
                               </span>
                             )}
                           </div>
@@ -960,7 +911,7 @@ export const MyDocuments: React.FC = () => {
                                 fontWeight: 600,
                               }}
                             >
-                              AO II Remarks: {doc.rejectionReason}
+                              Reviewer's note: {doc.rejectionReason}
                             </div>
                           )}
                         </div>

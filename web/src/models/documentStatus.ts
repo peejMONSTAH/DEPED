@@ -400,7 +400,7 @@ export interface LifecycleBadgeConfig {
 
 export const LIFECYCLE_CONFIG: Record<DocumentLifecycleStatus, LifecycleBadgeConfig> = {
   MISSING: {
-    label: 'Missing Document',
+    label: 'Not uploaded',
     bg: 'rgba(239, 68, 68, 0.08)',
     fg: '#dc2626',
     border: 'rgba(239, 68, 68, 0.25)',
@@ -420,7 +420,7 @@ export const LIFECYCLE_CONFIG: Record<DocumentLifecycleStatus, LifecycleBadgeCon
     canDelete: true, // Only if not in active transaction
   },
   UNDER_REVIEW: {
-    label: 'Under Review',
+    label: 'Under review',
     bg: 'rgba(245, 158, 11, 0.1)',
     fg: '#b45309',
     border: 'rgba(245, 158, 11, 0.3)',
@@ -430,7 +430,7 @@ export const LIFECYCLE_CONFIG: Record<DocumentLifecycleStatus, LifecycleBadgeCon
     canDelete: false, // Strict: cannot delete while in review
   },
   VERIFIED: {
-    label: 'Verified Official',
+    label: 'Checked by AO II',
     bg: 'rgba(16, 185, 129, 0.08)',
     fg: '#059669',
     border: 'rgba(16, 185, 129, 0.25)',
@@ -440,7 +440,7 @@ export const LIFECYCLE_CONFIG: Record<DocumentLifecycleStatus, LifecycleBadgeCon
     canDelete: false, // Strict: cannot delete verified 201 records
   },
   RETURNED: {
-    label: 'Returned for Correction',
+    label: 'Returned for correction',
     bg: 'rgba(239, 68, 68, 0.12)',
     fg: '#dc2626',
     border: 'rgba(239, 68, 68, 0.35)',
@@ -450,7 +450,7 @@ export const LIFECYCLE_CONFIG: Record<DocumentLifecycleStatus, LifecycleBadgeCon
     canDelete: false, // Must replace via upload flow
   },
   REPLACEMENT_REQUIRED: {
-    label: 'Replacement Required',
+    label: 'Expired · upload a current copy',
     bg: 'rgba(239, 68, 68, 0.12)',
     fg: '#dc2626',
     border: 'rgba(239, 68, 68, 0.35)',
@@ -460,7 +460,7 @@ export const LIFECYCLE_CONFIG: Record<DocumentLifecycleStatus, LifecycleBadgeCon
     canDelete: false,
   },
   EXPIRING_SOON: {
-    label: 'Expiring Soon',
+    label: 'Expiring soon',
     bg: 'rgba(245, 158, 11, 0.12)',
     fg: '#d97706',
     border: 'rgba(245, 158, 11, 0.3)',

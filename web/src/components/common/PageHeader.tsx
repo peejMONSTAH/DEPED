@@ -143,6 +143,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               gap: 10,
               flexWrap: 'wrap',
               flexShrink: 0,
+              maxWidth: '100%',
             }}
           >
             {actions}

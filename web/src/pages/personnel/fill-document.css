@@ -8,7 +8,7 @@
 .form-notice a { text-decoration:underline; }
 .form-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:12px 0; }
 .form-toolbar span { font-size:.95rem; }
-.form-editor-grid { display:grid; grid-template-columns:minmax(320px,380px) minmax(0,1fr); gap:20px; align-items:start; }
+.form-editor-grid { display:grid; grid-template-columns:minmax(min(100%,320px),380px) minmax(0,1fr); gap:20px; align-items:start; }
 .form-controls,.form-submit,.form-preview { padding:20px; background:var(--color-bg-surface,#fff); border:1px solid #dce2ea; border-radius:10px; }
 .form-controls h2,.form-submit h2,.form-preview h2 { font-size:1.15rem; margin-bottom:8px; }
 .form-controls p,.form-submit p,.form-preview p { font-size:.95rem; color:var(--color-text-secondary); }

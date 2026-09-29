@@ -63,9 +63,9 @@ test('Completed transactions are never classified as active transactions', () =>
     assert.equal(isCompletedTransaction(s), false, `${s} must NOT be completed`);
   }
 
-  // Check CurrentTransaction component strictly excludes approved/completed
-  const currentTxSrc = readWebSrc('pages/personnel/components/CurrentTransaction.tsx');
-  assert.match(currentTxSrc, /isActiveTransaction\(tx\.status\)/);
+  // Home counts only cases that are not done, by the shared stage rules.
+  const homeSrc = readWebSrc('pages/personnel/Home.tsx');
+  assert.match(homeSrc, /transactions\.filter\(t => !transactionStage\(t\.status\)\.done\)/);
 
   // Applications page groups active work and history by the shared stage rules
   // (their behaviour is tested in workflow-stages.cjs).

@@ -4615,3 +4615,10 @@ tr:hover td {
 
 /* A requirement opened from a notice or email. */
 .checklist-item.is-focused, .checklist-item:focus-visible { outline: 3px solid var(--color-warning, #d97706); outline-offset: 2px; }
+
+/* Personnel portal: a visible keyboard focus ring on every control. */
+.personnel-content-container :is(a, button, summary, input, select, textarea, [tabindex]):focus-visible,
+.personnel-bottom-nav-item:focus-visible {
+  outline: 3px solid #2F7D52 !important;
+  outline-offset: 2px;
+}

@@ -12,6 +12,8 @@
 .mya__main strong { font-size: 1rem; color: var(--color-text-primary); overflow-wrap: anywhere; }
 .mya__meta, .mya__next { font-size: .875rem; color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .mya__stage { font-size: .9375rem; color: var(--color-text-primary); }
+.mya__owner { font-size: .875rem; font-weight: 700; color: var(--color-text-primary); }
+.mya__actions .btn { min-height: 40px; }
 .mya__note { font-size: .875rem; color: #A1263A; overflow-wrap: anywhere; }
 .mya__actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
 .mya__details { grid-column: 1 / -1; border-top: 1px solid var(--color-border); padding-top: 10px; }

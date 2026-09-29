@@ -66,7 +66,8 @@ test('Annex C wording has one web source that matches the server exactly', () =>
   const pm = src('pages/admin/PromotionManagement.tsx');
   assert.doesNotMatch(pm, /DEFAULT_ANNEX_C_ITEMS/, 'the verification modal no longer keeps its own list');
   assert.match(pm, /loadAnnexCRequirements\(apiClient\)/);
-  assert.match(src('pages/personnel/Home.tsx'), /loadAnnexCRequirements\(apiClient\)/);
+  // The Annex C checklist now opens from the Vacancies page.
+  assert.match(src('pages/personnel/Vacancies.tsx'), /loadAnnexCRequirements\(apiClient\)/);
 });
 
 test('status labels come from one table', () => {
@@ -93,9 +94,10 @@ test('the Sidebar and Command Palette share one role-filtered navigation list', 
 });
 
 test('applicant numbers are assigned by the server, never invented on the client', () => {
-  const home = src('pages/personnel/Home.tsx');
-  assert.doesNotMatch(home, /APP-2026-\$\{String\(Math\.floor/);
-  assert.match(home, /value=\{checklistApplicationCode \|\| 'Assigned when you submit'\}/);
+  const checklist = src('pages/personnel/components/ApplicationChecklist.tsx');
+  assert.doesNotMatch(checklist, /APP-2026-\$\{String\(Math\.floor/);
+  assert.doesNotMatch(src('pages/personnel/Vacancies.tsx'), /APP-2026-/);
+  assert.match(checklist, /value=\{checklistApplicationCode \|\| 'Assigned when you submit'\}/);
   const mobile = fs.readFileSync(path.join(__dirname, '../../mobile/lib/screens/promotions/promotion_checklist_screen.dart'), 'utf8');
   assert.doesNotMatch(mobile, /'APP-2026-\$rnd'/);
 });
