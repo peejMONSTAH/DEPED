@@ -6,6 +6,7 @@ import { AsyncState } from '../../components/common/AsyncState';
 import apiClient from '../../api/client';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useToast } from '../../contexts/ToastContext';
+import './personnel-notifications.css';
 
 export interface NotificationItem {
   /** true once the requested action is done; null for information. */
@@ -90,6 +91,17 @@ export function parseNotificationAction(n: NotificationItem): ActionConfig {
   const isDocument = lower.includes('document') || lower.includes('uploaded as') || lower.includes('pds') || lower.includes('prc') || lower.includes('attachment') || lower.includes('expired');
   const isCareer = lower.includes('career') || lower.includes('service record') || lower.includes('promotion') || lower.includes('vacancy') || lower.includes('appointed') || lower.includes('ranking');
   const isAccount = lower.includes('password') || lower.includes('credential') || lower.includes('account') || lower.includes('profile');
+  const isSessionNotice = lower.includes('signed out') || lower.includes('sign out') || lower.includes('session');
+
+  // Session/security notices sometimes carry no entity and must never fall
+  // through to the generic transaction destination.
+  if (isSessionNotice) {
+    return {
+      path: '/personnel/profile', label: 'Account security', category: 'ACCOUNT',
+      iconName: 'profile', badge: 'Account security', color: '#8a621b', title,
+      body, ctaText: 'Review account', isActionRequired: false,
+    };
+  }
 
   // 1. Action Required: Deficiency or returned items
   if (isDeficiency) {
@@ -158,8 +170,11 @@ export function parseNotificationAction(n: NotificationItem): ActionConfig {
 
   // 4. Career & Promotion
   if (isCareer) {
+    const isOpenCycle = lower.includes('cycle opened') || lower.includes('active for applications') || lower.includes('accepting applications');
     return {
-      path: lower.includes('service record') ? '/personnel/service-record' : '/personnel/home',
+      path: lower.includes('service record') ? '/personnel/service-record'
+        : isOpenCycle ? (n.promotionCycleId ? `/personnel/home?cycle=${n.promotionCycleId}` : '/personnel/home#vacancies')
+        : '/personnel/transactions',
       label: 'Career Opportunity',
       category: 'CAREER',
       iconName: 'repository',
@@ -167,7 +182,7 @@ export function parseNotificationAction(n: NotificationItem): ActionConfig {
       color: '#16a34a',
       title,
       body,
-      ctaText: 'View Result',
+      ctaText: lower.includes('service record') ? 'View service record' : isOpenCycle ? 'View vacancy' : 'View application',
       isActionRequired: false,
     };
   }
@@ -301,10 +316,10 @@ export const PersonnelNotifications: React.FC = () => {
     return (
       <div
         key={n.id}
-        className="card"
+        className="personnel-notification"
         style={{
-          padding: '16px 20px',
-          borderRadius: 14,
+          padding: '12px 16px',
+          borderRadius: 10,
           border: action.isActionRequired
             ? '1.5px solid #ef4444'
             : n.isRead
@@ -318,7 +333,7 @@ export const PersonnelNotifications: React.FC = () => {
           display: 'flex',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          gap: 16,
+          gap: 12,
           flexWrap: 'wrap',
           transition: 'all 0.15s ease',
         }}
@@ -327,9 +342,9 @@ export const PersonnelNotifications: React.FC = () => {
           {/* Category Icon */}
           <div
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
+              width: 32,
+              height: 32,
+              borderRadius: 8,
               background: action.isActionRequired ? 'rgba(239, 68, 68, 0.12)' : 'var(--color-bg-secondary)',
               color: action.color,
               display: 'flex',
@@ -339,7 +354,7 @@ export const PersonnelNotifications: React.FC = () => {
               marginTop: 2,
             }}
           >
-            <AppIcon name={action.iconName as any} size={18} color={action.color} />
+            <AppIcon name={action.iconName as any} size={16} color={action.color} />
           </div>
 
           {/* Text and Details */}
@@ -432,8 +447,8 @@ export const PersonnelNotifications: React.FC = () => {
   return (
     <div className="animate-fade-in personnel-content-container">
       <PageHeader
-        title="Notifications & Activity Inbox"
-        subtitle="Realtime alerts for document deficiencies, HR reviews, vacancy announcements, and service updates"
+        title="Notifications"
+        subtitle="Actions, reviews, and updates about your 201 file"
         breadcrumbs={[
           { label: 'Portal Home', to: '/personnel/home' },
           { label: 'Notifications' },

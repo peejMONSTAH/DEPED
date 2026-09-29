@@ -14,7 +14,6 @@ import { AppIcon } from '../../components/common/AppIcon';
 import { PersonnelOverview } from './components/PersonnelOverview';
 import { WhatToDo } from './components/WhatToDo';
 import { homeTasks } from './components/homeTasks';
-import { applicationStage } from '../../constants/workflowStages';
 import { useSearchParams } from 'react-router-dom';
 import { FileReadiness } from './components/FileReadiness';
 import { CurrentTransaction } from './components/CurrentTransaction';
@@ -25,11 +24,13 @@ import { ApplicationChecklist, ChecklistFormItem } from './components/Applicatio
 
 // Shared Models
 import { TransactionRecord } from '../../models/transactionState';
+import { isActiveTransaction } from '../../models/transactionState';
 import {
   PersonnelDocumentRecord,
   computeReadiness,
 } from '../../models/documentStatus';
 import { ANNEX_C_FALLBACK, loadAnnexCRequirements } from '../../promotions/annexCRequirements';
+import './personnel-home.css';
 
 export type { ChecklistFormItem };
 export const DEFAULT_ANNEX_C_FORM_ITEMS: ChecklistFormItem[] = ANNEX_C_FALLBACK.map(item => ({
@@ -174,13 +175,10 @@ export const PersonnelHome: React.FC = () => {
         })()}
 
         {/* 3. Task-Oriented Overview Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginBottom: 24, alignItems: 'start' }}>
+        <div className="personnel-home__overview">
           {/* Column 1: Active Transactions & Career Opportunities */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <CurrentTransaction
-              transactions={transactions}
-              pendingApplications={myApplications.filter(a => !a.transactionId).map(a => applicationStage(a)).filter(st => !st.done && !st.needsYou).map(st => ({ label: st.label, who: st.who }))}
-            />
+          <div className="personnel-home__overview-column">
+            {transactions.some(tx => isActiveTransaction(tx.status)) && <CurrentTransaction transactions={transactions} />}
 
             <CareerOpportunities
               openCycles={openCycles}
@@ -189,7 +187,7 @@ export const PersonnelHome: React.FC = () => {
           </div>
 
           {/* Column 2: 201 File Readiness (Single Source of Truth) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="personnel-home__overview-column">
             <FileReadiness
               readiness={readiness}
             />

@@ -65,11 +65,11 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
               {readiness.percent}%
             </span>
             <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginLeft: 8 }}>
-              complete
+              uploaded
             </span>
           </div>
           <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
-            {readiness.verified} of {readiness.total} required files uploaded
+            {readiness.verified} of {readiness.total} required files on hand
           </span>
         </div>
 
@@ -93,6 +93,10 @@ export const FileReadiness: React.FC<FileReadinessProps> = ({ readiness }) => {
           />
         </div>
       </div>
+
+      <p style={{ margin: '-4px 0 14px', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+        Upload progress is not HR approval. AO II and HRMO review files when you submit an application or appointment.
+      </p>
 
       {/* Status Breakdown Pills */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>

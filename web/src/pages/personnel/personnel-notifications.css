@@ -1,0 +1,18 @@
+.personnel-notification {
+  min-width: 0;
+  box-shadow: none;
+}
+
+.personnel-notification + .personnel-notification {
+  margin-top: .5rem;
+}
+
+.personnel-notification:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .personnel-notification { align-items: stretch !important; }
+  .personnel-notification > div:last-child { width: 100%; justify-content: flex-start; }
+}

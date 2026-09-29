@@ -508,7 +508,7 @@ export const MyDocuments: React.FC = () => {
     <div className="page-container personnel-content-container">
       <PageHeader
         title="My 201 Files & Repository"
-        subtitle="Digital 201 records repository classified in accordance with DepEd Order standards"
+        subtitle="Keep your required files on hand. Reviewers check them when you submit a filing."
         breadcrumbs={[
           { label: 'Portal Home', to: '/personnel/home' },
           { label: 'My 201 Files' },
@@ -554,8 +554,11 @@ export const MyDocuments: React.FC = () => {
               Your 201 files
             </div>
             <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginTop: 2 }}>
-              {readiness.percent}% complete ({readiness.verified} of {readiness.total} required files uploaded)
+              {readiness.verified} of {readiness.total} required files uploaded
             </div>
+            <p style={{ margin: '4px 0 0', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+              Uploaded files are on hand, not automatically approved. AO II and HRMO review them as part of a filing.
+            </p>
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -761,7 +764,13 @@ export const MyDocuments: React.FC = () => {
         loadingText="Loading 201 records repository..."
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {Array.from(groupedDocuments.entries()).map(([catKey, catDocs]) => {
+          {Array.from(groupedDocuments.entries()).sort((a, b) => {
+            const needsAction = (docs: PersonnelDocument[]) => docs.some(doc => {
+              const state = resolveDocumentLifecycle(doc);
+              return state === 'RETURNED' || state === 'REPLACEMENT_REQUIRED' || state === 'EXPIRED' || (doc.isRequired && state === 'MISSING');
+            });
+            return Number(needsAction(b[1])) - Number(needsAction(a[1]));
+          }).map(([catKey, catDocs]) => {
             if (catDocs.length === 0) return null;
             const catMeta = DEPED_DOCUMENT_CATEGORIES[catKey];
 
@@ -817,7 +826,14 @@ export const MyDocuments: React.FC = () => {
 
                 {/* Documents Table / Card List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {catDocs.map(doc => {
+                  {[...catDocs].sort((a, b) => {
+                    const priority = (doc: PersonnelDocument) => {
+                      const state = resolveDocumentLifecycle(doc);
+                      return state === 'RETURNED' || state === 'REPLACEMENT_REQUIRED' || state === 'EXPIRED' ? 0
+                        : doc.isRequired && state === 'MISSING' ? 1 : state === 'EXPIRING_SOON' ? 2 : 3;
+                    };
+                    return priority(a) - priority(b);
+                  }).map(doc => {
                     const lifecycle = resolveDocumentLifecycle(doc);
                     const badgeConfig = LIFECYCLE_CONFIG[lifecycle];
                     const isMissing = lifecycle === 'MISSING';
@@ -828,7 +844,7 @@ export const MyDocuments: React.FC = () => {
 
                     // Contextual primary action click handler
                     const handlePrimaryAction = () => {
-                      if (isMissing || isReturned || isExpSoon) {
+                      if (isMissing || isReturned || isExpSoon || lifecycle === 'EXPIRED') {
                         openUploadModal(doc);
                       } else if (doc.hasFile) {
                         setPreviewDoc(doc);

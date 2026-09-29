@@ -10,7 +10,7 @@ export const WhatToDo: React.FC<{ tasks: HomeTask[]; waiting: WaitingItem[]; onO
   <section className="wtd" aria-labelledby="wtd-title">
     <h2 id="wtd-title">What you need to do</h2>
     {tasks.length === 0
-      ? <p className="wtd__none">Nothing needs you right now.</p>
+      ? <p className="wtd__none">You are up to date. {waiting.length ? 'The items below are with a reviewer.' : 'We will show your next step here when action is needed.'}</p>
       : <ul className="wtd__list">
         {tasks.map(t => (
           <li key={t.key} className={`wtd__task is-${t.kind}`}>
