@@ -4,7 +4,9 @@ const { PDFDocument } = require('pdf-lib');
 
 // 1x1 8-bit JPEG baseline image
 const sampleJpegBase64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
-const sampleJpegBytes = Buffer.from(sampleJpegBase64, 'base64');
+// A copy with its own ArrayBuffer: a small Buffer is a slice of Node's shared pool,
+// and pdf-lib reads the JPEG through data.buffer from offset 0.
+const sampleJpegBytes = new Uint8Array(Buffer.from(sampleJpegBase64, 'base64'));
 
 test('scanner compiler produces valid multi-page PDF from captured images', async () => {
   const pdfDoc = await PDFDocument.create();

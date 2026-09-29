@@ -31,7 +31,9 @@ function processRequestConfig(config) {
 
 // 1x1 8-bit JPEG baseline image
 const sampleJpegBase64 = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
-const sampleJpegBytes = Buffer.from(sampleJpegBase64, 'base64');
+// A copy with its own ArrayBuffer: a small Buffer is a slice of Node's shared pool,
+// and pdf-lib reads the JPEG through data.buffer from offset 0.
+const sampleJpegBytes = new Uint8Array(Buffer.from(sampleJpegBase64, 'base64'));
 
 test('Criterion 1: Scanner-generated PDF passes strict server validation (%PDF- signature and <= 10MB)', async () => {
   const pdfDoc = await PDFDocument.create();
