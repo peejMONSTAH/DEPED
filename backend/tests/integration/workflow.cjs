@@ -12,7 +12,9 @@ process.env.JWT_REFRESH_SECRET = 'integration-only-refresh-key-no-real-sessions'
 const client = require(process.env.GAP_PRISMA_CLIENT_PATH
   ? path.resolve(process.env.GAP_PRISMA_CLIENT_PATH) : '@prisma/client');
 require.cache[require.resolve('@prisma/client')] = { exports: client };
-const db = new client.PrismaClient();
+// Its own database: CI runs every integration file in parallel on one server.
+const isolated = require('./isolated-db.cjs')('workflow', client);
+const db = new client.PrismaClient({ datasources: { db: { url: isolated.url } } });
 require.cache[require.resolve('../../src/config/prisma')] = { exports: { __esModule: true, default: db } };
 // Notification delivery must never leave an integration test process.
 require.cache[require.resolve('../../src/services/workflow-outbox.service')] = { exports: {
@@ -43,6 +45,7 @@ const people = {};
 let txType, tx, otherTx, requirement, server, baseUrl;
 
 test.before(async () => {
+  await isolated.create();
   assert.equal(await db.user.count(), 0, 'Use a fresh disposable database; tests never delete existing user records.');
   for (const [name, role, school] of [
     ['owner', 'TEACHING_PERSONNEL', 'Station A'], ['other', 'TEACHING_PERSONNEL', 'Station B'],
@@ -78,6 +81,7 @@ test.before(async () => {
 test.after(async () => {
   if (server) await new Promise(resolve => server.close(resolve));
   await db.$disconnect();
+  await isolated.drop();
 });
 
 test('real database enforces owner/station/role access on detail and requirements', async () => {

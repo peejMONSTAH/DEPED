@@ -12,7 +12,9 @@ Object.assign(process.env, {
   JWT_REFRESH_SECRET: 'pilot-simulation-refresh-secret-only',
   SMTP_HOST: '', SUPABASE_URL: '', SUPABASE_SERVICE_KEY: '', DOCUMENT_STORAGE: 'local',
 });
-const db = new PrismaClient();
+// Its own database: CI runs every integration file in parallel on one server.
+const isolated = require('./isolated-db.cjs')('pilot_sim', require('@prisma/client'));
+const db = new PrismaClient({ datasources: { db: { url: isolated.url } } });
 const stub = (request, exports) => { const id = require.resolve(request); require.cache[id] = { id, filename: id, loaded: true, exports }; };
 stub('../../src/config/prisma', { __esModule: true, default: db });
 stub('../../src/services/workflow-outbox.service', {
@@ -44,6 +46,7 @@ const pdf = label => Buffer.from(`%PDF-1.4\n% synthetic ${label}\n`);
 const users = {};
 
 test.before(async () => {
+  await isolated.create();
   assert.equal(await db.user.count(), 0, 'Pilot simulation never reuses a populated database.');
   for (const [key, role, school] of [
     ['teacher', 'TEACHING_PERSONNEL', 'Morales Elementary School'],
@@ -61,7 +64,7 @@ test.before(async () => {
     users[key] = { userId: row.id, role, personnelId: row.personnel.id, email: row.email };
   }
 });
-test.after(async () => { await db.$disconnect(); });
+test.after(async () => { await db.$disconnect(); await isolated.drop(); });
 
 test('teacher promotion completes from HR cycle to official appointment', async () => {
   const plantilla = await db.plantillaItem.create({ data: {

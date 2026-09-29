@@ -99,9 +99,13 @@ async function account(key, role, school, extra = {}) {
     },
     include: { personnel: true },
   });
+  // A real sign-in creates a session (refresh token) and stamps its id on the
+  // access token; the auth middleware rejects tokens whose session is not live.
+  const sid = `synthetic-session-${key}`;
+  if (user.accountStatus === 'ACTIVE') await db.refreshToken.create({ data: { userId: user.id, token: sid, expiresAt: new Date(Date.now() + 86400000) } });
   people[key] = {
     key, role, userId: user.id, email: user.email, personnelId: user.personnel?.id ?? null, station: extra.station,
-    token: generateAccessToken({ userId: user.id, email: user.email, role, pwdv: passwordTokenVersion(passwordHash) }),
+    token: generateAccessToken({ userId: user.id, email: user.email, role, pwdv: passwordTokenVersion(passwordHash), sid }),
   };
   return people[key];
 }
@@ -190,6 +194,7 @@ test.before(async () => {
   } })).id;
   f.moralesFile = await personnelFile(people.moralesApplicant, 'morales-201-file');
   f.matulasFile = await personnelFile(people.matulasApplicant, 'matulas-201-file');
+  f.matulasApplicant2File = await personnelFile(people.matulasApplicant2, 'matulas2-201-file');
 
   const cycle = (name, rulesConfigurationJson) => db.promotionCycle.create({ data: {
     name, type: 'NATURAL_VACANCY', status: 'ACTIVE', startDate: new Date(), endDate: new Date(Date.now() + 30 * 86400000), rulesConfigurationJson,
@@ -599,7 +604,10 @@ test('26. realtime events carry no record data and notifications reach only the 
       documentValidations: [{ documentId: f.matulasTx2.docId, isValid: true }], targetStatus: 'FOR_APPROVAL',
     });
     assert.equal(validated.status, 200, validated.text);
-    const applied = await post(people.matulasApplicant2, `/promotions/cycles/${f.cycle.id}/apply`, {});
+    // An application is its Annex C checklist; every mandatory item needs an attached 201 file.
+    const { MANDATORY_ANNEX_C_CODES } = require('../../src/utils/annex-c.util');
+    const checklist = { items: MANDATORY_ANNEX_C_CODES.map(code => ({ code, submitted: true, personnelDocumentId: f.matulasApplicant2File })) };
+    const applied = await post(people.matulasApplicant2, `/promotions/cycles/${f.cycle.id}/apply`, { checklist });
     assert.equal(applied.status, 201, applied.text);
 
     await waitFor(() => matulasNotifications.events.some(e => e.json.type === 'NOTIFICATION'), 'the Matulas AO II notification');
@@ -709,9 +717,18 @@ test('moving an AO II to another station moves their scope at once and ends thei
   const refresh = await db.refreshToken.findUnique({ where: { token: 'synthetic-refresh-morales-ao' } });
   assert.equal(refresh.revoked, true, 'sessions issued under the old station must end');
 
-  // Even the still-unexpired access token is scoped by the new station, immediately.
-  assert.equal((await get(moralesAo, `/transactions/${f.moralesTx.id}`)).status, 404);
-  assert.equal((await get(moralesAo, `/transactions/${f.matulasTx.id}`)).status, 200);
+  // The still-unexpired access token stops working at once: its session ended.
+  const stale = await get(moralesAo, `/transactions/${f.moralesTx.id}`);
+  assert.equal(stale.status, 401, stale.text);
+  assert.equal(stale.json?.code, 'SESSION_REVOKED');
+
+  // After signing in again, the new session is scoped by the new station.
+  const sid = 'synthetic-session-moralesAo-after-move';
+  await db.refreshToken.create({ data: { userId: moralesAo.userId, token: sid, expiresAt: new Date(Date.now() + 86400000) } });
+  const user = await db.user.findUnique({ where: { id: moralesAo.userId } });
+  const again = { ...moralesAo, token: generateAccessToken({ userId: user.id, email: user.email, role: moralesAo.role, pwdv: passwordTokenVersion(user.passwordHash), sid }) };
+  assert.equal((await get(again, `/transactions/${f.moralesTx.id}`)).status, 404);
+  assert.equal((await get(again, `/transactions/${f.matulasTx.id}`)).status, 200);
 
   // An AO II cannot move their own station, or anyone's.
   const selfMove = await put(people.matulasAo, `/personnel/${people.matulasApplicant.personnelId}`, { school: MORALES });
