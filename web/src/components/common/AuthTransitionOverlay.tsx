@@ -1,7 +1,6 @@
 import { ModalOverlay } from './ModalOverlay';
 import React, { useState, useEffect, useRef } from 'react';
 import { AppIcon } from './AppIcon';
-import { Digital201Logo } from './Digital201Logo';
 import { playLoginChime } from '../../utils/sound.utils';
 import type { AuthUser } from '../../types';
 
@@ -164,7 +163,7 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
                 boxShadow: '0 0 25px rgba(0, 123, 255, 0.3)',
                 margin: '0 auto'
               }}>
-                <Digital201Logo variant="mark" size="md" />
+                <img src="/brand/digital201-app-icon-192.png" alt="Digital 201" width={56} height={56} style={{ borderRadius: 14, display: 'block' }} />
               </div>
             </div>
 

@@ -154,3 +154,13 @@
 .digital201-brand--xl {
   font-size: 2.1rem;
 }
+
+/* ─── Artwork (PNG lockup and mark) ─────────────────────────────── */
+.digital201-brand-img { display: block; width: auto; max-width: 100%; }
+.digital201-brand--xs .digital201-brand-img { height: 1.25rem; }
+.digital201-brand--sm .digital201-brand-img { height: 1.75rem; }
+.digital201-brand--md .digital201-brand-img { height: 2.25rem; }
+.digital201-brand--lg .digital201-brand-img { height: 3rem; }
+.digital201-brand--xl .digital201-brand-img { height: 4rem; }
+/* The artwork is dark green; give it a light plate on dark themes. */
+[data-theme="dark"] .digital201-brand-img { background: #FFFFFF; padding: 4px 8px; border-radius: 8px; }

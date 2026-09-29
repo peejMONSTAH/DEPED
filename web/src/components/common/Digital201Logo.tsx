@@ -5,6 +5,7 @@ export interface Digital201LogoProps {
   variant?: 'full' | 'wordmark' | 'mark';
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   tone?: 'light' | 'dark' | 'auto';
+  /** Kept for existing callers: the lockup artwork already carries the name. */
   showTag?: boolean;
   subtitle?: string;
   className?: string;
@@ -12,58 +13,37 @@ export interface Digital201LogoProps {
 }
 
 /**
- * Digital 201 Minimalist Text-Only Branding Identity
- * Pure typographic brand architecture with zero pictorial icons.
+ * Digital 201 brand: the file-and-check mark on its own, or the mark with the
+ * DIGITAL 201 wordmark (header lockup). Artwork lives in /public/brand.
  */
 export const Digital201Logo: React.FC<Digital201LogoProps> = ({
   variant = 'wordmark',
   size = 'md',
   tone = 'auto',
-  showTag = false,
   subtitle,
   className = '',
   style,
 }) => {
-  const rootClasses = [
-    'digital201-brand',
-    `digital201-brand--${variant}`,
-    `digital201-brand--${size}`,
-    `digital201-brand--${tone}`,
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const rootClasses = ['digital201-brand', `digital201-brand--${variant}`, `digital201-brand--${size}`, `digital201-brand--${tone}`, className]
+    .filter(Boolean).join(' ');
 
   if (variant === 'mark') {
     return (
       <span className={rootClasses} style={style} aria-label="Digital 201">
-        <span className="digital201-brand-mark-stamp" aria-hidden="true">
-          201<span className="digital201-brand-mark-dot" />
-        </span>
+        <img className="digital201-brand-img digital201-brand-img--mark" src="/brand/digital201-logo-mark.png" alt="" width={236} height={256} />
       </span>
     );
   }
 
-  const wordmark = (
-    <span className="digital201-brand-wordmark">
-      <span className="digital201-brand-prefix">DIGITAL</span>
-      <span className="digital201-brand-accent">201</span>
-      {showTag && <span className="digital201-brand-tag">HRIS</span>}
-    </span>
-  );
-
+  const lockup = <img className="digital201-brand-img digital201-brand-img--lockup" src="/brand/digital201-header-lockup.png" alt="" width={584} height={120} />;
   return (
     <span className={rootClasses} style={style} aria-label="Digital 201">
       {variant === 'full' ? (
         <span className="digital201-brand-copy">
-          {wordmark}
-          <span className="digital201-brand-subtitle">
-            {subtitle || 'Personnel Information System · DepEd Koronadal'}
-          </span>
+          {lockup}
+          <span className="digital201-brand-subtitle">{subtitle || 'Personnel Information System · DepEd Koronadal'}</span>
         </span>
-      ) : (
-        wordmark
-      )}
+      ) : lockup}
     </span>
   );
 };
