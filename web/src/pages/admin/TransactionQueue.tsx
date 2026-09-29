@@ -44,7 +44,7 @@ export const TransactionQueue: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   // Review queues, computed and counted on the server within your scope.
   const [queue, setQueue] = useState<'' | 'awaiting' | 'resubmitted' | 'oldest'>('awaiting');
-  const [queueCounts, setQueueCounts] = useState<{ awaitingMyReview?: number; resubmitted?: number }>({});
+  const [queueCounts, setQueueCounts] = useState<{ awaitingMyReview?: number; resubmitted?: number; all?: number; pendingValidation?: number; forApproval?: number; approved?: number }>({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -172,17 +172,13 @@ export const TransactionQueue: React.FC = () => {
   };
 
   // Quick stats summary computation
-  const stats = useMemo(() => {
-    const total = totalItems;
-    const pendingAO2 = transactions.filter(t =>
-      ['PENDING_VALIDATION'].includes(t.status)
-    ).length;
-    const pendingHRMO = transactions.filter(t => t.status === 'FOR_APPROVAL').length;
-    const approved = transactions.filter(t =>
-      t.status === 'APPROVED'
-    ).length;
-    return { total, pendingAO2, pendingHRMO, approved };
-  }, [transactions, totalItems]);
+  // Totals from the server for everything in your scope, not the rows on this page.
+  const stats = useMemo(() => ({
+    total: queueCounts.all ?? totalItems,
+    pendingAO2: queueCounts.pendingValidation ?? 0,
+    pendingHRMO: queueCounts.forApproval ?? 0,
+    approved: queueCounts.approved ?? 0,
+  }), [queueCounts, totalItems]);
 
   return (
     <div className="animate-fade-in">

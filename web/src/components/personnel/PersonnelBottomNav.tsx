@@ -11,8 +11,8 @@ interface BottomNavItem {
 
 const items: BottomNavItem[] = [
   { label: 'Home', path: '/personnel/home', icon: Home },
-  { label: 'My 201 Files', path: '/personnel/documents', icon: FileText },
-  { label: 'Transactions', path: '/personnel/transactions', icon: ClipboardList },
+  { label: '201 Files', path: '/personnel/documents', icon: FileText },
+  { label: 'Applications', path: '/personnel/transactions', icon: ClipboardList },
   { label: 'Profile', path: '/personnel/profile', icon: User },
 ];
 

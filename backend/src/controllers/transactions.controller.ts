@@ -177,6 +177,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     txTypes,
     countAwaiting,
     countResubmitted,
+    countPendingValidation,
   ] = await Promise.all([
     prisma.transaction.findMany({
       where: finalWhere,
@@ -256,6 +257,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     // Queue counts use the same filters as the list, so they always agree.
     prisma.transaction.count({ where: withBase({ status: myStage }) }),
     prisma.transaction.count({ where: withBase({ status: myStage, resubmissionCount: { gt: 0 } }) }),
+    prisma.transaction.count({ where: withBase({ status: 'PENDING_VALIDATION' }) }),
   ]);
 
   // Build filter options from real personnel station records in the database
@@ -289,6 +291,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     returned: countReturned,
     rejected: countRejected,
     all: countAll,
+    pendingValidation: countPendingValidation,
     awaitingMyReview: countAwaiting,
     resubmitted: countResubmitted,
   };
