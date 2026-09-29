@@ -5,7 +5,7 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { authApi } from '../../api/auth.api';
 import { homePathFor } from '../../auth/permissions';
-import { DiagonalEnvironment } from '../../components/login/DiagonalEnvironment';
+import './auth-access.css';
 
 /** Mirrors backend validatePasswordComplexity; the server re-checks on submit. */
 const MIN_LENGTH = 6;
@@ -56,49 +56,36 @@ export const SetupAccount: React.FC = () => {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '12px 44px 12px 14px', borderRadius: 10, fontSize: '1rem',
-    border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.06)', color: '#FFFFFF',
-  };
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: '0.9375rem', fontWeight: 600, marginBottom: 6, color: 'rgba(255,255,255,0.85)' };
-
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0A192F', overflow: 'hidden', padding: 16 }}>
-      <DiagonalEnvironment />
-      <main style={{
-        position: 'relative', zIndex: 10, width: '100%', maxWidth: 460, backgroundColor: 'rgba(15, 23, 42, 0.88)',
-        backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20,
-        padding: '32px 28px', color: '#FFFFFF', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-          <span aria-hidden="true" style={{ display: 'inline-flex', width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', background: 'rgba(63,146,101,0.25)', border: '1px solid rgba(63,146,101,0.6)' }}>
-            <KeyRound size={22} />
-          </span>
-          <h1 style={{ margin: 0, fontSize: '1.375rem', fontWeight: 800 }}>Set up your password</h1>
-        </div>
-        <p style={{ margin: '0 0 22px', color: 'rgba(255,255,255,0.75)', fontSize: '0.9375rem', lineHeight: 1.55 }}>
-          Choose your own password to replace the temporary one. You will be signed in right after.
-        </p>
+    <div className="access-page">
+      <div className="access-page__shell">
+        <header className="access-page__brand" aria-label="Digital 201">
+          <span className="access-page__brand-mark">201</span>
+          <span><strong>Digital 201</strong><small>Personnel records portal</small></span>
+        </header>
+        <main className="access-card">
+          <div className="access-card__icon" aria-hidden="true"><KeyRound size={23} /></div>
+          <p className="access-card__eyebrow">Account activation</p>
+          <h1>Set your password</h1>
+          <p className="access-card__intro">Create a password to replace the temporary one. Once saved, you will be signed in automatically.</p>
 
         {error && (
-          <div role="alert" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', borderRadius: 10, marginBottom: 18, background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.45)', color: '#FECACA', fontSize: '0.9375rem' }}>
-            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+          <div className="access-card__error" role="alert">
+            <AlertTriangle size={18} aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         {linkUnusable ? (
-          <div style={{ fontSize: '0.9375rem', color: 'rgba(255,255,255,0.8)', lineHeight: 1.55 }}>
-            <p style={{ marginTop: 0 }}>
-              You can still sign in with the temporary password from your AO II or System Administrator. You will be asked to change it right away.
-            </p>
-            <Link to="/login" className="btn btn-primary" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center' }}>Go to sign in</Link>
+          <div className="access-card__recovery">
+            <p>This link can no longer be used. If you have a temporary password from your AO II or System Administrator, you can sign in with it and change it there. Otherwise, ask them for a new setup link.</p>
+            <Link to="/login" className="access-card__submit">Go to sign in</Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} noValidate>
-            <div style={{ marginBottom: 16 }}>
-              <label htmlFor="setup-password" style={labelStyle}>New password</label>
-              <div style={{ position: 'relative' }}>
+          <form className="access-card__form" onSubmit={handleSubmit} noValidate>
+            <div className="access-card__field">
+              <label htmlFor="setup-password">New password</label>
+              <div className="access-card__password-row">
                 <input
                   id="setup-password"
                   type={showPassword ? 'text' : 'password'}
@@ -107,25 +94,25 @@ export const SetupAccount: React.FC = () => {
                   onChange={e => setPassword(e.target.value)}
                   aria-describedby="setup-password-hint"
                   aria-invalid={tooShort}
-                  style={inputStyle}
                   autoFocus
                 />
                 <button
                   type="button"
+                  className="access-card__visibility"
                   onClick={() => setShowPassword(v => !v)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  style={{ all: 'unset', position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', width: 40, height: 40, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.8)' }}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                 </button>
               </div>
-              <div id="setup-password-hint" style={{ marginTop: 6, fontSize: '0.875rem', color: tooShort ? '#FCA5A5' : 'rgba(255,255,255,0.6)' }}>
+              <p id="setup-password-hint" className={tooShort ? 'access-card__hint is-error' : 'access-card__hint'}>
                 At least {MIN_LENGTH} characters. Do not reuse the temporary password.
-              </div>
+              </p>
             </div>
 
-            <div style={{ marginBottom: 22 }}>
-              <label htmlFor="setup-confirm" style={labelStyle}>Confirm new password</label>
+            <div className="access-card__field">
+              <label htmlFor="setup-confirm">Confirm new password</label>
               <input
                 id="setup-confirm"
                 type={showPassword ? 'text' : 'password'}
@@ -134,20 +121,22 @@ export const SetupAccount: React.FC = () => {
                 onChange={e => setConfirm(e.target.value)}
                 aria-invalid={mismatch}
                 aria-describedby={mismatch ? 'setup-confirm-error' : undefined}
-                style={inputStyle}
               />
               {mismatch && (
-                <div id="setup-confirm-error" style={{ marginTop: 6, fontSize: '0.875rem', color: '#FCA5A5' }}>The passwords do not match.</div>
+                <p id="setup-confirm-error" className="access-card__hint is-error">The passwords do not match.</p>
               )}
             </div>
 
-            <button type="submit" className="btn btn-primary" disabled={!canSubmit} style={{ width: '100%', minHeight: 46, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: '1rem' }}>
+            <button type="submit" className="access-card__submit" disabled={!canSubmit}>
               {submitting && <Loader2 size={18} className="spin" aria-hidden="true" />}
               {submitting ? 'Saving…' : 'Set password and sign in'}
             </button>
           </form>
         )}
-      </main>
+          <p className="access-card__footer">Opened this page by mistake? <Link to="/login">Return to sign in</Link></p>
+        </main>
+        <p className="access-page__security">Use this link only if you requested access to Digital 201. Never share it or your password.</p>
+      </div>
     </div>
   );
 };
