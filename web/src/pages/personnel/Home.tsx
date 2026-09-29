@@ -12,7 +12,8 @@ import { AppIcon } from '../../components/common/AppIcon';
 
 // Modular Components
 import { PersonnelOverview } from './components/PersonnelOverview';
-import { NextActionPanel } from './components/NextActionPanel';
+import { WhatToDo } from './components/WhatToDo';
+import { homeTasks } from './components/homeTasks';
 import { FileReadiness } from './components/FileReadiness';
 import { CurrentTransaction } from './components/CurrentTransaction';
 import { CareerOpportunities, PromotionCycleItem } from './components/CareerOpportunities';
@@ -40,6 +41,7 @@ export const PersonnelHome: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [myApplications, setMyApplications] = useState<any[]>([]);
 
   const [personnel, setPersonnel] = useState<any>(null);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
@@ -62,12 +64,16 @@ export const PersonnelHome: React.FC = () => {
     setLoadError(null);
     try {
       await loadAnnexCRequirements(apiClient);
-      const [pRes, txRes, promoRes, docRes] = await Promise.all([
-        apiClient.get('/personnel/me').catch(() => ({ data: { data: null } })),
-        apiClient.get('/transactions/my-transactions').catch(() => ({ data: { data: [] } })),
-        apiClient.get('/promotions/cycles').catch(() => ({ data: { data: [] } })),
-        apiClient.get('/personnel/documents').catch(() => ({ data: { data: [] } })),
+      // Every list the task panel relies on must load; an empty fallback would
+      // read as 'nothing to do' when the truth is 'could not check'.
+      const [pRes, txRes, promoRes, docRes, appRes] = await Promise.all([
+        apiClient.get('/personnel/me'),
+        apiClient.get('/transactions/my-transactions'),
+        apiClient.get('/promotions/cycles'),
+        apiClient.get('/personnel/documents'),
+        apiClient.get('/promotions/my-applications'),
       ]);
+      setMyApplications(appRes.data?.data || []);
 
       setPersonnel(pRes.data?.data || null);
       setTransactions(txRes.data?.data || []);
@@ -83,7 +89,7 @@ export const PersonnelHome: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to load personnel dashboard:', err);
-      setLoadError(err?.response?.data?.message || 'Unable to connect to DepEd HRIS portal records.');
+      setLoadError(err?.response?.data?.message || 'Your records could not be loaded, so your to-do list cannot be shown. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -146,11 +152,15 @@ export const PersonnelHome: React.FC = () => {
           onOpenScanner={() => setScannerOpen(true)}
         />
 
-        {/* 2. Priority Next Action Panel */}
-        <NextActionPanel
-          transactions={transactions}
-          documents={documents}
-        />
+        {/* 2. What needs this person, then what is waiting for a reviewer */}
+        {(() => {
+          const { tasks, waiting } = homeTasks({
+            transactions: transactions as any, applications: myApplications,
+            missingRequiredFiles: readiness.missing, profileComplete: typeof personnel?.profileComplete === 'boolean' ? personnel.profileComplete : null,
+            cycles: openCycles as any,
+          });
+          return <WhatToDo tasks={tasks} waiting={waiting} onOpenCycle={(id: number) => { const c = openCycles.find(x => x.id === id); if (c) setSelectedCycleForChecklist(c); }} />;
+        })()}
 
         {/* 3. Task-Oriented Overview Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginBottom: 24, alignItems: 'start' }}>
