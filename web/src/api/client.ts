@@ -26,6 +26,27 @@ export const refreshAccessToken = singleFlight(async (): Promise<string> => {
   return accessToken;
 });
 
+/**
+ * A token that is safe to put in a live-stream URL: refreshed first when it has
+ * expired or is about to. An EventSource cannot see the 401 or refresh on its
+ * own, so reconnecting with a stale token would just fail again and again.
+ * Returns null when there is no usable session.
+ */
+export const freshAccessToken = async (): Promise<string | null> => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (typeof payload.exp === 'number' && payload.exp * 1000 - Date.now() > 30000) return token;
+  } catch {
+    return token; // Not a readable JWT: let the server decide.
+  }
+  try { return await refreshAccessToken(); } catch { return null; }
+};
+
+/** Delay before the next stream reconnect: 3.5 s, doubling to a 60 s ceiling. */
+export const streamBackoff = (failures: number) => Math.min(60000, 3500 * 2 ** Math.max(0, failures - 1));
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {

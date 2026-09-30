@@ -264,6 +264,6 @@ test('tile lines say what is there instead of just "none"', () => {
 test('home side panels hide instead of guessing when they cannot load', () => {
   const home = src('pages/personnel/Home.tsx');
   assert.match(home, /service-record'\)\.then\(r => setRecord\([^)]*\)\)\.catch\(\(\) => setRecord\(null\)\)/);
-  assert.match(home, /\{record && facts\.length > 0 &&/);
+  assert.match(home, /\{record && careerFacts\.length > 0 &&/);
   assert.match(home, /\{recent && \(/);
 });

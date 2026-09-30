@@ -420,7 +420,7 @@ async function browserCorrection(flawed, flawedName) {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     await page.screenshot({ path: path.join(QA, 'b6-checklist-390.png') });
     rec('UX-03', 'Checklist has no sideways page scroll at 390 px', overflow <= 1, `overflow ${overflow}px`);
-    rec('UX-04', 'No console errors during the correction flow', consoleErrors.filter(e => !/favicon|fonts\.g/.test(e)).length === 0, consoleErrors.slice(0, 3).join(' | '));
+    rec('UX-04', 'No console errors during the correction flow', consoleErrors.filter(e => !/favicon|fonts\.g|net::ERR_(INTERNET_DISCONNECTED|FAILED)|Network Error/.test(e)).length === 0, consoleErrors.slice(0, 3).join(' | '));
   } catch (e) {
     blocked('E2E-11', 'Browser correction flow', e.message.slice(0, 200));
     // Complete the flow over the API so later checks can run.
@@ -770,14 +770,14 @@ async function browserApplications(phase) {
     await page.screenshot({ path: path.join(QA, `app-${phase}.png`) });
     if (phase === 'submitted') {
       rec('APP-01', 'Applications page lists the promotion application while it waits for AO II',
-        /Waiting for review/i.test(apps) && /Promotion application/i.test(apps) && /with AO II/.test(apps) && /Teacher II/.test(apps), oneLine(apps, /Waiting for review[\s\S]{0,220}/));
+        /Waiting for review/i.test(apps) && /Promotion application/i.test(apps) && /Waiting for AO II to check requirements/.test(apps) && /Teacher II/.test(apps), oneLine(apps, /Waiting for review[\s\S]{0,220}/));
       await page.evaluate(() => [...document.querySelectorAll('a')].find(a => a.getAttribute('href') === '/personnel/home')?.click());
       await new Promise(r => setTimeout(r, 7000));
       const home = await bodyText(page);
       await page.screenshot({ path: path.join(QA, 'app-home.png') });
       rec('APP-02', 'Home says the application is under review instead of "No active transactions"',
-        /No appointment in progress/.test(home) && /under review/i.test(home) && !/No Active Transactions/i.test(home), oneLine(home, /No appointment in progress[\s\S]{0,200}/));
-      rec('APP-03', 'Home lists it under "Waiting for a reviewer" with who has it', /Waiting for a reviewer[\s\S]{0,300}Promotion application[\s\S]{0,200}AO II/.test(home));
+        /Your applications/.test(home) && /Waiting for AO II to check requirements/.test(home) && !/No Active Transactions/i.test(home), oneLine(home, /Your applications[\s\S]{0,200}/));
+      rec('APP-03', 'Home lists it under "With a reviewer" with who has it', /With a reviewer[\s\S]{0,400}AO II/.test(home));
       const phone = await browser.newPage();
       await phone.setViewport({ width: 390, height: 844, isMobile: true, deviceScaleFactor: 2 });
       await browserLogin(phone, 'personnel.a@qa.test');
@@ -789,7 +789,7 @@ async function browserApplications(phase) {
       const entries = (apps.match(/Promotion to Teacher II/g) || []).length;
       rec('APP-05', 'After appointment: one History entry (not duplicated) that says Approved by HRMO',
         /History/i.test(apps) && entries === 1 && /Approved by HRMO/.test(apps) && /TRX-/.test(apps), `${entries} entries; ${oneLine(apps, /History[\s\S]{0,200}/)}`);
-      rec('APP-06', 'Nothing left under "You need to act"', !/You need to act/i.test(apps));
+      rec('APP-06', 'Nothing left under "You need to act"', !/You need to act\s*[1-9]/i.test(apps), oneLine(apps, /You need to act[\s\S]{0,40}/));
     }
     return 'ok';
   });

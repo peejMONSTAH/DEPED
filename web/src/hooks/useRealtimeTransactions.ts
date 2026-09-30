@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { apiUrl } from '../api/client';
+import { apiUrl, freshAccessToken, streamBackoff } from '../api/client';
 
 /**
  * Custom React hook for real-time transaction updates using SSE (Server-Sent Events)
@@ -17,14 +17,16 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
     let reconnectTimeout: any = null;
     let isDisposed = false;
 
-    const connectSSE = () => {
+    let failures = 0;
+    const connectSSE = async () => {
       if (isDisposed) return;
       try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
+        const token = await freshAccessToken();
+        if (!token || isDisposed) return;
         const url = apiUrl(`/transactions/stream?token=${encodeURIComponent(token)}`);
         eventSource = new EventSource(url);
 
+        eventSource.onopen = () => { failures = 0; };
         eventSource.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
@@ -42,7 +44,8 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
             eventSource = null;
           }
           if (!isDisposed) {
-            reconnectTimeout = setTimeout(connectSSE, 3500);
+            failures += 1;
+            reconnectTimeout = setTimeout(connectSSE, streamBackoff(failures));
           }
         };
       } catch {
