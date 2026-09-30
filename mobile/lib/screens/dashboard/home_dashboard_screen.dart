@@ -352,6 +352,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         title: const EminenceLogo(
           variant: EminenceLogoVariant.wordmark,
           size: EminenceLogoSize.md,
+          showSubtitle: false,
         ),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
@@ -448,7 +449,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       _buildNavTabItem(
                           index: 3,
                           icon: LucideIcons.award,
-                          label: 'Service Record'),
+                          label: 'Service'),
                       // Profile sits at the far right. The index is the page
                       // it opens, not its position in this row.
                       _buildNavTabItem(
@@ -479,7 +480,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         onTap: () => setState(() => _currentIndex = index),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -535,18 +536,37 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               // them readable; scaleDown on a single line would shrink
               // "My Documents" to roughly 8px inside a 320px five-tab bar.
               // scaleDown is kept as the floor for the longest single word.
-              Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  height: 1.15,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: color,
+              // A one-word label ("Applications") must never break mid-word:
+              // keep it on one line and shrink it slightly if the tab is narrow.
+              if (!label.contains(' '))
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      height: 1.15,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: color,
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    height: 1.15,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: color,
+                  ),
                 ),
-              ),
             ],
           ),
         ),

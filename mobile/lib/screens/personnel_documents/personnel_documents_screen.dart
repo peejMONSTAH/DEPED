@@ -301,7 +301,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
           ? null
           : Padding(
               // Clear the dashboard's floating nav bar when shown as a tab.
-              padding: EdgeInsets.only(bottom: widget.embedded ? 78 : 0),
+              padding: EdgeInsets.only(bottom: widget.embedded ? 104 : 0),
               child: FloatingActionButton.extended(
                 onPressed: () => _openAddDocumentSheet(),
                 backgroundColor: AppTheme.brandDark,

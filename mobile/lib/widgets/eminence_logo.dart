@@ -75,7 +75,6 @@ class EminenceLogo extends StatelessWidget {
 
   Widget _buildWordmark() {
     final fontSz = fontSize;
-    final badgeSz = size == EminenceLogoSize.sm ? 8.5 : (size == EminenceLogoSize.lg ? 11.0 : 9.5);
 
     return FittedBox(
       fit: BoxFit.scaleDown,
@@ -84,40 +83,13 @@ class EminenceLogo extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'DIGITAL 201',
-                style: customStyle ??
-                    GoogleFonts.plusJakartaSans(
-                      fontSize: fontSz,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                      color: AppTheme.textPrimary,
-                      height: 1.1,
-                    ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.brandDark,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'HRMIS',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: badgeSz,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                    color: Colors.white,
-                    height: 1.0,
-                  ),
-                ),
-              ),
-            ],
+          // Brand header lockup (mark + DIGITAL 201), from brand-assets.
+          Image.asset(
+            'assets/images/digital201-header-lockup.png',
+            height: fontSz * 1.6,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            semanticLabel: 'Digital 201',
           ),
           if (showSubtitle) ...[
             const SizedBox(height: 2),

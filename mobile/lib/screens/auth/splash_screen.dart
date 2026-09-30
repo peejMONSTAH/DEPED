@@ -4,13 +4,12 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
-import '../../widgets/eminence_logo.dart';
 import '../../widgets/resume_splash.dart';
 import '../dashboard/home_dashboard_screen.dart';
 import 'login_screen.dart';
 
 /// The brand moment shown on every launch and, briefly, when the app returns
-/// from the background: "DIGITAL 201 · HRMIS" rises in, a hairline draws
+/// from the background: the Digital 201 logo rises in, a hairline draws
 /// underneath. [t] runs 0 → 1.
 class SplashBrand extends StatelessWidget {
   const SplashBrand({super.key, required this.t});
@@ -34,10 +33,11 @@ class SplashBrand extends StatelessWidget {
               opacity: word,
               child: Transform.translate(
                 offset: Offset(0, 12 * (1 - word)),
-                child: const EminenceLogo(
-                  variant: EminenceLogoVariant.full,
-                  size: EminenceLogoSize.xl,
-                  showSubtitle: false,
+                child: Image.asset(
+                  'assets/images/digital201-header-lockup.png',
+                  width: 280,
+                  filterQuality: FilterQuality.high,
+                  semanticLabel: 'Digital 201',
                 ),
               ),
             ),
