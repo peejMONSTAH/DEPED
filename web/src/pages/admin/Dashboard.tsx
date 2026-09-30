@@ -254,6 +254,11 @@ export const AdminDashboard: React.FC = () => {
     user?.role === 'TEACHING_PERSONNEL' ? 'Teaching Personnel' :
     user?.role === 'NON_TEACHING_PERSONNEL' ? 'Non-Teaching Personnel' : '';
 
+  // An AO II's school is part of who they are on Home. Older sessions did not carry it, so fall back to the station the address starts with.
+  const stationName = user?.role === 'AO_II'
+    ? (user.school || user.personnel?.school || (user.address || user.personnel?.address || '').split(',')[0].trim() || null)
+    : null;
+
   if (dashboardError && !summary) return (
     <div className="dashboard-editorial-root">
       <h1>Dashboard unavailable</h1>
@@ -480,6 +485,22 @@ export const AdminDashboard: React.FC = () => {
               }}
             >
               {userRoleBadge}
+            </span>
+          )}
+          {stationName && (
+            <span
+              title="Your station"
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: 9999,
+                background: '#17472E',
+                color: '#FFFFFF',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {stationName}
             </span>
           )}
         </div>

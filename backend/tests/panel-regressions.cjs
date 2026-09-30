@@ -17,9 +17,14 @@ test('mobile, suffix, email and plantilla validation cannot be bypassed through 
   assert.ok(validatePersonnelInput({plantillaItemId:'12garbage'}));
   assert.equal(validatePersonnelInput({suffix:'VIII',plantillaItemId:12}), null);
 });
-test('AO station accounts need a school and do not need invented demographics', () => {
-  assert.equal(validateAccountInput({role:'AO_II',schoolAssignment:'Test School'}), null);
-  assert.ok(validateAccountInput({role:'AO_II'}));
+test('an AO II account is a person: it needs a school and the same identity as any personnel account', () => {
+  const ao = {role:'AO_II',schoolAssignment:'Test School',firstName:'Alma',lastName:'Aquino',birthDate:'1985-03-04',gender:'FEMALE',civilStatus:'MARRIED'};
+  assert.equal(validateAccountInput(ao), null, 'no position is asked for: an AO II is Administrative Officer II');
+  assert.match(validateAccountInput({...ao,schoolAssignment:''}), /school assignment/i);
+  for (const missing of ['firstName','lastName','birthDate','gender','civilStatus']) {
+    assert.match(validateAccountInput({...ao,[missing]:undefined}), /identity/i, `${missing} is required`);
+  }
+  assert.ok(validateAccountInput({role:'AO_II'}), 'the old station-only payload is no longer enough');
 });
 test('personnel creation needs real identity plus explicit appointment allocation', () => {
   const person = {role:'TEACHING_PERSONNEL',firstName:'Test',lastName:'Person',birthDate:'1990-01-01',gender:'FEMALE',civilStatus:'SINGLE',designation:'Teacher I'};

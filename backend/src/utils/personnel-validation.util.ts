@@ -35,10 +35,12 @@ export function validatePersonnelInput(body: Record<string, unknown>): string | 
 export function validateAccountInput(body: Record<string, unknown>): string | null {
   const error = validatePersonnelInput(body);
   if (error) return error;
-  if (body.role === 'AO_II') {
-    if (typeof body.schoolAssignment !== 'string' || !body.schoolAssignment.trim()) return 'A school assignment is required for an AO II station account.';
-  } else if (!body.personnelId) {
-    if (!body.firstName || !body.lastName || !body.birthDate || !body.gender || !body.civilStatus || !body.designation) return 'Complete the required personnel identity and position fields.';
+  // An AO II is a person, not a station: the same identity fields as any personnel account, plus the school they are assigned to.
+  if (body.role === 'AO_II' && (typeof body.schoolAssignment !== 'string' || !body.schoolAssignment.trim())) return 'A school assignment is required for an AO II account.';
+  if (!body.personnelId) {
+    if (!body.firstName || !body.lastName || !body.birthDate || !body.gender || !body.civilStatus) return 'Complete the required personnel identity fields: name, date of birth, sex and civil status.';
+    // An AO II's position is fixed, so it is not asked for.
+    if (body.role !== 'AO_II' && !body.designation) return 'Complete the required personnel identity and position fields.';
   }
   if (isPersonnelRole(body.role) && !body.personnelId && !body.plantillaItemId && body.nonPlantilla !== true) return 'Select a vacant plantilla item or explicitly identify a non-plantilla appointment.';
   return null;

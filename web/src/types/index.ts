@@ -14,6 +14,11 @@ export interface AuthUser {
   firstName?: string;
   lastName?: string;
   personnelId?: number;
+  /** The person's station, from sign-in. */
+  school?: string | null;
+  district?: string | null;
+  designation?: string;
+  address?: string;
   personnel?: {
     id: number;
     firstName: string;

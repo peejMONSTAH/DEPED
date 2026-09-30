@@ -189,6 +189,8 @@ const completeSignIn = async (user: any, req: Request, res: Response, extra: Rec
       lastName: user.personnel?.lastName,
       designation: user.personnel?.designation,
       address: user.personnel?.address,
+      school: user.personnel?.school ?? null,
+      district: user.personnel?.district ?? null,
       personnelId: user.personnel?.id ?? null,
       mustChangePassword,
     },

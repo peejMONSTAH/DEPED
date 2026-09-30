@@ -334,3 +334,26 @@ test('18. the phone still refuses the System Administrator', async () => {
   assert.equal(res.status, 403);
   assert.equal(res.json.code, 'PHONE_APP_PERSONNEL_ONLY');
 });
+
+// ── AO II accounts are people ────────────────────────────────────────────────
+
+test('19. an AO II account is created with the person\'s real identity, position and school', async () => {
+  const body = {
+    email: 'new.ao@hrdirect.invalid', password: 'Temp#Pass2026!', role: 'AO_II', firstName: 'Nora', lastName: 'Bautista', middleName: 'Cruz',
+    birthDate: '1987-05-09', gender: 'FEMALE', civilStatus: 'MARRIED', contactNumber: '09171234567', dateHired: '2014-06-02',
+    schoolAssignment: MORALES, district: 'District 1', address: 'Morales, Koronadal City',
+  };
+  const res = await post(people.hrmo1, '/users', body);
+  assert.equal(res.status, 201, res.text);
+  const saved = await db.personnel.findFirst({ where: { user: { email: body.email } } });
+  assert.equal(saved.firstName, 'Nora');
+  assert.equal(saved.lastName, 'Bautista');
+  assert.equal(saved.designation, 'Administrative Officer II', 'the position is fixed');
+  assert.equal(saved.school, MORALES);
+  assert.equal(saved.gender, 'FEMALE');
+  assert.ok(saved.birthDate && saved.dateHired);
+  assert.equal(saved.profileComplete, true);
+  // The old station-only payload is refused.
+  const legacy = await post(people.hrmo1, '/users', { email: 'legacy.ao@hrdirect.invalid', password: 'Temp#Pass2026!', role: 'AO_II', schoolAssignment: MORALES });
+  assert.equal(legacy.status, 400);
+});

@@ -248,13 +248,13 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
 
       // School & District preference for AO and Division-level accounts
       const isDivisionLevel = role === 'HRMO' || role === 'SYSTEM_ADMIN';
-      const finalFirstName = role === 'AO_II' ? 'AO II' : String(firstName).trim();
-      const finalLastName = role === 'AO_II' ? String(schoolAssignment).trim() : String(lastName).trim();
+      const finalFirstName = String(firstName).trim();
+      const finalLastName = String(lastName).trim();
       const finalDesignation = targetPlantillaItem
         ? targetPlantillaItem.positionTitle
         : (designation || (
           role === 'AO_II'
-            ? (schoolAssignment ? `Administrative Officer II - ${schoolAssignment}${district ? ` (${district})` : ''}` : 'Administrative Officer II')
+            ? 'Administrative Officer II'
             : role === 'HRMO'
               ? 'HRMO Approver / Manager'
               : role === 'SYSTEM_ADMIN'
@@ -277,12 +277,12 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
           employeeId: generatedEmployeeId,
           firstName: finalFirstName,
           lastName: finalLastName,
-          middleName: role === 'AO_II' ? null : middleName || null,
-          suffix: role === 'AO_II' ? null : suffix || null,
+          middleName: middleName || null,
+          suffix: suffix || null,
           designation: finalDesignation,
-          birthDate: role === 'AO_II' ? null : new Date(birthDate),
-          gender: role === 'AO_II' ? null : gender,
-          civilStatus: role === 'AO_II' ? null : civilStatus,
+          birthDate: new Date(birthDate),
+          gender,
+          civilStatus,
           contactNumber: contactNumber || null,
           address: finalAddress,
           school: isDivisionLevel ? null : (targetPlantillaItem?.department || schoolAssignment || null),
@@ -290,7 +290,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
           status: 'ACTIVE',
           dateHired: dateHired ? new Date(dateHired) : null,
           plantillaItemId: targetPlantillaItem ? targetPlantillaItem.id : undefined,
-          profileComplete: role === 'AO_II' || Boolean(firstName && lastName && birthDate && gender && civilStatus && contactNumber && finalAddress && dateHired),
+          profileComplete: Boolean(firstName && lastName && birthDate && gender && civilStatus && contactNumber && finalAddress && dateHired),
         },
       });
 

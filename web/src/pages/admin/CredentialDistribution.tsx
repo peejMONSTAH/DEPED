@@ -61,12 +61,11 @@ export const CredentialDistribution: React.FC = () => {
 
   const defaultDistrict = DEPED_KORONADAL_DISTRICTS[0];
   const defaultSchool = defaultDistrict.schools[0];
-  const defaultSchoolSlug = defaultSchool.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
 
   // Account creation form (Complete PDS CS Form 212 Fields + AO District/School Assignment)
   const [formData, setFormData] = useState({
-    firstName: isSysAdmin ? 'AO II' : '',
-    lastName: isSysAdmin ? defaultSchool : '',
+    firstName: '',
+    lastName: '',
     middleName: '',
     suffix: '',
     birthDate: '',
@@ -75,9 +74,9 @@ export const CredentialDistribution: React.FC = () => {
     contactNumber: '',
     address: `${defaultSchool}, ${defaultDistrict.name}`,
     dateHired: '',
-    email: isSysAdmin ? `ao.${defaultSchoolSlug}@deped.gov.ph` : '',
+    email: '',
     password: generateInitialPassword(),
-    position: isSysAdmin ? `Administrative Officer II - ${defaultSchool} (${defaultDistrict.name})` : 'Teacher I',
+    position: isSysAdmin ? 'Administrative Officer II' : 'Teacher I',
     schoolAssignment: defaultSchool,
     selectedDistrictId: defaultDistrict.id,
     selectedSchool: defaultSchool,
@@ -174,13 +173,9 @@ export const CredentialDistribution: React.FC = () => {
       if (formData.personnelType === 'AO_II' && (!formData.position || formData.position === 'Teacher I')) {
         const dist = DEPED_KORONADAL_DISTRICTS.find(d => d.id === formData.selectedDistrictId) || defaultDistrict;
         const sch = formData.selectedSchool || defaultSchool;
-        const sSlug = sch.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
         setFormData(prev => ({
           ...prev,
-          firstName: prev.firstName || 'AO II',
-          lastName: prev.lastName || sch,
-          position: `Administrative Officer II - ${sch} (${dist.name})`,
-          email: prev.email || `ao.${sSlug}@deped.gov.ph`,
+          position: 'Administrative Officer II',
           address: `${sch}, ${dist.name}`,
         }));
       }
@@ -190,7 +185,6 @@ export const CredentialDistribution: React.FC = () => {
   const handleDistrictChange = (districtId: number) => {
     const district = DEPED_KORONADAL_DISTRICTS.find(d => d.id === districtId) || DEPED_KORONADAL_DISTRICTS[0];
     const firstSchool = district.schools[0] || 'District Office';
-    const schoolSlug = firstSchool.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
     
     setFormData(prev => {
       if (prev.personnelType === 'AO_II') {
@@ -199,10 +193,7 @@ export const CredentialDistribution: React.FC = () => {
           selectedDistrictId: districtId,
           selectedSchool: firstSchool,
           schoolAssignment: firstSchool,
-          firstName: 'AO II',
-          lastName: firstSchool,
-          email: `ao.${schoolSlug}@deped.gov.ph`,
-          position: `Administrative Officer II - ${firstSchool} (${district.name})`,
+          position: 'Administrative Officer II',
           address: `${firstSchool}, ${district.name}`,
         };
       }
@@ -218,7 +209,6 @@ export const CredentialDistribution: React.FC = () => {
 
   const handleSchoolChange = (schoolName: string) => {
     const district = DEPED_KORONADAL_DISTRICTS.find(d => d.id === formData.selectedDistrictId) || DEPED_KORONADAL_DISTRICTS[0];
-    const schoolSlug = schoolName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
     
     setFormData(prev => {
       if (prev.personnelType === 'AO_II') {
@@ -226,10 +216,7 @@ export const CredentialDistribution: React.FC = () => {
           ...prev,
           selectedSchool: schoolName,
           schoolAssignment: schoolName,
-          firstName: 'AO II',
-          lastName: schoolName,
-          email: `ao.${schoolSlug}@deped.gov.ph`,
-          position: `Administrative Officer II - ${schoolName} (${district.name})`,
+          position: 'Administrative Officer II',
           address: `${schoolName}, ${district.name}`,
         };
       }
@@ -341,14 +328,14 @@ export const CredentialDistribution: React.FC = () => {
     const isCreatingAo = formData.personnelType === 'AO_II';
     const isDivisionLevel = formData.personnelType === 'HRMO' || formData.personnelType === 'SYSTEM_ADMIN';
     const isSchoolPersonnel = formData.personnelType === 'TEACHING_PERSONNEL' || formData.personnelType === 'NON_TEACHING_PERSONNEL';
-    const effectiveFirstName = isCreatingAo ? 'AO II' : formData.firstName.trim();
-    const effectiveLastName = isCreatingAo ? formData.selectedSchool : formData.lastName.trim();
+    const effectiveFirstName = formData.firstName.trim();
+    const effectiveLastName = formData.lastName.trim();
 
-    if (!isCreatingAo && !effectiveFirstName) {
+    if (!effectiveFirstName) {
       addToast('Please enter the First Name in Personal Details.', 'WARNING');
       return;
     }
-    if (!isCreatingAo && !effectiveLastName) {
+    if (!effectiveLastName) {
       addToast('Please enter the Last Name in Personal Details.', 'WARNING');
       return;
     }
@@ -374,13 +361,13 @@ export const CredentialDistribution: React.FC = () => {
         role: formData.personnelType,
         firstName: effectiveFirstName,
         lastName: effectiveLastName,
-        middleName: isCreatingAo ? '' : formData.middleName.trim(),
-        suffix: isCreatingAo ? '' : formData.suffix.trim(),
-        birthDate: isCreatingAo ? undefined : formData.birthDate,
-        gender: isCreatingAo ? undefined : formData.gender,
-        civilStatus: isCreatingAo ? undefined : formData.civilStatus,
-        contactNumber: isCreatingAo ? '' : formData.contactNumber.trim(),
-        address: isCreatingAo ? `${formData.selectedSchool}, ${currentDistrict.name}` : (
+        middleName: formData.middleName.trim(),
+        suffix: formData.suffix.trim(),
+        birthDate: formData.birthDate,
+        gender: formData.gender,
+        civilStatus: formData.civilStatus,
+        contactNumber: formData.contactNumber.trim(),
+        address: (
           formData.address.trim() || (
             isDivisionLevel
               ? (formData.personnelType === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
@@ -388,11 +375,11 @@ export const CredentialDistribution: React.FC = () => {
           )
         ),
         designation: isCreatingAo
-          ? `Administrative Officer II - ${formData.selectedSchool} (${currentDistrict.name})`
+          ? 'Administrative Officer II'
           : isDivisionLevel
             ? (formData.personnelType === 'HRMO' ? 'HRMO Approver / Manager' : 'System Administrator')
             : formData.position,
-        dateHired: isCreatingAo ? undefined : formData.dateHired,
+        dateHired: formData.dateHired,
         nonPlantilla: isSchoolPersonnel && isNonPlantilla,
         district: isDivisionLevel ? undefined : isCreatingAo ? currentDistrict.name : undefined,
         schoolAssignment: isDivisionLevel ? undefined : isCreatingAo ? formData.selectedSchool : formData.schoolAssignment,
@@ -402,8 +389,8 @@ export const CredentialDistribution: React.FC = () => {
       if (isSysAdmin) {
         const res = await apiClient.post('/users', payload);
         const created = res.data?.data;
-        const displayName = isCreatingAo ? `AO II ${formData.selectedSchool}` : `${effectiveFirstName} ${effectiveLastName}`;
-        addToast(`Station Account created for ${displayName}! Employee ID: ${created?.employeeId || 'Generated'}.`, 'SUCCESS');
+        const displayName = `${effectiveFirstName} ${effectiveLastName}`;
+        addToast(`Account created for ${displayName}! Employee ID: ${created?.employeeId || 'Generated'}.`, 'SUCCESS');
       } else {
         const requestForm = new FormData();
         Object.entries(payload).forEach(([key, value]) => {
@@ -411,7 +398,7 @@ export const CredentialDistribution: React.FC = () => {
         });
         if (pdsFile) requestForm.append('pdsFile', pdsFile);
         await apiClient.post('/users/requests', requestForm);
-        const displayName = isCreatingAo ? `AO II ${formData.selectedSchool}` : `${effectiveFirstName} ${effectiveLastName}`;
+        const displayName = `${effectiveFirstName} ${effectiveLastName}`;
         addToast(`Account creation request for ${displayName} submitted to System Administrator for approval!`, 'SUCCESS');
       }
 
@@ -974,9 +961,8 @@ export const CredentialDistribution: React.FC = () => {
                           const cat = e.target.value as any;
                           const dist = DEPED_KORONADAL_DISTRICTS.find(d => d.id === formData.selectedDistrictId) || defaultDistrict;
                           const sch = formData.selectedSchool || defaultSchool;
-                          const sSlug = sch.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12);
                           if (cat === 'AO_II') {
-                            setFormData(prev => ({ ...prev, personnelType: 'AO_II', selectedDistrictId: dist.id, selectedSchool: sch, schoolAssignment: sch, firstName: 'AO II', lastName: sch, email: `ao.${sSlug}@deped.gov.ph`, position: `Administrative Officer II - ${sch} (${dist.name})`, address: `${sch}, ${dist.name}` }));
+                            setFormData(prev => ({ ...prev, personnelType: 'AO_II', selectedDistrictId: dist.id, selectedSchool: sch, schoolAssignment: sch, firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: 'Administrative Officer II', address: `${sch}, ${dist.name}` }));
                           } else if (cat === 'HRMO') {
                             setFormData(prev => ({ ...prev, personnelType: 'HRMO', firstName: prev.firstName === 'AO II' ? '' : prev.firstName, lastName: prev.lastName === sch ? '' : prev.lastName, email: prev.email.startsWith('ao.') ? '' : prev.email, position: 'HRMO Approver / Manager', schoolAssignment: '', selectedSchool: '', address: 'Schools Division Office, SDO Koronadal City' }));
                           } else if (cat === 'SYSTEM_ADMIN') {
@@ -1208,8 +1194,8 @@ export const CredentialDistribution: React.FC = () => {
                   </div>
                 )}
 
-                {/* Row 2: Personal Info — Hidden for AO II */}
-                {formData.personnelType !== 'AO_II' && (
+                {/* Row 2: Personal Information. An AO II is a person, so it applies to them as well. */}
+                {(
                   <div>
                     <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <AppIcon name="profile" size={14} /> Personal Information
@@ -1275,38 +1261,9 @@ export const CredentialDistribution: React.FC = () => {
                 {/* Row 3: Credentials */}
                 <div>
                   <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <AppIcon name="credentials" size={14} /> {formData.personnelType === 'AO_II' ? 'Account Credentials' : 'Contact & Credentials'}
+                    <AppIcon name="credentials" size={14} /> Contact & Credentials
                   </div>
-                  {formData.personnelType === 'AO_II' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-2, repeat(2, minmax(0, 1fr)))', gap: '14px' }}>
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label" style={{ fontWeight: 700 }}>
-                          Station Email Address <span style={{ color: 'var(--color-danger)' }}>*</span>
-                        </label>
-                        <input
-                          aria-label="Station Email Address"
-                          type="email"
-                          className="form-input"
-                          placeholder="ao.school@deped.gov.ph"
-                          value={formData.email}
-                          onChange={e => setFormData({ ...formData, email: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label" style={{ fontWeight: 700 }}>
-                          Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span>
-                        </label>
-                        <input aria-label="Initial Password"
-                          type="text"
-                          className="form-input"
-                          value={formData.password}
-                          onChange={e => setFormData({ ...formData, password: e.target.value })}
-                          required
-                        />
-                      </div>
-                    </div>
-                  ) : (
+                  {(
                     <div style={{ display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, 1fr 1fr 1fr 1fr)', gap: '12px' }}>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Email Address <span style={{ color: 'var(--color-danger)' }}>*</span></label>
