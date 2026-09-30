@@ -46,6 +46,14 @@ test('the progress track shows only the people a case can pass through', () => {
 
 // ── Notifications: server-decided targets and action state ───────────────────────────────────────
 
+test('candidate dossier receives the assigned reviewer and preserves the recorded reviewer role', () => {
+  const dossier = src('pages/admin/CandidateDossierModal.tsx');
+  assert.doesNotMatch(dossier, /Awaiting AO II|AO II · Annex C|<span>AO II remarks/);
+  assert.match(dossier, /pending: `Awaiting \$\{checker\}`/);
+  assert.match(dossier, /reqCheck\?\.verifiedByRole === 'HRMO'/);
+  assert.match(src('pages/admin/PromotionManagement.tsx'), /requirementsReviewer=\{requirementsReviewer\(selectedApplicantInfo\)\}/);
+});
+
 const notice = extra => ({ id: 1, message: 'x', type: 'INFO', isRead: false, createdAt: '2026-09-30T00:00:00Z', relatedEntityId: 5, relatedEntityType: 'Transaction', ...extra });
 
 test('a review notice opens the exact review screen the server chose, even in personnel view', () => {

@@ -56,6 +56,7 @@ export interface AnnexCVerificationModalProps {
   onSubmit: (e: React.FormEvent) => void;
   isPending: boolean;
   initialActiveDocCode?: string;
+  reviewerLabel?: string;
 }
 
 const formatSize = (bytes?: number): string => {
@@ -81,6 +82,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
   onSubmit,
   isPending,
   initialActiveDocCode,
+  reviewerLabel = 'AO II',
 }) => {
   // Document Inspector State
   const [activeDoc, setActiveDoc] = useState<AnnexCItemState | null>(() => {
@@ -200,7 +202,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
         <div className="annex-c-header">
           <div className="annex-c-header-left">
             <div className="annex-c-stage-badge">
-              <span>Stage 1 • Administrative Officer II (AO II)</span>
+              <span>Stage 1 • {reviewerLabel} requirements review</span>
               <span>•</span>
               <span>DepEd Order No. 007, s. 2023</span>
             </div>
@@ -507,7 +509,7 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
               {/* AO II Overall Finding Card */}
               <div className={`annex-c-finding-card ${completenessStatus === 'COMPLETE' ? 'status-complete' : 'status-incomplete'}`}>
                 <span className="annex-c-finding-header" style={{ color: completenessStatus === 'COMPLETE' ? '#059669' : '#dc2626' }}>
-                  AO II Overall Requirements Verification Finding
+                  {reviewerLabel} Overall Requirements Verification Finding
                 </span>
 
                 <div className="annex-c-radios">
@@ -546,11 +548,11 @@ export const AnnexCVerificationModal: React.FC<AnnexCVerificationModalProps> = (
                     style={{ marginBottom: '4px' }}
                     htmlFor="ao-verification-remarks"
                   >
-                    AO II Verification Remarks / Notes for HRMPSB
+                    {reviewerLabel} Verification Remarks / Notes for HRMPSB
                   </label>
                   <textarea
                     id="ao-verification-remarks"
-                    aria-label="AO II Verification Remarks / Notes for HRMPSB"
+                    aria-label={`${reviewerLabel} Verification Remarks / Notes for HRMPSB`}
                     className="annex-c-remarks-textarea"
                     rows={2}
                     value={remarks}

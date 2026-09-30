@@ -147,6 +147,41 @@ test.after(async () => {
   await admin.$disconnect();
 });
 
+test('an AO promotion applicant is reviewed by HRMO and the list exposes the matching action', async () => {
+  const owner = await account('promotionApplicant', 'AO_II', MORALES);
+  const cycle = await db.promotionCycle.create({ data: {
+    name: 'Administrative Officer IV test', type: 'NATURAL_VACANCY', status: 'ACTIVE',
+    startDate: new Date(Date.now() - 86400000), endDate: new Date(Date.now() + 86400000),
+    rulesConfigurationJson: { track: 'NON_TEACHING', targetPosition: 'Administrative Officer IV' },
+  } });
+  const application = await db.promotionApplication.create({ data: { personnelId: owner.personnelId, promotionCycleId: cycle.id, status: 'SUBMITTED' } });
+  const root = `/promotions/cycles/${cycle.id}`;
+  const vacancies = await get(owner, '/promotions/cycles');
+  assert.equal(vacancies.status, 200, vacancies.text);
+  assert.equal(vacancies.json.data.find(c => c.id === cycle.id)?.myApplication?.checker, 'HRMO', 'vacancy cards must use the same checker as the personnel application');
+  for (const suffix of ['/applications', '/leaderboard']) {
+    const hr = await get(people.hrmo1, root + suffix);
+    assert.equal(hr.status, 200, hr.text);
+    const row = hr.json.data.find(a => a.id === application.id);
+    assert.equal(row.requirementsReviewer, 'HRMO');
+    assert.equal(row.canVerifyRequirements, true, 'HRMO must be offered the requirements action');
+    const ao = await get(people.moralesAo, root + suffix);
+    assert.equal(ao.json.data.find(a => a.id === application.id)?.canVerifyRequirements ?? false, false, 'AO cannot verify another AO applicant, including when it is excluded from their list');
+    const self = await get(owner, root + suffix);
+    assert.equal(self.json.data.find(a => a.id === application.id)?.canVerifyRequirements ?? false, false, 'no self verification');
+  }
+  const endpoint = root + `/applications/${application.id}/verify-requirements`;
+  assert.ok([403, 404].includes((await post(people.moralesAo, endpoint, { status: 'COMPLETE' })).status));
+  assert.ok([403, 404].includes((await post(owner, endpoint, { status: 'COMPLETE' })).status));
+  const verified = await post(people.hrmo1, endpoint, { status: 'COMPLETE' });
+  assert.equal(verified.status, 200, verified.text);
+  const saved = await db.promotionApplication.findUnique({ where: { id: application.id } });
+  assert.equal(saved.scoreDetailsJson.requirementsCheck.verifiedByRole, 'HRMO');
+  assert.match(saved.scoreDetailsJson.requirementsCheck.remarks, /by HRMO/);
+  const { deliberationBlockReason } = require('../../src/utils/promotion-stage.util');
+  assert.equal(deliberationBlockReason(saved.scoreDetailsJson), null);
+});
+
 test('1. an AO II validates a teaching transaction of their own station', async () => {
   const res = await post(people.moralesAo, `/transactions/${f.teacherTx.id}/validate`, validateBody(f.teacherTx));
   assert.equal(res.status, 200, res.text);

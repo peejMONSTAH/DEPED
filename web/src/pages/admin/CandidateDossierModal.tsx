@@ -9,6 +9,7 @@ interface CandidateDossierModalProps {
   applicant: any;
   isTeachingTrack: boolean;
   canDeliberate: boolean;
+  requirementsReviewer?: string;
   onDeliberate: () => void;
   onClose: () => void;
 }
@@ -50,7 +51,7 @@ const CriteriaGroup: React.FC<{ title: string; items: Criterion[]; deliberated: 
 
 /** HR's read-only view of one candidate's CAR evaluation: documents, scores and appointment status. */
 export const CandidateDossierModal: React.FC<CandidateDossierModalProps> = ({
-  applicant, isTeachingTrack, canDeliberate, onDeliberate, onClose,
+  applicant, isTeachingTrack, canDeliberate, requirementsReviewer, onDeliberate, onClose,
 }) => {
   const details = applicant.scoreDetailsJson || {};
   const finalRating = details.finalRating || {};
@@ -97,7 +98,11 @@ export const CandidateDossierModal: React.FC<CandidateDossierModalProps> = ({
     : reqCheck?.status === 'INCOMPLETE' || details.stageStatus === 'REQUIREMENTS_DEFICIENT'
       ? 'deficient'
       : 'pending';
-  const reqLabel = { verified: 'Verified complete', deficient: 'Deficient', pending: 'Awaiting AO II' }[reqStatus];
+  const checker = requirementsReviewer || applicant.requirementsReviewer || 'reviewer';
+  const reviewedBy = reqCheck?.verifiedByRole === 'HRMO' ? 'HRMO'
+    : reqCheck?.verifiedByRole === 'AO_II' ? 'AO II'
+    : reqCheck?.verifiedByRole === 'SYSTEM_ADMIN' ? 'System Administrator' : checker;
+  const reqLabel = { verified: 'Verified complete', deficient: 'Deficient', pending: `Awaiting ${checker}` }[reqStatus];
 
   const checklistItems: any[] = Array.isArray(details.annexCChecklist?.items) ? details.annexCChecklist.items : [];
   const attached = checklistItems.filter(item => item?.submitted || item?.isSubmitted || item?.personnelDocumentId).length;
@@ -175,15 +180,15 @@ export const CandidateDossierModal: React.FC<CandidateDossierModalProps> = ({
             <div className="dossier-section-head">
               <span className="dossier-step">1</span>
               <h3>Documentary check</h3>
-              <span className="dossier-subtle">AO II · Annex C</span>
+              <span className="dossier-subtle">{reqStatus === 'pending' ? checker : reviewedBy} · Annex C</span>
               <span className={`dossier-status is-${reqStatus === 'verified' ? 'good' : reqStatus === 'deficient' ? 'bad' : 'neutral'}`}>{reqLabel}</span>
             </div>
             <dl className="dossier-grid">
-              <div><dt>Verified by</dt><dd>{reqCheck?.verifiedByName || (reqStatus === 'pending' ? '—' : 'Administrative Officer II')}</dd></div>
+              <div><dt>Verified by</dt><dd>{reqCheck?.verifiedByName || (reqStatus === 'pending' ? '—' : reviewedBy)}</dd></div>
               <div><dt>Annex C documents</dt><dd>{checklistItems.length ? `${attached} of ${checklistItems.length} attached` : 'No checklist submitted'}</dd></div>
               <div><dt>Omnibus sworn statement</dt><dd className={omnibusCertified ? 'is-good-text' : 'is-warn-text'}>{omnibusCertified ? 'Certified' : 'Pending'}</dd></div>
             </dl>
-            {aoRemarks && <blockquote className="dossier-remarks"><span>AO II remarks</span>{aoRemarks}</blockquote>}
+            {aoRemarks && <blockquote className="dossier-remarks"><span>{reviewedBy} remarks</span>{aoRemarks}</blockquote>}
           </section>
 
           <section className="dossier-section">

@@ -116,6 +116,14 @@ test('vacancies you can act on come first', () => {
   assert.deepEqual(sortVacancies(rows, now).map(r => r.cycle.id), [4, 3, 1, 2]);
 });
 
+test('vacancy status and next action name the server-assigned HRMO checker', () => {
+  const v = vacancyView(cycle({ hasApplied: true, myApplication: { status: 'SUBMITTED', checker: 'HRMO' } }), now);
+  assert.match(v.status, /Waiting for HRMO/);
+  assert.equal(v.note, 'HRMO checks your attached documents.');
+  const returned = vacancyView(cycle({ hasApplied: true, myApplication: { status: 'UNDER_REVIEW', stageStatus: 'REQUIREMENTS_DEFICIENT', checker: 'HRMO' } }), now);
+  assert.match(returned.note, /HRMO marked/);
+});
+
 // ── 201 Files: returns live in filings ─────────────────────────────────────
 test('files returned inside a filing are listed with the reviewer note and a link to fix them there', () => {
   const r = filingReturns(

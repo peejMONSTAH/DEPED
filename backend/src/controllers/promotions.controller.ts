@@ -1,5 +1,5 @@
 import { validationAllowed, hrDirectEnabled, laneFor } from '../utils/review-lane.util';
-import { reviewerLabel, expectedValidator, loadReviewContext } from '../utils/transaction-review.util';
+import { reviewerLabel, expectedValidator, loadReviewContext, describeReview, ReviewContext } from '../utils/transaction-review.util';
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { notifyTransactionChange } from './transactions.controller';
@@ -61,6 +61,15 @@ const promotionReviewerIds = async (applicantSchool: unknown, applicant?: { user
 const applicantIdentity = async (personnelId: number) => {
   const user = await prisma.user.findFirst({ where: { personnel: { id: personnelId } }, select: { id: true, role: { select: { name: true } } } });
   return { userId: user?.id ?? null, roleName: user?.role.name ?? null };
+};
+
+const promotionReviewFor = (app: any, viewer: Request['user'], context: ReviewContext) => {
+  const review = describeReview({ ...app, status: 'PENDING_VALIDATION' }, viewer, context);
+  const self = Boolean(viewer?.personnelId && viewer.personnelId === app.personnelId);
+  return {
+    requirementsReviewer: reviewerLabel(review.validator),
+    canVerifyRequirements: !self && (hrDirectEnabled() ? review.canValidate : ['AO_II', 'HRMO', 'SYSTEM_ADMIN'].includes(viewer?.role || '')),
+  };
 };
 
 /** Requirement codes the last check returned as incomplete: the only ones that must be replaced. */
@@ -187,6 +196,7 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
 
   let myApplications: any[] = [];
   let currentPosition = '';
+  let checker: string | undefined;
   if (req.user?.personnelId) {
     const [myApps, personnel] = await Promise.all([
       prisma.promotionApplication.findMany({
@@ -202,11 +212,12 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
       }),
       prisma.personnel.findUnique({
         where: { id: req.user.personnelId },
-        select: { designation: true, plantillaItem: { select: { positionTitle: true } } },
+        select: { designation: true, school: true, user: { select: { role: { select: { name: true } } } }, plantillaItem: { select: { positionTitle: true } } },
       }),
     ]);
     myApplications = myApps;
     currentPosition = personnel?.designation || personnel?.plantillaItem?.positionTitle || '';
+    checker = reviewerLabel(expectedValidator({ id: 0, status: 'PENDING_VALIDATION', personnel }, await loadReviewContext()));
   }
 
   const appsMap = new Map(myApplications.map(a => [a.promotionCycleId, a]));
@@ -229,6 +240,7 @@ export const getPromotionCycles = async (req: Request, res: Response): Promise<v
       myApplication: myApp ? {
         id: myApp.id,
         status: myApp.status,
+        checker,
         finalRank: myApp.finalRank,
         applicationDate: myApp.applicationDate,
         hasChecklist,
@@ -701,12 +713,13 @@ export const getPromotionApplications = async (req: Request, res: Response): Pro
     where,
     include: {
       personnel: {
-        select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, district: true },
+        select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, district: true, user: { select: { role: { select: { name: true } } } } },
       },
     },
     orderBy: { applicationDate: 'desc' },
   });
-  sendSuccess(res, applications);
+  const reviewContext = await loadReviewContext();
+  sendSuccess(res, applications.map(app => ({ ...app, ...promotionReviewFor(app, req.user, reviewContext) })));
 };
 
 // ── AO II Requirements Completeness Verification & HRMO CAR Deliberation ───
@@ -810,7 +823,7 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
       verifiedByRole: req.user?.role,
       verifiedAt: new Date().toISOString(),
       remarks: remarks || (isComplete
-        ? 'All documentary requirements verified complete and authentic by AO II in accordance with DepEd Annex C standards.'
+        ? `All documentary requirements verified complete and authentic by ${reviewerLabel(req.user?.role)} in accordance with DepEd Annex C standards.`
         : 'Documentary requirements incomplete or deficient.'),
       itemVerifications: itemVerifications || [],
     };
@@ -1177,7 +1190,7 @@ export const getCycleLeaderboard = async (req: Request, res: Response): Promise<
       where: { AND: [{ promotionCycleId: cycleId }, reviewableApplications(scope)] },
       include: {
         personnel: {
-          select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true },
+          select: { id: true, firstName: true, lastName: true, employeeId: true, designation: true, address: true, school: true, user: { select: { role: { select: { name: true } } } } },
         },
       },
       orderBy: { finalRank: 'asc' },
@@ -1201,6 +1214,7 @@ export const getCycleLeaderboard = async (req: Request, res: Response): Promise<
     }
   }
 
+  const reviewContext = await loadReviewContext();
   const leaderboard = applications.map((a) => {
     const details = (a.scoreDetailsJson as Record<string, any>) || {};
     const initialRating = details.initialRating || null;
@@ -1256,6 +1270,7 @@ export const getCycleLeaderboard = async (req: Request, res: Response): Promise<
       id: a.id,
       rank: a.finalRank || 1,
       personnelId: a.personnelId,
+      ...promotionReviewFor(a, req.user, reviewContext),
       employeeId: a.personnel?.employeeId || `EMP-${a.personnelId}`,
       applicantNumber: autoApplicantNo,
       applicantCode: autoApplicantNo,

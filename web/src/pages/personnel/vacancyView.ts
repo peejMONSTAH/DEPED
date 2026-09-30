@@ -22,7 +22,7 @@ export interface VacancyInput {
   applicationsOpenOn?: string;
   applicationsCloseOn?: string;
   hasApplied?: boolean;
-  myApplication?: { status?: string; stageStatus?: string; applicantNumber?: string } | null;
+  myApplication?: { status?: string; stageStatus?: string; applicantNumber?: string; checker?: string } | null;
   rulesConfigurationJson?: Record<string, any>;
 }
 
@@ -56,7 +56,7 @@ export function vacancyView(c: VacancyInput, now = new Date()): VacancyView {
   if (c.hasApplied && c.myApplication) {
     const a = c.myApplication;
     const returned = a.stageStatus === 'REQUIREMENTS_DEFICIENT' && a.status === 'UNDER_REVIEW';
-    const stage = applicationStage({ status: a.status, stageStatus: a.stageStatus, canResubmit: returned });
+    const stage = applicationStage({ status: a.status, stageStatus: a.stageStatus, canResubmit: returned, checker: a.checker });
     return { ...base, state: 'applied', status: `You applied${a.applicantNumber ? ` (${a.applicantNumber})` : ''} · ${stage.label}`, reason: null,
       action: returned ? { kind: 'fix', label: 'Fix and resubmit' } : { kind: 'view', label: 'View your application' }, note: stage.next || null };
   }

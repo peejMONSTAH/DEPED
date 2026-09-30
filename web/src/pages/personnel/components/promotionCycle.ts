@@ -12,6 +12,7 @@ export interface PromotionCycleItem {
   myApplication?: {
     id: number;
     status: string;
+    checker?: string;
     finalRank?: number | null;
     applicationDate?: string;
     hasChecklist: boolean;

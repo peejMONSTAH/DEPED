@@ -20,10 +20,10 @@ export const isDeliberated = (scoreDetailsJson: unknown): boolean =>
 export const deliberationBlockReason = (scoreDetailsJson: unknown): string | null => {
   const check = asDetails(scoreDetailsJson).requirementsCheck;
   if (!check) {
-    return 'The Administrative Officer II has not verified this applicant\u2019s documentary requirements yet. Deliberation can begin once completeness is confirmed.';
+    return 'This applicant\'s documentary requirements have not been verified yet. Open Review requirements before deliberation.';
   }
   if (check.status !== 'COMPLETE') {
-    return 'The Administrative Officer II marked these documentary requirements as INCOMPLETE. Deliberation cannot proceed until they are verified complete.';
+    return 'These documentary requirements were marked INCOMPLETE. Deliberation cannot proceed until the responsible reviewer verifies them complete.';
   }
   return null;
 };

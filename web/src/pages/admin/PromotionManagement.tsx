@@ -506,6 +506,9 @@ export const PromotionManagement: React.FC = () => {
   const cycleDistrict = selectedCycle?.rulesConfigurationJson?.district;
   const cycleSchool = selectedCycle?.rulesConfigurationJson?.school;
 
+  const requirementsReviewer = (app: any) => app?.requirementsReviewer || submittedApps.find(a => a.id === app?.id)?.requirementsReviewer || 'reviewer';
+  const canVerifyRequirements = (app: any) => (app?.canVerifyRequirements ?? submittedApps.find(a => a.id === app?.id)?.canVerifyRequirements) === true;
+
 
 
   const handleTogglePromotionCandidate = async (app: any, shouldPromote: boolean, plantillaItemNumber?: string, justification?: string): Promise<boolean> => {
@@ -702,6 +705,8 @@ export const PromotionManagement: React.FC = () => {
         return {
           id: a.id,
           personnelId: a.personnelId,
+          requirementsReviewer: a.requirementsReviewer,
+          canVerifyRequirements: a.canVerifyRequirements,
           employeeId: a.personnel?.employeeId || `EMP-${a.personnelId}`,
           name: `${a.personnel?.firstName || ''} ${a.personnel?.lastName || ''}`.trim() || 'Applicant',
           designation: a.personnel?.designation || 'Staff',
@@ -838,6 +843,10 @@ export const PromotionManagement: React.FC = () => {
 
   // AO II Requirements Completeness Verification Handler (Official DepEd Annex C)
   const handleOpenAoRating = (app: any) => {
+    if (!canVerifyRequirements(app)) {
+      addToast(`Requirements must be reviewed by an eligible ${requirementsReviewer(app)}. You cannot review your own application.`, 'WARNING');
+      return;
+    }
     if (user?.role !== 'AO_II' && user?.role !== 'HRMO' && user?.role !== 'SYSTEM_ADMIN') {
       addToast('Forbidden: Only Administrative Officer II (AO II) and HRMO officers can verify requirements completeness.', 'ERROR');
       return;
@@ -845,6 +854,7 @@ export const PromotionManagement: React.FC = () => {
     setSelectedAppForModal(app);
 
     const annexC = app.scoreDetailsJson?.annexCChecklist || {};
+    setModalTrack((app.track || selectedCycle?.rulesConfigurationJson?.track) === 'NON_TEACHING' ? 'NON_TEACHING' : 'TEACHING');
     const existingItems = Array.isArray(annexC.items) ? annexC.items : [];
 
     const mappedItems = annexCRequirements.map(def => {
@@ -896,7 +906,7 @@ export const PromotionManagement: React.FC = () => {
     try {
       await apiClient.post(`/promotions/cycles/${selectedCycle.id}/applications/${selectedAppForModal.id}/verify-requirements`, {
         status: reqCompletenessStatus,
-        remarks: reqVerificationRemarks || (reqCompletenessStatus === 'COMPLETE' ? 'All documentary requirements verified complete and authentic by AO II.' : 'Documentary requirements incomplete or deficient.'),
+        remarks: reqVerificationRemarks || (reqCompletenessStatus === 'COMPLETE' ? `All documentary requirements verified complete and authentic by ${user?.role === 'HRMO' ? 'HRMO' : 'AO II'}.` : 'Documentary requirements incomplete or deficient.'),
         itemVerifications: reqVerificationItems.map(it => ({
           code: it.code,
           status: it.status,
@@ -1903,7 +1913,7 @@ export const PromotionManagement: React.FC = () => {
                                               {isComplete ? 'Reqs Complete' : isDeficient ? 'Reqs Deficient' : 'Unverified'}
                                             </span>
                                             <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginTop: '3px' }}>
-                                              {isComplete ? 'Ready for Deliberation' : 'Pending AO II Check'}
+                                              {isComplete ? 'Ready for Deliberation' : `Pending ${requirementsReviewer(item)} check`}
                                             </span>
                                           </div>
                                         )}
@@ -1914,7 +1924,7 @@ export const PromotionManagement: React.FC = () => {
                                     <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                         {/* Requirements Check Button for AO II / Admin */}
-                                        {(user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN') && (
+                                        {canVerifyRequirements(item) && (
                                           <button
                                             type="button"
                                             onClick={(e) => {
@@ -1935,7 +1945,7 @@ export const PromotionManagement: React.FC = () => {
                                               cursor: 'pointer',
                                               boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                                             }}
-                                            title={isComplete ? 'Annex C Requirements Complete & Verified' : isDeficient ? 'Annex C Requirements Deficient' : 'Check & Verify Annex C Requirements as AO II'}
+                                            title={isComplete ? 'Annex C Requirements Complete & Verified' : isDeficient ? 'Annex C Requirements Deficient' : `Review requirements as ${requirementsReviewer(item)}`}
                                           >
                                             <AppIcon name={isComplete ? 'check' : 'checklist'} size={12} color="#ffffff" />
                                             {isComplete ? 'Reqs Verified' : isDeficient ? 'Deficient' : 'Check Reqs'}
@@ -2034,7 +2044,7 @@ export const PromotionManagement: React.FC = () => {
                                           }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border)' }}>
                                               <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                                Stage 1 • AO II Documentary Check (Annex C)
+                                                Stage 1 • {requirementsReviewer(item)} Documentary Check (Annex C)
                                               </span>
                                               <span style={{
                                                 fontSize: '0.9375rem',
@@ -2056,7 +2066,7 @@ export const PromotionManagement: React.FC = () => {
                                               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-secondary)' }}>
                                                 <span>Verification Status:</span>
                                                 <strong style={{ color: isComplete ? '#059669' : isDeficient ? '#DC2626' : '#D97706' }}>
-                                                  {isComplete ? 'All Requirements Verified' : isDeficient ? 'Incomplete / Deficient' : 'Pending AO II Verification'}
+                                                  {isComplete ? 'All Requirements Verified' : isDeficient ? 'Incomplete / Deficient' : `Pending ${requirementsReviewer(item)} verification`}
                                                 </strong>
                                               </div>
                                               {reqCheck?.verifiedByName && (
@@ -2077,7 +2087,7 @@ export const PromotionManagement: React.FC = () => {
                                                 </div>
                                               )}
 
-                                              {(user?.role === 'AO_II' || user?.role === 'SYSTEM_ADMIN') && (
+                                              {canVerifyRequirements(item) && (
                                                 <button
                                                   type="button"
                                                   onClick={(e) => {
@@ -2148,7 +2158,7 @@ export const PromotionManagement: React.FC = () => {
                                             ) : (
                                               <div style={{ padding: '10px 0', textAlign: 'center' }}>
                                                 <p style={{ fontSize: '0.9375rem', color: 'var(--color-text-muted)', margin: '0 0 10px 0' }}>
-                                                  {hasAoRating ? 'Awaiting Final Deliberation by HRMO Board.' : 'Stage 2 deliberation opens once AO II evaluation is complete.'}
+                                                  {hasAoRating ? 'Awaiting Final Deliberation by HRMO Board.' : 'Stage 2 deliberation opens once requirements are verified complete.'}
                                                 </p>
                                                 {isHR && (() => {
                                                   // Deliberation is gated on AO II verification server-side; show
@@ -2166,7 +2176,7 @@ export const PromotionManagement: React.FC = () => {
                                                       className={awaitingAo ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm'}
                                                       style={{ fontSize: '0.875rem', padding: '4px 12px', borderRadius: '6px', cursor: awaitingAo ? 'not-allowed' : 'pointer' }}
                                                     >
-                                                      {awaitingAo ? 'Awaiting AO II verification' : 'Deliberate Candidate'}
+                                                      {awaitingAo ? `Awaiting ${requirementsReviewer(item)} verification` : 'Deliberate Candidate'}
                                                     </button>
                                                   );
                                                 })()}
@@ -2544,7 +2554,7 @@ export const PromotionManagement: React.FC = () => {
                             </span>
                             <div className="rv-actions">
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(app); setShowApplicantInfoModal(true); }}>201 file</button>
-                              <button type="button" className={`btn btn-sm ${complete ? 'btn-secondary' : 'btn-primary'}`} disabled={isCycleReadOnly(selectedCycle?.status)} onClick={() => handleOpenAoRating(app)}>
+                              <button type="button" className={`btn btn-sm ${complete ? 'btn-secondary' : 'btn-primary'}`} disabled={isCycleReadOnly(selectedCycle?.status) || !canVerifyRequirements(app)} onClick={() => handleOpenAoRating(app)}>
                                 {complete ? 'Review' : deficient ? 'Re-check' : 'Check requirements'}
                               </button>
                             </div>
@@ -2595,7 +2605,7 @@ export const PromotionManagement: React.FC = () => {
                               {recs && <span className="rv-remark">{recs}</span>}
                             </div>
                             <div className="rv-score">
-                              {rated ? <><strong>{score.toFixed(2)}</strong><span>/ 100</span></> : <span className={verified ? '' : 'rv-muted'}>{verified ? 'Not rated' : 'Awaiting AO II check'}</span>}
+                              {rated ? <><strong>{score.toFixed(2)}</strong><span>/ 100</span></> : <span className={verified ? '' : 'rv-muted'}>{verified ? 'Not rated' : `Awaiting ${requirementsReviewer(app)} check`}</span>}
                             </div>
                             <div className="rv-actions">
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setSelectedApplicantInfo(app); setShowApplicantInfoModal(true); }}>201 file</button>
@@ -2676,6 +2686,7 @@ export const PromotionManagement: React.FC = () => {
         isOpen={Boolean(showAoModal && selectedAppForModal)}
         onClose={() => setShowAoModal(false)}
         applicant={selectedAppForModal}
+        reviewerLabel={user?.role === 'HRMO' ? 'HRMO' : 'AO II'}
         cycle={selectedCycle}
         modalTrack={modalTrack}
         theme={theme}
@@ -2720,7 +2731,7 @@ export const PromotionManagement: React.FC = () => {
                   <div className="car-sheet__main">
                     <p className={`car-sheet__req ${requirements?.status === 'COMPLETE' ? 'is-ok' : 'is-warn'}`}>
                       {requirements?.status === 'COMPLETE'
-                        ? 'Documentary requirements verified complete by the AO II.'
+                        ? `Documentary requirements verified complete by ${requirements?.verifiedByRole === 'HRMO' ? 'HRMO' : requirements?.verifiedByRole === 'AO_II' ? 'AO II' : requirementsReviewer(selectedAppForModal)}.`
                         : 'Documentary requirements are not verified complete.'}
                     </p>
 
@@ -3903,6 +3914,7 @@ export const PromotionManagement: React.FC = () => {
       {showApplicantInfoModal && selectedApplicantInfo && (
         <CandidateDossierModal
           applicant={selectedApplicantInfo}
+          requirementsReviewer={requirementsReviewer(selectedApplicantInfo)}
           isTeachingTrack={isCycleTeaching || selectedApplicantInfo.track === 'TEACHING' || selectedCycle?.rulesConfigurationJson?.track === 'TEACHING'}
           canDeliberate={isHR}
           onDeliberate={() => {

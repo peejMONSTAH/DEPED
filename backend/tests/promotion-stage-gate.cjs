@@ -25,10 +25,11 @@ test('only an explicit COMPLETE counts as verified', () => {
   assert.equal(isRequirementsVerified({ requirementsCheck: {} }), false);
 });
 
-test('deliberation is blocked until AO II has reviewed', () => {
+test('deliberation is blocked until the responsible reviewer has reviewed', () => {
   const reason = deliberationBlockReason(NOT_REVIEWED);
   assert.ok(reason, 'an unreviewed application must block deliberation');
-  assert.match(reason, /has not verified/i);
+  assert.match(reason, /have not been verified/i);
+  assert.doesNotMatch(reason, /Administrative Officer II/, 'the gate must also describe HR-direct applications correctly');
 });
 
 test('a deficient application is blocked with a different reason', () => {
