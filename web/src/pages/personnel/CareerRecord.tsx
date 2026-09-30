@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { AppIcon } from '../../components/common/AppIcon';
-import { PageHeader } from '../../components/common/PageHeader';
+import { PortalBand } from './components/PortalBand';
 import { AsyncState } from '../../components/common/AsyncState';
 import apiClient from '../../api/client';
 import './service-record.css';
@@ -128,17 +128,7 @@ export const CareerRecord: React.FC = () => {
 
   return (
     <div className="animate-fade-in personnel-content-container">
-      <PageHeader
-        title="Official Service Record & Career Timeline"
-        breadcrumbs={[
-          { label: 'Portal Home', to: '/personnel/home' },
-          { label: 'Service Record' },
-        ]}
-        badge={{
-          label: 'Verified by HRMO',
-          tone: 'success',
-        }}
-      />
+      <PortalBand title="Service Record" />
 
       <AsyncState
         loading={loading}
@@ -146,75 +136,21 @@ export const CareerRecord: React.FC = () => {
         onRetry={fetchServiceRecord}
         loadingText="Retrieving certified service record from Division 201 repository..."
       >
-        {/* Personnel Identity Card */}
-        <div
-          className="mb-4 print-header"
-          style={{
-            background: '#17472E',
-            color: 'white',
-            borderRadius: 16,
-            padding: 20,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <div
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 22,
-                fontWeight: 800,
-                flexShrink: 0,
-                border: '2px solid rgba(255,255,255,0.4)',
-              }}
-            >
-              {personnelData?.firstName?.[0] || user?.firstName?.[0] || 'D'}
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontWeight: 800, fontSize: '1.25rem', marginBottom: 2 }}>
-                {fullName}
-              </div>
-              <div style={{ fontSize: '0.875rem', opacity: 0.95, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <span>
-                  Position: <strong style={{ color: '#fff' }}>{positionTitle}</strong>
-                </span>
-                <span>·</span>
-                <span>
-                  Employee No:{' '}
-                  <span className="font-mono" style={{ fontWeight: 700 }}>
-                    {employeeId}
-                  </span>
-                </span>
-                <span>·</span>
-                <span>
-                  Station: <strong>{stationName}</strong>
-                </span>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '4px 12px',
-                  borderRadius: 9999,
-                  background: 'rgba(16, 185, 129, 0.25)',
-                  border: '1px solid rgba(16, 185, 129, 0.4)',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  color: '#fff',
-                }}
-              >
-                <AppIcon name="security" size={12} color="#fff" /> Verified by HRMO
-              </span>
+        {/* Personnel identity: who this record belongs to */}
+        <section className="svc-id print-header" aria-label="Record holder">
+          <div className="svc-id__who">
+            <span className="svc-id__avatar" aria-hidden="true">{personnelData?.firstName?.[0] || user?.firstName?.[0] || 'D'}</span>
+            <div className="svc-id__name">
+              <strong>{fullName}</strong>
+              <span className="svc-id__verified"><AppIcon name="security" size={13} /> Verified by HRMO</span>
             </div>
           </div>
-        </div>
+          <dl className="svc-id__facts">
+            <div><dt>Position</dt><dd>{positionTitle}</dd></div>
+            <div><dt>Employee no.</dt><dd className="font-mono">{employeeId}</dd></div>
+            <div><dt>Station</dt><dd>{stationName}</dd></div>
+          </dl>
+        </section>
 
         {/* Official Appointment & Service Summary Grid */}
         <div className="card mb-4" style={{ borderRadius: 16 }}>
