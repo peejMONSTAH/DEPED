@@ -15,6 +15,7 @@ import { EventEmitter } from 'events';
 import { isConfirmedPdsData, pdsProfileProposal } from '../utils/pds-profile.util';
 import { logger } from '../utils/logger';
 import { getSubmissionTransition } from '../utils/transaction-workflow.util';
+import { validationAllowed, approvalAllowed, hrDirectEnabled, laneFor } from '../utils/review-lane.util';
 import { canAccessTransaction, transactionAccessFilter } from '../utils/transaction-access.util';
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { transactionCompliance } from '../utils/transaction-compliance.util';
@@ -158,6 +159,25 @@ export const getTransactions = async (req: Request, res: Response) => {
   const queue = String((req.query as any).queue || '').toLowerCase();
   if (queue === 'awaiting' || queue === 'oldest') statusCondition = { status: myStage };
   else if (queue === 'resubmitted') statusCondition = { status: myStage, resubmissionCount: { gt: 0 } };
+  // HRMO's own validation queue: non-teaching submissions waiting for a first check.
+  // With HR-direct review off there is nothing for HRMO to validate, so the queue is empty.
+  if (queue === 'validation' && req.user?.role === 'HRMO') {
+    if (hrDirectEnabled()) {
+      // Non-teaching submissions, plus teaching ones at a station with no active AO II (HRMO covers those).
+      const aoStations = (await prisma.user.findMany({ where: { accountStatus: 'ACTIVE', role: { name: 'AO_II' }, personnel: { school: { not: null } } }, select: { personnel: { select: { school: true } } } }))
+        .map(u => u.personnel?.school).filter((school): school is string => Boolean(school));
+      statusCondition = {
+        status: 'PENDING_VALIDATION',
+        OR: [
+          { personnel: { user: { role: { name: { not: 'TEACHING_PERSONNEL' } } } } },
+          { personnel: { school: null } },
+          ...(aoStations.length ? [{ personnel: { school: { notIn: aoStations } } }] : [{ personnel: { id: { gt: 0 } } }]),
+        ],
+      };
+    } else {
+      statusCondition = { id: -1 };
+    }
+  }
   const oldestFirst = queue === 'oldest' || String((req.query as any).sort || '') === 'waiting';
   const withBase = (extra: any) => (nonStatusConditions.length > 0 ? { AND: [...nonStatusConditions, extra] } : extra);
 
@@ -638,6 +658,9 @@ export const submitTransaction = async (req: Request, res: Response) => {
   }
   const submissionTransition = getSubmissionTransition(transaction.status, transaction.resubmissionCount, Boolean(transaction.escalationReviewedAt));
   const { isResubmission, shouldEscalate, nextStatus } = submissionTransition;
+  // Non-teaching personnel (and administrators acting as staff) are checked by HRMO directly.
+  const subjectUser = await prisma.user.findFirst({ where: { personnel: { id: transaction.personnelId ?? -1 } }, select: { role: { select: { name: true } } } });
+  const hrLane = laneFor(subjectUser?.role.name) === 'HR';
   const mandatoryTemplates = transaction.transactionType.requirementTemplates.filter(t => t.isMandatory);
   // DI-H3: Enforce genuine document uploads — do not auto-create fake validated placeholder documents
   if (transaction.uploadedDocuments.length === 0) {
@@ -693,7 +716,7 @@ export const submitTransaction = async (req: Request, res: Response) => {
         heading: 'Your documents were submitted',
         message: shouldEscalate
           ? `Your ${row.transactionType.name} transaction reached the correction limit and was escalated to HRMO for review.`
-          : `Your ${row.transactionType.name} documents are now queued for AO II validation. Digital 201 will notify you if a correction is required.`,
+          : `Your ${row.transactionType.name} documents are now queued for ${hrLane ? 'HRMO' : 'AO II'} validation. Digital 201 will notify you if a correction is required.`,
         reference: `TRX-${id}`,
         actionLabel: 'View transaction',
         actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
@@ -706,10 +729,10 @@ export const submitTransaction = async (req: Request, res: Response) => {
   // Only the AO II of the personnel's own station hears about a submission. A
   // record with no station, or a station with no active AO II, belongs to no
   // officer: HRMO is told instead, since it alone can assign the station.
-  const stationOfficers = shouldEscalate ? [] : await stationOfficerUserIds(transaction.personnel?.school);
-  const routeToHrmo = shouldEscalate || stationOfficers.length === 0;
+  const stationOfficers = shouldEscalate || hrLane ? [] : await stationOfficerUserIds(transaction.personnel?.school);
+  const routeToHrmo = shouldEscalate || hrLane || stationOfficers.length === 0;
   const targetUserIds = routeToHrmo
-    ? (await prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' }, select: { id: true } })).map(u => u.id)
+    ? (await prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE', NOT: { id: req.user!.userId } }, select: { id: true } })).map(u => u.id)
     : stationOfficers;
   if (targetUserIds.length > 0) {
     await prisma.notification.createMany({
@@ -717,10 +740,12 @@ export const submitTransaction = async (req: Request, res: Response) => {
         userId,
         message: shouldEscalate
           ? `Transaction #${id} (${updated.transactionType.name}) for ${applicantName} reached three correction cycles and requires HRMO review.`
-          : routeToHrmo
+          : hrLane
+            ? `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for HRMO validation.`
+            : routeToHrmo
             ? `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} has no AO II for its station. Assign the personnel's station so it can be validated.`
             : `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for validation.`,
-        type: routeToHrmo ? 'WARNING' as const : 'INFO' as const,
+        type: routeToHrmo && !hrLane ? 'WARNING' as const : 'INFO' as const,
         relatedEntityId: id,
         relatedEntityType: 'Transaction',
       })),
@@ -760,6 +785,9 @@ export const validateTransaction = async (req: Request, res: Response) => {
     sendForbidden(res, 'You cannot validate your own transaction.');
     return;
   }
+  // Which reviewer handles this person: teaching goes to their station's AO II, non-teaching to HRMO.
+  const lane = await validationAllowed(req.user, { personnelId: transaction.personnelId, school: transaction.personnel?.school, roleName: transaction.personnel?.user?.role?.name });
+  if (!lane.ok) { sendForbidden(res, lane.reason); return; }
   // Scope comes before workflow state, so a transaction in another station is
   // indistinguishable from a missing one -- its status included.
   if (!(await canAccessTransaction(req.user, id, 'review'))) {
@@ -1011,6 +1039,8 @@ export const approveTransaction = async (req: Request, res: Response) => {
   if (req.user?.personnelId && req.user.personnelId === transaction.personnelId) {
     sendForbidden(res, 'You cannot approve your own transaction.'); return;
   }
+  const approval = await approvalAllowed(req.user, transaction);
+  if (!approval.ok) { sendForbidden(res, approval.reason); return; }
   if (transaction.status !== 'FOR_APPROVAL') {
     sendBadRequest(
       res,
@@ -1275,6 +1305,27 @@ export const approveTransaction = async (req: Request, res: Response) => {
   });
 
   if (transaction.personnel.user) notifyUserNotifications([transaction.personnel.user.id]);
+
+  // An AO II or HRMO promoted out of their post leaves a seat behind. Tell whoever assigns the
+  // successor (HRMO for an AO II seat, a System Administrator for an HRMO seat) so it is not forgotten.
+  const seatHolder = transaction.personnel.user ? await prisma.user.findUnique({ where: { id: transaction.personnel.user.id }, select: { role: { select: { name: true } } } }) : null;
+  const seatRole = seatHolder?.role.name;
+  if (isApproved && (seatRole === 'AO_II' || seatRole === 'HRMO') && /promotion/i.test(transaction.transactionType.name)) {
+    const assigners = await prisma.user.findMany({
+      where: { accountStatus: 'ACTIVE', role: { name: seatRole === 'AO_II' ? 'HRMO' : 'SYSTEM_ADMIN' }, NOT: { id: transaction.personnel.user!.id } },
+      select: { id: true },
+    });
+    if (assigners.length > 0) {
+      const who = `${transaction.personnel.firstName} ${transaction.personnel.lastName}`;
+      await prisma.notification.createMany({
+        data: assigners.map(a => ({
+          userId: a.id, type: 'WARNING' as const, relatedEntityType: 'Transaction', relatedEntityId: id,
+          message: `${who} (${seatRole === 'AO_II' ? 'AO II' : 'HRMO'}${transaction.personnel.school ? `, ${transaction.personnel.school}` : ''}) was promoted. Assign a successor for their seat under Seat handover.`,
+        })),
+      });
+      notifyUserNotifications(assigners.map(a => a.id));
+    }
+  }
   void processWorkflowOutbox();
   notifyTransactionChange({
     type: isApproved ? 'TRANSACTION_APPROVED' : isReturnedForCorrection ? 'TRANSACTION_RETURNED_BY_HRMO' : 'TRANSACTION_REJECTED',

@@ -10,7 +10,7 @@ import { AuditCategory, AuditOutcome, AuditSeverity } from '../types/audit.types
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload & { personnelId?: number | null; mustChangePassword?: boolean };
+      user?: JwtPayload & { personnelId?: number | null; mustChangePassword?: boolean; viewMode?: 'personnel'; baseRole?: string };
       docToken?: DocumentViewTokenPayload;
     }
   }
@@ -199,6 +199,16 @@ export const authenticate = async (
       pwdv: payload.pwdv,
       mustChangePassword: user.mustChangePassword,
     };
+
+    // Personnel view: an AO II or HRMO acting as themselves, as non-teaching staff (to apply for a
+    // promotion, keep their own 201 files). The request is then handled as a personnel account and
+    // carries none of the administrative role. It can only narrow access, never widen it.
+    if (String(req.headers['x-view-mode'] || '').toLowerCase() === 'personnel' && !docTokenPayload
+      && ['AO_II', 'HRMO'].includes(user.role.name) && user.personnel?.id) {
+      req.user.baseRole = user.role.name;
+      req.user.role = 'NON_TEACHING_PERSONNEL';
+      req.user.viewMode = 'personnel';
+    }
 
     next();
   } catch (error) {

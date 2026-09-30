@@ -6,10 +6,14 @@ const path = require('node:path');
 
 const read = rel => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 
-test('only AO II validates and only HRMO approves HR transactions', () => {
+test('validation and approval are role-gated, and the review lane narrows them further', () => {
   const routes = read('src/routes/transactions.routes.ts');
-  assert.match(routes, /router\.post\('\/:id\/validate', authorize\('AO_II'\), validateTransaction\);/);
-  assert.match(routes, /router\.post\('\/:id\/approve', authorize\('HRMO'\), approveTransaction\);/);
+  assert.match(routes, /router\.post\('\/:id\/validate', authorize\('AO_II', 'HRMO'\), validateTransaction\);/);
+  assert.match(routes, /router\.post\('\/:id\/approve', authorize\('HRMO', 'SYSTEM_ADMIN'\), approveTransaction\);/);
+  // The controller, not the route, decides who may act on a given person.
+  const controller = read('src/controllers/transactions.controller.ts');
+  assert.match(controller, /validationAllowed\(req\.user,/);
+  assert.match(controller, /approvalAllowed\(req\.user, transaction\)/);
   assert.match(read('src/controllers/transactions.controller.ts'), /if \(!\['PENDING_VALIDATION', 'DEFICIENCY'\]\.includes\(transaction\.status\)\)/, 'no phantom RETURNED status');
 });
 

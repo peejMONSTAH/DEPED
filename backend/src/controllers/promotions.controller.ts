@@ -1,3 +1,4 @@
+import { validationAllowed, hrDirectEnabled } from '../utils/review-lane.util';
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { notifyTransactionChange } from './transactions.controller';
@@ -729,6 +730,14 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
     if (!(await personnelInScope(scope, app.personnelId, 'review'))) {
       await denyOutOfScope(req, res, { entityType: 'PromotionApplication', entityId: appId, action: 'REQUIREMENTS_VERIFY' }, 'Promotion application not found for this cycle.');
       return;
+    }
+    // Teaching applicants are checked by their station's AO II, non-teaching ones by HRMO directly;
+    // nobody checks their own application.
+    const subjectUser = await prisma.user.findFirst({ where: { personnel: { id: app.personnelId } }, select: { role: { select: { name: true } } } });
+    if (req.user?.personnelId && req.user.personnelId === app.personnelId) { sendForbidden(res, 'You cannot review your own application.'); return; }
+    if (hrDirectEnabled()) {
+      const lane = await validationAllowed(req.user, { personnelId: app.personnelId, school: app.personnel?.school, roleName: subjectUser?.role?.name });
+      if (!lane.ok) { sendForbidden(res, lane.reason); return; }
     }
 
     const cycle = await prisma.promotionCycle.findUnique({
