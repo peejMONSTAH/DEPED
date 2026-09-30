@@ -1,0 +1,91 @@
+/* Public download page. Same palette, type and background as the sign-in page. */
+.dl {
+  --dl-bg: #eef3ef; --dl-text: #1f2a23; --dl-muted: #5f6f64; --dl-border: #d3ddd5; --dl-card: #ffffff;
+  --dl-green: #2f7d52; --dl-green-hover: #276a45; --dl-gold: #c79a2e; --dl-focus: #b8871c;
+  width: 100%; flex: 1 1 auto; min-width: 0; min-height: 100dvh; box-sizing: border-box; overflow-x: hidden;
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(143, 211, 168, 0.35), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(217, 176, 76, 0.28), transparent 55%),
+    var(--dl-bg);
+  color: var(--dl-text);
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dl {
+    --dl-bg: #0f1612; --dl-text: #eef3ef; --dl-muted: #a7b5ab; --dl-border: #2f3d33; --dl-card: #18221c;
+    --dl-green: #8fd3a8; --dl-green-hover: #a8e0bb; --dl-gold: #e2bf63;
+  }
+}
+:root[data-theme="dark"] .dl {
+  --dl-bg: #0f1612; --dl-text: #eef3ef; --dl-muted: #a7b5ab; --dl-border: #2f3d33; --dl-card: #18221c;
+  --dl-green: #8fd3a8; --dl-green-hover: #a8e0bb; --dl-gold: #e2bf63;
+}
+
+.dl *, .dl *::before, .dl *::after { box-sizing: border-box; }
+.dl a:focus-visible { outline: 3px solid var(--dl-focus); outline-offset: 3px; border-radius: 8px; }
+
+.dl__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1120px; margin: 0 auto; padding: 18px 16px; }
+.dl__brand { display: inline-flex; text-decoration: none; }
+.dl__weblink, .dl__link { color: var(--dl-green); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Mobile first: heading and download first, then the app visual, instructions, and the QR last. */
+.dl__grid {
+  display: grid; gap: 28px; max-width: 1120px; margin: 0 auto; padding: 8px 16px 48px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "text" "visual" "steps" "qr";
+}
+.dl__text { grid-area: text; }
+.dl__visual { grid-area: visual; }
+.dl__steps { grid-area: steps; }
+.dl__qr { grid-area: qr; }
+
+/* Global rules force heading colour and size with !important, so these match that. */
+.dl .dl__title { margin: 0 0 12px !important; font-size: clamp(2rem, 7vw, 3.25rem) !important; line-height: 1.08 !important; font-weight: 800 !important; letter-spacing: -0.03em !important; color: var(--dl-text) !important; }
+.dl .dl__h2 { margin: 0 0 14px !important; font-size: 1.25rem !important; font-weight: 800 !important; color: var(--dl-text) !important; }
+.dl__lede { margin: 0 0 22px; max-width: 34rem; font-size: 1.0625rem; line-height: 1.6; color: var(--dl-muted); }
+.dl a.dl__cta {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 28px; border-radius: 14px;
+  background: var(--dl-green); color: #fff; font-size: 1rem; font-weight: 800; text-decoration: none;
+  box-shadow: 0 8px 20px rgba(47, 125, 82, 0.28); transition: background .15s ease, transform .15s ease;
+}
+:root[data-theme="dark"] .dl a.dl__cta { color: #0f1612; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .dl a.dl__cta { color: #0f1612; } }
+.dl a.dl__cta:hover { background: var(--dl-green-hover); transform: translateY(-1px); }
+.dl__note { margin: 14px 0 0; font-size: 0.875rem; color: var(--dl-muted); }
+
+.dl__visual { position: relative; height: 380px; display: flex; justify-content: center; }
+.dl-phone { position: absolute; width: 158px; aspect-ratio: 9 / 19; padding: 8px; border-radius: 30px; background: #141b17; box-shadow: 0 22px 44px rgba(20, 40, 28, 0.28); }
+.dl-phone__screen { width: 100%; height: 100%; border-radius: 23px; overflow: hidden; background: linear-gradient(160deg, #fbfdfb 0%, #f1f6f2 55%, #f7f3e6 100%); display: flex; align-items: center; justify-content: center; }
+.dl-phone__screen > img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.dl-phone__brand { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 12px; }
+.dl-phone__brand img { max-width: 100%; height: auto; }
+.dl-phone__lockup { width: 130px; }
+.dl-phone--front { left: 50%; top: 0; transform: translateX(-24%) rotate(3deg); z-index: 2; }
+.dl-phone--back { left: 50%; top: 26px; transform: translateX(-84%) rotate(-5deg); z-index: 1; opacity: .92; }
+
+.dl__steps { max-width: 40rem; }
+.dl__list { margin: 0 0 18px; padding-left: 1.25rem; display: grid; gap: 12px; line-height: 1.6; color: var(--dl-muted); }
+.dl__list strong { color: var(--dl-text); }
+.dl__web { margin: 0; color: var(--dl-muted); }
+
+.dl__qr { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.dl__qr img { display: block; width: 168px; height: 168px; background: #fff; border: 1px solid var(--dl-border); border-radius: 12px; }
+.dl__qrlabel { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--dl-muted); }
+
+/* Desktop: text and QR on the left, phones on the right, instructions across the bottom. */
+@media (min-width: 900px) {
+  .dl__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 56px; row-gap: 20px; align-items: center; padding-top: 24px;
+    grid-template-areas: "text visual" "qr visual" "steps steps";
+  }
+  .dl__visual { height: 520px; }
+  .dl-phone { width: 250px; }
+  .dl-phone--front { transform: translateX(-30%) rotate(3deg); }
+  .dl-phone--back { transform: translateX(-92%) rotate(-5deg); }
+  .dl__qr img { width: 200px; height: 200px; }
+  .dl__steps { max-width: none; }
+  .dl__list { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-left: 0; list-style-position: inside; gap: 20px; }
+  .dl__list li { background: var(--dl-card); border: 1px solid var(--dl-border); border-radius: 16px; padding: 16px; list-style-position: inside; }
+}
+
+.dl-phone--back .dl-phone__lockup { display: none; }

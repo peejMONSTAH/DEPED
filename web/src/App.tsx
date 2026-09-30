@@ -15,6 +15,7 @@ import { PersonnelLayout } from './layouts/PersonnelLayout';
 
 // Pages
 import { LoginPage } from './pages/Login';
+import { DownloadPage } from './pages/Download';
 const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => ({ default: m.MagicLogin })));
 const SetupAccount = React.lazy(() => import('./pages/auth/SetupAccount').then(m => ({ default: m.SetupAccount })));
 
@@ -66,6 +67,8 @@ export const App: React.FC = () => {
             <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
+            {/* Public: the Android app download page. No sign-in needed. */}
+            <Route path="/download" element={<DownloadPage />} />
             <Route path="/auth/magic-login" element={<MagicLogin />} />
             <Route path="/auth/setup-account" element={<SetupAccount />} />
 
