@@ -1462,6 +1462,10 @@ tr:hover td {
 .topbar-menu-text {
   flex: 1;
   min-width: 0;
+  /* The row is a <button>, which the global rule above forces to one line; let its text wrap
+     instead of running under the arrow. */
+  white-space: normal !important;
+  overflow-wrap: anywhere;
 }
 
 .topbar-menu-label {
@@ -1473,11 +1477,13 @@ tr:hover td {
 
 .topbar-menu-hint {
   font-size: 13px;
+  line-height: 1.35;
   color: var(--color-text-muted);
   margin-top: 2px;
 }
 
 .topbar-menu-arrow {
+  flex-shrink: 0;
   font-size: 14px;
   color: var(--color-text-muted);
   font-weight: 600;

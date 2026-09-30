@@ -403,6 +403,9 @@ export const AdminDashboard: React.FC = () => {
                     <span className="topbar-menu-arrow">›</span>
                   </button>
 
+                  {/* System settings and the audit trail are System Administrator pages; other roles are not offered them. */}
+                  {isSysAdmin && (
+                    <>
                   <button
                     type="button"
                     className="topbar-menu-row"
@@ -438,6 +441,8 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <span className="topbar-menu-arrow">›</span>
                   </button>
+                    </>
+                  )}
                 </div>
 
                 <div className="topbar-flyout-footer">
