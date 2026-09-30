@@ -15,9 +15,8 @@ test('AO creation keeps personal fields and sends actual identity', () => {
   assert.doesNotMatch(form, /setNewFirstName\('AO II'\)|setNewLastName\(sch\)|setNewLastName\(newSchool\)/);
 });
 
-test('AO dashboard prominently identifies role, position and assignment', () => {
-  assert.match(dashboard, /aria-label="Your AO assignment"/);
-  assert.match(dashboard, /Account role: Administrative Officer II \(AO II\)/);
-  assert.match(dashboard, /Position: \{user.designation \|\| user.personnel\?\.designation/);
-  assert.match(dashboard, /Assigned school:/);
+test('AO dashboard keeps role and station badges without a duplicate assignment card', () => {
+  assert.match(dashboard, /\{userRoleBadge\}/);
+  assert.match(dashboard, /\{stationName\}/);
+  assert.doesNotMatch(dashboard, /Your AO assignment|Account role:|Assigned school:/);
 });

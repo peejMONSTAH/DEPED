@@ -504,13 +504,6 @@ export const AdminDashboard: React.FC = () => {
             </span>
           )}
         </div>
-        {user?.role === 'AO_II' && (
-          <section aria-label="Your AO assignment" style={{ marginTop: 16, padding: '16px 20px', borderLeft: '4px solid var(--color-primary)', background: 'var(--color-bg-secondary)', borderRadius: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 6 }}>Account role: Administrative Officer II (AO II)</div>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>Position: {user.designation || user.personnel?.designation || 'Administrative Officer II'}</div>
-            <div style={{ fontSize: 15, marginTop: 6 }}>Assigned school: {stationName || 'Not assigned'}{(user.district || user.personnel?.district) && ` · ${user.district || user.personnel?.district}`}</div>
-          </section>
-        )}
       </div>
 
       {isSysAdmin ? (
