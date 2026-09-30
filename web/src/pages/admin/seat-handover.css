@@ -1,8 +1,15 @@
-.seat { display: grid; gap: 16px; max-width: 640px; padding: 20px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-bg-card); }
 .seat__field { display: grid; gap: 6px; }
 .seat__field > span { font-size: .875rem; font-weight: 700; color: var(--color-text-primary); }
-.seat__field select { min-height: 44px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-card); color: var(--color-text-primary); font: inherit; }
-.seat__field select:disabled { opacity: .6; }
-.seat__note { margin: 0; font-size: .875rem; color: #8A3A0B; }
 .seat__effects { margin: 0; padding: 12px 16px 12px 32px; display: grid; gap: 6px; border-radius: 12px; background: linear-gradient(rgba(47,125,82,.10), rgba(47,125,82,.10)), var(--color-bg-card); font-size: .9375rem; color: var(--color-text-primary); }
-.seat .btn { justify-self: start; min-height: 44px; }
+
+.seat-dialog { width: min(560px, 94vw); max-height: 90vh; overflow: auto; display: grid; gap: 14px; padding: 22px; border-radius: 16px; }
+.seat-dialog h3.seat-dialog__title { margin: 0; font-size: 1.25rem; }
+.seat-dialog__from { margin: 0; font-size: .9375rem; color: var(--color-text-secondary); }
+.seat-dialog .form-control { width: 100%; min-height: 44px; }
+.seat-dialog__results { list-style: none; margin: -6px 0 0; padding: 4px; display: grid; gap: 2px; max-height: 240px; overflow: auto; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-bg-card); }
+.seat-dialog__results button { width: 100%; display: grid; gap: 2px; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; color: var(--color-text-primary); white-space: normal !important; }
+.seat-dialog__results button:hover, .seat-dialog__results button:focus-visible { background: var(--color-bg-hover); }
+.seat-dialog__results button span { font-size: .8125rem; color: var(--color-text-muted); }
+.seat-dialog__hint { padding: 9px 12px; font-size: .875rem; color: var(--color-text-muted); }
+.seat-dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.seat-dialog__actions .btn { min-height: 44px; }

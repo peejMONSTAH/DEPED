@@ -11,10 +11,11 @@ import { notifyUserNotifications } from './notifications.controller';
  * officer is promoted out of it.
  *
  * An AO II's station is the school on their own personnel record, and every
- * station-scoped list is computed from that. So the successor must already be
- * at the same station, and the moment they hold the AO II role the station's
- * open cases are theirs: nothing is copied or moved. The outgoing officer goes
- * back to being non-teaching staff and loses the administrative role.
+ * station-scoped list is computed from that. The successor can come from anywhere
+ * in the division; taking an AO II seat moves their own record to the seat's
+ * station (school and district), and from then on the station's open cases are
+ * theirs: nothing else is copied or moved. The outgoing officer goes back to being
+ * non-teaching staff and loses the administrative role.
  *
  * HRMO hands over AO II seats. Only a System Administrator hands over an HRMO
  * seat, as with every other grant or removal of a division-level role.
@@ -64,8 +65,13 @@ export const seatHandoverOptions = async (req: Request, res: Response): Promise<
 
 /** POST /users/seat-handover { outgoingUserId, successorUserId } */
 export const handOverSeat = async (req: Request, res: Response): Promise<void> => {
-  const outgoingUserId = Number(req.body?.outgoingUserId);
   const successorUserId = Number(req.body?.successorUserId);
+  // The Personnel record knows the officer by personnel id; accept either.
+  let outgoingUserId = Number(req.body?.outgoingUserId);
+  if (!Number.isSafeInteger(outgoingUserId) && Number.isSafeInteger(Number(req.body?.outgoingPersonnelId))) {
+    const holder = await prisma.personnel.findUnique({ where: { id: Number(req.body.outgoingPersonnelId) }, select: { userId: true } });
+    outgoingUserId = Number(holder?.userId);
+  }
   if (!Number.isSafeInteger(outgoingUserId) || !Number.isSafeInteger(successorUserId) || outgoingUserId <= 0 || successorUserId <= 0) {
     sendBadRequest(res, 'Choose the officer leaving the seat and the person taking it over.', 'HANDOVER_INPUT'); return;
   }
@@ -88,9 +94,11 @@ export const handOverSeat = async (req: Request, res: Response): Promise<void> =
   }
   const successorOk = CANDIDATE_ROLES.includes(successor.role.name) || (req.user?.role === 'SYSTEM_ADMIN' && successor.role.name === 'AO_II');
   if (!successorOk) { sendBadRequest(res, 'The successor must be a teaching or non-teaching staff member.', 'HANDOVER_SUCCESSOR_ROLE'); return; }
-  if (seatRole === 'AO_II' && (successor.personnel.school || '').trim().toLowerCase() !== (outgoing.personnel.school || '').trim().toLowerCase()) {
-    sendBadRequest(res, `The successor works at ${successor.personnel.school || 'no station'}, not ${outgoing.personnel.school || 'the outgoing officer\'s station'}. Move them to that station first, then hand over.`, 'HANDOVER_STATION_MISMATCH'); return;
+  if (seatRole === 'AO_II' && !(outgoing.personnel.school || '').trim()) {
+    sendBadRequest(res, 'The outgoing officer has no station on record, so there is no station to hand over. Set their station first.', 'HANDOVER_NO_STATION'); return;
   }
+  const sameStation = (successor.personnel.school || '').trim().toLowerCase() === (outgoing.personnel.school || '').trim().toLowerCase();
+  const movedFrom = seatRole === 'AO_II' && !sameStation ? { school: successor.personnel.school, district: successor.personnel.district } : null;
 
   const [seatRoleRow, staffRoleRow] = await Promise.all([
     prisma.role.findUnique({ where: { name: seatRole } }),
@@ -101,6 +109,8 @@ export const handOverSeat = async (req: Request, res: Response): Promise<void> =
   await prisma.$transaction(async tx => {
     await tx.user.update({ where: { id: outgoing.id }, data: { roleId: staffRoleRow.id } });
     await tx.user.update({ where: { id: successor.id }, data: { roleId: seatRoleRow.id } });
+    // An AO II's station is the school on their own record, so a successor from elsewhere moves there.
+    if (movedFrom) await tx.personnel.update({ where: { id: successor.personnel!.id }, data: { school: outgoing.personnel!.school, district: outgoing.personnel!.district } });
     // A role is an authorization scope: sessions issued under the old one end.
     await tx.refreshToken.updateMany({ where: { userId: { in: [outgoing.id, successor.id] }, revoked: false }, data: { revoked: true } });
   });
@@ -110,7 +120,7 @@ export const handOverSeat = async (req: Request, res: Response): Promise<void> =
   const station = outgoing.personnel.school || 'the division';
   await recordAuditLog({
     entityType: 'User', entityId: successor.id, action: 'SEAT_HANDOVER',
-    details: { seat: seatRole, station, outgoingUserId: outgoing.id, successorUserId: successor.id },
+    details: { seat: seatRole, station, outgoingUserId: outgoing.id, successorUserId: successor.id, successorMovedFrom: movedFrom },
     beforeValue: { outgoing: seatRole, successor: successor.role.name },
     afterValue: { outgoing: 'NON_TEACHING_PERSONNEL', successor: seatRole },
     targetReference: `${seatRole} seat, ${station}: ${fullName(outgoing)} to ${fullName(successor)}`,
@@ -121,15 +131,46 @@ export const handOverSeat = async (req: Request, res: Response): Promise<void> =
   const label = seatRole === 'AO_II' ? 'AO II' : 'HRMO';
   await prisma.notification.createMany({
     data: [
-      { userId: successor.id, message: `You now hold the ${label} seat for ${station}. Sign in again to see your administrator workspace. Open cases for your station are now yours to review.`, type: 'INFO' as const, relatedEntityType: 'User', relatedEntityId: successor.id },
+      { userId: successor.id, message: `You now hold the ${label} seat for ${station}${movedFrom ? `; your station is now ${station}` : ''}. Sign in again to see your administrator workspace. Open cases for your station are now yours to review.`, type: 'INFO' as const, relatedEntityType: 'User', relatedEntityId: successor.id },
       { userId: outgoing.id, message: `Your ${label} seat for ${station} was handed over to ${fullName(successor)}. Sign in again; you continue as staff.`, type: 'INFO' as const, relatedEntityType: 'User', relatedEntityId: outgoing.id },
     ],
   });
   notifyUserNotifications([successor.id, outgoing.id]);
 
   sendSuccess(res, {
-    seat: seatRole, station,
+    seat: seatRole, station, successorMoved: Boolean(movedFrom),
     outgoing: { userId: outgoing.id, name: fullName(outgoing), nowRole: 'NON_TEACHING_PERSONNEL' },
     successor: { userId: successor.id, name: fullName(successor), nowRole: seatRole },
   }, `${fullName(successor)} now holds the ${label} seat for ${station}.`);
+};
+
+/** GET /users/seat-handover/candidates?q= : search the whole division for someone to take a seat. */
+export const seatHandoverCandidates = async (req: Request, res: Response): Promise<void> => {
+  const q = String(req.query.q || '').trim();
+  if (q.length < 2) { sendSuccess(res, []); return; }
+  const excludeUserId = Number(req.query.excludeUserId) || -1;
+  const rows = await prisma.user.findMany({
+    where: {
+      accountStatus: 'ACTIVE', id: { not: excludeUserId },
+      role: { name: { in: req.user?.role === 'SYSTEM_ADMIN' ? [...CANDIDATE_ROLES, UserRole.AO_II] : CANDIDATE_ROLES } },
+      personnel: {
+        is: {
+          OR: [
+            { firstName: { contains: q, mode: 'insensitive' } },
+            { lastName: { contains: q, mode: 'insensitive' } },
+            { employeeId: { contains: q, mode: 'insensitive' } },
+            { designation: { contains: q, mode: 'insensitive' } },
+            { school: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+      },
+    },
+    select: seatUserSelect,
+    orderBy: { email: 'asc' },
+    take: 15,
+  });
+  sendSuccess(res, rows.map(u => ({
+    userId: u.id, personnelId: u.personnel!.id, name: fullName(u), role: u.role.name,
+    designation: u.personnel?.designation ?? null, school: u.personnel?.school ?? null, district: u.personnel?.district ?? null,
+  })));
 };

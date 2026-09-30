@@ -175,11 +175,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const canSwitch = hrDirectReview && canSwitchView(userRole);
   const personnelView = inPersonnelView(userRole, location.pathname);
   const effectiveRole = personnelView ? 'NON_TEACHING_PERSONNEL' : userRole;
-  // Entries that exist only for the HR-direct workflow stay hidden until the server turns it on.
-  const hrDirectOnly = new Set(['/admin/handover']);
+  // HRMO's validation entry exists only for the HR-direct workflow, so it stays hidden until the server turns it on.
   const filterItems = (items: NavItem[]) =>
     items.filter(item => (!item.roles || (effectiveRole && item.roles.includes(effectiveRole as UserRole)))
-      && (hrDirectReview || !hrDirectOnly.has(item.path))
       && (hrDirectReview || !(item.path === '/admin/documents' && effectiveRole === 'HRMO')));
 
   const filteredSections = navSections

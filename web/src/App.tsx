@@ -19,7 +19,6 @@ const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => 
 const SetupAccount = React.lazy(() => import('./pages/auth/SetupAccount').then(m => ({ default: m.SetupAccount })));
 
 // Admin Pages
-const SeatHandover = React.lazy(() => import('./pages/admin/SeatHandover').then(m => ({ default: m.SeatHandover })));
 const AccessSessions = React.lazy(() => import('./pages/admin/AccessSessions').then(m => ({ default: m.AccessSessions })));
 const EmailDelivery = React.lazy(() => import('./pages/admin/EmailDelivery').then(m => ({ default: m.EmailDelivery })));
 const ServiceHealth = React.lazy(() => import('./pages/admin/ServiceHealth').then(m => ({ default: m.ServiceHealth })));
@@ -185,7 +184,6 @@ export const App: React.FC = () => {
                 }
               />
 
-              <Route path="handover" element={<RequireAuth allowedRoles={['HRMO', 'SYSTEM_ADMIN']}><SeatHandover /></RequireAuth>} />
               <Route path="access" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><AccessSessions /></RequireAuth>} />
               <Route path="email" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><EmailDelivery /></RequireAuth>} />
               <Route path="health" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><ServiceHealth /></RequireAuth>} />

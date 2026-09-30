@@ -78,11 +78,11 @@
         <span class="expect">Expect: the personnel menu (Home, 201 Files, Applications, Vacancies…), with Alma's own records. Try applying to Administrative Officer IV. "Switch to admin view" returns.</span></li>
       <li><b>Nobody reviews their own case.</b> Apply as <code>ao.morales</code> (step 5), then in the admin view try to open that application to verify it.
         <span class="expect">Expect: refused. Only HRMO checks an administrator's application.</span></li>
-      <li><b>Seat handover.</b> Sign in as <code>hrmo1</code> and open Seat handover. Choose Alma Aquino as the officer and Sofia Lim as the successor, then hand over.
-        <span class="expect">Expect: Sofia now AO II for Morales, Alma back to staff, both signed out. Sign in as <code>successor.morales</code>: Rosa Delacruz's file is now in her Doc. Validation.</span></li>
-      <li><b>Wrong station is refused.</b> Try handing an AO II seat to <code>teacher.matulas</code>.
-        <span class="expect">Expect: refused, because the successor works at a different station.</span></li>
-      <li><b>HRMO seat needs the System Administrator.</b> As <code>hrmo1</code> the list shows AO II seats only. Sign in as <code>sysadmin</code> and hand over an HRMO seat.</li>
+      <li><b>Seat handover.</b> Sign in as <code>hrmo1</code>, open Personnel, and open Alma Aquino's record. Choose <b>Hand over seat</b>, search the whole division for <code>Lorna</code>, pick her, and confirm.
+        <span class="expect">Expect: Lorna works at Matulas, so the dialog says she moves to Morales. After the handover she is AO II for Morales, Alma is back to staff, and both are signed out. Sign in as <code>teacher.matulas</code>: the account is now an AO II at Morales, and Rosa Delacruz's file is in her Doc. Validation.</span></li>
+      <li><b>Search covers everyone.</b> Search for <code>Ben</code>, then for <code>Matulas</code>, in the same dialog.
+        <span class="expect">Expect: staff from any station appear. Administrators (HRMO, System Administrator) never do.</span></li>
+      <li><b>HRMO seat needs the System Administrator.</b> As <code>hrmo1</code>, open <code>hrmo2</code>'s record: there is no Hand over seat button. Sign in as <code>sysadmin</code>: the button appears, and it also appears on an AO II's record.</li>
     </ol>
     <p class="note">Restart the test bench to reset every account and file to how it started.</p>
   </section>

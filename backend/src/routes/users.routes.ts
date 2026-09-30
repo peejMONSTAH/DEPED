@@ -5,7 +5,7 @@ import {
   getUsers, createUser, getUserById, updateUser, deleteUser, distributeCredentials, getAccountOnboarding, resendInvitation, resetUserPassword,
   extractAccountRequestPds, submitAccountRequest, getAccountRequests, approveAccountRequest, rejectAccountRequest,
 } from '../controllers/users.controller';
-import { handOverSeat, seatHandoverOptions } from '../controllers/seat-handover.controller';
+import { handOverSeat, seatHandoverCandidates, seatHandoverOptions } from '../controllers/seat-handover.controller';
 import { hrDirectEnabled } from '../utils/review-lane.util';
 import { sendSuccess } from '../utils/response.util';
 
@@ -21,6 +21,7 @@ router.get('/workflow-features', (_req, res) => { sendSuccess(res, { hrDirectRev
 
 // Handing an AO II or HRMO seat to someone else (e.g. after a promotion). Defined before '/:id'.
 router.get('/seat-handover/options', authorize('SYSTEM_ADMIN', 'HRMO'), seatHandoverOptions);
+router.get('/seat-handover/candidates', authorize('SYSTEM_ADMIN', 'HRMO'), seatHandoverCandidates);
 router.post('/seat-handover', authorize('SYSTEM_ADMIN', 'HRMO'), handOverSeat);
 router.post('/requests/extract-pds', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), personnelDocumentUpload.single('pdsFile'), extractAccountRequestPds);
 router.post('/requests', authorize('AO_II', 'HRMO', 'SYSTEM_ADMIN'), personnelDocumentUpload.single('pdsFile'), submitAccountRequest);

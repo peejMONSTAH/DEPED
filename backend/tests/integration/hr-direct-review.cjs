@@ -109,6 +109,7 @@ test.before(async () => {
   await account('moralesStaff', 'NON_TEACHING_PERSONNEL', MORALES);
   await account('moralesSuccessor', 'NON_TEACHING_PERSONNEL', MORALES);
   await account('matulasStaff', 'NON_TEACHING_PERSONNEL', MATULAS);
+  await account('matulasMover', 'NON_TEACHING_PERSONNEL', MATULAS);
 
   const txType = await db.transactionType.create({ data: { name: 'Promotion' } });
   const template = await db.requirementTemplate.create({ data: { transactionTypeId: txType.id, name: 'Diploma', isMandatory: true, expectedDataType: 'PDF' } });
@@ -260,10 +261,30 @@ test('12. HRMO hands an AO II seat to a person at the same station; roles swap a
   assert.ok(log, 'the handover is audited');
 });
 
-test('13. a successor from another station is refused with a clear reason', async () => {
-  const res = await post(people.hrmo1, '/users/seat-handover', { outgoingUserId: people.moralesSuccessor.userId, successorUserId: people.matulasStaff.userId });
-  assert.equal(res.status, 400);
-  assert.equal(res.json.code, 'HANDOVER_STATION_MISMATCH');
+test('13. a successor from another station is moved to the station of the seat when they take it, and it is audited', async () => {
+  // The outgoing officer is named by personnel id, as the Personnel record does.
+  const res = await post(people.hrmo1, '/users/seat-handover', { outgoingPersonnelId: people.moralesSuccessor.personnelId, successorUserId: people.matulasMover.userId });
+  assert.equal(res.status, 200, res.text);
+  assert.equal(res.json.data.successorMoved, true);
+  const moved = await db.personnel.findUnique({ where: { id: people.matulasMover.personnelId } });
+  assert.equal(moved.school, MORALES, 'the successor now works at the station of the seat');
+  assert.equal((await db.user.findUnique({ where: { id: people.matulasMover.userId }, include: { role: true } })).role.name, 'AO_II');
+  const log = await db.validationLog.findFirst({ where: { action: 'SEAT_HANDOVER', entityId: people.matulasMover.userId } });
+  assert.ok(log && JSON.stringify(log.detailsJson).includes(MATULAS), 'the audit entry records where they moved from');
+  // Their old station has no AO II again, so HRMO covers it.
+  assert.equal((await db.user.findUnique({ where: { id: people.moralesSuccessor.userId }, include: { role: true } })).role.name, 'NON_TEACHING_PERSONNEL');
+});
+
+test('13b. searching the whole division for a successor', async () => {
+  const hit = await get(people.hrmo1, `/users/seat-handover/candidates?q=matulasStaff&excludeUserId=${people.moralesAo.userId}`);
+  assert.equal(hit.status, 200);
+  assert.equal(hit.json.data.length, 1);
+  assert.equal(hit.json.data[0].school, MATULAS);
+  assert.ok(hit.json.data[0].personnelId && hit.json.data[0].userId);
+  assert.deepEqual((await get(people.hrmo1, '/users/seat-handover/candidates?q=m')).json.data, [], 'a one-letter search returns nothing');
+  const noAdmins = await get(people.hrmo1, '/users/seat-handover/candidates?q=hrmo');
+  assert.ok(noAdmins.json.data.every(c => c.role !== 'HRMO' && c.role !== 'SYSTEM_ADMIN'), 'administrators are never offered as successors');
+  assert.equal((await get(people.moralesTeacher, '/users/seat-handover/candidates?q=matulas')).status, 403);
 });
 
 test('14. only a System Administrator hands over an HRMO seat, and nobody hands over their own', async () => {

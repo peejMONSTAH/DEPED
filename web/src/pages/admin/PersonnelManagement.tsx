@@ -14,6 +14,8 @@ import { accessDeniedMessage, isAccessDenied } from '../../api/access';
 import { getAllPages } from '../../api/pagination';
 import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit, ChevronRight } from 'lucide-react';
 import { usePending } from '../../hooks/usePending';
+import { useWorkflowFeatures } from '../../api/features';
+import { SeatHandoverDialog } from './SeatHandoverDialog';
 import { assignableVacantPlantillas, schoolOptionsFor, schoolAfterDistrictChange, districtOfDivision } from '../../utils/plantillaFilters';
 import { generateInitialPassword } from '../../utils/password-issue';
 
@@ -206,6 +208,8 @@ export const PersonnelManagement: React.FC = () => {
 
   const isAo = user?.role === 'AO_II';
   const canManage = user?.role === 'HRMO' || user?.role === 'SYSTEM_ADMIN';
+  const { hrDirectReview } = useWorkflowFeatures();
+  const [handoverOpen, setHandoverOpen] = useState(false);
 
   // Enable Real-time sync across web and mobile
   useRealtimeNotifications(() => {
@@ -695,6 +699,19 @@ export const PersonnelManagement: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  {/* An AO II seat is handed over by HRMO or the System Administrator; an HRMO seat by the System Administrator only. */}
+                  {hrDirectReview && selected.id !== (user as any)?.personnelId
+                    && ((user?.role === 'HRMO' && selected.user?.role?.name === 'AO_II')
+                      || (user?.role === 'SYSTEM_ADMIN' && ['AO_II', 'HRMO'].includes(selected.user?.role?.name || ''))) && (
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setHandoverOpen(true)}>Hand over seat</button>
+                  )}
+                  {handoverOpen && (
+                    <SeatHandoverDialog
+                      holder={{ personnelId: selected.id, name: `${selected.firstName} ${selected.lastName}`.trim() || fullName, role: selected.user?.role?.name || '', school: selected.school }}
+                      onClose={() => setHandoverOpen(false)}
+                      onDone={() => { setHandoverOpen(false); setSelected(null); void fetchPersonnel(); }}
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => setSelected(null)}

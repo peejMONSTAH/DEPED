@@ -1320,7 +1320,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       await prisma.notification.createMany({
         data: assigners.map(a => ({
           userId: a.id, type: 'WARNING' as const, relatedEntityType: 'Transaction', relatedEntityId: id,
-          message: `${who} (${seatRole === 'AO_II' ? 'AO II' : 'HRMO'}${transaction.personnel.school ? `, ${transaction.personnel.school}` : ''}) was promoted. Assign a successor for their seat under Seat handover.`,
+          message: `${who} (${seatRole === 'AO_II' ? 'AO II' : 'HRMO'}${transaction.personnel.school ? `, ${transaction.personnel.school}` : ''}) was promoted. Assign a successor: open their record under Personnel and choose Hand over seat.`,
         })),
       });
       notifyUserNotifications(assigners.map(a => a.id));
