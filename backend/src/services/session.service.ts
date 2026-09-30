@@ -1,3 +1,4 @@
+import { hrDirectEnabled } from '../utils/review-lane.util';
 import crypto from 'crypto';
 import type { Request } from 'express';
 import prisma from '../config/prisma';
@@ -45,5 +46,12 @@ export const appBuildOf = (req: Request): number => Number(req.headers['x-app-bu
 /** The phone app is for personnel only; administrative accounts use the website. */
 export const PHONE_APP_ROLES = ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'];
 export const PHONE_APP_REFUSAL = 'The Digital 201 app is for personnel accounts. AO II, HRMO and System Administrator accounts sign in on the website.';
+/**
+ * With HR-direct review on, an AO II or HRMO may use the phone app, always as their own non-teaching
+ * personnel account (no administrative role on the phone). The website keeps the admin view and a switch.
+ */
+export const actsAsStaffOnPhone = (req: Request, role: string | undefined): boolean =>
+  isPhoneApp(req) && hrDirectEnabled() && (role === 'AO_II' || role === 'HRMO');
+
 export const isRefusedOnPhone = (req: Request, role: string | undefined): boolean =>
-  isPhoneApp(req) && !PHONE_APP_ROLES.includes(role || '');
+  isPhoneApp(req) && !PHONE_APP_ROLES.includes(role || '') && !actsAsStaffOnPhone(req, role);

@@ -7,7 +7,7 @@ import { sendSuccess, sendError, sendUnauthorized, sendBadRequest, sendNotFound 
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { recordAuditLog } from '../utils/audit.util';
-import { capSessions, hashRefreshToken, isPhoneApp, isRefusedOnPhone, isSessionIdle, PHONE_APP_REFUSAL, refreshTokenRow } from '../services/session.service';
+import { actsAsStaffOnPhone, capSessions, hashRefreshToken, isPhoneApp, isRefusedOnPhone, isSessionIdle, PHONE_APP_REFUSAL, refreshTokenRow } from '../services/session.service';
 import {
   isTrustedDevice, startChallenge, verifyChallenge, resendChallenge, trustDevice, notifyNewDevice,
   listDevices, revokeDevice, revokeAllDevices, hashDeviceToken,
@@ -182,7 +182,8 @@ const completeSignIn = async (user: any, req: Request, res: Response, extra: Rec
     user: {
       id: user.id,
       email: user.email,
-      role: user.role.name,
+      // The phone app shows an AO II or HRMO as the non-teaching staff member they are on the phone.
+      role: actsAsStaffOnPhone(req, user.role.name) ? 'NON_TEACHING_PERSONNEL' : user.role.name,
       accountStatus: user.accountStatus,
       firstName: user.personnel?.firstName,
       lastName: user.personnel?.lastName,

@@ -289,3 +289,27 @@ test('16. any signed-in user can read which workflow features are on', async () 
   assert.equal(res.json.data.hrDirectReview, true);
   assert.equal((await get(null, '/users/workflow-features')).status, 401);
 });
+
+// ── Phone app ─────────────────────────────────────────────────────────────────
+
+const PHONE = { 'user-agent': 'Dart/3.2 (dart:io)' };
+
+test('17. on the phone app an AO II or HRMO is their own staff account by default, with no admin power', async () => {
+  // A fresh officer: the handover tests above ended the earlier officers' sessions, as they should.
+  const phoneAo = await account('phoneAo', 'AO_II', MORALES);
+  for (const actor of [people.hrmo1, phoneAo]) {
+    const own = await get(actor, '/personnel/me', PHONE);
+    assert.equal(own.status, 200, own.text);
+    assert.equal(own.json.data.id, actor.personnelId);
+    const directory = await get(actor, '/personnel', PHONE);
+    assert.equal(directory.status, 403, 'the phone never carries the administrator role');
+    const queue = await get(actor, '/transactions?limit=50', PHONE);
+    assert.ok((queue.json.data || []).every(t => t.personnelId === actor.personnelId), 'only their own transactions');
+  }
+});
+
+test('18. the phone still refuses the System Administrator', async () => {
+  const res = await get(people.sysadmin, '/personnel/me', PHONE);
+  assert.equal(res.status, 403);
+  assert.equal(res.json.code, 'PHONE_APP_PERSONNEL_ONLY');
+});

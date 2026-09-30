@@ -78,3 +78,23 @@ test('approval: the System Administrator steps in only when no other HRMO could'
     assert.match(lone.reason, /System Administrator/);
   });
 });
+
+test('phone app: AO II and HRMO are allowed only when HR-direct review is on, and only as staff; the System Administrator never', () => {
+  const { isRefusedOnPhone, actsAsStaffOnPhone } = require('../src/services/session.service');
+  const phone = { headers: { 'user-agent': 'Dart/3.2 (dart:io)' } };
+  const browser = { headers: { 'user-agent': 'Mozilla/5.0' } };
+  withSwitch(undefined, () => {
+    assert.equal(isRefusedOnPhone(phone, 'AO_II'), true, 'off: the phone stays personnel-only');
+    assert.equal(actsAsStaffOnPhone(phone, 'AO_II'), false);
+  });
+  withSwitch('on', () => {
+    for (const role of ['AO_II', 'HRMO']) {
+      assert.equal(isRefusedOnPhone(phone, role), false);
+      assert.equal(actsAsStaffOnPhone(phone, role), true);
+    }
+    assert.equal(isRefusedOnPhone(phone, 'SYSTEM_ADMIN'), true);
+    assert.equal(isRefusedOnPhone(phone, 'TEACHING_PERSONNEL'), false);
+    assert.equal(actsAsStaffOnPhone(phone, 'TEACHING_PERSONNEL'), false, 'personnel need no special handling');
+    assert.equal(actsAsStaffOnPhone(browser, 'AO_II'), false, 'the website keeps the admin view and its switch');
+  });
+});
