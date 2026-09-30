@@ -9,7 +9,8 @@ import { PersonnelDocumentRecord } from '../../models/documentStatus';
 import { loadAnnexCRequirements } from '../../promotions/annexCRequirements';
 import { ApplicationChecklist } from './components/ApplicationChecklist';
 import { PromotionCycleItem } from './components/promotionCycle';
-import { sortVacancies, VacancyState } from './vacancyView';
+import { sortVacancies, vacancyView, VacancyState } from './vacancyView';
+import { ModalOverlay } from '../../components/common/ModalOverlay';
 import './vacancies.css';
 
 /** AO II notes on returned requirements of this person's application to one vacancy, by item code. */
@@ -38,6 +39,7 @@ export const Vacancies: React.FC = () => {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [openCycle, setOpenCycle] = useState<PromotionCycleItem | null>(null);
+  const [detailCycle, setDetailCycle] = useState<PromotionCycleItem | null>(null);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
   const [linkGone, setLinkGone] = useState(false);
   const [whyOpen, setWhyOpen] = useState<number | null>(null);
@@ -58,16 +60,19 @@ export const Vacancies: React.FC = () => {
   useRealtimeTransactions(load);
   useEffect(() => { void load(); }, [load]);
 
-  // ?cycle=ID (from Home, Applications and notifications) opens that vacancy's checklist.
+  // Notification links show details; application links keep their existing checklist destination.
   const [params, setParams] = useSearchParams();
   useEffect(() => {
     const id = Number(params.get('cycle'));
     if (!id || loading || error) return;
     const c = cycles.find(x => x.id === id);
-    if (c) setOpenCycle(c);
+    if (c) {
+      if (params.get('view') === 'details') setDetailCycle(c);
+      else setOpenCycle(c);
+    }
     // Say so instead of silently dropping a link to a vacancy this person can no longer see.
     setLinkGone(!c);
-    const next = new URLSearchParams(params); next.delete('cycle'); setParams(next, { replace: true });
+    const next = new URLSearchParams(params); next.delete('cycle'); next.delete('view'); setParams(next, { replace: true });
   }, [params, cycles, loading, error, setParams]);
 
   const rows = useMemo(() => {
@@ -123,6 +128,7 @@ export const Vacancies: React.FC = () => {
                   </div>
                   <div className="vac__side">
                     <span className="vac__deadline">{view.deadline}</span>
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setDetailCycle(cycle)}>View vacancy</button>
                     {view.action && (
                     <button type="button" className={`btn btn-sm ${view.action.kind === 'view' ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setOpenCycle(cycle)}>
                       {view.action.label}
@@ -134,6 +140,25 @@ export const Vacancies: React.FC = () => {
             </ul>}
         </>}
 
+      {detailCycle && (() => {
+        const view = vacancyView(detailCycle);
+        return <ModalOverlay onDismiss={() => setDetailCycle(null)} aria-label="Vacancy details">
+          <div className="modal-content" style={{ maxWidth: 640, width: '100%', padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+            <h2>{view.position}</h2>
+            <p>{detailCycle.name}</p>
+            <p><strong>Vacancy type:</strong> {detailCycle.type}</p>
+            <p><strong>Application period:</strong> {new Date(detailCycle.startDate).toLocaleDateString('en-PH')} – {new Date(detailCycle.endDate).toLocaleDateString('en-PH')}</p>
+            <p>{view.status}</p>
+            {view.reason && <p>{view.reason}</p>}
+            {view.note && <p>{view.note}</p>}
+            <p>Viewing this vacancy does not submit an application. Choose Apply to review and upload the required documents.</p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setDetailCycle(null)}>Close</button>
+              {view.action && <button type="button" className="btn btn-primary" onClick={() => { setOpenCycle(detailCycle); setDetailCycle(null); }}>{view.action.label}</button>}
+            </div>
+          </div>
+        </ModalOverlay>;
+      })()}
       {openCycle && (
         <ApplicationChecklist
           cycle={openCycle}

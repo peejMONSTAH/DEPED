@@ -7,6 +7,7 @@ import { My201DocumentPicker } from './My201DocumentPicker';
 import { PersonnelDocumentRecord } from '../../../models/documentStatus';
 import { useToast } from '../../../contexts/ToastContext';
 import apiClient from '../../../api/client';
+import { prepareRequirementFiles } from '../../../utils/requirementFiles';
 import { normaliseAnnexCItem } from '../checklistData';
 import { ANNEX_C_FALLBACK, loadAnnexCRequirements } from '../../../promotions/annexCRequirements';
 
@@ -177,21 +178,17 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
 
   // Handle direct file upload from computer
   const handleFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files || []);
     const code = uploadingItemCode;
     if (fileInputRef.current) fileInputRef.current.value = '';
-    if (!file || !code) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      addToast('This file is larger than 10 MB. Choose a smaller PDF, PNG or JPEG.', 'ERROR');
-      return;
-    }
+    if (!files.length || !code || savingCode) return;
 
     // The checklist sends references, not files: save the file to the 201 record
     // first, then attach that record, exactly as "Attach from 201" does.
     const target = checklistItems.find(i => i.code.toLowerCase() === code.toLowerCase());
     setSavingCode(code);
     try {
+      const file = await prepareRequirementFiles(files, target?.title || `Annex-C-${code}`);
       const form = new FormData();
       form.append('file', file);
       form.append('documentTypeId', 'OTHER');
@@ -207,7 +204,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
         ? `Replacement for item ${code.toUpperCase()} saved to your 201 files. It is not sent yet: press Resubmit once every returned item is replaced.`
         : `Saved "${file.name}" to your 201 files and attached it to item ${code.toUpperCase()}.`, 'SUCCESS');
     } catch (err: any) {
-      addToast(err?.response?.data?.message || 'The file could not be saved, so nothing was attached. Try again.', 'ERROR');
+      addToast(err?.response?.data?.message || err?.message || 'The file could not be saved, so nothing was attached. Try again.', 'ERROR');
     } finally {
       setSavingCode(null);
       setUploadingItemCode(null);
@@ -595,7 +592,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
                             }}
                             style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '4px 10px', minHeight: 36 }}
                           >
-                            {savingCode === item.code ? 'Saving…' : 'Upload a file'}
+                            {savingCode === item.code ? 'Saving…' : 'Upload files'}
                           </button>
                         </div>
                       )}
@@ -606,6 +603,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
             </div>
 
             {/* Modal Footer */}
+            <p className="text-sm text-muted" style={{ padding: '0 24px' }}>Select one or more PDF, PNG or JPEG files per requirement (10 MB total). Multiple files are combined into one PDF in selection order. Replacing a requirement replaces its entire attachment.</p>
             <div
               style={{
                 padding: '16px 24px',
@@ -652,6 +650,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         accept=".pdf,.png,.jpg,.jpeg"
         style={{ display: 'none' }}
         onChange={handleFilePicked}

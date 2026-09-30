@@ -5,6 +5,7 @@ import { Sidebar } from '../components/admin/Sidebar';
 import { ToastContainer } from '../components/shared/ToastContainer';
 import { AppIcon } from '../components/common/AppIcon';
 import { PersonnelBottomNav } from '../components/personnel/PersonnelBottomNav';
+import { RouteContent } from '../routes/RouteContent';
 
 import type { Variants } from 'framer-motion';
 
@@ -101,7 +102,7 @@ export const PersonnelLayout: React.FC = () => {
                 exit="exit"
                 className="page-transition-container"
               >
-                {currentOutlet}
+                <RouteContent>{currentOutlet}</RouteContent>
               </motion.div>
             </AnimatePresence>
           </main>

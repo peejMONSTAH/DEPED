@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
+import { prepareRequirementFiles } from '../../utils/requirementFiles';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { templateForRequirement } from '../../components/forms/templateMatch';
 import { checklistFromTransaction, checklistReadiness, type RequirementItem } from './checklistData';
@@ -159,28 +160,15 @@ export const Checklist: React.FC = () => {
     }
   }, [txId, rawTxId, fetchTransactionData]));
 
-  const submitDocumentFile = async (file: File, requirement: RequirementItem) => {
+  const submitDocumentFile = async (selection: File | File[], requirement: RequirementItem) => {
     if (!txId || !['DRAFT', 'DEFICIENCY'].includes(txStatus) || uploadingReqId !== null) return;
-
-    // Strict validation: Strictly PDF, PNG, JPEG (.pdf, .png, .jpg, .jpeg)
-    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
-    const allowedExts = ['.pdf', '.png', '.jpg', '.jpeg'];
-    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-
-    if (!allowedMimes.includes(file.type) && !allowedExts.includes(ext)) {
-      addToast('Invalid file format. Strict upload policy: Only PDF, PNG, and JPEG files (.pdf, .png, .jpg, .jpeg) are allowed for transaction document uploads.', 'ERROR');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      addToast('File exceeds the 10 MB maximum size limit.', 'ERROR');
-      return;
-    }
 
     const activeTargetId = txId;
 
     try {
       setUploadingReqId(requirement.requirementId);
+      const files = Array.isArray(selection) ? selection : [selection];
+      const file = await prepareRequirementFiles(files, requirement.name);
       addToast(`Uploading and saving "${requirement.name}" to database…`, 'INFO');
 
       const formData = new FormData();
@@ -211,18 +199,20 @@ export const Checklist: React.FC = () => {
       await fetchTransactionData(activeTargetId);
     } catch (err: any) {
       console.error('Direct upload failed:', err);
-      addToast(err.response?.data?.message || `Upload failed for "${requirement.name}".`, 'ERROR');
+      addToast(err.response?.data?.message || err.message || `Upload failed for "${requirement.name}".`, 'ERROR');
       await fetchTransactionData(activeTargetId);
     } finally {
       setUploadingReqId(null);
     }
   };
 
-  const handleDirectFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && activeReqItem) void submitDocumentFile(file, activeReqItem);
+  const handleDirectFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const requirement = activeReqItem;
     e.target.value = '';
     setActiveReqItem(null);
+    if (!files.length || !requirement) return;
+    await submitDocumentFile(files, requirement);
   };
 
   const openExistingPicker = async (requirement: RequirementItem) => {
@@ -592,7 +582,7 @@ export const Checklist: React.FC = () => {
                         title="Pick and upload a document directly to save into the database"
                       >
                         <AppIcon name={isDeficientDoc ? 'warning' : 'upload'} size={13} />
-                        {uploadingReqId === item.requirementId ? 'Uploading…' : isDeficientDoc ? 'Replace file' : isUploaded ? 'Replace file' : 'Upload file'}
+                        {uploadingReqId === item.requirementId ? 'Uploading…' : isDeficientDoc || isUploaded ? 'Replace files' : 'Upload files'}
                       </button>
                       <button type="button" className="btn btn-secondary btn-sm"
                         disabled={loading || uploadingReqId !== null || submitting}
@@ -648,11 +638,13 @@ export const Checklist: React.FC = () => {
       <input
         aria-label="Choose a document file to upload"
         type="file"
+        multiple
         ref={fileInputRef}
         style={{ display: 'none' }}
         accept=".pdf,application/pdf,.png,image/png,.jpg,.jpeg,image/jpeg"
         onChange={handleDirectFileUpload}
       />
+      <p className="text-sm text-muted">Select one or more PDF, PNG or JPEG files per requirement (10 MB total). Multiple files are combined into one PDF in selection order. Replacing a requirement replaces its entire attachment.</p>
 
       {/* Step 8 Submit Action Card */}
       <div className="card" style={{ padding: 24, borderRadius: 20, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>

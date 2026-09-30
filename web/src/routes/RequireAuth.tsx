@@ -4,6 +4,7 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { homePathFor } from '../auth/permissions';
 import type { UserRole } from '../types';
+import { RouteLoading } from './RouteContent';
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -20,7 +21,7 @@ interface RequireAuthProps {
 export const RequireAuth: React.FC<RequireAuthProps> = ({ children, allowedRoles }) => {
   const { user, isAuthenticated, isLoading } = useAuthContext();
 
-  if (isLoading) return null;
+  if (isLoading) return <RouteLoading label="Checking sign-in…" />;
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
 
   if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
@@ -46,7 +47,7 @@ const DeniedRedirect: React.FC<{ to: string }> = ({ to }) => {
 export const RootRedirect: React.FC = () => {
   const { user, isAuthenticated, isLoading } = useAuthContext();
 
-  if (isLoading) return null;
+  if (isLoading) return <RouteLoading label="Checking sign-in…" />;
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
   return <Navigate to={homePathFor(user)} replace />;
 };

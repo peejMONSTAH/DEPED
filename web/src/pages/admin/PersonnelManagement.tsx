@@ -366,7 +366,7 @@ export const PersonnelManagement: React.FC = () => {
         ? (newCategory === 'HRMO' ? 'Schools Division Office, SDO Koronadal City' : 'ICT Unit, Schools Division Office, SDO Koronadal City')
         : (newAddress || `${newSchool}, ${currentDist.name}`);
 
-      if (newCategory !== 'AO_II' && (!newFirstName.trim() || !newLastName.trim())) {
+      if (!newFirstName.trim() || !newLastName.trim()) {
         addToast('First Name and Last Name are required.', 'ERROR');
         return;
       }
@@ -382,13 +382,13 @@ export const PersonnelManagement: React.FC = () => {
         password: newPassword,
         role: roleName,
         nonPlantilla: isSchoolPersonnel && isNonPlantilla,
-        firstName: newCategory === 'AO_II' ? 'AO II' : newFirstName.trim(),
-        lastName: newCategory === 'AO_II' ? newSchool : newLastName.trim(),
-        middleName: newCategory === 'AO_II' ? undefined : newMiddleName,
-        suffix: newCategory === 'AO_II' ? undefined : newSuffix,
-        birthDate: newCategory === 'AO_II' ? undefined : newBirthDate,
-        gender: newCategory === 'AO_II' ? undefined : newGender,
-        civilStatus: newCategory === 'AO_II' ? undefined : newCivilStatus,
+        firstName: newFirstName.trim(),
+        lastName: newLastName.trim(),
+        middleName: newMiddleName,
+        suffix: newSuffix,
+        birthDate: newBirthDate,
+        gender: newGender,
+        civilStatus: newCivilStatus,
         contactNumber: newContactNumber,
         address: effectiveAddress,
         designation: effectiveDesignation,
@@ -1173,8 +1173,8 @@ export const PersonnelManagement: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Station accounts have no personal identity fields. */}
-                {newCategory !== 'AO_II' && <div>
+                {/* Every account belongs to a person, including AO II. */}
+                <div>
                   <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <AppIcon name="personnel" size={14} /> 1. Personal Information
                   </div>
@@ -1231,7 +1231,6 @@ export const PersonnelManagement: React.FC = () => {
                   </div>
                 </div>
 
-                }
                 {/* Section 2: Contact & Address — 3-column */}
                 <div>
                   <div style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-primary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1272,28 +1271,18 @@ export const PersonnelManagement: React.FC = () => {
                           setNewCategory(cat);
                           if (cat === 'AO_II') {
                             setNewDesignation(`Administrative Officer II - ${newSchool} (${currentDist.name})`);
-                            if (!newLastName || newLastName === 'Schools Division Office (SDO)') setNewLastName(newSchool);
-                            if (!newFirstName) setNewFirstName('AO II');
                           }
                           else if (cat === 'HRMO') {
                             setNewDesignation('HRMO Approver / Manager');
-                            if (newLastName === newSchool) setNewLastName('');
-                            if (newFirstName === 'AO II') setNewFirstName('');
                           }
                           else if (cat === 'SYSTEM_ADMIN') {
                             setNewDesignation('System Administrator');
-                            if (newLastName === newSchool) setNewLastName('');
-                            if (newFirstName === 'AO II') setNewFirstName('');
                           }
                           else if (cat === 'TEACHING') {
                             setNewDesignation(TEACHING_POSITIONS[0]);
-                            if (newLastName === newSchool) setNewLastName('');
-                            if (newFirstName === 'AO II') setNewFirstName('');
                           }
                           else {
                             setNewDesignation(NON_TEACHING_POSITIONS[0]);
-                            if (newLastName === newSchool) setNewLastName('');
-                            if (newFirstName === 'AO II') setNewFirstName('');
                           }
                         }}
                       >
@@ -1447,7 +1436,6 @@ export const PersonnelManagement: React.FC = () => {
                               setNewSchool(sch);
                               if (newCategory === 'AO_II') {
                                 setNewDesignation(`Administrative Officer II - ${sch} (${dist.name})`);
-                                setNewLastName(sch);
                               }
                               if (!newAddress || newAddress.includes('District')) {
                                 setNewAddress(`${sch}, ${dist.name}`);
@@ -1476,7 +1464,6 @@ export const PersonnelManagement: React.FC = () => {
                               setNewSchool(sch);
                               if (newCategory === 'AO_II') {
                                 setNewDesignation(`Administrative Officer II - ${sch} (${dist.name})`);
-                                setNewLastName(sch);
                               }
                               setNewAddress(`${sch}, ${dist.name}`);
                             }}

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/admin/Sidebar';
 import { ToastContainer } from '../components/shared/ToastContainer';
 import { AppIcon } from '../components/common/AppIcon';
+import { RouteContent } from '../routes/RouteContent';
 
 import type { Variants } from 'framer-motion';
 
@@ -85,7 +86,7 @@ export const AdminLayout: React.FC = () => {
                 exit="exit"
                 className="page-transition-container"
               >
-                {currentOutlet}
+                <RouteContent>{currentOutlet}</RouteContent>
               </motion.div>
             </AnimatePresence>
           </main>

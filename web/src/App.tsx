@@ -8,6 +8,7 @@ import { queryClient } from './api/queryClient';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { RequireAuth, RootRedirect } from './routes/RequireAuth';
 import { ADMIN_PORTAL_ROLES, PERSONNEL_PORTAL_ROLES } from './auth/permissions';
+import { RouteContent } from './routes/RouteContent';
 
 // Layouts
 import { AdminLayout } from './layouts/AdminLayout';
@@ -49,12 +50,6 @@ const MyDocuments = React.lazy(() => import('./pages/personnel/MyDocuments').the
 const PersonnelNotifications = React.lazy(() => import('./pages/personnel/Notifications').then(m => ({ default: m.PersonnelNotifications })));
 const CareerRecord = React.lazy(() => import('./pages/personnel/CareerRecord').then(m => ({ default: m.CareerRecord })));
 
-/** Shown while a route chunk downloads. Deliberately quiet: route chunks are
- * small and usually arrive within a frame or two, so a spinner would flicker. */
-const RouteFallback: React.FC = () => (
-  <div style={{ padding: 24, color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Loading…</div>
-);
-
 export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -63,7 +58,7 @@ export const App: React.FC = () => {
         <ToastProvider>
           <ConfirmProvider>
           <AuthProvider>
-            <React.Suspense fallback={<RouteFallback />}>
+            <RouteContent>
             <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
@@ -242,7 +237,7 @@ export const App: React.FC = () => {
             <Route path="/" element={<RootRedirect />} />
             <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            </React.Suspense>
+            </RouteContent>
         </AuthProvider>
           </ConfirmProvider>
       </ToastProvider>

@@ -538,7 +538,7 @@ export const MyDocuments: React.FC = () => {
         <h2 id="mdoc-summary" className="sr-only">What uploaded, checked and approved mean</h2>
         <dl className="mdoc__terms">
           <div><dt>Uploaded</dt><dd>The file is in your 201 record. Nobody has checked it yet.</dd></div>
-          <div><dt>Checked</dt><dd>AO II validated the copy you attached to an application or appointment.</dd></div>
+          <div><dt>Checked</dt><dd>A reviewer validated the copy you attached to an application or appointment.</dd></div>
           <div><dt>Approved</dt><dd>HRMO approved the appointment. Only this changes your position and service record.</dd></div>
         </dl>
       </section>)}

@@ -39,7 +39,7 @@ test('the linked record decides the destination, not the wording', () => {
   assert.equal(app.needsAction, true);
 
   const cycle = routeNotification(note({ message: 'New Promotion Cycle Opened: "MT II" is now active for applications.', relatedEntityType: 'PromotionCycle', relatedEntityId: 9 }));
-  assert.equal(cycle.path, '/personnel/vacancies?cycle=9');
+  assert.equal(cycle.path, '/personnel/vacancies?cycle=9&view=details');
 
   const file = routeNotification(note({ message: 'Your PRC ID expired on May 1, 2026.', type: 'WARNING', relatedEntityType: 'PersonnelDocument', relatedEntityId: 3 }));
   assert.equal(file.path, '/personnel/documents');

@@ -83,7 +83,7 @@ export function routeNotification(n: PersonnelNotification): NoticeRoute {
   }
 
   if (entity === 'promotioncycle' && id) {
-    if (/opened|active for applications|accepting applications/.test(lower)) return route('vacancy', 'New vacancy open for applications', `/personnel/vacancies?cycle=${id}`, 'View vacancy');
+    if (/opened|active for applications|accepting applications/.test(lower)) return route('vacancy', 'New vacancy open for applications', `/personnel/vacancies?cycle=${id}&view=details`, 'View vacancy');
     if (/cancel/.test(lower)) return route('vacancy', 'Promotion cycle cancelled', '/personnel/transactions', 'View application');
     if (/withdrawn/.test(lower)) return route('application', 'Selection withdrawn by HRMO', '/personnel/transactions', 'View application');
     if (/rating finalized|score/.test(lower)) return route('application', 'Your rating was finalized', '/personnel/transactions', 'View application');
