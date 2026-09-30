@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { playSuccessChime } from '../utils/sound.utils';
-import { apiUrl, freshAccessToken, streamBackoff } from '../api/client';
+import { subscribeStream } from '../api/sharedStream';
 
 /**
  * Custom React hook for real-time notification updates using SSE (Server-Sent Events)
  * + tab focus refresh and periodic reconciliation across API instances.
+ * All hooks on a page share one stream connection (see api/sharedStream).
  */
 export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: number = 30000) => {
   const callbackRef = useRef(onUpdate);
@@ -14,48 +15,17 @@ export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: numbe
     // Initial fetch
     callbackRef.current();
 
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: any = null;
-    let isDisposed = false;
-
-    let failures = 0;
-    const connectSSE = async () => {
-      if (isDisposed) return;
+    const unsubscribe = subscribeStream('/notifications/stream', event => {
       try {
-        const token = await freshAccessToken();
-        if (!token || isDisposed) return;
-        const url = apiUrl(`/notifications/stream?token=${encodeURIComponent(token)}`);
-        eventSource = new EventSource(url);
-
-        eventSource.onopen = () => { failures = 0; };
-        eventSource.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (payload.type === 'NOTIFICATION') {
-              playSuccessChime();
-              callbackRef.current();
-            }
-          } catch {
-            callbackRef.current();
-          }
-        };
-
-        eventSource.onerror = () => {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          if (!isDisposed) {
-            failures += 1;
-            reconnectTimeout = setTimeout(connectSSE, streamBackoff(failures));
-          }
-        };
+        const payload = JSON.parse(event.data);
+        if (payload.type === 'NOTIFICATION') {
+          playSuccessChime();
+          callbackRef.current();
+        }
       } catch {
-        // Fallback to polling
+        callbackRef.current();
       }
-    };
-
-    connectSSE();
+    });
 
     // Polling timer
     const timer = setInterval(() => {
@@ -76,9 +46,7 @@ export const useRealtimeNotifications = (onUpdate: () => void, intervalMs: numbe
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      isDisposed = true;
-      if (eventSource) eventSource.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      unsubscribe();
       clearInterval(timer);
       window.removeEventListener('focus', handleVisibilityChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);

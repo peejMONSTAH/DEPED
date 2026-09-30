@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { apiUrl, freshAccessToken, streamBackoff } from '../api/client';
+import { subscribeStream } from '../api/sharedStream';
 
 /**
  * Custom React hook for real-time transaction updates using SSE (Server-Sent Events)
  * + tab focus refresh and periodic reconciliation across API instances.
+ * All hooks on a page share one stream connection (see api/sharedStream).
  */
 export const useRealtimeTransactions = (onUpdate: (data?: any) => void, intervalMs: number = 30000) => {
   const callbackRef = useRef(onUpdate);
@@ -13,47 +14,16 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
     // Initial fetch
     callbackRef.current();
 
-    let eventSource: EventSource | null = null;
-    let reconnectTimeout: any = null;
-    let isDisposed = false;
-
-    let failures = 0;
-    const connectSSE = async () => {
-      if (isDisposed) return;
+    const unsubscribe = subscribeStream('/transactions/stream', event => {
       try {
-        const token = await freshAccessToken();
-        if (!token || isDisposed) return;
-        const url = apiUrl(`/transactions/stream?token=${encodeURIComponent(token)}`);
-        eventSource = new EventSource(url);
-
-        eventSource.onopen = () => { failures = 0; };
-        eventSource.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (payload.type !== 'CONNECTED') {
-              callbackRef.current(payload);
-            }
-          } catch {
-            callbackRef.current();
-          }
-        };
-
-        eventSource.onerror = () => {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          if (!isDisposed) {
-            failures += 1;
-            reconnectTimeout = setTimeout(connectSSE, streamBackoff(failures));
-          }
-        };
+        const payload = JSON.parse(event.data);
+        if (payload.type !== 'CONNECTED') {
+          callbackRef.current(payload);
+        }
       } catch {
-        // Fall back to fast polling
+        callbackRef.current();
       }
-    };
-
-    connectSSE();
+    });
 
     // Responsive polling fallback ensuring real-time UI synchronization
     const timer = setInterval(() => {
@@ -73,9 +43,7 @@ export const useRealtimeTransactions = (onUpdate: (data?: any) => void, interval
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      isDisposed = true;
-      if (eventSource) eventSource.close();
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      unsubscribe();
       clearInterval(timer);
       window.removeEventListener('focus', handleVisibilityChange);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
