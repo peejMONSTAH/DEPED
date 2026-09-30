@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digital 201 test bench</title>
+<style>
+  :root { --bg:#f4f7f4; --card:#fff; --ink:#1f3a2c; --muted:#5b6b62; --line:#dce6de; --green:#17472e; --leaf:#2f7d52; --mint:#e9f5ee; --amber:#8a3a0b; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#121a15; --card:#1a251e; --ink:#e6efe9; --muted:#9db0a4; --line:#2b3a31; --green:#9be2b8; --leaf:#5fbf88; --mint:#1f3327; --amber:#f0b27a; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { background:#17472e; color:#fff; padding:28px 20px; }
+  header > div, main { max-width:1040px; margin:0 auto; }
+  h1 { margin:0 0 4px; font-size:1.75rem; letter-spacing:-.02em; }
+  header p { margin:0; color:rgba(255,255,255,.8); }
+  main { padding:20px; display:grid; gap:20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; }
+  h2 { margin:0 0 10px; font-size:1.125rem; }
+  .cta { display:inline-block; padding:11px 18px; border-radius:10px; background:var(--leaf); color:#fff; text-decoration:none; font-weight:700; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .status { padding:3px 10px; border-radius:999px; font-size:.8125rem; font-weight:700; background:var(--mint); color:var(--green); }
+  .status.bad { background:#fdebd3; color:#8a3a0b; }
+  table { width:100%; border-collapse:collapse; font-size:.9375rem; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:.8125rem; }
+  code { background:var(--mint); padding:1px 6px; border-radius:6px; font-size:.9em; user-select:all; }
+  ol.steps { margin:0; padding-left:22px; display:grid; gap:10px; }
+  ol.steps li b { color:var(--green); }
+  .expect { display:block; color:var(--muted); font-size:.875rem; }
+  .note { color:var(--amber); font-size:.9375rem; }
+  @media (max-width:640px) { th:nth-child(3), td:nth-child(3) { display:none; } }
+</style>
+</head>
+<body>
+<header><div>
+  <h1>Digital 201 test bench</h1>
+  <p>The real app on a throwaway database with HR-direct review switched on. Synthetic people only, no email, nothing saved to your real data.</p>
+</div></header>
+<main>
+  <section>
+    <div class="row">
+      <a class="cta" href="/login" target="_blank" rel="noopener">Open the app</a>
+      <span id="server" class="status">checking…</span>
+      <span id="flag" class="status">checking…</span>
+    </div>
+    <p>Every account uses the password <code>Qa#Readiness2026!</code>. On a new browser it asks for a one-time code: <code>424242</code>. Use a private window per account, or sign out between accounts, since two people can't be signed in in the same tab.</p>
+  </section>
+
+  <section>
+    <h2>Accounts</h2>
+    <table>
+      <thead><tr><th>Sign in as</th><th>Role</th><th>Station</th><th>Use it to</th></tr></thead>
+      <tbody>
+        <tr><td><code>ao.morales@qa.test</code></td><td>AO II</td><td>Morales</td><td>Validate teaching files; try the personnel view switch; be handed out of a seat.</td></tr>
+        <tr><td><code>hrmo1@qa.test</code></td><td>HRMO</td><td>Division</td><td>Validate non-teaching files; hand over the AO II seat.</td></tr>
+        <tr><td><code>hrmo2@qa.test</code></td><td>HRMO</td><td>Division</td><td>The second HRMO who gives final approval.</td></tr>
+        <tr><td><code>sysadmin@qa.test</code></td><td>System Administrator</td><td>Division</td><td>Hand over an HRMO seat; approve only if no other HRMO could.</td></tr>
+        <tr><td><code>teacher.morales@qa.test</code></td><td>Teaching</td><td>Morales</td><td>Has a submitted file waiting for the AO II. Can apply for Teacher II.</td></tr>
+        <tr><td><code>staff.morales@qa.test</code></td><td>Non-teaching</td><td>Morales</td><td>Has a submitted file waiting for HRMO (not the AO II). Can apply for Administrative Assistant III.</td></tr>
+        <tr><td><code>successor.morales@qa.test</code></td><td>Non-teaching</td><td>Morales</td><td>The person who takes over the AO II seat.</td></tr>
+        <tr><td><code>teacher.matulas@qa.test</code></td><td>Teaching</td><td>Matulas</td><td>Matulas has no AO II, so HRMO covers this file.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Try these, in order</h2>
+    <ol class="steps">
+      <li><b>Teaching goes to the AO II.</b> Sign in as <code>ao.morales</code> and open Doc. Validation.
+        <span class="expect">Expect: Rosa Delacruz's file is listed. Ben Santos's and Sofia Lim's are not.</span></li>
+      <li><b>Non-teaching goes straight to HRMO.</b> Sign in as <code>hrmo1</code> and open Doc. Validation.
+        <span class="expect">Expect: Ben Santos, Sofia Lim (and Lorna Villanueva, since Matulas has no AO II) are listed. Validate Ben Santos's file.</span></li>
+      <li><b>A different HRMO approves.</b> Still as <code>hrmo1</code>, open HRMO Approvals and try to approve Ben's file.
+        <span class="expect">Expect: refused, "a different HRMO must give final approval". Sign in as <code>hrmo2</code> and approve it: allowed.</span></li>
+      <li><b>The System Administrator waits.</b> Validate Sofia Lim's file as <code>hrmo1</code>, then try approving it as <code>sysadmin</code>.
+        <span class="expect">Expect: refused, since another HRMO could approve.</span></li>
+      <li><b>Switch to the personnel view.</b> As <code>ao.morales</code>, use "Switch to personnel view" at the bottom of the sidebar, then open Vacancies.
+        <span class="expect">Expect: the personnel menu (Home, 201 Files, Applications, Vacancies…), with Alma's own records. Try applying to Administrative Officer IV. "Switch to admin view" returns.</span></li>
+      <li><b>Nobody reviews their own case.</b> Apply as <code>ao.morales</code> (step 5), then in the admin view try to open that application to verify it.
+        <span class="expect">Expect: refused. Only HRMO checks an administrator's application.</span></li>
+      <li><b>Seat handover.</b> Sign in as <code>hrmo1</code> and open Seat handover. Choose Alma Aquino as the officer and Sofia Lim as the successor, then hand over.
+        <span class="expect">Expect: Sofia now AO II for Morales, Alma back to staff, both signed out. Sign in as <code>successor.morales</code>: Rosa Delacruz's file is now in her Doc. Validation.</span></li>
+      <li><b>Wrong station is refused.</b> Try handing an AO II seat to <code>teacher.matulas</code>.
+        <span class="expect">Expect: refused, because the successor works at a different station.</span></li>
+      <li><b>HRMO seat needs the System Administrator.</b> As <code>hrmo1</code> the list shows AO II seats only. Sign in as <code>sysadmin</code> and hand over an HRMO seat.</li>
+    </ol>
+    <p class="note">Restart the test bench to reset every account and file to how it started.</p>
+  </section>
+</main>
+<script>
+  const set = (id, ok, text) => { const el = document.getElementById(id); el.textContent = text; el.className = 'status' + (ok ? '' : ' bad'); };
+  // Any answer, even 401, proves the API is up.
+  fetch('/api/v1/health').then(r => set('server', r.status < 500, r.status < 500 ? 'API running' : 'API error')).catch(() => set('server', false, 'API not reachable'));
+  // The features route needs a sign-in, so a 401 also proves the API is up; the flag is shown once you are signed in elsewhere.
+  fetch('/api/v1/users/workflow-features').then(r => set('flag', r.status === 401, 'HR-direct review on (sign in to confirm)')).catch(() => set('flag', false, 'unknown'));
+</script>
+</body>
+</html>
