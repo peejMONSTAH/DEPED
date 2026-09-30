@@ -7,7 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './api/queryClient';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { RequireAuth, RootRedirect } from './routes/RequireAuth';
-import { ADMIN_PORTAL_ROLES, PERSONNEL_ROLES } from './auth/permissions';
+import { ADMIN_PORTAL_ROLES, PERSONNEL_PORTAL_ROLES } from './auth/permissions';
 
 // Layouts
 import { AdminLayout } from './layouts/AdminLayout';
@@ -19,6 +19,7 @@ const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => 
 const SetupAccount = React.lazy(() => import('./pages/auth/SetupAccount').then(m => ({ default: m.SetupAccount })));
 
 // Admin Pages
+const SeatHandover = React.lazy(() => import('./pages/admin/SeatHandover').then(m => ({ default: m.SeatHandover })));
 const AccessSessions = React.lazy(() => import('./pages/admin/AccessSessions').then(m => ({ default: m.AccessSessions })));
 const EmailDelivery = React.lazy(() => import('./pages/admin/EmailDelivery').then(m => ({ default: m.EmailDelivery })));
 const ServiceHealth = React.lazy(() => import('./pages/admin/ServiceHealth').then(m => ({ default: m.ServiceHealth })));
@@ -88,7 +89,7 @@ export const App: React.FC = () => {
               <Route
                 path="documents"
                 element={
-                  <RequireAuth allowedRoles={['AO_II']}>
+                  <RequireAuth allowedRoles={['AO_II', 'HRMO']}>
                     <DocumentValidation />
                   </RequireAuth>
                 }
@@ -184,6 +185,7 @@ export const App: React.FC = () => {
                 }
               />
 
+              <Route path="handover" element={<RequireAuth allowedRoles={['HRMO', 'SYSTEM_ADMIN']}><SeatHandover /></RequireAuth>} />
               <Route path="access" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><AccessSessions /></RequireAuth>} />
               <Route path="email" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><EmailDelivery /></RequireAuth>} />
               <Route path="health" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><ServiceHealth /></RequireAuth>} />
@@ -195,7 +197,7 @@ export const App: React.FC = () => {
             <Route
               path="/personnel"
               element={
-                <RequireAuth allowedRoles={PERSONNEL_ROLES}>
+                <RequireAuth allowedRoles={PERSONNEL_PORTAL_ROLES}>
                   <PersonnelLayout />
                 </RequireAuth>
               }

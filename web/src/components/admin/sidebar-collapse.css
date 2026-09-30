@@ -1,6 +1,10 @@
 /* Collapsible sidebar. On phones the sidebar is a drawer, so none of this applies there. */
 .sidebar-logo-compact { display: none; }
 .sidebar-collapse-toggle { display: none; }
+/* AO II / HRMO: switch between the admin workspace and their own personnel portal. */
+.sidebar-view-switch { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 8px; padding: 9px 12px; border: 1px solid #C5D3C9; border-radius: 10px; background: transparent; color: var(--color-text-primary); font: inherit; font-size: .875rem; font-weight: 700; cursor: pointer; }
+.sidebar-view-switch:hover { background: rgba(23, 71, 46, .08); }
+.sidebar-view-switch:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
 @media (min-width: 1025px) {
   .shell-sidebar { transition: width .2s ease, padding .2s ease; }
@@ -19,6 +23,7 @@
   .is-collapsed .shell-nav-label,
   .is-collapsed .nav-section-header,
   .is-collapsed .sidebar-collapse-label,
+  .is-collapsed .sidebar-view-label,
   .is-collapsed .user-meta,
   .is-collapsed .user-caret { display: none; }
   .is-collapsed .sidebar-logo-compact { display: inline-flex; margin: 0 auto; }
@@ -33,7 +38,7 @@
     position: absolute; top: 2px; right: 6px; min-width: 8px; height: 8px; padding: 0; font-size: 0; border-radius: 999px;
   }
 
-  .is-collapsed .sidebar-collapse-toggle { justify-content: center; padding-left: 0; padding-right: 0; }
+  .is-collapsed .sidebar-collapse-toggle, .is-collapsed .sidebar-view-switch { justify-content: center; padding-left: 0; padding-right: 0; }
   .is-collapsed .sidebar-collapse-icon { transform: rotate(180deg); }
 
   .is-collapsed .shell-user-card { justify-content: center; padding-left: 0; padding-right: 0; }

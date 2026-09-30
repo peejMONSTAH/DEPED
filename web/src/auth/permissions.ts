@@ -9,6 +9,11 @@ import type { UserRole, AuthUser } from '../types';
 
 /** Teaching and non-teaching staff — the subjects of HR transactions. */
 export const PERSONNEL_ROLES: UserRole[] = ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'];
+/** AO II and HRMO can also act as themselves, as non-teaching staff, in the personnel portal (the view switch). */
+export const PERSONNEL_PORTAL_ROLES: UserRole[] = [...PERSONNEL_ROLES, 'AO_II', 'HRMO'];
+export const canSwitchView = (role?: string | null): boolean => role === 'AO_II' || role === 'HRMO';
+/** True while on a personnel page: an AO II or HRMO there is acting as personnel, not as an administrator. */
+export const inPersonnelView = (role?: string | null, pathname: string = ''): boolean => canSwitchView(role) && pathname.startsWith('/personnel');
 
 /** Roles that use the admin portal rather than the personnel portal. */
 export const ADMIN_PORTAL_ROLES: UserRole[] = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];

@@ -62,6 +62,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // An AO II or HRMO on a personnel page is acting as themselves, as staff. The server then handles
+    // the request as a personnel account; this header can only narrow their access.
+    try {
+      const role = JSON.parse(localStorage.getItem('user') || 'null')?.role;
+      if ((role === 'AO_II' || role === 'HRMO') && window.location.pathname.startsWith('/personnel')) config.headers['X-View-Mode'] = 'personnel';
+    } catch { /* no stored user: nothing to narrow */ }
     // Lets the server tell which trusted device is this one (Profile, password change).
     const deviceToken = localStorage.getItem('deviceToken');
     if (deviceToken) config.headers['X-Device-Token'] = deviceToken;

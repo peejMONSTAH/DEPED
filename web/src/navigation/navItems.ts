@@ -25,7 +25,7 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
     label: 'Transactions & Validation',
     items: [
       { label: 'Transaction Queue',  icon: 'transactions', path: '/admin/transactions', roles: ['AO_II', 'HRMO'] },
-      { label: 'Doc. Validation',    icon: 'validation',   path: '/admin/documents',    roles: ['AO_II'] },
+      { label: 'Doc. Validation',    icon: 'validation',   path: '/admin/documents',    roles: ['AO_II', 'HRMO'] },
       { label: 'HRMO Approvals',     icon: 'approvals',    path: '/admin/approvals',    roles: ['HRMO'] },
     ],
   },
@@ -37,6 +37,7 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
       { label: 'Accounts',           icon: 'credentials',  path: '/admin/credentials',  roles: ['SYSTEM_ADMIN', 'AO_II'] },
       { label: 'Compliance & YOS',   icon: 'compliance',   path: '/admin/compliance',   roles: ['HRMO'] },
       { label: 'Promotions',         icon: 'promotions',   path: '/admin/promotions',   roles: ['AO_II', 'HRMO'] },
+      { label: 'Seat handover',      icon: 'credentials',  path: '/admin/handover',     roles: ['HRMO', 'SYSTEM_ADMIN'] },
     ],
   },
   {

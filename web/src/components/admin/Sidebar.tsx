@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { canSwitchView, inPersonnelView } from '../../auth/permissions';
+import { useWorkflowFeatures } from '../../api/features';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import type { UserRole } from '../../types';
@@ -36,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuthContext();
   const { addToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Retain the authenticated user profile during logout transition to prevent showing fallbacks
   const lastUserRef = useRef(user);
@@ -167,8 +170,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const userRole = displayUser?.role || '';
   const displayName = personnelDisplayName(displayUser?.personnel || displayUser, userRole) || displayUser?.email || '';
 
+  // An AO II or HRMO can switch to the personnel portal and act as themselves, as staff.
+  const { hrDirectReview } = useWorkflowFeatures();
+  const canSwitch = hrDirectReview && canSwitchView(userRole);
+  const personnelView = inPersonnelView(userRole, location.pathname);
+  const effectiveRole = personnelView ? 'NON_TEACHING_PERSONNEL' : userRole;
+  // Entries that exist only for the HR-direct workflow stay hidden until the server turns it on.
+  const hrDirectOnly = new Set(['/admin/handover']);
   const filterItems = (items: NavItem[]) =>
-    items.filter(item => !item.roles || (userRole && item.roles.includes(userRole as UserRole)));
+    items.filter(item => (!item.roles || (effectiveRole && item.roles.includes(effectiveRole as UserRole)))
+      && (hrDirectReview || !hrDirectOnly.has(item.path))
+      && (hrDirectReview || !(item.path === '/admin/documents' && effectiveRole === 'HRMO')));
 
   const filteredSections = navSections
     .map(sec => ({ ...sec, items: filterItems(sec.items) }))
@@ -274,6 +286,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
+          {canSwitch && (
+            <button
+              type="button"
+              className="sidebar-view-switch"
+              title={collapsed ? (personnelView ? 'Switch to admin view' : 'Switch to personnel view') : undefined}
+              onClick={() => { onClose?.(); navigate(personnelView ? '/admin/dashboard' : '/personnel/home'); }}
+            >
+              <AppIcon name={personnelView ? 'dashboard' : 'profile'} size={16} />
+              <span className="sidebar-view-label">{personnelView ? 'Switch to admin view' : 'Switch to personnel view'}</span>
+            </button>
+          )}
           <button
             type="button"
             className="sidebar-collapse-toggle"

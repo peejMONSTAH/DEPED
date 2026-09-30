@@ -161,7 +161,8 @@ export const DocumentValidation: React.FC = () => {
       setLoading(true);
     }
     try {
-      const res = await apiClient.get('/transactions?limit=1000');
+      // HRMO checks non-teaching submissions directly; the server narrows its list to those.
+      const res = await apiClient.get(user?.role === 'HRMO' ? '/transactions?limit=1000&queue=validation' : '/transactions?limit=1000');
       const apiList = res.data?.data || [];
 
       const mappedApi: Transaction[] = apiList.map(toReviewItem);
@@ -185,7 +186,7 @@ export const DocumentValidation: React.FC = () => {
       setLoading(false);
       isInitialLoad.current = false;
     }
-  }, [searchParams]);
+  }, [searchParams, user?.role]);
 
   useEffect(() => {
     fetchPendingTransactions();
