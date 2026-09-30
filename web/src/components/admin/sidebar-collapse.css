@@ -1,31 +1,50 @@
-/* Collapsible sidebar. On phones the sidebar is a drawer, so none of this applies there. */
+/* Collapsible sidebar. On phones the sidebar is a drawer, so the collapse button and rail do not apply.
+   A global rule forces every <button>'s padding, border, background and shadow with !important,
+   so the footer controls below override it the same way, with more specific selectors. */
 .sidebar-logo-compact { display: none; }
-.sidebar-collapse-toggle { display: none; }
-/* AO II / HRMO: switch between the admin workspace and their own personnel portal. */
-.sidebar-view-switch { display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 8px; padding: 9px 12px; border: 1px solid #C5D3C9; border-radius: 10px; background: transparent; color: var(--color-text-primary); font: inherit; font-size: .875rem; font-weight: 700; cursor: pointer; }
-.sidebar-view-switch:hover { background: rgba(23, 71, 46, .08); }
-.sidebar-view-switch:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.shell-sidebar .sidebar-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+/* Admin | Personnel: one track, the current view filled. */
+.shell-sidebar .view-seg { flex: 1 1 auto; min-width: 0; display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: #E1EBE4; }
+.shell-sidebar .sidebar-controls .view-seg button {
+  flex: 1 1 0; min-width: 0; padding: 7px 8px !important; gap: 6px !important;
+  border: 0 !important; border-radius: 9px !important; background: transparent !important; box-shadow: none !important;
+  color: #1F5A3A !important; font-size: .8125rem !important; font-weight: 700 !important;
+}
+.shell-sidebar .sidebar-controls .view-seg button:not(.is-on):hover { background: rgba(255, 255, 255, .65) !important; }
+.shell-sidebar .sidebar-controls .view-seg button.is-on { background: #17472E !important; color: #FFFFFF !important; }
+.shell-sidebar .sidebar-controls .view-seg button:focus-visible,
+.shell-sidebar .sidebar-controls .sidebar-collapse-toggle:focus-visible { outline: 2px solid #2F7D52 !important; outline-offset: 2px; }
+
+/* Collapse: a small icon button on desktop only. */
+.shell-sidebar .sidebar-controls .sidebar-collapse-toggle { display: none !important; }
+.sidebar-collapse-icon { transition: transform .2s ease; }
 
 @media (min-width: 1025px) {
   .shell-sidebar { transition: width .2s ease, padding .2s ease; }
 
-  .sidebar-collapse-toggle {
-    display: flex; align-items: center; gap: 8px; width: 100%; margin-bottom: 8px; padding: 8px 12px;
-    border: 0; border-radius: 10px; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: .875rem; font-weight: 700; cursor: pointer;
+  .shell-sidebar .sidebar-controls .sidebar-collapse-toggle {
+    display: inline-flex !important; flex: 0 0 auto; width: 38px; height: 38px; padding: 0 !important; gap: 0 !important;
+    border: 1px solid #C5D3C9 !important; border-radius: 10px !important; background: transparent !important; box-shadow: none !important;
+    color: var(--color-text-secondary) !important;
   }
-  .sidebar-collapse-toggle:hover { background: rgba(23, 71, 46, .08); color: var(--color-text-primary); }
-  .sidebar-collapse-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
-  .sidebar-collapse-icon { transition: transform .2s ease; }
+  .shell-sidebar .sidebar-controls .sidebar-collapse-toggle:hover { background: rgba(23, 71, 46, .08) !important; color: var(--color-text-primary) !important; }
+  .shell-sidebar .sidebar-collapse-label { display: none; }
+
+  /* Without the view switch there is only the collapse button: give it a label and the full row. */
+  .shell-sidebar .sidebar-controls.is-solo .sidebar-collapse-toggle { flex: 1 1 auto; width: auto; padding: 0 12px !important; gap: 8px !important; justify-content: flex-start !important; }
+  .shell-sidebar .sidebar-controls.is-solo .sidebar-collapse-label { display: inline; }
 
   .shell-sidebar.is-collapsed { width: 76px; padding-left: 10px; padding-right: 10px; }
   .is-collapsed .sidebar-logo-full,
   .is-collapsed .brand-org-subtitle,
   .is-collapsed .shell-nav-label,
   .is-collapsed .nav-section-header,
+  .is-collapsed .view-seg__label,
   .is-collapsed .sidebar-collapse-label,
-  .is-collapsed .sidebar-view-label,
   .is-collapsed .user-meta,
-  .is-collapsed .user-caret { display: none; }
+  .is-collapsed .user-caret { display: none !important; }
   .is-collapsed .sidebar-logo-compact { display: inline-flex; margin: 0 auto; }
   .is-collapsed .sidebar-brand-title-block,
   .is-collapsed .brand-title-row { width: 100%; display: flex; justify-content: center; }
@@ -38,7 +57,11 @@
     position: absolute; top: 2px; right: 6px; min-width: 8px; height: 8px; padding: 0; font-size: 0; border-radius: 999px;
   }
 
-  .is-collapsed .sidebar-collapse-toggle, .is-collapsed .sidebar-view-switch { justify-content: center; padding-left: 0; padding-right: 0; }
+  /* In the narrow rail the controls stack: view icons, then the expand button. */
+  .is-collapsed .sidebar-controls { flex-direction: column; }
+  .shell-sidebar.is-collapsed .view-seg { flex-direction: column; width: 100%; }
+  .shell-sidebar.is-collapsed .sidebar-controls .view-seg button { padding: 8px 0 !important; }
+  .shell-sidebar.is-collapsed .sidebar-controls .sidebar-collapse-toggle { width: 100%; }
   .is-collapsed .sidebar-collapse-icon { transform: rotate(180deg); }
 
   .is-collapsed .shell-user-card { justify-content: center; padding-left: 0; padding-right: 0; }

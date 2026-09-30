@@ -284,28 +284,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {canSwitch && (
+          {/* One compact row: the view switch (AO II and HRMO) and the collapse button. */}
+          <div className={`sidebar-controls${canSwitch ? '' : ' is-solo'}`}>
+            {canSwitch && (
+              <div className="view-seg" role="group" aria-label="Workspace view">
+                <button
+                  type="button"
+                  className={personnelView ? '' : 'is-on'}
+                  aria-pressed={!personnelView}
+                  title="Admin view"
+                  onClick={() => { if (personnelView) { onClose?.(); navigate('/admin/dashboard'); } }}
+                >
+                  <AppIcon name="dashboard" size={15} />
+                  <span className="view-seg__label">Admin</span>
+                </button>
+                <button
+                  type="button"
+                  className={personnelView ? 'is-on' : ''}
+                  aria-pressed={personnelView}
+                  title="Personnel view"
+                  onClick={() => { if (!personnelView) { onClose?.(); navigate('/personnel/home'); } }}
+                >
+                  <AppIcon name="profile" size={15} />
+                  <span className="view-seg__label">Personnel</span>
+                </button>
+              </div>
+            )}
             <button
               type="button"
-              className="sidebar-view-switch"
-              title={collapsed ? (personnelView ? 'Switch to admin view' : 'Switch to personnel view') : undefined}
-              onClick={() => { onClose?.(); navigate(personnelView ? '/admin/dashboard' : '/personnel/home'); }}
+              className="sidebar-collapse-toggle"
+              aria-pressed={collapsed}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={toggleCollapsed}
             >
-              <AppIcon name={personnelView ? 'dashboard' : 'profile'} size={16} />
-              <span className="sidebar-view-label">{personnelView ? 'Switch to admin view' : 'Switch to personnel view'}</span>
+              <AppIcon name="chevron-left" size={16} className="sidebar-collapse-icon" />
+              <span className="sidebar-collapse-label">Collapse</span>
             </button>
-          )}
-          <button
-            type="button"
-            className="sidebar-collapse-toggle"
-            aria-pressed={collapsed}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={collapsed ? 'Expand sidebar' : undefined}
-            onClick={toggleCollapsed}
-          >
-            <AppIcon name="chevron-left" size={16} className="sidebar-collapse-icon" />
-            <span className="sidebar-collapse-label">Collapse</span>
-          </button>
+          </div>
 
           <div
             className="shell-user-card"
