@@ -44,7 +44,7 @@ test('a page without application notifications makes no lookup', async () => {
 
 test('reviewer notifications about one applicant reference that application', () => {
   const src = fs.readFileSync(path.join(__dirname, '../src/controllers/promotions.controller.ts'), 'utf8');
-  const reviewerNotices = [/AO II Requirements Verified[\s\S]{0,400}?relatedEntityId: appId,\s*relatedEntityType: 'PromotionApplication'/,
+  const reviewerNotices = [/Requirements verified: \$\{vLabel\}[\s\S]{0,400}?relatedEntityId: appId,\s*relatedEntityType: 'PromotionApplication'/,
     /registered for \$\{cycle\.name\}[\s\S]{0,200}?relatedEntityId: application\.id,\s*relatedEntityType: 'PromotionApplication'/,
     /applied for \$\{cycle\.name\}[\s\S]{0,200}?relatedEntityId: application\.id,\s*relatedEntityType: 'PromotionApplication'/];
   for (const pattern of reviewerNotices) assert.match(src, pattern);

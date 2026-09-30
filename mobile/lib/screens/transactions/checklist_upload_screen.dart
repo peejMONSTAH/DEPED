@@ -356,7 +356,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                         color: AppTheme.textPrimary)),
                 const SizedBox(height: 6),
                 Text(
-                  '${_currentTx.referenceNo} is now with your AO II for review.',
+                  '${_currentTx.referenceNo} is now with ${_currentTx.validator == 'HRMO' ? 'HRMO' : 'your AO II'} for validation. You will be notified of the result.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontSize: 13, height: 1.4, color: AppTheme.textSecondary),
@@ -456,6 +456,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                     _RequirementCard(
                       item: item,
                       txReturned: returned,
+                      validatedBy: tx.validatedBy,
                       canEdit: canEdit,
                       onAdd: () => _chooseSource(item),
                     ),
@@ -481,7 +482,7 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
           : canEdit
               ? _BottomAction(
                   label: ready
-                      ? 'Submit to AO II'
+                      ? 'Submit to ${tx.validator}'
                       : 'Add all required documents (${tx.complianceScore.toInt()}%)',
                   icon: LucideIcons.send,
                   onPressed: ready && !_isUploading && !_isSubmitting
@@ -538,12 +539,14 @@ class _RequirementCard extends StatelessWidget {
     required this.txReturned,
     required this.canEdit,
     required this.onAdd,
+    this.validatedBy = 'AO II',
   });
 
   final RequirementItemModel item;
   final bool txReturned;
   final bool canEdit;
   final VoidCallback onAdd;
+  final String validatedBy;
 
   @override
   Widget build(BuildContext context) {
@@ -556,7 +559,7 @@ class _RequirementCard extends StatelessWidget {
     final (String label, AppStatusTone tone) = deficient
         ? ('Needs correction', AppStatusTone.danger)
         : validated
-            ? ('Validated by AO II', AppStatusTone.success)
+            ? ('Validated by $validatedBy', AppStatusTone.success)
             : item.isUploaded
                 ? ('Added', AppStatusTone.info)
                 : item.isMandatory

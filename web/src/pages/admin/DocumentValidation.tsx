@@ -11,6 +11,8 @@ import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { SkeletonTable } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
+import { LoadFailure, StaleNotice } from '../../components/common/LoadFailure';
+import type { ReviewState } from '../../components/common/ReviewNotice';
 
 // ─── 201-System-Workflow.md: AO II School-Level Qualification & Validation ───
 // Teaching Personnel: School-level evaluation by AO II.
@@ -61,6 +63,8 @@ type Transaction = {
     targetPosition: string;
     cycleType: string;
   } | null;
+  /** Who checked it, who acts next and what this viewer can do, decided by the server. */
+  review?: ReviewState | null;
 };
 
 /** A transaction from the list or detail endpoint, as the review screen shows it. */
@@ -100,6 +104,7 @@ const toReviewItem = (tx: any): Transaction => {
     validationHistory: [tx.remarks ? `Remarks: ${tx.remarks}` : `Status: ${tx.status}`],
     isPromotion: isPromo,
     promotionDetails: promoDetails,
+    review: tx.review ?? null,
     documents: (tx.uploadedDocuments && tx.uploadedDocuments.length > 0)
       ? tx.uploadedDocuments.map((d: any) => ({
           id: d.id,
@@ -119,6 +124,10 @@ export const DocumentValidation: React.FC = () => {
   const { user } = useAuthContext();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed load is not an empty queue: keep what was loaded, mark it stale, and offer Retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'DEFICIENCY' | 'HISTORY'>('PENDING');
 
@@ -146,9 +155,12 @@ export const DocumentValidation: React.FC = () => {
       const res = await apiClient.get(`/transactions/${encodeURIComponent(txId)}`);
       const tx = res.data?.data;
       if (tx && openedTxIdRef.current === txId) handleOpenTransactionDetails(toReviewItem(tx));
-    } catch (err) {
-      if (!isAccessDenied(err)) return;
-      addToast(accessDeniedMessage('transaction'), 'ERROR');
+    } catch (err: any) {
+      // Say why a link did not open, whatever the reason; never leave the reviewer on a list that looks like the answer.
+      const missing = err?.response?.status === 404;
+      addToast(isAccessDenied(err) ? accessDeniedMessage('transaction')
+        : missing ? `TRX-${txId} is not in your queue. It may belong to another station, or it no longer exists.`
+        : `Could not open TRX-${txId}. Check your connection and try again from the notification.`, isAccessDenied(err) || missing ? 'WARNING' : 'ERROR');
       if (openedTxIdRef.current === txId) handleCloseModal();
     }
   };
@@ -161,13 +173,16 @@ export const DocumentValidation: React.FC = () => {
       setLoading(true);
     }
     try {
-      // HRMO checks non-teaching submissions directly; the server narrows its list to those.
-      const res = await apiClient.get(user?.role === 'HRMO' ? '/transactions?limit=1000&queue=validation' : '/transactions?limit=1000');
+      // HRMO checks its own lane (non-teaching files, and teaching files at a station with no AO II):
+      // the server narrows the list to that lane in every status, so Returned and Done are complete too.
+      const res = await apiClient.get(user?.role === 'HRMO' ? '/transactions?limit=1000&lane=validation' : '/transactions?limit=1000');
       const apiList = res.data?.data || [];
 
       const mappedApi: Transaction[] = apiList.map(toReviewItem);
 
       setTransactions(mappedApi);
+      setLoadFailed(false);
+      setLoadedAt(new Date());
 
       const targetTxId = searchParams.get('txId');
       if (targetTxId && openedTxIdRef.current !== targetTxId) {
@@ -181,12 +196,15 @@ export const DocumentValidation: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load transactions for validation:', err);
-      setTransactions([]);
+      // Keep whatever was already loaded (it is shown as possibly out of date); never turn a failure into "nothing to review".
+      setLoadFailed(true);
     } finally {
       setLoading(false);
       isInitialLoad.current = false;
     }
   }, [searchParams, user?.role]);
+
+  const retry = async () => { setRetrying(true); try { await fetchPendingTransactions(); } finally { setRetrying(false); } };
 
   useEffect(() => {
     fetchPendingTransactions();
@@ -221,7 +239,9 @@ export const DocumentValidation: React.FC = () => {
       <div className="topbar">
         <div>
           <h1 className="topbar-title" style={{ margin: 0 }}>Document validation</h1>
-          <p className="dv-lede">Check each person's uploaded files, then pass them to HR or return them for correction.</p>
+          <p className="dv-lede">{user?.role === 'HRMO'
+            ? "Validate non-teaching files, and teaching files from a station with no AO II. Then pass each one on for final approval by a different HRMO, or return it."
+            : "Check each person's uploaded files, then pass them on for final approval or return them for correction."}</p>
         </div>
       </div>
 
@@ -229,13 +249,16 @@ export const DocumentValidation: React.FC = () => {
         <nav className="dv-tabs" aria-label="Validation lists">
           {tabs.map(t => (
             <button key={t.key} type="button" aria-current={activeTab === t.key ? 'page' : undefined} onClick={() => setActiveTab(t.key)}>
-              {t.label}<span className="dv-tabs__count">{t.count}</span>
+              {t.label}<span className="dv-tabs__count">{loadFailed && !loadedAt ? '–' : t.count}</span>
             </button>
           ))}
         </nav>
 
+        {loadFailed && loadedAt && <StaleNotice what="the validation lists" since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
         {loading ? (
           <SkeletonTable rows={4} columns={4} />
+        ) : loadFailed && !loadedAt ? (
+          <LoadFailure what="the validation lists" onRetry={() => void retry()} retrying={retrying} />
         ) : currentList.length === 0 ? (
           <div className="dv-empty">
             <SmartEmptyState
@@ -243,10 +266,10 @@ export const DocumentValidation: React.FC = () => {
               title={activeTab === 'PENDING' ? 'Nothing to review' : activeTab === 'DEFICIENCY' ? 'Nothing returned' : 'Nothing validated yet'}
               description={
                 activeTab === 'PENDING'
-                  ? 'New submissions from your school appear here as soon as they are sent.'
+                  ? (user?.role === 'HRMO' ? 'Files waiting for HRMO validation appear here as soon as they are sent. The list loaded correctly and is empty.' : 'New submissions from your school appear here as soon as they are sent. The list loaded correctly and is empty.')
                   : activeTab === 'DEFICIENCY'
-                  ? 'Submissions you return for correction wait here until the person resubmits.'
-                  : 'Submissions you pass to HR are listed here.'
+                  ? 'Files returned for correction wait here until the person resubmits.'
+                  : 'Files that were validated, approved or closed are listed here.'
               }
               primaryAction={activeTab !== 'PENDING' && pending.length > 0
                 ? { label: `Review ${pending.length} waiting`, onClick: () => setActiveTab('PENDING'), icon: 'pending' }
@@ -274,6 +297,8 @@ export const DocumentValidation: React.FC = () => {
 
                   {activeTab === 'DEFICIENCY' ? (
                     <p className="dv-row__note">{tx.remarks || 'Returned for correction.'}</p>
+                  ) : activeTab === 'HISTORY' && tx.review ? (
+                    <p className="dv-row__note">{tx.review.summary}</p>
                   ) : (
                     <div className="dv-row__files" aria-label={`Files ${tx.complianceScore}% complete`}>
                       <span className={`dv-row__pct ${complete ? 'is-complete' : ''}`}>{tx.complianceScore}%</span>
@@ -289,8 +314,8 @@ export const DocumentValidation: React.FC = () => {
                   </div>
 
                   <div className="dv-row__act">
-                    <button className={`btn btn-sm ${activeTab === 'PENDING' ? 'btn-primary' : 'btn-secondary'} dv-btn`} onClick={() => handleOpenTransactionDetails(tx)}>
-                      {activeTab === 'PENDING' ? 'Review files' : 'Open'}
+                    <button className={`btn btn-sm ${activeTab === 'PENDING' && tx.review?.canValidate !== false ? 'btn-primary' : 'btn-secondary'} dv-btn`} onClick={() => handleOpenTransactionDetails(tx)}>
+                      {activeTab === 'PENDING' && tx.review?.canValidate !== false ? 'Review files' : 'Open'}
                     </button>
                   </div>
                 </li>

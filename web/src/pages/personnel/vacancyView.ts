@@ -72,7 +72,7 @@ export function vacancyView(c: VacancyInput, now = new Date()): VacancyView {
   if (state === 'NOT_YET_OPEN') return { ...base, state: 'not-open-yet', status: 'Not open yet', reason: null, action: null, note: 'You meet the position-step rule for this vacancy.' };
   if (state === 'CLOSED' || !c.applicationsOpen) return { ...base, state: 'closed', status: 'Applications closed', reason: null, action: null, note: null };
   return { ...base, state: 'can-apply', status: 'You can apply', reason: null, action: { kind: 'apply', label: 'Apply' },
-    note: 'You meet the position-step rule. AO II checks your documents and HRMO rates and selects; applying does not guarantee selection.' };
+    note: 'You meet the position-step rule. Your documents are checked first, then HRMO rates and selects; applying does not guarantee selection.' };
 }
 
 const ORDER: VacancyState[] = ['applied', 'can-apply', 'not-checked', 'not-open-yet', 'not-eligible', 'closed'];

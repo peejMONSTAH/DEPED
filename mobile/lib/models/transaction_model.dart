@@ -29,6 +29,11 @@ class TransactionModel {
   final List<RequirementItemModel> requirements;
   /// With HRMO after repeated corrections and not yet reviewed by HRMO.
   final bool escalated;
+  /// Who validates this file ('AO II' or 'HRMO') and who did, as the server says. Never assumed.
+  final String validator;
+  final String validatedBy;
+  /// The server's plain-language summary of what happened and who acts next.
+  final String? reviewSummary;
 
   TransactionModel({
     required this.id,
@@ -41,6 +46,9 @@ class TransactionModel {
     required this.updatedAt,
     this.requirements = const [],
     this.escalated = false,
+    this.validator = 'AO II',
+    this.validatedBy = 'AO II',
+    this.reviewSummary,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
@@ -98,8 +106,13 @@ class TransactionModel {
       updatedAt: (json['updatedAt'] ?? json['updated_at'] ?? '').toString(),
       requirements: reqs,
       escalated: json['escalatedAt'] != null && json['escalationReviewedAt'] == null,
+      validator: _reviewerName((json['review'] as Map?)?['validator']?.toString()),
+      validatedBy: _reviewerName(((json['review'] as Map?)?['validatedBy'] as Map?)?['role']?.toString() ?? (json['review'] as Map?)?['validator']?.toString()),
+      reviewSummary: (json['review'] as Map?)?['summary']?.toString(),
     );
   }
+
+  static String _reviewerName(String? role) => role == 'HRMO' ? 'HRMO' : 'AO II';
 
   Map<String, dynamic> toJson() {
     return {

@@ -117,6 +117,46 @@ async function main() {
   await cycle('Administrative Assistant III', 'Administrative Assistant III');
   await cycle('Administrative Officer IV', 'Administrative Officer IV');
 
+  // QA_SCENARIO=handoff adds work at every stage of the review hand-off, so each screen has real records to open:
+  // a file HRMO 1 validated (HRMO 2 approves it), a returned file, a completed file, and a returned promotion requirement.
+  if (process.env.QA_SCENARIO === 'handoff') {
+    const { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } = require(BACKEND + '/src/utils/annex-c.util');
+    const stamped = async (owner, status, validatedBy, docStatus, notes) => {
+      const tx = await db.transaction.create({ data: { personnelId: owner.personnel.id, transactionTypeId: txType.id, status, submissionDate: new Date(), validationDate: validatedBy ? new Date() : null } });
+      const storage = `mem:${++seq}`; objects.set(storage, await samplePdf(`Supporting file: ${owner.personnel.firstName} ${owner.personnel.lastName}`));
+      await db.uploadedDocument.create({ data: { transactionId: tx.id, requirementTemplateId: template.id, storagePath: storage, fileName: 'supporting-file.pdf', mimeType: 'application/pdf',
+        fileSize: 1200, uploadedByUserId: owner.id, status: docStatus, validatedByUserId: validatedBy?.id ?? null, validationDate: validatedBy ? new Date() : null, validationNotes: notes ?? null } });
+      return tx;
+    };
+    const forApproval = await stamped(made['staff.morales'], 'FOR_APPROVAL', made.hrmo1, 'VALIDATED');
+    await stamped(made['teacher.matulas'], 'DEFICIENCY', made.hrmo1, 'REJECTED', 'Blurred scan');
+    await stamped(made['successor.morales'], 'APPROVED', made.hrmo1, 'VALIDATED');
+    const note = (user, message, tx, type = 'INFO') => db.notification.create({ data: { userId: user.id, message, type, relatedEntityId: tx.id, relatedEntityType: 'Transaction' } });
+    await note(made.hrmo2, `Final approval needed: HRMO validated Transaction #${forApproval.id} (Records Update) for Ben Santos. Review the files and approve, return or reject it.`, forApproval);
+    const pendingStaff = await db.transaction.findFirst({ where: { personnelId: made['staff.morales'].personnel.id, status: 'PENDING_VALIDATION' } });
+    for (const h of [made.hrmo1, made.hrmo2]) await note(h, `New transaction #${pendingStaff.id} (Records Update) from Ben Santos is waiting for HRMO validation.`, pendingStaff);
+
+    const teacher = made['teacher.morales'];
+    const file = async label => {
+      const storagePath = `mem:${++seq}`; objects.set(storagePath, await samplePdf(label));
+      return (await db.personnelFile.create({ data: { personnelId: teacher.personnel.id, documentTypeId: 'OTHER', documentTypeName: label, originalFileName: `${label}.pdf`, storagePath, mimeType: 'application/pdf', fileSize: 1200, status: 'SUBMITTED' } })).id;
+    };
+    const returnedCode = MANDATORY_ANNEX_C_CODES[0];
+    const items = [];
+    for (const r of ANNEX_C_REQUIREMENTS) {
+      if (!MANDATORY_ANNEX_C_CODES.includes(r.code)) { items.push({ code: r.code, title: r.title, isMandatory: false, submitted: false, isSubmitted: false }); continue; }
+      const id = await file(`Annex C ${r.code.toUpperCase()} scan`);
+      items.push({ code: r.code, title: r.title, isMandatory: true, submitted: true, isSubmitted: true, documentName: `Annex C ${r.code.toUpperCase()} scan`, fileName: `Annex C ${r.code.toUpperCase()} scan.pdf`,
+        personnelDocumentId: id, existingDocumentId: id, verificationStatus: r.code === returnedCode ? 'INCOMPLETE' : 'VERIFIED', verificationRemarks: r.code === returnedCode ? 'Blurred scan' : '' });
+    }
+    await file('Annex C clear replacement copy');
+    const cycleRow = await db.promotionCycle.findFirst({ where: { name: 'Teacher II' } });
+    await db.promotionApplication.create({ data: { personnelId: teacher.personnel.id, promotionCycleId: cycleRow.id, status: 'UNDER_REVIEW', applicantNumber: 'APP-PLAY-0001',
+      scoreDetailsJson: { applicantNumber: 'APP-PLAY-0001', annexCChecklist: { items, applicationCode: 'APP-PLAY-0001' }, stageStatus: 'REQUIREMENTS_DEFICIENT',
+        requirementsCheck: { status: 'INCOMPLETE', verifiedByUserId: made['ao.morales'].id, verifiedByRole: 'AO_II', verifiedAt: new Date().toISOString(), remarks: 'Page 2 unreadable',
+          itemVerifications: [{ code: returnedCode, status: 'INCOMPLETE', remarks: 'Blurred scan' }] } } } });
+  }
+
   const app = require(BACKEND + '/src/app').default;
   const express = req('express');
   const outer = express();

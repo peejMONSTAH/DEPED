@@ -10,6 +10,8 @@ export type RequirementItem = {
   /** Who returned it (HRMO or AO II) and when, from the reviewer recorded on the file. */
   returnedBy?: string;
   returnedAt?: string;
+  /** Who validated this document (AO II or HRMO), from the reviewer recorded on the file itself. */
+  validatedBy?: string;
   /** A replacement saved after a return and not yet resubmitted. */
   replacedAfterReturn?: boolean;
   previousNotes?: string;
@@ -32,6 +34,7 @@ export function checklistFromTransaction(transaction: any): RequirementItem[] {
       rejectionNotes: rejected ? document.validationNotes || 'Replace this returned document.' : undefined,
       returnedBy: rejected ? (document.validatedBy?.role?.name === 'HRMO' ? 'HRMO' : document.validatedBy ? 'AO II' : undefined) : undefined,
       returnedAt: rejected ? document.validationDate ?? undefined : undefined,
+      validatedBy: document?.status === 'VALIDATED' && document.validatedBy ? (document.validatedBy.role?.name === 'HRMO' ? 'HRMO' : 'AO II') : undefined,
       replacedAfterReturn: Boolean(document?.replacedAfterReturn) && !rejected && document?.status !== 'VALIDATED',
       previousNotes: document?.previousVersion?.reviewNotes ?? undefined,
       needsExtractionReview: Boolean(document?.ocrExtractedDataJson && !document?.correctedOcrDataJson?.confirmation && document?.status !== 'VALIDATED'),

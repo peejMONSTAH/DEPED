@@ -8,13 +8,16 @@ import { useDocumentPreview } from '../../components/common/useDocumentPreview';
 import { PdfPages } from '../../components/common/PdfPages';
 import { PrecheckStrip } from '../../components/common/PrecheckStrip';
 import { PreviewZoomControls } from '../../components/common/PreviewZoomControls';
+import { ReviewNotice, reviewerName } from '../../components/common/ReviewNotice';
+import type { ReviewState } from '../../components/common/ReviewNotice';
+import { useAuthContext } from '../../contexts/AuthContext';
 import './transaction-review.css';
 
 /**
- * AO II review of one transaction's submitted documents. Shows the file the
+ * Review (AO II, or HRMO for its own lane) of one transaction's submitted documents. Shows the file the
  * personnel actually uploaded (never a generated stand-in), one document at a
  * time, and records a verdict for each before the transaction is validated
- * (forwarded to HRMO) or returned for correction.
+ * (passed on for final approval) or returned for correction.
  */
 
 type Verdict = 'PENDING' | 'VERIFIED' | 'DEFICIENT';
@@ -22,6 +25,8 @@ type Doc = { id: number; name: string; fileName: string; mimeType: string | null
 type Tx = {
   id: number; status: string; remarks: string | null; submissionDate: string | null;
   typeName: string; personName: string; employeeId: string; station: string; docs: Doc[];
+  /** Who checked it, who acts next and what this viewer can do, as decided by the server. */
+  review: ReviewState | null;
 };
 
 const QUICK_REASONS = [
@@ -34,12 +39,12 @@ const QUICK_REASONS = [
 ];
 
 const statusLabel: Record<string, string> = {
-  PENDING_VALIDATION: 'Awaiting your validation', DEFICIENCY: 'Returned for correction', FOR_APPROVAL: 'Forwarded to HRMO',
+  PENDING_VALIDATION: 'Waiting for validation', DEFICIENCY: 'Returned for correction', FOR_APPROVAL: 'Validated, waiting for final approval',
   APPROVED: 'Approved', REJECTED: 'Disqualified', DRAFT: 'Not yet submitted by personnel',
 };
 
 const toTx = (d: any): Tx => ({
-  id: d.id, status: d.status, remarks: d.remarks ?? null, submissionDate: d.submissionDate ?? null,
+  id: d.id, status: d.status, remarks: d.remarks ?? null, submissionDate: d.submissionDate ?? null, review: d.review ?? null,
   typeName: /^promotion$/i.test(d.transactionType?.name || '') ? 'Promotion Appointment' : (d.transactionType?.name || 'Transaction'),
   personName: d.personnel ? `${d.personnel.firstName} ${d.personnel.lastName}` : 'Personnel',
   employeeId: d.personnel?.employeeId || '',
@@ -55,6 +60,9 @@ const toTx = (d: any): Tx => ({
 
 export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => void; onDecided: () => void }> = ({ txId, onClose, onDecided }) => {
   const { addToast } = useToast();
+  const { user } = useAuthContext();
+  // The role doing the review, named as the people affected will read it.
+  const me = reviewerName(user?.role);
   const [tx, setTx] = useState<Tx | null>(null);
   const [loadError, setLoadError] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -67,6 +75,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
   const [dqAck, setDqAck] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadError('');
     try {
       const res = await apiClient.get(`/transactions/${txId}`);
       const t = toTx(res.data?.data);
@@ -84,7 +93,8 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
   const { preview, retry } = useDocumentPreview(active ? `/documents/${active.id}/file` : null, active?.mimeType || undefined);
   useEffect(() => setZoom(1), [activeId]);
 
-  const editable = tx?.status === 'PENDING_VALIDATION';
+  // Reviewing is offered only when the server says this viewer may validate it (right lane, not their own file).
+  const editable = tx?.status === 'PENDING_VALIDATION' && (tx.review ? tx.review.canValidate : true);
   const counts = useMemo(() => {
     const v = Object.values(verdicts);
     return { verified: v.filter(x => x === 'VERIFIED').length, deficient: v.filter(x => x === 'DEFICIENT').length, pending: v.filter(x => x === 'PENDING').length };
@@ -108,7 +118,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
   const documentValidations = () => (tx?.docs || []).map(d => ({
     documentId: d.id,
     isValid: verdicts[d.id] === 'VERIFIED',
-    feedback: verdicts[d.id] === 'DEFICIENT' ? (notes[d.id] || 'Deficient') : 'Verified by AO II',
+    feedback: verdicts[d.id] === 'DEFICIENT' ? (notes[d.id] || 'Deficient') : `Verified by ${me}`,
   }));
 
   const submit = async (targetStatus: 'FOR_APPROVAL' | 'DEFICIENCY' | 'REJECTED') => {
@@ -118,15 +128,16 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
     }
     if (targetStatus === 'REJECTED' && !overall.trim()) { addToast('Enter the reason for disqualification.', 'ERROR'); return; }
     const deficientList = tx.docs.filter(d => verdicts[d.id] === 'DEFICIENT').map(d => `${d.name}: ${notes[d.id]}`).join('; ');
-    const remarks = targetStatus === 'FOR_APPROVAL' ? 'All documents verified by AO II.'
-      : targetStatus === 'DEFICIENCY' ? `Returned for correction by AO II. ${deficientList}${overall.trim() ? ` — ${overall.trim()}` : ''}`
-      : `Declared disqualified by AO II: ${overall.trim()}`;
+    const remarks = targetStatus === 'FOR_APPROVAL' ? `All documents verified by ${me}.`
+      : targetStatus === 'DEFICIENCY' ? `Returned for correction by ${me}. ${deficientList}${overall.trim() ? ` — ${overall.trim()}` : ''}`
+      : `Declared disqualified by ${me}: ${overall.trim()}`;
     setBusy(true);
     try {
-      await apiClient.post(`/transactions/${tx.id}/validate`, { targetStatus, remarks, documentValidations: documentValidations() });
-      addToast(targetStatus === 'FOR_APPROVAL' ? `TRX-${tx.id} validated and forwarded to HRMO.`
+      const res = await apiClient.post(`/transactions/${tx.id}/validate`, { targetStatus, remarks, documentValidations: documentValidations() });
+      // The server says where the case went and who owns the next step.
+      addToast(res.data?.message || (targetStatus === 'FOR_APPROVAL' ? `TRX-${tx.id} validated. It now waits for final approval.`
         : targetStatus === 'DEFICIENCY' ? `TRX-${tx.id} returned to ${tx.personName} for correction. They are notified by app and email.`
-        : `TRX-${tx.id} recorded as disqualified.`, targetStatus === 'FOR_APPROVAL' ? 'SUCCESS' : 'WARNING');
+        : `TRX-${tx.id} recorded as disqualified.`), targetStatus === 'FOR_APPROVAL' ? 'SUCCESS' : 'WARNING');
       onDecided();
     } catch (err: any) {
       addToast(err.response?.data?.message || 'Could not record the decision.', 'ERROR');
@@ -145,7 +156,8 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={busy} aria-label="Close">✕</button>
         </header>
 
-        {loadError ? <p role="alert" className="trv-pad" style={{ color: 'var(--color-danger)' }}>{loadError}</p>
+        {tx && <div className="trv-pad" style={{ paddingBottom: 0 }}><ReviewNotice review={tx.review} compact /></div>}
+        {loadError ? <div role="alert" className="trv-pad"><p style={{ color: 'var(--color-danger)', margin: '0 0 10px' }}>{loadError} This is a loading problem, not an empty transaction.</p><button type="button" className="btn btn-primary btn-sm" onClick={() => void load()}>Retry</button></div>
           : !tx ? <p className="trv-pad text-muted">Loading…</p>
           : tx.docs.length === 0 ? <p className="trv-pad text-muted">No documents have been uploaded for this transaction yet.</p>
           : (
@@ -210,7 +222,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
                       )}
                     </div>
                   )}
-                  {!editable && active.notes && <p className="trv-verdict text-sm">AO II note: {active.notes}</p>}
+                  {!editable && active.notes && <p className="trv-verdict text-sm">Reviewer note: {active.notes}</p>}
                 </>
               )}
             </div>
@@ -250,7 +262,7 @@ export const TransactionReviewModal: React.FC<{ txId: number; onClose: () => voi
                   </button>
                 ) : (
                   <button type="button" className="btn btn-primary" onClick={() => void submit('FOR_APPROVAL')} disabled={busy || counts.pending > 0}>
-                    {busy ? 'Saving…' : 'Validate & forward to HRMO'}
+                    {busy ? 'Saving…' : 'Validate & pass on for final approval'}
                   </button>
                 )}
                 {counts.pending > 0 && <span className="text-xs text-muted trv-hint">Review all {tx.docs.length} documents to continue ({counts.pending} left).</span>}

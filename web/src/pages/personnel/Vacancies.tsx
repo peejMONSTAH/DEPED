@@ -144,6 +144,7 @@ export const Vacancies: React.FC = () => {
           onApplicationSubmitted={load}
           onPreviewDocument={(url, name) => setPreview({ url, name })}
           returnedItems={returnedItemsFor(applications, openCycle.id)}
+          checker={applications.find(a => a.cycle?.id === openCycle.id)?.checker}
         />
       )}
       {preview && <DocumentViewerModal isOpen fileUrl={preview.url} title={preview.name} onClose={() => setPreview(null)} />}

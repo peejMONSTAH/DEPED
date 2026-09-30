@@ -14,13 +14,13 @@ export interface HomeTask {
 }
 import { applicationStage, transactionStage } from '../../../constants/workflowStages';
 
-export interface WaitingItem { key: string; title: string; who: 'AO II' | 'HRMO'; since: string | null; to: string; detail?: string }
+export interface WaitingItem { key: string; title: string; who: 'AO II' | 'HRMO' | 'System Administrator'; since: string | null; to: string; detail?: string }
 
 const fmt = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export function homeTasks(input: {
-  transactions: Array<{ id: number; status?: string; escalatedAt?: string | null; escalationReviewedAt?: string | null; remarks?: string | null; transactionType?: { name?: string } | null; submissionDate?: string | null; createdAt?: string }>;
-  applications: Array<{ id: number; canResubmit?: boolean; transactionId?: number | null; cycle?: { id: number; name?: string; targetPosition?: string | null; status?: string | null } | null; requirementsCheck?: { status?: string | null; remarks?: string | null } | null; status?: string; stageStatus?: string | null; applicationDate?: string }>;
+  transactions: Array<{ id: number; status?: string; review?: { validator?: 'AO_II' | 'HRMO' | null; validatedBy?: { role?: string | null } | null; approver?: 'HRMO' | 'SYSTEM_ADMIN' | null } | null; escalatedAt?: string | null; escalationReviewedAt?: string | null; remarks?: string | null; transactionType?: { name?: string } | null; submissionDate?: string | null; createdAt?: string }>;
+  applications: Array<{ id: number; checker?: string | null; canResubmit?: boolean; transactionId?: number | null; cycle?: { id: number; name?: string; targetPosition?: string | null; status?: string | null } | null; requirementsCheck?: { status?: string | null; remarks?: string | null } | null; status?: string; stageStatus?: string | null; applicationDate?: string }>;
   missingRequiredFiles: number;
   profileComplete: boolean | null;
   cycles: Array<{ id: number; name?: string; endDate?: string; applicationsOpen?: boolean; isEligible?: boolean; currentPosition?: string; myApplication?: unknown }>;
@@ -36,9 +36,9 @@ export function homeTasks(input: {
     if (s === 'DEFICIENCY') tasks.push({ key: `tx-${t.id}`, kind: 'returned', title: `Returned for correction: ${typeName(t)} (TRX-${t.id})`,
       detail: t.remarks ? `Reviewer note: ${t.remarks}` : 'Replace the returned document, then resubmit.', action: 'Fix the returned document', to: `/personnel/checklist?txId=${t.id}` });
     else if (s === 'DRAFT') tasks.push({ key: `tx-${t.id}`, kind: 'draft', title: `Not submitted yet: ${typeName(t)} (TRX-${t.id})`,
-      detail: 'Upload the required documents and submit it to AO II.', action: 'Continue', to: `/personnel/checklist?txId=${t.id}` });
-    else if (s === 'PENDING_VALIDATION') waiting.push({ key: `tx-${t.id}`, title: `${typeName(t)} (TRX-${t.id})`, who: 'AO II', since: t.submissionDate ?? null, to: `/personnel/checklist?txId=${t.id}`, detail: transactionStage(s).label });
-    else if (s === 'FOR_APPROVAL') waiting.push({ key: `tx-${t.id}`, title: `${typeName(t)} (TRX-${t.id})`, who: 'HRMO', since: t.submissionDate ?? null, to: `/personnel/checklist?txId=${t.id}`, detail: transactionStage(s, { escalated: Boolean(t.escalatedAt && !t.escalationReviewedAt) }).label });
+      detail: `Upload the required documents and submit it to ${t.review?.validator === 'HRMO' ? 'HRMO' : 'AO II'}.`, action: 'Continue', to: `/personnel/checklist?txId=${t.id}` });
+    else if (s === 'PENDING_VALIDATION') waiting.push({ key: `tx-${t.id}`, title: `${typeName(t)} (TRX-${t.id})`, who: t.review?.validator === 'HRMO' ? 'HRMO' : 'AO II', since: t.submissionDate ?? null, to: `/personnel/checklist?txId=${t.id}`, detail: transactionStage(s, { review: t.review }).label });
+    else if (s === 'FOR_APPROVAL') waiting.push({ key: `tx-${t.id}`, title: `${typeName(t)} (TRX-${t.id})`, who: t.review?.approver === 'SYSTEM_ADMIN' ? 'System Administrator' : 'HRMO', since: t.submissionDate ?? null, to: `/personnel/checklist?txId=${t.id}`, detail: transactionStage(s, { escalated: Boolean(t.escalatedAt && !t.escalationReviewedAt), review: t.review }).label });
   }
 
   for (const a of input.applications) {
@@ -47,8 +47,8 @@ export function homeTasks(input: {
     const name = a.cycle?.targetPosition || a.cycle?.name || 'Promotion';
     const st = applicationStage(a);
     if (st.needsYou && a.cycle) tasks.push({ key: `app-${a.id}`, kind: 'application', title: `Application returned: ${name}`,
-      detail: a.requirementsCheck?.remarks ? `AO II note: ${a.requirementsCheck.remarks}` : st.next, action: 'Fix and resubmit', cycleId: a.cycle.id, to: `/personnel/vacancies?cycle=${a.cycle.id}` });
-    else if (!st.done && (st.who === 'AO II' || st.who === 'HRMO')) waiting.push({ key: `app-${a.id}`, title: `Promotion application: ${name}`, who: st.who, since: a.applicationDate ?? null, to: '/personnel/transactions', detail: st.label });
+      detail: a.requirementsCheck?.remarks ? `${a.checker === 'HRMO' ? 'HRMO' : 'AO II'} note: ${a.requirementsCheck.remarks}` : st.next, action: 'Fix and resubmit', cycleId: a.cycle.id, to: `/personnel/vacancies?cycle=${a.cycle.id}` });
+    else if (!st.done && (st.who === 'AO II' || st.who === 'HRMO' || st.who === 'System Administrator')) waiting.push({ key: `app-${a.id}`, title: `Promotion application: ${name}`, who: st.who, since: a.applicationDate ?? null, to: '/personnel/transactions', detail: st.label });
   }
 
   if (input.missingRequiredFiles > 0) tasks.push({ key: 'files', kind: 'files', title: `${input.missingRequiredFiles} required 201 file${input.missingRequiredFiles === 1 ? '' : 's'} not uploaded`,

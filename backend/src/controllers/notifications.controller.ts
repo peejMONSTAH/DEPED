@@ -4,6 +4,8 @@ import prisma from '../config/prisma';
 import { sendSuccess, getPaginationParams, buildPaginationMeta } from '../utils/response.util';
 import { logger } from '../utils/logger';
 import { plainNotificationText } from '../utils/notification-text.util';
+import { hrDirectEnabled } from '../utils/review-lane.util';
+import { fallbackApprovalIds } from '../utils/transaction-review.util';
 
 export const notificationEvents = new EventEmitter();
 // One listener per open stream; the default cap of 10 would warn with a normal pilot.
@@ -83,33 +85,74 @@ export const withPromotionTargets = async <T extends { relatedEntityId: number |
  * that was resubmitted, a request someone already approved). History is kept;
  * the notice just stops asking for action. null = informational, not an action.
  */
+/** Where the notice should open, decided by the server from the record's state and the viewer's real role. */
+export interface ActionTarget { path: string; label: string; badge: string; kind: 'own' | 'review' | 'fallback' | 'view' }
+
+export interface ActionViewer { userId?: number; /** The account's own role, never the view it is currently in. */ role?: string; personnelId?: number | null }
+
 export const withActionState = async <T extends { relatedEntityId: number | null; relatedEntityType: string | null; type: string }>(
-  rows: T[], role: string | undefined,
-): Promise<Array<T & { actionResolved: boolean | null }>> => {
+  rows: T[], viewer: ActionViewer | string | undefined,
+): Promise<Array<T & { actionResolved: boolean | null; actionTarget?: ActionTarget }>> => {
+  const v: ActionViewer = typeof viewer === 'string' ? { role: viewer } : (viewer ?? {});
+  const role = v.role;
   const ids = (type: string) => [...new Set(rows.filter(n => n.relatedEntityType === type && n.relatedEntityId).map(n => n.relatedEntityId as number))];
-  const [txs, reqs, apps] = await Promise.all([
-    ids('Transaction').length ? prisma.transaction.findMany({ where: { id: { in: ids('Transaction') } }, select: { id: true, status: true } }) : [],
+  const txIds = [...new Set([...ids('Transaction'), ...ids('ApprovalFallback')])];
+  const [txs, reqs, apps, fallbackIds] = await Promise.all([
+    txIds.length ? prisma.transaction.findMany({ where: { id: { in: txIds } }, select: { id: true, status: true, personnelId: true, uploadedDocuments: { select: { validatedByUserId: true, status: true, requirementTemplateId: true } } } }) : [],
     ids('AccountCreationRequest').length ? prisma.accountCreationRequest.findMany({ where: { id: { in: ids('AccountCreationRequest') } }, select: { id: true, status: true } }) : [],
-    ids('PromotionApplication').length ? prisma.promotionApplication.findMany({ where: { id: { in: ids('PromotionApplication') } }, select: { id: true, status: true, scoreDetailsJson: true } }) : [],
+    ids('PromotionApplication').length ? prisma.promotionApplication.findMany({ where: { id: { in: ids('PromotionApplication') } }, select: { id: true, status: true, personnelId: true, scoreDetailsJson: true } }) : [],
+    ids('ApprovalFallback').length ? fallbackApprovalIds() : Promise.resolve([] as number[]),
   ]);
-  const tx = new Map(txs.map(t => [t.id, t.status as string]));
+  const tx = new Map(txs.map(t => [t.id, t]));
   const rq = new Map(reqs.map(r => [r.id, r.status as string]));
   const ap = new Map(apps.map(a => [a.id, a]));
-  // The status in which each role still has something to do.
-  const txOpenFor = role === 'AO_II' ? ['PENDING_VALIDATION'] : role === 'HRMO' ? ['FOR_APPROVAL'] : ['DEFICIENCY', 'DRAFT'];
+  const fallback = new Set(fallbackIds);
   return rows.map(n => {
     let resolved: boolean | null = null;
+    let target: ActionTarget | undefined;
     const id = n.relatedEntityId;
     if (id && n.type !== 'SUCCESS') {
-      if (n.relatedEntityType === 'Transaction' && tx.has(id)) resolved = !txOpenFor.includes(tx.get(id)!);
-      else if (n.relatedEntityType === 'AccountCreationRequest' && rq.has(id)) resolved = rq.get(id) !== 'PENDING';
+      if (n.relatedEntityType === 'ApprovalFallback' && tx.has(id)) {
+        // Actionable only while the file still waits and no HRMO can approve it.
+        resolved = !(tx.get(id)!.status === 'FOR_APPROVAL' && fallback.has(id));
+        target = { path: `/admin/approvals?txId=${id}`, label: 'Give fallback approval', badge: 'Fallback approval', kind: 'fallback' };
+      } else if (n.relatedEntityType === 'Transaction' && tx.has(id)) {
+        const t = tx.get(id)!;
+        // The viewer's own file: they are the applicant. Anyone else's: they are a reviewer, whatever view they are in.
+        const own = Boolean(v.personnelId && t.personnelId === v.personnelId);
+        if (own || !role || !['AO_II', 'HRMO'].includes(role)) {
+          resolved = !['DEFICIENCY', 'DRAFT'].includes(t.status);
+          // A returned file opens on the first requirement that needs replacing.
+          const returnedRequirement = t.status === 'DEFICIENCY' ? t.uploadedDocuments.find(d => d.status === 'REJECTED')?.requirementTemplateId : null;
+          target = { path: `/personnel/checklist?txId=${id}${returnedRequirement ? `&requirement=${returnedRequirement}` : ''}`, label: resolved ? 'Open my application' : 'Fix and resubmit', badge: 'My application', kind: 'own' };
+        } else if (role === 'AO_II') {
+          resolved = t.status !== 'PENDING_VALIDATION';
+          target = t.status === 'PENDING_VALIDATION'
+            ? { path: `/admin/documents?txId=${id}`, label: 'Review documents', badge: 'Validation needed', kind: 'review' }
+            : { path: `/admin/transactions/${id}`, label: 'View transaction', badge: 'Transaction', kind: 'view' };
+        } else {
+          // HRMO validates in its own lane and approves what another reviewer validated; a validator has nothing left on it.
+          const validatedByMe = Boolean(v.userId && t.uploadedDocuments.some(d => d.validatedByUserId === v.userId));
+          resolved = !(t.status === 'PENDING_VALIDATION' || (t.status === 'FOR_APPROVAL' && !(hrDirectEnabled() && validatedByMe)));
+          target = t.status === 'PENDING_VALIDATION'
+            ? { path: `/admin/documents?txId=${id}`, label: 'Review documents', badge: 'Validation needed', kind: 'review' }
+            : t.status === 'FOR_APPROVAL' && !(hrDirectEnabled() && validatedByMe)
+              ? { path: `/admin/approvals?txId=${id}`, label: 'Review for final approval', badge: 'Final approval needed', kind: 'review' }
+              : { path: `/admin/transactions/${id}`, label: 'View transaction', badge: 'Transaction', kind: 'view' };
+        }
+      } else if (n.relatedEntityType === 'AccountCreationRequest' && rq.has(id)) resolved = rq.get(id) !== 'PENDING';
       else if (n.relatedEntityType === 'PromotionApplication' && ap.has(id)) {
         const a = ap.get(id)!; const stage = (a.scoreDetailsJson as any)?.stageStatus;
-        resolved = role === 'AO_II' ? a.status !== 'SUBMITTED'
-          : ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(role || '') ? !(stage === 'REQUIREMENTS_DEFICIENT' && a.status === 'UNDER_REVIEW') : null;
+        const own = Boolean(v.personnelId && a.personnelId === v.personnelId);
+        const deficientForApplicant = !(stage === 'REQUIREMENTS_DEFICIENT' && a.status === 'UNDER_REVIEW');
+        // Requirements are open for a reviewer until someone checks them (submitted or resubmitted).
+        const openForReviewer = a.status === 'SUBMITTED';
+        resolved = own ? deficientForApplicant
+          : role === 'AO_II' || role === 'HRMO' ? !openForReviewer
+          : ['TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'].includes(role || '') ? deficientForApplicant : null;
       }
     }
-    return { ...n, actionResolved: resolved };
+    return { ...n, actionResolved: resolved, ...(target ? { actionTarget: target } : {}) };
   });
 };
 
@@ -137,7 +180,9 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
       prisma.notification.count({ where }),
     ]);
     const clean = data.map(n => ({ ...n, message: plainNotificationText(n.message) }));
-    sendSuccess(res, await withActionState(await withPromotionTargets(clean), req.user?.role), undefined, 200, buildPaginationMeta(page, limit, total));
+    // Action state follows the account's own role: an HRMO in personnel view still owes the reviews they were notified about.
+    const viewer = { userId: req.user!.userId, role: req.user?.baseRole ?? req.user?.role, personnelId: req.user?.personnelId };
+    sendSuccess(res, await withActionState(await withPromotionTargets(clean), viewer), undefined, 200, buildPaginationMeta(page, limit, total));
   } catch (error: any) {
     logger.error({ err: error }, 'Failed to get notifications');
     res.status(500).json({ status: 'error', message: 'Failed to retrieve notifications.' });

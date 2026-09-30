@@ -20,6 +20,7 @@ import { canAccessTransaction, transactionAccessFilter } from '../utils/transact
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { transactionCompliance } from '../utils/transaction-compliance.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
+import { awaitingWhereFor, describeReview, eligibleApproverIds, fallbackApprovalIds, hrmoValidationLaneWhere, loadReviewContext, reviewerLabel } from '../utils/transaction-review.util';
 
 const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
 export const transactionEvents = new EventEmitter();
@@ -135,7 +136,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     nonStatusConditions.push({ OR: searchConditions });
   }
 
-  const baseWhereWithoutStatus: any = nonStatusConditions.length > 0
+  let baseWhereWithoutStatus: any = nonStatusConditions.length > 0
     ? { AND: nonStatusConditions }
     : {};
 
@@ -154,29 +155,26 @@ export const getTransactions = async (req: Request, res: Response) => {
     statusCondition = { status: status as string };
   }
 
-  // Review queues. The caller's own stage: AO II validates, HRMO approves.
-  const myStage: any = req.user?.role === 'AO_II' ? 'PENDING_VALIDATION' : req.user?.role === 'HRMO' ? 'FOR_APPROVAL' : { in: ['PENDING_VALIDATION', 'FOR_APPROVAL'] };
+  // Review queues. "Awaiting me" is decided in one place (awaitingWhereFor) so the list,
+  // its counts and the notices agree: AO II validates, HRMO validates its own lane and
+  // approves files it did not validate, and the System Administrator sees only the
+  // fallback approvals no HRMO can give.
+  const awaiting: any = await awaitingWhereFor(req.user);
   const queue = String((req.query as any).queue || '').toLowerCase();
-  if (queue === 'awaiting' || queue === 'oldest') statusCondition = { status: myStage };
-  else if (queue === 'resubmitted') statusCondition = { status: myStage, resubmissionCount: { gt: 0 } };
-  // HRMO's own validation queue: non-teaching submissions waiting for a first check.
-  // With HR-direct review off there is nothing for HRMO to validate, so the queue is empty.
+  if (queue === 'awaiting' || queue === 'oldest') statusCondition = awaiting;
+  else if (queue === 'resubmitted') statusCondition = { AND: [awaiting, { resubmissionCount: { gt: 0 } }] };
+  // HRMO's own validation queue: files waiting for a first check in the HRMO lane.
   if (queue === 'validation' && req.user?.role === 'HRMO') {
-    if (hrDirectEnabled()) {
-      // Non-teaching submissions, plus teaching ones at a station with no active AO II (HRMO covers those).
-      const aoStations = (await prisma.user.findMany({ where: { accountStatus: 'ACTIVE', role: { name: 'AO_II' }, personnel: { school: { not: null } } }, select: { personnel: { select: { school: true } } } }))
-        .map(u => u.personnel?.school).filter((school): school is string => Boolean(school));
-      statusCondition = {
-        status: 'PENDING_VALIDATION',
-        OR: [
-          { personnel: { user: { role: { name: { not: 'TEACHING_PERSONNEL' } } } } },
-          { personnel: { school: null } },
-          ...(aoStations.length ? [{ personnel: { school: { notIn: aoStations } } }] : [{ personnel: { id: { gt: 0 } } }]),
-        ],
-      };
-    } else {
-      statusCondition = { id: -1 };
-    }
+    statusCondition = { AND: [{ status: 'PENDING_VALIDATION' }, await hrmoValidationLaneWhere()] };
+  }
+  // The System Administrator's fallback approvals: narrow by design.
+  if (queue === 'fallback') {
+    statusCondition = req.user?.role === 'SYSTEM_ADMIN' ? { id: { in: await fallbackApprovalIds() } } : { id: -1 };
+  }
+  // HRMO's validation lane in every status, so Returned and Done lists are complete too.
+  if (String((req.query as any).lane || '').toLowerCase() === 'validation' && req.user?.role === 'HRMO') {
+    nonStatusConditions.push(await hrmoValidationLaneWhere());
+    baseWhereWithoutStatus = { AND: nonStatusConditions };
   }
   const oldestFirst = queue === 'oldest' || String((req.query as any).sort || '') === 'waiting';
   const withBase = (extra: any) => (nonStatusConditions.length > 0 ? { AND: [...nonStatusConditions, extra] } : extra);
@@ -218,6 +216,7 @@ export const getTransactions = async (req: Request, res: Response) => {
             school: true,
             district: true,
             dateHired: true,
+            user: { select: { role: { select: { name: true } } } },
             promotionApplications: {
               where: {
                 OR: [
@@ -235,7 +234,7 @@ export const getTransactions = async (req: Request, res: Response) => {
             },
           },
         },
-        uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true, validatedBy: { select: { email: true, personnel: { select: { firstName: true, lastName: true } } } } } },
+        uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true, validatedByUserId: true, validationDate: true, validatedBy: { select: { id: true, email: true, role: { select: { name: true } }, personnel: { select: { firstName: true, lastName: true } } } } } },
       },
     }),
     prisma.transaction.count({ where: finalWhere }),
@@ -275,8 +274,8 @@ export const getTransactions = async (req: Request, res: Response) => {
       orderBy: { name: 'asc' },
     }),
     // Queue counts use the same filters as the list, so they always agree.
-    prisma.transaction.count({ where: withBase({ status: myStage }) }),
-    prisma.transaction.count({ where: withBase({ status: myStage, resubmissionCount: { gt: 0 } }) }),
+    prisma.transaction.count({ where: withBase(awaiting) }),
+    prisma.transaction.count({ where: withBase({ AND: [awaiting, { resubmissionCount: { gt: 0 } }] }) }),
     prisma.transaction.count({ where: withBase({ status: 'PENDING_VALIDATION' }) }),
   ]);
 
@@ -323,6 +322,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     categories: ['Teaching', 'Non-Teaching'],
   };
 
+  const reviewContext = await loadReviewContext();
   const formatted = data.map(tx => {
     const promoApp = tx.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === tx.id);
     const isPromo = tx.transactionType.name.toUpperCase().includes('PROMOTION') || !!promoApp;
@@ -331,6 +331,8 @@ export const getTransactions = async (req: Request, res: Response) => {
     const { complianceScore } = transactionCompliance(tx.transactionType.requirementTemplates, tx.uploadedDocuments);
     return {
       ...tx,
+      // Who checked it, who acts next and what this viewer can do: decided on the server.
+      review: describeReview(tx, req.user, reviewContext),
       // Waiting time starts when the transaction entered its current stage.
       waitingSince: tx.stageEnteredAt ?? tx.submissionDate ?? tx.updatedAt,
       school: tx.personnel?.school || null,
@@ -400,6 +402,8 @@ export const getMyTransactions = async (req: Request, res: Response) => {
             lastName: true,
             employeeId: true,
             designation: true,
+            school: true,
+            user: { select: { role: { select: { name: true } } } },
             promotionApplications: {
               where: {
                 OR: [
@@ -417,11 +421,12 @@ export const getMyTransactions = async (req: Request, res: Response) => {
             },
           },
         },
-        uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true, validatedBy: { select: { email: true, personnel: { select: { firstName: true, lastName: true } } } } } },
+        uploadedDocuments: { select: { id: true, fileName: true, status: true, requirementTemplateId: true, validatedByUserId: true, validationDate: true, validatedBy: { select: { id: true, email: true, role: { select: { name: true } }, personnel: { select: { firstName: true, lastName: true } } } } } },
       },
     }),
     prisma.transaction.count({ where }),
   ]);
+  const myReviewContext = await loadReviewContext();
   const formattedData = data.map(tx => {
     const { complianceScore: score } = transactionCompliance(tx.transactionType.requirementTemplates, tx.uploadedDocuments);
     const promoApp = tx.personnel?.promotionApplications?.find(app => Number((app.scoreDetailsJson as any)?.transactionId) === tx.id);
@@ -430,6 +435,7 @@ export const getMyTransactions = async (req: Request, res: Response) => {
     const cycleName = promoApp?.promotionCycle?.name || null;
     return {
       ...tx,
+      review: describeReview(tx, req.user, myReviewContext),
       complianceScore: score,
       isPromotion: isPromo,
       promotionDetails: isPromo && promoApp ? {
@@ -560,6 +566,8 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
               lastName: true,
               employeeId: true,
               designation: true,
+              school: true,
+              user: { select: { role: { select: { name: true } } } },
               promotionApplications: {
                 where: {
                   OR: [
@@ -580,7 +588,7 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
           uploadedDocuments: {
             include: {
               requirementTemplate: { select: { name: true } },
-              validatedBy: { select: { id: true, email: true, role: { select: { name: true } } } },
+              validatedBy: { select: { id: true, email: true, role: { select: { name: true } }, personnel: { select: { firstName: true, lastName: true } } } },
               // The version this file replaced, with its review, so reviewers see what changed.
               revisions: { orderBy: { createdAt: 'desc' }, take: 1, select: { snapshot: true, createdAt: true } },
             },
@@ -618,6 +626,7 @@ export const getTransactionById = async (req: Request, res: Response, next: Next
     sendSuccess(res, {
       ...transaction,
       uploadedDocuments,
+      review: describeReview(transaction, req.user, await loadReviewContext()),
       complianceScore,
       isPromotion: isPromo,
       promotionDetails: isPromo && promoApp ? {
@@ -731,9 +740,12 @@ export const submitTransaction = async (req: Request, res: Response) => {
   // officer: HRMO is told instead, since it alone can assign the station.
   const stationOfficers = shouldEscalate || hrLane ? [] : await stationOfficerUserIds(transaction.personnel?.school);
   const routeToHrmo = shouldEscalate || hrLane || stationOfficers.length === 0;
+  // Never the submitter (an HRMO applying as personnel is not their own reviewer), and never a
+  // reviewer with nothing to do: the recipients are exactly the accounts the server would let act.
   const targetUserIds = routeToHrmo
     ? (await prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE', NOT: { id: req.user!.userId } }, select: { id: true } })).map(u => u.id)
-    : stationOfficers;
+    : stationOfficers.filter(userId => userId !== req.user!.userId);
+  const coversStation = routeToHrmo && !hrLane && !shouldEscalate && hrDirectEnabled();
   if (targetUserIds.length > 0) {
     await prisma.notification.createMany({
       data: targetUserIds.map(userId => ({
@@ -741,23 +753,45 @@ export const submitTransaction = async (req: Request, res: Response) => {
         message: shouldEscalate
           ? `Transaction #${id} (${updated.transactionType.name}) for ${applicantName} reached three correction cycles and requires HRMO review.`
           : hrLane
-            ? `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for HRMO validation.`
+            ? `${isResubmission ? 'Resubmitted' : 'New'} transaction #${id} (${updated.transactionType.name}) from ${applicantName} is waiting for HRMO validation.`
+            : coversStation
+            ? `${isResubmission ? 'Resubmitted' : 'New'} transaction #${id} (${updated.transactionType.name}) from ${applicantName} is waiting for HRMO validation: their station has no AO II.`
             : routeToHrmo
             ? `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} has no AO II for its station. Assign the personnel's station so it can be validated.`
-            : `New transaction #${id} (${updated.transactionType.name}) submitted by ${applicantName} for validation.`,
-        type: routeToHrmo && !hrLane ? 'WARNING' as const : 'INFO' as const,
+            : `${isResubmission ? 'Resubmitted' : 'New'} transaction #${id} (${updated.transactionType.name}) from ${applicantName} is waiting for your validation.`,
+        type: routeToHrmo && !hrLane && !coversStation ? 'WARNING' as const : 'INFO' as const,
         relatedEntityId: id,
         relatedEntityType: 'Transaction',
       })),
     });
     notifyUserNotifications(targetUserIds);
+  } else if (routeToHrmo && hrDirectEnabled()) {
+    // No HRMO other than the submitter: nobody can validate it. Say so to the System Administrator, who can add one.
+    const admins = (await prisma.user.findMany({ where: { role: { name: 'SYSTEM_ADMIN' }, accountStatus: 'ACTIVE' }, select: { id: true } })).map(u => u.id);
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map(userId => ({
+          userId,
+          message: `Transaction #${id} from ${applicantName} is waiting for HRMO validation, but no other HRMO account is active to review it. Add or reactivate an HRMO account.`,
+          type: 'WARNING' as const,
+          relatedEntityId: id,
+          relatedEntityType: 'ReviewerGap',
+        })),
+      });
+      notifyUserNotifications(admins);
+    }
   }
   notifyTransactionChange();
   void processWorkflowOutbox();
+  const nextOwner = shouldEscalate || hrLane || coversStation ? 'HRMO' : routeToHrmo ? 'HRMO' : 'your AO II';
   sendSuccess(
     res,
-    { id: updated.id, status: updated.status, submissionDate: updated.submissionDate },
-    shouldEscalate ? 'Correction limit reached. Transaction escalated to HRMO review.' : 'Transaction submitted for validation.',
+    { id: updated.id, status: updated.status, submissionDate: updated.submissionDate, nextOwner, notifiedReviewers: targetUserIds.length },
+    shouldEscalate
+      ? 'Correction limit reached. Escalated to HRMO for review.'
+      : targetUserIds.length === 0 && routeToHrmo
+        ? 'Submitted. No other HRMO is available to validate it yet, so the System Administrator was told.'
+        : `Submitted. ${nextOwner === 'HRMO' ? 'HRMO' : 'Your AO II'} will validate the documents and you will be notified of the result.`,
   );
 };
 
@@ -829,6 +863,10 @@ export const validateTransaction = async (req: Request, res: Response) => {
   const isRejected = targetStatus === 'REJECTED';
   if (isRejected && !String(remarks || '').trim()) { sendBadRequest(res, 'A disqualification reason is required.', 'REJECTION_REASON_REQUIRED'); return; }
   const newStatus: any = isRejected ? 'REJECTED' : hasDeficiencies ? 'DEFICIENCY' : 'FOR_APPROVAL';
+  // Who is doing the validating, as the people affected should read it.
+  const vLabel = reviewerLabel(req.user!.role);
+  const reviewContext = await loadReviewContext();
+  let approvalRecipients: { kind: 'HRMO' | 'SYSTEM_ADMIN' | 'NONE'; count: number } = { kind: 'NONE', count: 0 };
 
   await prisma.$transaction(async (tx) => {
     await lockTransaction(tx, id);
@@ -906,17 +944,18 @@ export const validateTransaction = async (req: Request, res: Response) => {
 
       if (isRejected) {
         notifType = 'WARNING';
-        notifMsg = `Transaction #${id} was disqualified by AO II. Reason: "${remarks}". You can reopen it in the app to correct the documents and submit again.`;
+        notifMsg = `Transaction #${id} was disqualified by ${vLabel}. Reason: "${remarks}". You can reopen it in the app to correct the documents and submit again.`;
       } else if (hasDeficiencies) {
         notifType = 'WARNING';
         if (deficientDocNames.length > 0) {
-          notifMsg = `Deficiency Alert on TRX-${id}: The document "${deficientDocNames.join(', ')}" was returned due to: "${remarks || 'Validation error'}". Only this document needs to be re-uploaded.`;
+          notifMsg = `Deficiency Alert on TRX-${id}: ${vLabel} returned "${deficientDocNames.join(', ')}": "${remarks || 'Validation error'}". Replace only the returned document${deficientDocNames.length === 1 ? '' : 's'}, then resubmit.`;
         } else {
-          notifMsg = `Deficiency Alert on TRX-${id}: Documents were returned by AO II. Reason: "${remarks || 'Please re-upload deficient files.'}". Only deficient items require re-upload.`;
+          notifMsg = `Deficiency Alert on TRX-${id}: ${vLabel} returned your documents. Reason: "${remarks || 'Please re-upload deficient files.'}". Replace only the returned items, then resubmit.`;
         }
       } else {
         notifType = 'INFO';
-        notifMsg = `Verification Complete: All submitted documents for TRX-${id} (${txWithPersonnel.transactionType.name}) have been verified by AO II and forwarded to HRMO for final approval.`;
+        const approverText = hrDirectEnabled() ? 'a different HRMO' : 'HRMO';
+        notifMsg = `Verification Complete: ${vLabel} validated all documents for TRX-${id} (${txWithPersonnel.transactionType.name}). Next: final approval by ${approverText}. You will be notified of the decision.`;
       }
 
       await tx.notification.create({
@@ -944,7 +983,7 @@ export const validateTransaction = async (req: Request, res: Response) => {
 
           const docItems = (deficientDocNames.length > 0 ? deficientDocNames : ['Requirement Checklist Documents']).map(name => ({
             name,
-            remarks: remarks || 'Returned for compliance revision by Administrative Officer (AO II).',
+            remarks: remarks || `Returned for compliance revision by ${vLabel}.`,
           }));
 
           await queueDeficiencyEmail(`transaction:${id}:deficiency:${transaction.resubmissionCount}`, {
@@ -964,9 +1003,9 @@ export const validateTransaction = async (req: Request, res: Response) => {
         await queueTransactionalEmail(`transaction:${id}:ao-rejected`, {
           recipientEmail: txWithPersonnel.personnel.user.email,
           recipientName: `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}`,
-          subject: `AO II decision issued: TRX-${id}`,
+          subject: `${vLabel} decision issued: TRX-${id}`,
           heading: 'Your transaction was disqualified',
-          message: `AO II disqualified this transaction. Review the recorded reason in Digital 201: ${remarks}. You can reopen it in Digital 201 to correct the documents and submit again.`,
+          message: `${vLabel} disqualified this transaction. Review the recorded reason in Digital 201: ${remarks}. You can reopen it in Digital 201 to correct the documents and submit again.`,
           reference: `TRX-${id}`,
           actionLabel: 'View decision',
           actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}`,
@@ -975,20 +1014,42 @@ export const validateTransaction = async (req: Request, res: Response) => {
     }
 
     if (!hasDeficiencies && !isRejected) {
-      const hrmoUsers = await tx.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' } });
-      if (hrmoUsers.length > 0) {
-        const applicantName = txWithPersonnel?.personnel ? `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}` : 'Personnel Applicant';
-        const txTypeName = txWithPersonnel?.transactionType?.name || '201 Transaction';
-        await tx.notification.createMany({
-          data: hrmoUsers.map(h => ({
-            userId: h.id,
-            message: `HRMO Action Required: Transaction #${id} (${txTypeName}) for ${applicantName} has been validated by AO II and is ready for your final review & approval.`,
-            type: 'INFO',
-            relatedEntityId: id,
-            relatedEntityType: 'Transaction',
-          })),
-        });
-        notifyUserNotifications(hrmoUsers.map(h => h.id));
+      // Tell the accounts the server would actually let approve: with HR-direct review on, an
+      // HRMO other than the validator and the applicant; if none exists, the System Administrator
+      // (the fallback the approve endpoint allows, and nothing more).
+      const applicantName = txWithPersonnel?.personnel ? `${txWithPersonnel.personnel.firstName} ${txWithPersonnel.personnel.lastName}` : 'Personnel Applicant';
+      const txTypeName = txWithPersonnel?.transactionType?.name || '201 Transaction';
+      const eligibleIds = eligibleApproverIds({ id, status: 'FOR_APPROVAL', personnelId: transaction.personnelId }, reviewContext, [req.user!.userId]);
+      if (eligibleIds.length > 0 || !hrDirectEnabled()) {
+        const recipients = hrDirectEnabled() ? eligibleIds : reviewContext.hrmos.map(h => h.id).filter(hid => hid !== req.user!.userId);
+        if (recipients.length > 0) {
+          await tx.notification.createMany({
+            data: recipients.map(userId => ({
+              userId,
+              message: `Final approval needed: ${vLabel} validated Transaction #${id} (${txTypeName}) for ${applicantName}. Review the files and approve, return or reject it.`,
+              type: 'INFO' as const,
+              relatedEntityId: id,
+              relatedEntityType: 'Transaction',
+            })),
+          });
+          approvalRecipients = { kind: 'HRMO', count: recipients.length };
+          notifyUserNotifications(recipients);
+        }
+      } else {
+        const admins = await tx.user.findMany({ where: { role: { name: 'SYSTEM_ADMIN' }, accountStatus: 'ACTIVE' }, select: { id: true } });
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map(a => ({
+              userId: a.id,
+              message: `Fallback approval needed: ${vLabel} validated Transaction #${id} (${txTypeName}) for ${applicantName}, and no other HRMO can approve it (independent approval). You may give the final approval from Fallback approvals.`,
+              type: 'WARNING' as const,
+              relatedEntityId: id,
+              relatedEntityType: 'ApprovalFallback',
+            })),
+          });
+          approvalRecipients = { kind: 'SYSTEM_ADMIN', count: admins.length };
+          notifyUserNotifications(admins.map(a => a.id));
+        }
       }
     }
   });
@@ -1002,7 +1063,15 @@ export const validateTransaction = async (req: Request, res: Response) => {
     targetStatus,
     hasDeficiencies,
   });
-  sendSuccess(res, { id, status: newStatus, validationDate: new Date() }, 'Transaction validation submitted.');
+  // Say where the case went and who owns the next step, so the reviewer is never left guessing.
+  const moved = isRejected
+    ? `TRX-${id} was disqualified. The applicant was told the reason and can reopen it to correct the documents.`
+    : hasDeficiencies
+      ? `TRX-${id} was returned to the applicant for correction. It comes back to ${vLabel} when they resubmit.`
+      : approvalRecipients.kind === 'SYSTEM_ADMIN'
+        ? `TRX-${id} is validated. No other HRMO can approve it, so the System Administrator was asked for the fallback approval.`
+        : `TRX-${id} is validated and now waits for final approval by ${hrDirectEnabled() ? 'a different HRMO' : 'HRMO'}${approvalRecipients.count ? ` (${approvalRecipients.count} notified)` : ''}. You no longer need to act on it.`;
+  sendSuccess(res, { id, status: newStatus, validationDate: new Date(), nextOwner: isRejected || hasDeficiencies ? 'APPLICANT' : approvalRecipients.kind, notifiedReviewers: approvalRecipients.count }, moved);
 };
 
 /** POST /transactions/:id/approve */
@@ -1026,7 +1095,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
     include: {
       personnel: {
         include: {
-          user: true,
+          user: { include: { role: true } },
           plantillaItem: true,
         },
       },
@@ -1044,11 +1113,18 @@ export const approveTransaction = async (req: Request, res: Response) => {
   if (transaction.status !== 'FOR_APPROVAL') {
     sendBadRequest(
       res,
-      `Transaction #${id} cannot be processed for approval yet. It is currently in "${transaction.status}" status and must first be validated and declared qualified by AO II.`,
+      `Transaction #${id} cannot be processed for approval yet. It is currently in "${transaction.status}" status and must first be validated${laneFor(transaction.personnel?.user?.role?.name) === 'HR' ? ' by HRMO' : ''}.`,
       'TRANSACTION_NOT_VALIDATED_BY_AO2'
     );
     return;
   }
+  // Names the roles that actually did the work, for the messages below.
+  const approverLabel = reviewerLabel(req.user!.role);
+  const validatorUsers = await prisma.user.findMany({
+    where: { id: { in: transaction.uploadedDocuments.map(d => d.validatedByUserId).filter((v): v is number => typeof v === 'number') } },
+    select: { role: { select: { name: true } } },
+  });
+  const validatedByLabel = [...new Set(validatorUsers.map(u => reviewerLabel(u.role.name)))].join(' and ') || 'the reviewer';
   if (!isApproved && !String(notes || '').trim()) { sendBadRequest(res, isReturnedForCorrection ? 'Correction instructions are required.' : 'A rejection reason is required.'); return; }
   if (isReturnedForCorrection && returnedDocumentIds.some(documentId => !transaction.uploadedDocuments.some(document => document.id === documentId))) {
     sendBadRequest(res, 'One or more selected documents do not belong to this transaction.', 'INVALID_DEFICIENT_DOCUMENT'); return;
@@ -1066,7 +1142,7 @@ export const approveTransaction = async (req: Request, res: Response) => {
       if (!compliance.isComplete || current.uploadedDocuments.some(d => d.status !== 'VALIDATED')) {
         throw workflowConflict(current.escalatedAt && !current.escalationReviewedAt
           ? 'This transaction was escalated after repeated corrections and AO II has not validated its latest files. Return the files that need fixing with your instructions; the corrected files go to AO II for validation, then back to you for final approval.'
-          : 'All required documents must be present, confirmed and validated by AO II before approval. Return this transaction for correction.');
+          : 'All required documents must be present, confirmed and validated before approval. Return this transaction for correction.');
       }
     }
     const claimed = await tx.transaction.updateMany({
@@ -1267,11 +1343,11 @@ export const approveTransaction = async (req: Request, res: Response) => {
       const isPromo = transaction.transactionType.name.toUpperCase().includes('PROMOTION');
       const notifMessage = isApproved
         ? (isPromo
-            ? `Promotion Appointment Approved! Your submitted documents have been fully verified by AO II and approved by HRMO. Your official personnel position has been updated!`
-            : `Congratulations! Transaction #${id} (${transaction.transactionType.name}) has been approved by HRMO.`)
+            ? `Promotion Appointment Approved! Your documents were validated by ${validatedByLabel} and approved by ${approverLabel}. Your official personnel position has been updated!`
+            : `Congratulations! Transaction #${id} (${transaction.transactionType.name}) was validated by ${validatedByLabel} and approved by ${approverLabel}.`)
         : isReturnedForCorrection
-          ? `HRMO returned ${returnedDocuments.map(document => `"${document.requirementTemplate.name}"`).join(', ')} on transaction #${id} for correction. Replace only the flagged document${returnedDocuments.length === 1 ? '' : 's'}, then resubmit. Reason: ${notes}`
-          : `Transaction #${id} has been rejected by HRMO. Reason: ${notes}`;
+          ? `${approverLabel} returned ${returnedDocuments.map(document => `"${document.requirementTemplate.name}"`).join(', ')} on transaction #${id} for correction. Replace only the flagged document${returnedDocuments.length === 1 ? '' : 's'}, then resubmit. Reason: ${notes}`
+          : `Transaction #${id} was not approved by ${approverLabel}. Reason: ${notes}`;
 
       await tx.notification.create({
         data: {
@@ -1290,12 +1366,12 @@ export const approveTransaction = async (req: Request, res: Response) => {
           recipientEmail: transaction.personnel.user.email,
           recipientName: `${transaction.personnel.firstName} ${transaction.personnel.lastName}`,
           subject: `${isApproved ? 'Approved' : isReturnedForCorrection ? 'Correction required' : 'Decision issued'}: TRX-${id}`,
-          heading: isApproved ? 'Your transaction was approved' : isReturnedForCorrection ? 'HRMO returned documents for correction' : 'Your transaction was not approved',
+          heading: isApproved ? 'Your transaction was approved' : isReturnedForCorrection ? `${approverLabel} returned documents for correction` : 'Your transaction was not approved',
           message: isApproved
-            ? `HRMO approved your ${transaction.transactionType.name} transaction. Your Digital 201 record will reflect the finalized appointment information.`
+            ? `${approverLabel} approved your ${transaction.transactionType.name} transaction. Your Digital 201 record will reflect the finalized appointment information.`
             : isReturnedForCorrection
-              ? `Replace only these document${returnedDocuments.length === 1 ? '' : 's'}: ${returnedDocuments.map(document => document.requirementTemplate.name).join(', ')}. HRMO instructions: ${notes}`
-              : `HRMO did not approve your ${transaction.transactionType.name} transaction. Review the recorded reason in Digital 201: ${notes || 'No additional remarks were provided.'}`,
+              ? `Replace only these document${returnedDocuments.length === 1 ? '' : 's'}: ${returnedDocuments.map(document => document.requirementTemplate.name).join(', ')}. ${approverLabel} instructions: ${notes}`
+              : `${approverLabel} did not approve your ${transaction.transactionType.name} transaction. Review the recorded reason in Digital 201: ${notes || 'No additional remarks were provided.'}`,
           reference: `TRX-${id}`,
           actionLabel: isReturnedForCorrection ? 'Open the returned document' : 'View transaction',
           actionUrl: `${config.clientUrl}/personnel/checklist?txId=${id}${isReturnedForCorrection && returnedDocuments[0] ? `&requirement=${returnedDocuments[0].requirementTemplateId}` : ''}`,
@@ -1336,7 +1412,11 @@ export const approveTransaction = async (req: Request, res: Response) => {
   sendSuccess(
     res,
     { id, status: newStatus, approvalDate: isReturnedForCorrection ? null : new Date(), deficientDocumentIds: returnedDocumentIds },
-    isApproved ? 'Transaction approved.' : isReturnedForCorrection ? 'Transaction returned for document correction.' : 'Transaction rejected.',
+    isApproved
+      ? `TRX-${id} approved. It is complete and now part of the applicant's Digital 201 record.`
+      : isReturnedForCorrection
+        ? `TRX-${id} returned to the applicant. They replace the flagged documents and resubmit; it then goes back to ${laneFor(transaction.personnel?.user?.role?.name) === 'HR' ? 'HRMO' : 'the AO II'} for validation.`
+        : `TRX-${id} rejected. The applicant was told the reason.`,
   );
 };
 

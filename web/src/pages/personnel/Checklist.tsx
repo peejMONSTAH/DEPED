@@ -42,6 +42,11 @@ export const Checklist: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [escalated, setEscalated] = useState(false);
+  // Who checks this file, and who validated it, as the server records it (AO II or HRMO): never assumed.
+  const [review, setReview] = useState<{ validator?: string; validatedBy?: { role?: string } | null; approver?: string | null; summary?: string; youCan?: string } | null>(null);
+  const vName = review?.validator === 'HRMO' ? 'HRMO' : 'AO II';
+  const byName = review?.validatedBy?.role === 'HRMO' ? 'HRMO' : review?.validatedBy?.role === 'AO_II' ? 'AO II' : vName;
+  const approverName = review?.approver === 'SYSTEM_ADMIN' ? 'the System Administrator (fallback)' : review?.validator ? 'a different HRMO' : 'HRMO';
   const focusRequirement = Number(searchParams.get('requirement')) || null;
   const focusedOnce = React.useRef(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -108,6 +113,7 @@ export const Checklist: React.FC = () => {
         setTxRemarks(txData.remarks || '');
         setSubmittedAt(txData.submissionDate || null);
         setEscalated(Boolean(txData.escalatedAt && !txData.escalationReviewedAt));
+        setReview(txData.review ?? null);
         setReturningAuthority(
           Array.isArray(txData.history) && txData.history.some((entry: any) => entry.action === 'HRMO_RETURNED_FOR_CORRECTION')
             ? 'HRMO'
@@ -280,9 +286,9 @@ export const Checklist: React.FC = () => {
       setSubmitting(true);
       const res = await apiClient.put(`/transactions/${activeTargetId}/submit`);
       const sent = res.data?.data || {};
-      const who = sent.status === 'FOR_APPROVAL' ? 'HRMO' : 'AO II';
       const when = sent.submissionDate ? new Date(sent.submissionDate).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : '';
-      addToast(`${isReturnedState ? 'Resubmitted' : 'Submitted'}. Now waiting for ${who}${when ? ` (received ${when})` : ''}.`, 'SUCCESS');
+      // The server says who has it now, so the message is right for teaching, non-teaching and no-AO stations alike.
+      addToast(`${res.data?.message || `${isReturnedState ? 'Resubmitted' : 'Submitted'}. Waiting for validation.`}${when ? ` (received ${when})` : ''}`, 'SUCCESS');
       setSubmittedAt(sent.submissionDate || null);
       await fetchTransactionData(activeTargetId);
     } catch (err: any) {
@@ -304,30 +310,30 @@ export const Checklist: React.FC = () => {
         </div>
       </div>
 
-      {/* 1. Submitted / Pending AO II Review Banner */}
+      {/* 1. Submitted / waiting for the reviewer named by the server */}
       {txStatus === 'PENDING_VALIDATION' && (
         <div className="card mb-4" style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <AppIcon name="clock" size={20} color="#f59e0b" />
-            <strong style={{ color: '#f59e0b', fontSize: 14 }}>Waiting for AO II{submittedAt ? ` · received ${new Date(submittedAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}</strong>
+            <strong style={{ color: '#f59e0b', fontSize: 14 }}>Waiting for {vName}{submittedAt ? ` · received ${new Date(submittedAt).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}` : ''}</strong>
           </div>
           <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-            Your 201 transaction dossier has been successfully submitted and is currently in the queue for evaluation & document pre-checking by the Administrative Officer II (AO II). Any validation updates or deficiency notes will appear here in real time.
+            Your 201 transaction dossier has been successfully submitted and is currently in {vName}'s queue for document checking. Any validation updates or correction notes will appear here as they happen.
           </div>
         </div>
       )}
 
-      {/* 2. Validated by AO II / Under HRMO Review Banner */}
+      {/* 2. Validated / waiting for final approval */}
       {txStatus === 'FOR_APPROVAL' && (
         <div className="card mb-4" style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid #c79a2e', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
             <AppIcon name="approved" size={20} color="#c79a2e" />
-            <strong style={{ color: '#c79a2e', fontSize: 14 }}>{escalated ? 'With HRMO after repeated corrections' : 'Validated by AO II — waiting for HRMO approval'}</strong>
+            <strong style={{ color: '#c79a2e', fontSize: 14 }}>{escalated ? 'With HRMO after repeated corrections' : `Validated by ${byName} — waiting for final approval`}</strong>
           </div>
           <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
             {escalated
-              ? 'Your documents were returned several times, so HRMO is reviewing them. HRMO will tell you exactly what to fix; AO II then validates the corrected files before HRMO decides.'
-              : 'AO II validated your documents. HRMO gives the final approval; your position changes only after that approval.'}
+              ? 'Your documents were returned several times, so HRMO is reviewing them. HRMO will tell you exactly what to fix; {vName} then validates the corrected files before final approval.'
+              : `${byName} validated your documents. Final approval comes from ${approverName}; your position changes only after that approval.`}
           </div>
         </div>
       )}
@@ -358,7 +364,7 @@ export const Checklist: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Deficiency Alert Banner if returned by AO II */}
+      {/* 5. Deficiency alert banner: says who returned it */}
       {isReturnedState && (
         <div className="card mb-4" style={{ background: 'rgba(248, 81, 73, 0.1)', border: '1px solid #f85149', borderRadius: 12, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -438,14 +444,14 @@ export const Checklist: React.FC = () => {
                 <div className="text-xs text-muted" style={{ fontWeight: 700, marginBottom: 2 }}>Uploaded</div>
                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                   {uploadedDone.map(r => row(r, 'var(--color-success)', 'approved',
-                    r.status === 'VALIDATED' ? 'Validated by AO II' : 'Awaiting AO II validation'))}
+                    r.status === 'VALIDATED' ? `Validated by ${r.validatedBy || byName}` : `Awaiting ${vName} validation`))}
                 </ul>
               </div>
             )}
 
             <p className="text-xs text-muted" style={{ margin: '14px 0 0' }}>
               {isComplete
-                ? 'All required documents are in. Submit below to send your application to AO II for validation.'
+                ? `All required documents are in. Submit below to send your application to ${vName} for validation.`
                 : returned.length
                   ? `Upload corrected copies of the ${returned.length} returned document${returned.length === 1 ? '' : 's'}${notUploaded.length ? ` and the ${notUploaded.length} still missing` : ''} to submit.`
                   : notUploaded.length
@@ -498,7 +504,7 @@ export const Checklist: React.FC = () => {
                     <span className="checklist-name">{item.name}</span>
                     {isApprovedDoc && (
                       <span className="badge badge-approved" style={{ fontSize: 13, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <AppIcon name="approved" size={11} /> Validated by AO II
+                        <AppIcon name="approved" size={11} /> Validated by {item.validatedBy || byName}
                       </span>
                     )}
                     {isDeficientDoc && (
@@ -656,9 +662,9 @@ export const Checklist: React.FC = () => {
               {txStatus === 'APPROVED' || txStatus === 'COMPLETED'
                 ? 'Transaction Finalized & Synchronized'
                 : txStatus === 'FOR_APPROVAL'
-                ? (escalated ? 'With HRMO after repeated corrections' : 'Validated by AO II — waiting for HRMO approval')
+                ? (escalated ? 'With HRMO after repeated corrections' : `Validated by ${byName} — waiting for final approval`)
                 : txStatus === 'PENDING_VALIDATION'
-                ? 'Submitted — Under AO II Verification'
+                ? `Submitted — Under ${vName} Verification`
                 : isComplete
                 ? 'All Mandatory Requirements Satisfied'
                 : 'Documents Pending Upload'}
@@ -667,11 +673,11 @@ export const Checklist: React.FC = () => {
               {txStatus === 'APPROVED' || txStatus === 'COMPLETED'
                 ? 'Your appointment has been officially approved and merged into your Master 201 File.'
                 : txStatus === 'FOR_APPROVAL'
-                ? (escalated ? 'HRMO will return the files that need fixing with instructions.' : 'AO II validated all documents. HRMO gives the final approval.')
+                ? (escalated ? 'HRMO will return the files that need fixing with instructions.' : `${byName} validated all documents. Final approval comes from ${approverName}.`)
                 : txStatus === 'PENDING_VALIDATION'
-                ? 'Your dossier is actively in the receiving queue for AO II validation. You will be notified of any deficiency or endorsement in real time.'
+                ? `Your dossier is in the queue for ${vName} validation. You will be notified of any correction or of validation as it happens.`
                 : isComplete
-                ? 'Your 201 transaction dossier is complete and ready for AO II receiving and validation.'
+                ? `Your 201 transaction dossier is complete and ready to submit to ${vName} for validation.`
                 : `Please complete the remaining ${missingReqs.length} required document(s) before submitting.`}
             </div>
           </div>
@@ -681,11 +687,11 @@ export const Checklist: React.FC = () => {
             </button>
           ) : txStatus === 'FOR_APPROVAL' ? (
             <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#c79a2e', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="approved" size={16} color="#c79a2e" /> {escalated ? 'With HRMO for review' : 'Validated by AO II — with HRMO'}
+              <AppIcon name="approved" size={16} color="#c79a2e" /> {escalated ? 'With HRMO for review' : `Validated by ${byName} — awaiting approval`}
             </button>
           ) : txStatus === 'PENDING_VALIDATION' ? (
             <button className="btn btn-secondary" disabled style={{ opacity: 0.85, cursor: 'default', padding: '10px 24px', fontWeight: 700, color: '#f59e0b', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="clock" size={16} color="#f59e0b" /> Submitted — Pending AO II Review
+              <AppIcon name="clock" size={16} color="#f59e0b" /> Submitted — Pending {vName} Review
             </button>
           ) : (
             <button
@@ -696,7 +702,7 @@ export const Checklist: React.FC = () => {
             >
               {submitting
                 ? 'Sending…'
-                : isReturnedState ? 'Resubmit corrections' : 'Submit to AO II'}
+                : isReturnedState ? 'Resubmit corrections' : `Submit to ${vName}`}
             </button>
           )}
         </div>

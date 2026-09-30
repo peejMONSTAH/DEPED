@@ -21,9 +21,15 @@ test('the audit trail shows only real records and says so when it cannot load', 
 
 test('System Administrator is kept out of HR transaction decisions in the web app', () => {
   const queue = src('pages/admin/TransactionQueue.tsx');
-  assert.match(queue, /const canValidate = user\?\.role === 'AO_II';/);
-  assert.match(queue, /const canApprove = user\?\.role === 'HRMO';/);
+  // What a reviewer may do is decided by the server per transaction (review.canValidate / review.canApprove), never guessed from the role.
+  assert.match(queue, /review\?\.canValidate/);
+  assert.match(queue, /review\?\.canApprove/);
+  assert.doesNotMatch(queue, /const canValidate = user\?\.role/);
   assert.match(src('App.tsx'), /path="transactions(\/:id\?)?" element=\{<RequireAuth allowedRoles=\{\['AO_II', 'HRMO'\]\}>/);
+  // The System Administrator reaches only the narrow fallback list on the approvals page, and never the queue or validation.
+  assert.match(src('App.tsx'), /allowedRoles=\{\['HRMO', 'SYSTEM_ADMIN'\]\}>\s*<TransactionApproval/);
+  assert.match(src('pages/admin/TransactionApproval.tsx'), /queue=fallback/);
+  assert.doesNotMatch(src('App.tsx'), /path="documents"[\s\S]{0,120}SYSTEM_ADMIN/);
 });
 
 test('both account creation forms use one vacant-plantilla rule', () => {
@@ -72,7 +78,7 @@ test('Annex C wording has one web source that matches the server exactly', () =>
 
 test('status labels come from one table', () => {
   const { transactionStatusLabel } = require('../src/constants/transactionStatus.ts');
-  assert.equal(transactionStatusLabel('PENDING_VALIDATION'), 'With AO II');
+  assert.equal(transactionStatusLabel('PENDING_VALIDATION'), 'Awaiting validation');
   const badge = src('components/shared/StatusBadge.tsx');
   assert.match(badge, /label: transactionStatusLabel\(status\)/);
   assert.doesNotMatch(badge, /label: 'With AO II'/, 'no second copy of the label');

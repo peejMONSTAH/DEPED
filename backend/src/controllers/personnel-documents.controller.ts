@@ -655,8 +655,11 @@ export const isDocumentAccessibleHistoricalEvidence = async (documentId: number,
   });
   for (const app of apps) {
     const details = app.scoreDetailsJson as Record<string, any> | null;
-    const items = details?.annexCChecklist?.items;
-    if (Array.isArray(items)) {
+    // The current checklist, and every earlier version that was replaced after a correction:
+    // a reviewer must still be able to open what they were shown and returned.
+    const versions = [details?.annexCChecklist?.items, ...(Array.isArray(details?.annexCChecklistHistory) ? details!.annexCChecklistHistory.map((h: any) => h?.items) : [])];
+    for (const items of versions) {
+      if (!Array.isArray(items)) continue;
       for (const item of items) {
         if (item.personnelDocumentId === documentId || item.existingDocumentId === documentId) {
           return true;

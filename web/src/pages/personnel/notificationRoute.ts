@@ -17,6 +17,8 @@ export interface PersonnelNotification {
   promotionCycleId?: number;
   /** true once the requested action is done; null for information. */
   actionResolved?: boolean | null;
+  /** Where the server says this notice should open for this account (reviewer work opens the review screen, not the personnel view). */
+  actionTarget?: { path: string; label: string; badge: string; kind: 'own' | 'review' | 'fallback' | 'view' };
 }
 
 export type NoticeKind = 'appointment' | 'application' | 'vacancy' | 'file' | 'account' | 'service-record' | 'general';
@@ -53,12 +55,18 @@ export function routeNotification(n: PersonnelNotification): NoticeRoute {
   // information notice about a returned item is not shown as a request.
   const open = n.type === 'WARNING' && n.actionResolved === false;
 
+  // Review work notified to an AO II or HRMO who is in their personnel view: open the review screen for that exact record.
+  if (n.actionTarget && n.actionTarget.kind !== 'own') {
+    return route('general', n.actionTarget.badge, n.actionTarget.path, n.actionTarget.label, n.actionResolved === false);
+  }
+
   if (entity === 'transaction' && id) {
-    const to = `/personnel/checklist?txId=${id}`;
+    // The server knows which requirement was returned; its link opens the checklist on that item.
+    const to = n.actionTarget?.kind === 'own' ? n.actionTarget.path : `/personnel/checklist?txId=${id}`;
     if (/returned|deficien|reopened/.test(lower)) return route('appointment', open ? 'A document was returned for correction' : 'A document was returned (already handled)', to, open ? 'Fix the returned document' : 'Open appointment', open);
     if (/disqualified|rejected/.test(lower)) return route('appointment', 'Not approved', to, 'See the reason', open);
-    if (/approved by hrmo|has been approved|appointment approved/.test(lower)) return route('appointment', 'Approved by HRMO', to, 'Open appointment');
-    if (/verified by ao ii|verification complete/.test(lower)) return route('appointment', 'Validated by AO II · waiting for HRMO approval', to, 'Open appointment');
+    if (/approved by|has been approved|appointment approved/.test(lower)) return route('appointment', 'Approved', to, 'Open appointment');
+    if (/validated|verified by|verification complete/.test(lower)) return route('appointment', 'Validated · waiting for final approval', to, 'Open appointment');
     if (/selected for/.test(lower)) return route('appointment', 'Selected · appointment requirements needed', to, 'Open appointment', open);
     return route('appointment', 'Appointment update', to, 'Open appointment', open);
   }
@@ -70,7 +78,7 @@ export function routeNotification(n: PersonnelNotification): NoticeRoute {
         ? route('application', 'Your application was returned for correction', `/personnel/vacancies?cycle=${cycle}`, 'Fix and resubmit', true)
         : route('application', 'Your application was returned (already handled)', '/personnel/transactions', 'View application');
     }
-    if (/verified complete|verified/.test(lower)) return route('application', 'Requirements checked by AO II · waiting for HRMO rating', '/personnel/transactions', 'View application');
+    if (/verified complete|verified/.test(lower)) return route('application', 'Requirements checked · waiting for HRMO rating', '/personnel/transactions', 'View application');
     return route('application', 'Application update', '/personnel/transactions', 'View application', open);
   }
 

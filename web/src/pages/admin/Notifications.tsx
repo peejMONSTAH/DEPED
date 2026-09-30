@@ -7,6 +7,7 @@ import apiClient from '../../api/client';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { clickable } from '../../a11y/clickable';
 import { notificationPromotionPath } from '../../promotions/deepLink';
+import { LoadFailure, StaleNotice } from '../../components/common/LoadFailure';
 
 type NotificationItem = {
   /** true once the requested action is done; null for information. */
@@ -18,6 +19,8 @@ type NotificationItem = {
   createdAt: string;
   relatedEntityId?: number;
   relatedEntityType?: string;
+  /** Where this notice should open, decided by the server from the record's state and the viewer's role. */
+  actionTarget?: { path: string; label: string; badge: string; kind: 'own' | 'review' | 'fallback' | 'view' };
 };
 
 export const AdminNotifications: React.FC = () => {
@@ -26,18 +29,27 @@ export const AdminNotifications: React.FC = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed load is not "all caught up": say so, keep what was loaded, and offer Retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'UNREAD' | 'ACCOUNT' | 'TRANSACTIONS'>('ALL');
 
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await apiClient.get('/notifications');
       setNotifications(res.data?.data || []);
+      setLoadFailed(false);
+      setLoadedAt(new Date());
     } catch (err) {
       console.error('Failed to load notifications:', err);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const retry = async () => { setRetrying(true); try { await fetchNotifications(); } finally { setRetrying(false); } };
 
   useRealtimeNotifications(fetchNotifications);
 
@@ -76,6 +88,18 @@ export const AdminNotifications: React.FC = () => {
       };
     }
 
+    // The server knows the record's state and the viewer's real role, so a transaction notice opens exactly the screen where the viewer can act.
+    if (n.actionTarget) {
+      const t = n.actionTarget;
+      return {
+        path: t.path,
+        label: t.label,
+        btnClass: t.kind === 'review' || t.kind === 'fallback' || t.kind === 'own' ? 'btn-primary' : 'btn-secondary',
+        badge: t.badge,
+        iconName: (t.kind === 'fallback' ? 'approvals' : t.kind === 'review' ? 'verification' : 'notifications') as 'approvals' | 'verification' | 'notifications',
+      };
+    }
+
     // Each notice opens the exact record it is about.
     const txId = entity === 'transaction' && n.relatedEntityId ? n.relatedEntityId : null;
     if (entity === 'backuprun') {
@@ -110,7 +134,7 @@ export const AdminNotifications: React.FC = () => {
         path: txId ? `/admin/documents?txId=${txId}` : '/admin/documents',
         label: 'Validate Documents & Review Form',
         btnClass: 'btn-primary',
-        badge: 'AO II Action Required',
+        badge: 'Validation needed',
         iconName: 'verification' as const,
       };
     }
@@ -177,9 +201,11 @@ export const AdminNotifications: React.FC = () => {
   }, [notifications, activeFilter, isSysAdmin]);
 
   // Unread notices that need someone to act come first; the rest is information.
-  const needsAction = (n: typeof notifications[number]) => !n.isRead && n.actionResolved !== true && (
-    n.type === 'WARNING' || n.type === 'ERROR'
-    || /request|for validation|for approval|awaiting|pending|resubmit|failed/i.test(n.message));
+  // A notice stays in Action needed until the work is done, even after it is read: reading it is not doing it.
+  const needsAction = (n: typeof notifications[number]) => n.actionResolved === false
+    || (n.actionResolved == null && !n.isRead && (
+      n.type === 'WARNING' || n.type === 'ERROR'
+      || /request|for validation|for approval|awaiting|pending|resubmit|failed/i.test(n.message)));
   const { groupedNotifications, actionCount } = useMemo(() => {
     const act = filteredNotifications.filter(needsAction);
     const rest = filteredNotifications.filter(n => !needsAction(n));
@@ -229,18 +255,21 @@ export const AdminNotifications: React.FC = () => {
           )}
         </div>
 
+        {loadFailed && loadedAt && <StaleNotice what="your notifications" since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
         {loading ? (
           <div className="card text-center" style={{ padding: '32px' }}>
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
             <div>Loading notifications...</div>
           </div>
+        ) : loadFailed && !loadedAt ? (
+          <LoadFailure what="your notifications" onRetry={() => void retry()} retrying={retrying} />
         ) : filteredNotifications.length === 0 ? (
           <div className="card text-center" style={{ padding: '32px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
               <AppIcon name="notifications" size={36} color="var(--color-primary-light)" />
             </div>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>No notifications found</div>
-            <div className="text-sm text-muted">You're all caught up for this view!</div>
+            <div className="text-sm text-muted">Your notifications loaded correctly and this view is empty.</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

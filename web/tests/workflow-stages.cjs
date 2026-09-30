@@ -9,6 +9,7 @@ test('AO II validates, HRMO approves: wording never calls an AO II check an appr
   assert.match(transactionStage('FOR_APPROVAL').label, /Validated by AO II/);
   assert.doesNotMatch(transactionStage('FOR_APPROVAL').label, /Approved/);
   assert.match(transactionStage('APPROVED').label, /Approved by HRMO/);
+  assert.match(transactionStage('APPROVED', { review: { approvedBy: 'SYSTEM_ADMIN' } }).label, /Approved by System Administrator/, 'a fallback approval is not reported as an HRMO approval');
 });
 
 test('returned for correction is not a final rejection', () => {

@@ -297,11 +297,23 @@ test('2. promotion: HR cycle, application, AO completeness, HR deliberation and 
   assert.ok(listed.items.some(i => i.verificationStatus === 'INCOMPLETE' && i.verificationRemarks === 'Blurred scan'), 'the returned document and its remark are shown');
   assert.ok(emails.some(e => e.recipientEmail === 'teacher@pilot.invalid' && /returned/i.test(e.subject)), 'the applicant is emailed about the deficiency');
   ok(await http(T.matAo, 'GET', '/promotions/my-applications'), 403, 'my-applications is for personnel only');
-  const resubmit = await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`, { body: { checklist: { items } } });
+  // The same file again is refused: a returned document has to be replaced. Only the returned item needs a new file.
+  const unchangedResubmit = await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`, { body: { checklist: { items } } });
+  ok(unchangedResubmit, 409, 'resubmitting the returned document unchanged is refused');
+  assert.equal(unchangedResubmit.json.code, 'REPLACEMENT_REQUIRED');
+  const returnedCode = items.find(i => i.submitted).code;
+  const replacementForm = new FormData();
+  replacementForm.append('file', pdfFile('replacement-scan'), 'replacement-scan.pdf');
+  replacementForm.append('documentTypeId', 'OTHER');
+  replacementForm.append('customDocumentName', `Annex C ${returnedCode} replacement`);
+  const replacementUpload = await http(T.teacher, 'POST', '/personnel/documents', { form: replacementForm });
+  ok(replacementUpload, 201, 'teacher uploads a replacement for the returned document');
+  const correctedItems = items.map(i => (i.code === returnedCode ? { ...i, personnelDocumentId: replacementUpload.json.data.id } : i));
+  const resubmit = await http(T.teacher, 'POST', `/promotions/cycles/${T.cycleId}/apply`, { body: { checklist: { items: correctedItems } } });
   ok(resubmit, 200, 'teacher resubmits corrected requirements');
   assert.equal((await db.promotionApplication.findUnique({ where: { id: T.appId } })).status, 'SUBMITTED', 'resubmission returns it to AO II');
   assert.ok(await db.notification.findFirst({ where: { user: { email: 'ao.morales@pilot.invalid' }, relatedEntityId: T.appId,
-    message: { contains: 'Resubmitted' } } }), 'the AO II is told about the resubmission');
+    message: { contains: 'resubmitted' } } }), 'the AO II is told about the resubmission');
   ok(await http(T.hr, 'POST', `${app}/final-rating`, { body: rating }), 400, 'HR still cannot deliberate until AO re-checks');
   ok(await http(T.morAo, 'POST', `${app}/verify-requirements`, { body: { status: 'COMPLETE', remarks: 'Verified' } }), 200, 'AO confirms completeness');
   ok(await http(T.morAo, 'POST', `${app}/final-rating`, { body: rating }), 403, 'AO II cannot deliberate');

@@ -33,7 +33,7 @@ class TransactionTrackerCard extends StatelessWidget {
         : s == TransactionStatus.RETURNED_BY_HRMO
             ? 2
             : -1;
-    const labels = ['Documents', 'AO II', 'HRMO', 'Approved'];
+    const labels = ['Documents', 'Validation', 'Approval', 'Done'];
 
     return Row(
       children: [

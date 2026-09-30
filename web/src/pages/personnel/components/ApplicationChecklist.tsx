@@ -35,8 +35,10 @@ interface ApplicationChecklistProps {
   onApplicationSubmitted: () => void;
   onOpenScanner?: (itemCode: string) => void;
   onPreviewDocument?: (url: string, name: string) => void;
-  /** AO II notes on the requirements it returned, by item code (from /promotions/my-applications). */
+  /** The reviewer's notes on the requirements returned, by item code (from /promotions/my-applications). Its keys are the items that must be replaced. */
   returnedItems?: Record<string, string | null>;
+  /** Who checks this person's requirements ('AO II' or 'HRMO'), from the server. */
+  checker?: string;
 }
 
 export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
@@ -49,7 +51,11 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
   onOpenScanner,
   onPreviewDocument,
   returnedItems = {},
+  checker: checkerProp,
 }) => {
+  const checker = checkerProp === 'HRMO' ? 'HRMO' : 'AO II';
+  // The file each item had when this application was last sent, so a "replacement" is a different file, not the same one re-attached.
+  const baselineDocIds = useRef<Record<string, number | undefined>>({});
   const { addToast } = useToast();
   const [checklistItems, setChecklistItems] = useState<ChecklistFormItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,6 +99,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
     // Check if user already submitted an application
     const myApp = cycle.myApplication;
     const existingChecklist = myApp?.annexCChecklist;
+    baselineDocIds.current = Object.fromEntries((existingChecklist?.items || []).map((it: any) => [String(it.code || '').toLowerCase(), it.personnelDocumentId ?? undefined]));
 
     // Load templates
     void (async () => {
@@ -163,7 +170,9 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
       })
     );
     setPickingCode(null);
-    addToast(`Attached "${doc.documentTypeName}" to Item ${pickingCode.toUpperCase()}.`, 'SUCCESS');
+    addToast(isReturned && pickingCode.toLowerCase() in returnedItems
+      ? `Replacement for item ${pickingCode.toUpperCase()} saved. It is not sent yet: press Resubmit once every returned item is replaced.`
+      : `Attached "${doc.documentTypeName}" to Item ${pickingCode.toUpperCase()}.`, 'SUCCESS');
   };
 
   // Handle direct file upload from computer
@@ -194,7 +203,9 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
         ? { ...item, submitted: true, personnelDocumentId: doc.id, documentName: doc.documentTypeName || file.name, documentType: doc.documentTypeId,
             uploadedFileUrl: doc.fileUrl || `/personnel/documents/${doc.id}/file`, fileSize: doc.fileSize || file.size }
         : item)));
-      addToast(`Saved "${file.name}" to your 201 files and attached it to item ${code.toUpperCase()}.`, 'SUCCESS');
+      addToast(isReturned && code.toLowerCase() in returnedItems
+        ? `Replacement for item ${code.toUpperCase()} saved to your 201 files. It is not sent yet: press Resubmit once every returned item is replaced.`
+        : `Saved "${file.name}" to your 201 files and attached it to item ${code.toUpperCase()}.`, 'SUCCESS');
     } catch (err: any) {
       addToast(err?.response?.data?.message || 'The file could not be saved, so nothing was attached. Try again.', 'ERROR');
     } finally {
@@ -226,7 +237,15 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
   // Validation
   const mandatoryItems = checklistItems.filter(i => i.isMandatory);
   const submittedMandatory = mandatoryItems.filter(i => i.submitted);
-  const canSubmit = submittedMandatory.length === mandatoryItems.length && !isReadOnly && !savingCode;
+  // A returned item is fixed only by a different file. Items that were not returned stay as they are.
+  const returnedCodes = isReturned ? Object.keys(returnedItems) : [];
+  const isReplaced = (code: string) => {
+    const it = checklistItems.find(i => i.code.toLowerCase() === code.toLowerCase());
+    return Boolean(it?.submitted && it.personnelDocumentId && it.personnelDocumentId !== baselineDocIds.current[code.toLowerCase()]);
+  };
+  const stillReturned = returnedCodes.filter(code => !isReplaced(code));
+  const returnedTitle = (code: string) => checklistItems.find(i => i.code.toLowerCase() === code.toLowerCase())?.title || code.toUpperCase();
+  const canSubmit = submittedMandatory.length === mandatoryItems.length && stillReturned.length === 0 && !isReadOnly && !savingCode;
 
   // Submit application
   const handleSubmitApplication = async () => {
@@ -260,7 +279,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
 
       // The endpoint reads the Annex C checklist from `checklist` (see promotions.controller applyForPromotion).
       await apiClient.post(`/promotions/cycles/${cycle.id}/apply`, { checklist: payload, appliedVia: 'WEB_PORTAL' });
-      addToast(isReturned ? 'Corrected application sent back to AO II.' : 'Application submitted to AO II.', 'SUCCESS');
+      addToast(isReturned ? `Corrections submitted. ${checker} will check the replaced item${returnedCodes.length === 1 ? '' : 's'} again and you will be notified.` : `Application submitted. ${checker} will check your documents next.`, 'SUCCESS');
       onApplicationSubmitted();
       onClose();
     } catch (err: any) {
@@ -506,7 +525,9 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
                         </div>
                         {isReturned && item.code.toLowerCase() in returnedItems && (
                           <div role="note" style={{ marginLeft: 30, marginTop: 6, padding: '6px 10px', borderRadius: 8, background: '#FFF7F2', border: '1px solid #F3C9B4', color: '#8A3A0B', fontSize: '0.8125rem', fontWeight: 600 }}>
-                            Returned by AO II{returnedItems[item.code.toLowerCase()] ? `: ${returnedItems[item.code.toLowerCase()]}` : '. Replace this file.'}
+                            {isReplaced(item.code)
+                              ? `Replacement saved for this item. It goes to ${checker} only when you press Resubmit.`
+                              : `Returned by ${checker}${returnedItems[item.code.toLowerCase()] ? `: ${returnedItems[item.code.toLowerCase()]}` : ''}. Attach a new file to replace it.`}
                           </div>
                         )}
 
@@ -601,8 +622,12 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
                 {isReadOnly
                   ? 'Submitted. Follow its progress on the Applications page.'
                   : canSubmit
-                    ? `All required items are attached. ${isReturned ? 'Resubmit' : 'Submit'} to send it to AO II.`
-                    : `Attach all ${mandatoryItems.length} required items to ${isReturned ? 'resubmit' : 'submit'}.`}
+                    ? (isReturned
+                        ? `Every returned item is replaced. Nothing is sent until you press Resubmit, and then ${checker} checks them again.`
+                        : `All required items are attached. Submit to send it to ${checker}.`)
+                    : stillReturned.length > 0
+                      ? `Still to replace before you can resubmit (${returnedCodes.length - stillReturned.length} of ${returnedCodes.length} replaced): ${stillReturned.map(returnedTitle).join('; ')}. Items that were not returned stay as they are.`
+                      : `Attach all ${mandatoryItems.length} required items to ${isReturned ? 'resubmit' : 'submit'}.`}
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
@@ -614,7 +639,7 @@ export const ApplicationChecklist: React.FC<ApplicationChecklistProps> = ({
                     onClick={handleSubmitApplication}
                     style={{ fontWeight: 700 }}
                   >
-                    {submitting ? 'Sending…' : isReturned ? 'Resubmit to AO II' : 'Submit application to AO II'}
+                    {submitting ? 'Sending…' : isReturned ? `Resubmit to ${checker}` : `Submit application to ${checker}`}
                   </button>
                 )}
               </div>

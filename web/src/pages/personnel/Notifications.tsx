@@ -4,6 +4,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import apiClient from '../../api/client';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useToast } from '../../contexts/ToastContext';
+import { StaleNotice } from '../../components/common/LoadFailure';
 import { groupNotifications, NoticeRoute, PersonnelNotification } from './notificationRoute';
 import './personnel-notifications.css';
 
@@ -25,6 +26,8 @@ export const PersonnelNotifications: React.FC = () => {
   const [rows, setRows] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Once notices have loaded, a failed refresh keeps them on screen, marked as possibly out of date.
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
 
   const load = useCallback(async () => {
@@ -32,6 +35,7 @@ export const PersonnelNotifications: React.FC = () => {
     try {
       const res = await apiClient.get('/notifications');
       setRows(res.data?.data || []);
+      setLoadedAt(new Date());
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Your notifications could not be loaded. Check your connection and try again.');
     } finally { setLoading(false); }
@@ -101,9 +105,10 @@ export const PersonnelNotifications: React.FC = () => {
         <button type="button" className={`btn btn-sm ${!unreadOnly ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={!unreadOnly} onClick={() => setUnreadOnly(false)}>All</button>
         <button type="button" className={`btn btn-sm ${unreadOnly ? 'btn-primary' : 'btn-secondary'}`} aria-pressed={unreadOnly} onClick={() => setUnreadOnly(true)}>Unread ({unread})</button>
       </div>
+      {error && loadedAt && <StaleNotice what="your notifications" since={loadedAt} onRetry={() => { void load(); }} />}
       {loading ? <p className="pn__hint" aria-busy="true">Loading your notifications…</p>
-        : error ? <div className="pn__error" role="alert"><p>{error}</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => { setLoading(true); void load(); }}>Try again</button></div>
-        : action.length + updates.length === 0 ? <p className="pn__empty">{unreadOnly ? 'No unread notifications.' : 'No notifications yet. Reviews, returns and approvals will appear here.'}</p>
+        : error && !loadedAt ? <div className="pn__error" role="alert"><p>{error}</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => { setLoading(true); void load(); }}>Try again</button></div>
+        : action.length + updates.length === 0 ? <p className="pn__empty">{unreadOnly ? 'No unread notifications.' : 'No notifications yet. Reviews, returns and approvals will appear here. Your notifications loaded correctly and this list is empty.'}</p>
         : <>
           {section('action', 'Needs your action', action, 'These stay here until the request is done.')}
           {section('today', 'Today', today)}

@@ -27,6 +27,8 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
       { label: 'Transaction Queue',  icon: 'transactions', path: '/admin/transactions', roles: ['AO_II', 'HRMO'] },
       { label: 'Doc. Validation',    icon: 'validation',   path: '/admin/documents',    roles: ['AO_II', 'HRMO'] },
       { label: 'HRMO Approvals',     icon: 'approvals',    path: '/admin/approvals',    roles: ['HRMO'] },
+      // Only when HR-direct review is on: files that no HRMO can approve independently.
+      { label: 'Fallback approvals', icon: 'approvals',    path: '/admin/approvals',    roles: ['SYSTEM_ADMIN'] },
     ],
   },
   {

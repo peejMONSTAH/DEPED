@@ -18,9 +18,11 @@ class PromotionChecklistScreen extends StatefulWidget {
   final Map<String, dynamic> cycle;
   final UserModel user;
   final PersonnelProfileModel? profile;
-  /// Items of an application AO II returned (from /promotions/my-applications).
+  /// Items of an application a reviewer returned (from /promotions/my-applications).
   /// When given, the checklist opens pre-filled for correction and resubmission.
   final List<Map<String, dynamic>>? resubmitItems;
+  /// Who checks the requirements ('AO II' or 'HRMO'), as the server says.
+  final String checker;
 
   const PromotionChecklistScreen({
     Key? key,
@@ -28,6 +30,7 @@ class PromotionChecklistScreen extends StatefulWidget {
     required this.user,
     this.profile,
     this.resubmitItems,
+    this.checker = 'AO II',
   }) : super(key: key);
 
   @override
@@ -117,7 +120,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       );
       if (p['verificationStatus'] == 'INCOMPLETE') {
         final why = (p['verificationRemarks'] ?? '').toString().trim();
-        item.returnedReason = why.isEmpty ? 'Returned by AO II' : why;
+        item.returnedReason = why.isEmpty ? 'Returned by ${widget.checker}' : why;
       }
     }
   }
@@ -390,6 +393,12 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   }
 
   void _attachExisting(PromotionChecklistItem item, PersonnelDocument d) {
+    // The same file that was returned is not a correction: it would come back with the same problem.
+    if (item.returnedReason != null && item.existingDocumentId == d.id) {
+      _showErrorSnackBar('That is the file ${widget.checker} returned. Choose or upload a new one.');
+      return;
+    }
+    final wasReturned = item.returnedReason != null;
     setState(() {
       item.returnedReason = null;
       item.existingDocumentId = d.id;
@@ -402,8 +411,9 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         path: d.fileUrl,
       );
     });
-    _showSuccessSnackBar(
-        'Attached "${d.documentTypeName}" to requirement (${item.code.toUpperCase()}).');
+    _showSuccessSnackBar(wasReturned
+        ? 'Replacement for (${item.code.toUpperCase()}) saved. It is not sent yet: submit once every returned item is replaced.'
+        : 'Attached "${d.documentTypeName}" to requirement (${item.code.toUpperCase()}).');
   }
 
   Future<void> _uploadAcquiredDocument(
@@ -705,7 +715,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         .toList();
     final stillReturned = _checklistItems.where((i) => i.returnedReason != null).toList();
     if (stillReturned.isNotEmpty) {
-      _showErrorSnackBar('Replace the returned documents first: '
+      _showErrorSnackBar('Replace the returned documents first (only these need a new file): '
           '${stillReturned.map((i) => 'Item ${i.code.toUpperCase()}').join(', ')}');
       return;
     }
@@ -783,7 +793,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               Expanded(
                 child: Text(
                   _isResubmission
-                      ? 'Corrected requirements for "${widget.cycle['name']}" resubmitted to your AO II.'
+                      ? 'Corrections submitted for "${widget.cycle['name']}". ${widget.checker} will check them again and you will be notified.'
                       : 'Annex C Checklist & Application for "${widget.cycle['name']}" submitted successfully!',
                   style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.bold, color: Colors.white),
@@ -1302,7 +1312,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                   const Icon(LucideIcons.triangleAlert, size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Returned by AO II: ${item.returnedReason}. Replace this document.',
+                    child: Text('Returned by ${widget.checker}: ${item.returnedReason}. Replace this document with a new file.',
                         style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF991B1B))),
                   ),
                 ],

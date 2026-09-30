@@ -18,7 +18,9 @@ import '../transactions/checklist_upload_screen.dart';
 class MyApplicationsScreen extends StatefulWidget {
   final UserModel user;
   final PersonnelProfileModel? profile;
-  const MyApplicationsScreen({Key? key, required this.user, this.profile}) : super(key: key);
+  /// Injectable so the load states can be tested against a fake server.
+  final ApiService? api;
+  const MyApplicationsScreen({Key? key, required this.user, this.profile, this.api}) : super(key: key);
 
   @override
   State<MyApplicationsScreen> createState() => _MyApplicationsScreenState();
@@ -36,18 +38,20 @@ class _Stage {
 _Stage _promotionStage(Map<String, dynamic> app) {
   final stage = app['stageStatus']?.toString();
   final status = app['status']?.toString();
+  // Who checks the requirements: the station's AO II, or HRMO for non-teaching staff and stations with no AO II.
+  final checker = app['checker']?.toString() == 'HRMO' ? 'HRMO' : 'AO II';
   if (app['canResubmit'] == true) return const _Stage('Returned — action needed', _red);
-  if (stage == 'RESUBMITTED') return const _Stage('Resubmitted — awaiting AO II', Color(0xFFB45309));
+  if (stage == 'RESUBMITTED') return _Stage('Resubmitted — awaiting $checker', const Color(0xFFB45309));
   // APPROVED is set only when HRMO approves the appointment; selection alone is SELECTED_PENDING_DOCS.
   if (status == 'APPROVED') return const _Stage('Appointed', AppTheme.emeraldGreen);
   if (stage == 'SELECTED_PENDING_DOCS') return const _Stage('Selected — appointment in progress', AppTheme.emeraldGreen);
   if (status == 'REJECTED') return const _Stage('Not selected', AppTheme.textMuted);
   if (stage == 'REQUIREMENTS_VERIFIED') return const _Stage('Requirements checked — with HRMO', AppTheme.emeraldGreen);
   if (status == 'RANKED') return const _Stage('Ranked', AppTheme.primaryLight);
-  return const _Stage('Submitted — awaiting AO II', Color(0xFFB45309));
+  return _Stage('Submitted — awaiting $checker', const Color(0xFFB45309));
 }
 
-_Stage _transactionStage(TransactionStatus s, {bool escalated = false}) {
+_Stage _transactionStage(TransactionStatus s, {bool escalated = false, String validator = 'AO II'}) {
   if (escalated && s == TransactionStatus.FORWARDED_TO_HRMO) {
     return const _Stage('With HRMO after repeated corrections', Color(0xFFB45309));
   }
@@ -58,9 +62,9 @@ _Stage _transactionStage(TransactionStatus s, {bool escalated = false}) {
     case TransactionStatus.DRAFT:
       return const _Stage('Preparing requirements', Color(0xFFB45309));
     case TransactionStatus.SUBMITTED_TO_AO2:
-      return const _Stage('Under AO II validation', Color(0xFFB45309));
+      return _Stage('Under $validator validation', const Color(0xFFB45309));
     case TransactionStatus.FORWARDED_TO_HRMO:
-      return const _Stage('Awaiting HRMO approval', AppTheme.primaryLight);
+      return const _Stage('Validated — awaiting final approval', AppTheme.primaryLight);
     case TransactionStatus.APPROVED_BY_HRMO:
       return const _Stage('Approved — officially appointed', AppTheme.emeraldGreen);
     default:
@@ -75,11 +79,18 @@ String _txTitle(TransactionType t) => switch (t) {
     };
 
 class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
-  final _api = ApiService();
+  late final ApiService _api = widget.api ?? ApiService();
   late final TransactionService _txService = TransactionService(_api);
   List<Map<String, dynamic>>? _apps;
   List<TransactionModel> _txs = [];
   String? _error;
+  // One list loaded and the other did not: say which is missing instead of showing it as empty.
+  bool _txsMissing = false;
+  // Offline: the appointment list comes from the last sync, and is marked as such.
+  bool _txsStale = false;
+  DateTime? _txsSyncedAt;
+  DateTime? _loadedAt;
+  bool _retrying = false;
 
   @override
   void initState() {
@@ -91,21 +102,32 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
     try {
       final res = await _api.dio.get<dynamic>('/promotions/my-applications');
       final list = (res.data?['data'] as List? ?? const []).cast<Map<String, dynamic>>();
-      List<TransactionModel> txs = [];
-      try { txs = await _txService.getMyTransactions(); } catch (_) {}
+      var txs = _txs;
+      var txsMissing = false;
+      try { txs = await _txService.getMyTransactions(); } catch (_) { txsMissing = true; }
       if (!mounted) return;
-      setState(() { _apps = list; _txs = txs; _error = null; });
+      setState(() {
+        _apps = list; _txs = txs; _txsMissing = txsMissing; _error = null; _loadedAt = DateTime.now();
+        _txsStale = !txsMissing && _txService.isOffline; _txsSyncedAt = _txService.lastSyncedAt;
+      });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _apps ??= []; _error = friendlyError(e, fallback: 'Could not load your applications.'); });
+      // Keep what was loaded (shown as possibly out of date). With nothing loaded, _apps stays null and the error view shows.
+      setState(() { _error = friendlyError(e, fallback: 'Could not load your applications.'); });
     }
+  }
+
+  Future<void> _retry() async {
+    setState(() => _retrying = true);
+    await _load();
+    if (mounted) setState(() => _retrying = false);
   }
 
   Future<void> _resubmit(Map<String, dynamic> app) async {
     final cycle = Map<String, dynamic>.from(app['cycle'] as Map);
     final items = (app['items'] as List? ?? const []).cast<Map<String, dynamic>>();
     final done = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) => PromotionChecklistScreen(cycle: cycle, user: widget.user, profile: widget.profile, resubmitItems: items),
+      builder: (_) => PromotionChecklistScreen(cycle: cycle, user: widget.user, profile: widget.profile, resubmitItems: items, checker: app['checker']?.toString() ?? 'AO II'),
     ));
     if (done == true) _load();
   }
@@ -117,6 +139,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_apps == null && _error != null) return _failure();
     if (_apps == null) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryLight));
     final needsAction = _apps!.where((a) => a['canResubmit'] == true).length +
         _txs.where((t) => t.status == TransactionStatus.RETURNED_BY_AO2 || t.status == TransactionStatus.RETURNED_BY_HRMO).length;
@@ -133,10 +156,18 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
               style: GoogleFonts.inter(fontSize: 13, color: needsAction > 0 ? _red : AppTheme.textSecondary, fontWeight: needsAction > 0 ? FontWeight.w700 : FontWeight.w400)),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: _red)),
+            _notice('May be out of date. The latest refresh failed${_loadedAt != null ? '; this is the list from ${_clock(_loadedAt!)}' : ''}. $_error'),
+          ],
+          if (_txsStale) ...[
+            const SizedBox(height: 12),
+            _notice('May be out of date. You are offline, so your appointment requirements are from your last sync${_txsSyncedAt != null ? ' at ${_clock(_txsSyncedAt!)}' : ''}.'),
+          ],
+          if (_txsMissing) ...[
+            const SizedBox(height: 12),
+            _notice('Your appointment requirements did not load, so they are not shown as empty.'),
           ],
           const SizedBox(height: 16),
-          if (_apps!.isEmpty && _txs.isEmpty) _empty(),
+          if (_apps!.isEmpty && _txs.isEmpty && !_txsMissing && _error == null) _empty(),
           if (_apps!.isNotEmpty) ...[
             _sectionLabel('Promotion applications'),
             for (final app in _apps!) _applicationCard(app),
@@ -151,13 +182,40 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
     );
   }
 
+  String _clock(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  /// Nothing could be loaded: an error with Retry, never "No applications yet".
+  Widget _failure() => ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const SizedBox(height: 40),
+          const Icon(LucideIcons.wifiOff, size: 36, color: _red),
+          const SizedBox(height: 12),
+          Text('We could not load your applications', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text('${_error ?? ''} This is a connection or server problem, not an empty list: you may have applications you cannot see yet.',
+              textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textSecondary)),
+          const SizedBox(height: 16),
+          FilledButton(onPressed: _retrying ? null : _retry, child: Text(_retrying ? 'Retrying…' : 'Retry')),
+        ],
+      );
+
+  Widget _notice(String text) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: const Color(0xFFFBF5E1), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE6D3A0))),
+        child: Row(children: [
+          Expanded(child: Text(text, style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF6B5311)))),
+          TextButton(onPressed: _retrying ? null : _retry, child: const Text('Retry')),
+        ]),
+      );
+
   Widget _empty() => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(color: AppTheme.lightBgCard, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.lightBorder)),
         child: Column(children: [
           const Icon(LucideIcons.inbox, size: 32, color: AppTheme.textMuted),
           const SizedBox(height: 8),
-          Text('No applications yet', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
+          Text('No applications yet (this list loaded correctly)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Text('Open vacancies appear on Portal Home. Your applications will show here.',
               textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textSecondary)),
@@ -217,7 +275,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Returned by AO II', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: const Color(0xFF991B1B))),
+                  Text('Returned by ${app['checker'] ?? 'AO II'}${(app['returnedCodes'] as List?)?.isNotEmpty == true ? ' — replace only the marked item(s)' : ''}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w800, color: const Color(0xFF991B1B))),
                   if ((check?['remarks'] ?? '').toString().isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(check!['remarks'].toString(), style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF991B1B))),
@@ -260,7 +318,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
   }
 
   Widget _transactionCard(TransactionModel tx) {
-    final stage = _transactionStage(tx.status, escalated: tx.escalated);
+    final stage = _transactionStage(tx.status, escalated: tx.escalated, validator: tx.validator);
     final returned = tx.requirements.where((r) => r.fileStatus == 'REJECTED').toList();
     final needsAction = stage.color == _red;
     final editable = needsAction || tx.status == TransactionStatus.DRAFT;

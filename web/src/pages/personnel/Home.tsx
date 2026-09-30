@@ -11,7 +11,7 @@ import { PromotionCycleItem } from './components/promotionCycle';
 import { PROMOTION_STEPS, nextExpiry, promotionProgress, vacancyLine } from './components/homeSummary';
 import { TransactionRecord } from '../../models/transactionState';
 import { PersonnelDocumentRecord, computeReadiness } from '../../models/documentStatus';
-import { applicationStage, transactionStage } from '../../constants/workflowStages';
+import { applicationStage, transactionStage, stageSteps } from '../../constants/workflowStages';
 import { sortVacancies } from './vacancyView';
 import { filesNeedingAttention, filingReturns } from './filingReturns';
 import { routeNotification, collapseRepeats, PersonnelNotification } from './notificationRoute';
@@ -101,12 +101,13 @@ export const PersonnelHome: React.FC = () => {
     ...applications.map(a => {
       const tx: any = a.transactionId ? (transactions as any[]).find(t => t.id === a.transactionId) : undefined;
       if (tx) linkedTx.add(tx.id);
-      const stage = tx ? transactionStage(tx.status, { escalated: escalated(tx) }) : applicationStage(a);
+      const stage = tx ? transactionStage(tx.status, { escalated: escalated(tx), review: tx.review }) : applicationStage(a);
+      const validator = tx ? tx.review?.validator : a.checker === 'HRMO' ? 'HRMO' : 'AO_II';
       const to = tx ? `/personnel/checklist?txId=${tx.id}` : a.canResubmit && a.cycle ? `/personnel/vacancies?cycle=${a.cycle.id}` : '/personnel/transactions';
-      return { key: `app-${a.id}`, title: `Promotion to ${a.cycle?.targetPosition || a.cycle?.name || 'a new position'}`, stage, to };
+      return { key: `app-${a.id}`, title: `Promotion to ${a.cycle?.targetPosition || a.cycle?.name || 'a new position'}`, stage, to, validator };
     }),
     ...(transactions as any[]).filter(t => !linkedTx.has(t.id)).map(t => ({
-      key: `tx-${t.id}`, title: t.transactionType?.name || 'Transaction', stage: transactionStage(t.status, { escalated: escalated(t) }), to: `/personnel/checklist?txId=${t.id}`,
+      key: `tx-${t.id}`, title: t.transactionType?.name || 'Transaction', stage: transactionStage(t.status, { escalated: escalated(t), review: t.review }), to: `/personnel/checklist?txId=${t.id}`, validator: t.review?.validator,
     })),
   ].filter(c => !c.stage.done).sort((a, b) => Number(b.stage.needsYou) - Number(a.stage.needsYou));
 
@@ -173,7 +174,7 @@ export const PersonnelHome: React.FC = () => {
                         <strong>{c.title}</strong>
                         <span>{c.stage.label}</span>
                         <ol className="ph__track" aria-label={c.stage.who ? `Who has it now: ${c.stage.who === 'You' ? 'you' : c.stage.who}` : 'No one needs to act'}>
-                          {(['You', 'AO II', 'HRMO'] as const).map(w => <li key={w} className={c.stage.who === w ? 'is-now' : ''}>{w}</li>)}
+                          {stageSteps(c.validator).map(w => <li key={w} className={c.stage.who === w ? 'is-now' : ''}>{w}</li>)}
                         </ol>
                       </div>
                       <Link className={`btn btn-sm ${c.stage.needsYou ? 'btn-primary' : 'btn-secondary'}`} to={c.to}>{c.stage.needsYou ? 'Continue' : 'Open'}</Link>

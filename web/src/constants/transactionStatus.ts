@@ -15,7 +15,7 @@ export type TransactionStatus = typeof TRANSACTION_STATUSES[number];
 const TEXT: Record<TransactionStatus, { label: string; phrase: string }> = {
   DRAFT: { label: 'Draft', phrase: 'in draft' },
   // The same short words as the phone app (mobile/lib/widgets/status_badge.dart).
-  PENDING_VALIDATION: { label: 'With AO II', phrase: 'with AO II' },
+  PENDING_VALIDATION: { label: 'Awaiting validation', phrase: 'awaiting validation' },
   FOR_APPROVAL: { label: 'With HRMO', phrase: 'with HRMO' },
   APPROVED: { label: 'Approved', phrase: 'approved' },
   REJECTED: { label: 'Disqualified', phrase: 'disqualified' },

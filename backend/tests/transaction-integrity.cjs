@@ -27,7 +27,7 @@ const fixture={id:12,personnelId:42,transactionType:{name:'Promotion',requiremen
 let databaseFailure=false;
 let lastWhere;
 const mock={
-  user:{findUnique:async()=>({personnel:{id:99,school:'Station A',district:'District 1'}})},
+  user:{findUnique:async()=>({personnel:{id:99,school:'Station A',district:'District 1'}}),findMany:async()=>[]},
   transaction:{findFirst:async({where})=>{ lastWhere=where; if(databaseFailure)throw new Error('synthetic database unavailable'); return fixture; }},
   validationLog:{findMany:async()=>[]},
 };

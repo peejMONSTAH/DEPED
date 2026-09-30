@@ -14,6 +14,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import type { Transaction } from '../../types';
 import { clickableRow } from '../../a11y/clickable';
+import { LoadFailure, StaleNotice, PartialNotice } from '../../components/common/LoadFailure';
+import { ReviewNotice } from '../../components/common/ReviewNotice';
 
 interface FilterTab {
   id: string;
@@ -55,11 +57,17 @@ export const TransactionQueue: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   // The record whose full detail is on screen; a re-fetch of it keeps showing it.
   const [loadedDetailId, setLoadedDetailId] = useState<number | null>(null);
+  // The row is known but its files and history did not load: say so instead of showing them as absent.
+  const [detailFailed, setDetailFailed] = useState(false);
   const hasLoadedList = useRef(false);
+  // A failed load is not an empty queue: say so, keep what was loaded (marked stale) and offer Retry.
+  const [listFailed, setListFailed] = useState(false);
+  const [listLoadedAt, setListLoadedAt] = useState<Date | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const { user } = useAuthContext();
   const { addToast } = useToast();
-  const canValidate = user?.role === 'AO_II';
+  // What this account may do is decided by the server per transaction (tx.review), not guessed from the role.
   const canApprove = user?.role === 'HRMO';
 
   // The record the officer is looking at now. A response for any other id
@@ -69,6 +77,7 @@ export const TransactionQueue: React.FC = () => {
   const loadTransactionDetail = useCallback(async (txId: number) => {
     requestedTxId.current = txId;
     setIsLoadingDetail(true);
+    setDetailFailed(false);
     try {
       const res = await transactionsApi.getById(txId);
       if (requestedTxId.current !== txId) return;
@@ -85,6 +94,7 @@ export const TransactionQueue: React.FC = () => {
         navigate('/admin/transactions', { replace: true });
       } else {
         console.error('Failed to load transaction details:', err);
+        setDetailFailed(true);
       }
     } finally {
       if (requestedTxId.current === txId || requestedTxId.current === null) setIsLoadingDetail(false);
@@ -150,8 +160,10 @@ export const TransactionQueue: React.FC = () => {
       setTotalPages(res.data?.pagination?.totalPages || 1);
       setTotalItems(res.data?.pagination?.totalItems ?? data.length);
       setQueueCounts((res.data as any)?.counts || {});
+      setListFailed(false);
+      setListLoadedAt(new Date());
     } catch {
-      // Handled by interceptor
+      setListFailed(true);
     } finally {
       setIsLoading(false);
       hasLoadedList.current = true;
@@ -161,6 +173,8 @@ export const TransactionQueue: React.FC = () => {
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  const retryList = async () => { setRetrying(true); try { await loadTransactions(); } finally { setRetrying(false); } };
 
   // Realtime updates
   useRealtimeTransactions(loadTransactions);
@@ -192,22 +206,22 @@ export const TransactionQueue: React.FC = () => {
         <div className="tq-header-chips">
           <div className="tq-stat-chip">
             <span style={{ color: 'var(--color-text-muted)' }}>Total In Queue:</span>
-            <span className="tq-stat-val">{stats.total}</span>
+            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.total}</span>
           </div>
           <div className="tq-stat-chip">
             <span className="tq-pill-dot dot-ao2" />
-            <span>AO II Verification:</span>
-            <span className="tq-stat-val">{stats.pendingAO2}</span>
+            <span>Waiting for validation:</span>
+            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.pendingAO2}</span>
           </div>
           <div className="tq-stat-chip">
             <span className="tq-pill-dot dot-hrmo" />
-            <span>HRMO Certification:</span>
-            <span className="tq-stat-val">{stats.pendingHRMO}</span>
+            <span>Waiting for final approval:</span>
+            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.pendingHRMO}</span>
           </div>
           <div className="tq-stat-chip">
             <span className="tq-pill-dot dot-approved" />
             <span>Approved Records:</span>
-            <span className="tq-stat-val">{stats.approved}</span>
+            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.approved}</span>
           </div>
         </div>
 
@@ -244,7 +258,7 @@ export const TransactionQueue: React.FC = () => {
 
           {/* Clean Segmented Filter Pills (NO DUPLICATES) */}
           <div className="tq-filter-pills-row" role="group" aria-label="Review queues">
-            {([['awaiting', `Awaiting my review (${queueCounts.awaitingMyReview ?? '…'})`], ['resubmitted', `Returned and resubmitted (${queueCounts.resubmitted ?? '…'})`], ['oldest', 'Oldest waiting']] as const).map(([id, label]) => (
+            {([['awaiting', `Needs my action (${queueCounts.awaitingMyReview ?? '…'})`], ['resubmitted', `Returned and resubmitted (${queueCounts.resubmitted ?? '…'})`], ['oldest', 'Oldest waiting']] as const).map(([id, label]) => (
               <button key={id} type="button" className={`tq-filter-pill ${queue === id ? 'is-active' : ''}`} aria-pressed={queue === id}
                 onClick={() => { setQueue(id); setPage(1); }}>
                 <span>{label}</span>
@@ -274,8 +288,11 @@ export const TransactionQueue: React.FC = () => {
         </div>
 
         {/* Table / Empty / Skeleton State */}
+        {listFailed && listLoadedAt && <StaleNotice what="the transaction queue" since={listLoadedAt} onRetry={() => void retryList()} retrying={retrying} />}
         {isLoading ? (
           <SkeletonTable rows={6} columns={7} />
+        ) : listFailed && !listLoadedAt ? (
+          <LoadFailure what="the transaction queue" onRetry={() => void retryList()} retrying={retrying} />
         ) : transactions.length === 0 ? (
           search ? (
             <SmartEmptyState
@@ -310,7 +327,8 @@ export const TransactionQueue: React.FC = () => {
           ) : (
             <SmartEmptyState
               type="queue-cleared"
-              title="Transaction Queue Is Clear"
+              title={queue ? 'Nothing needs your action' : 'No transactions found'}
+              description="The list loaded correctly and is empty."
             />
           )
         ) : (
@@ -450,10 +468,7 @@ export const TransactionQueue: React.FC = () => {
                             View
                           </button>
 
-                          {['PENDING_VALIDATION'].includes(
-                            tx.status
-                          ) &&
-                            canValidate && (
+                          {tx.status === 'PENDING_VALIDATION' && (tx as any).review?.canValidate && (
                               <Link
                                 to={`/admin/documents?txId=${tx.id}`}
                                 className="tq-btn-action"
@@ -463,7 +478,7 @@ export const TransactionQueue: React.FC = () => {
                               </Link>
                             )}
 
-                          {tx.status === 'FOR_APPROVAL' && canApprove && (
+                          {tx.status === 'FOR_APPROVAL' && (tx as any).review?.canApprove && (
                             <Link
                               to={`/admin/approvals?txId=${tx.id}`}
                               className="tq-btn-action"
@@ -804,7 +819,7 @@ export const TransactionQueue: React.FC = () => {
                     Current Assignee
                   </div>
                   <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-primary)', marginTop: '4px' }}>
-                    {selectedTx.currentAssignee?.email || 'AO II Evaluation Pool'}
+                    {selectedTx.currentAssignee?.email || selectedTx.review?.owner?.label || 'Not assigned'}
                   </div>
                 </div>
 
@@ -824,6 +839,9 @@ export const TransactionQueue: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {detailFailed && <PartialNotice missing="The uploaded documents, review status and history of this transaction did not load, so none of them are shown as empty." onRetry={() => void loadTransactionDetail(selectedTx.id)} />}
+              <ReviewNotice review={selectedTx.review} />
 
               {/* Remarks / Notes */}
               {selectedTx.remarks && (
@@ -871,7 +889,7 @@ export const TransactionQueue: React.FC = () => {
                   }}
                 >
                   <span>Uploaded 201 Requirement Documents ({selectedTx.uploadedDocuments?.length || 0})</span>
-                  {selectedTx.uploadedDocuments?.length > 0 && canValidate && (
+                  {selectedTx.uploadedDocuments?.length > 0 && selectedTx.review?.canValidate && (
                     <Link
                       to={`/admin/documents?txId=${selectedTx.id}`}
                       style={{
@@ -937,7 +955,7 @@ export const TransactionQueue: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : detailFailed ? null : (
                   <div
                     style={{
                       padding: '18px',
@@ -1016,7 +1034,7 @@ export const TransactionQueue: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              {['PENDING_VALIDATION'].includes(selectedTx.status) && canValidate && (
+              {selectedTx.status === 'PENDING_VALIDATION' && selectedTx.review?.canValidate && (
                 <Link
                   to={`/admin/documents?txId=${selectedTx.id}`}
                   className="btn btn-primary btn-sm"
@@ -1026,7 +1044,7 @@ export const TransactionQueue: React.FC = () => {
                 </Link>
               )}
 
-              {selectedTx.status === 'FOR_APPROVAL' && canApprove && (
+              {selectedTx.status === 'FOR_APPROVAL' && selectedTx.review?.canApprove && (
                 <Link
                   to={`/admin/approvals?txId=${selectedTx.id}`}
                   className="btn btn-primary btn-sm"

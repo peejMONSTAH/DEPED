@@ -73,6 +73,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SplashBrand(t: 1))));
     await tester.pump();
     expect(find.text('E'), findsNothing);
-    expect(find.text('City Schools Division of Koronadal'), findsOneWidget);
+    // The division line was removed from the splash on request; the logo carries the identity.
+    expect(find.text('City Schools Division of Koronadal'), findsNothing);
   });
 }

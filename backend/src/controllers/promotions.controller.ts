@@ -1,4 +1,5 @@
-import { validationAllowed, hrDirectEnabled } from '../utils/review-lane.util';
+import { validationAllowed, hrDirectEnabled, laneFor } from '../utils/review-lane.util';
+import { reviewerLabel, expectedValidator, loadReviewContext } from '../utils/transaction-review.util';
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { notifyTransactionChange } from './transactions.controller';
@@ -43,13 +44,31 @@ import { canChangeSelection, canEditCycle, canGenerateCar, canRegisterApplicants
  */
 const reviewableApplications = (scope: StationScope) => promotionApplicationScopeFilter(scope, 'review');
 
-/** HRMO plus the AO II of the applicant's station, never every AO II in the division. */
-const promotionReviewerIds = async (applicantSchool: unknown): Promise<number[]> => {
+/**
+ * HRMO plus the AO II of the applicant's station, never every AO II in the division.
+ * Not the applicant themselves, and not an AO II for a non-teaching applicant
+ * (HRMO checks those directly) when HR-direct review is on.
+ */
+const promotionReviewerIds = async (applicantSchool: unknown, applicant?: { userId?: number | null; roleName?: string | null }): Promise<number[]> => {
+  const hrLane = laneFor(applicant?.roleName) === 'HR';
   const [hrmo, officers] = await Promise.all([
     prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE' }, select: { id: true } }),
-    stationOfficerUserIds(applicantSchool),
+    hrLane ? Promise.resolve([] as number[]) : stationOfficerUserIds(applicantSchool),
   ]);
-  return Array.from(new Set([...hrmo.map(u => u.id), ...officers]));
+  return Array.from(new Set([...hrmo.map(u => u.id), ...officers])).filter(id => id !== applicant?.userId);
+};
+
+const applicantIdentity = async (personnelId: number) => {
+  const user = await prisma.user.findFirst({ where: { personnel: { id: personnelId } }, select: { id: true, role: { select: { name: true } } } });
+  return { userId: user?.id ?? null, roleName: user?.role.name ?? null };
+};
+
+/** Requirement codes the last check returned as incomplete: the only ones that must be replaced. */
+export const deficientRequirementCodes = (details: Record<string, any> | null | undefined): string[] => {
+  const d = details || {};
+  const fromCheck = (d.requirementsCheck?.itemVerifications || []).filter((v: any) => v?.status === 'INCOMPLETE').map((v: any) => String(v.code));
+  const fromItems = (d.annexCChecklist?.items || []).filter((it: any) => it?.verificationStatus === 'INCOMPLETE').map((it: any) => String(it.code));
+  return [...new Set<string>([...fromCheck, ...fromItems])];
 };
 
 const normalizePositionTitle = (value: unknown): string => String(value || '')
@@ -819,8 +838,10 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
     const updated = await prisma.promotionApplication.findUniqueOrThrow({ where: { id: appId } });
 
     // Notify all HRMO officers that requirements completeness has been checked
+    // Not the person who just did the check, and not the applicant.
+    const vLabel = reviewerLabel(req.user?.role);
     const hrmoUsers = await prisma.user.findMany({
-      where: { role: { name: { in: ['HRMO'] } } },
+      where: { role: { name: { in: ['HRMO'] } }, accountStatus: 'ACTIVE', NOT: [{ id: req.user!.userId }, ...(app.personnel?.userId ? [{ id: app.personnel.userId }] : [])] },
       select: { id: true },
     });
     if (hrmoUsers.length > 0) {
@@ -829,8 +850,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
         data: hrmoUsers.map(h => ({
           userId: h.id,
           message: isComplete
-            ? `AO II Requirements Verified: ${applicantName}'s documentary requirements were verified COMPLETE by AO II. Endorsed for HRMPSB score deliberation.`
-            : `AO II Requirements Deficient: ${applicantName}'s documentary requirements were marked INCOMPLETE by AO II.`,
+            ? `Requirements verified: ${vLabel} verified ${applicantName}'s documentary requirements COMPLETE. Endorsed for HRMPSB score deliberation.`
+            : `Requirements deficient: ${vLabel} marked ${applicantName}'s documentary requirements INCOMPLETE. The applicant was asked to replace the returned items.`,
           type: isComplete ? 'SUCCESS' : 'WARNING',
           relatedEntityId: appId,
           relatedEntityType: 'PromotionApplication',
@@ -850,8 +871,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
         data: {
           userId: applicantUserId,
           message: isComplete
-            ? `Requirements Verified Complete: Your documentary requirements for "${cycle.name}" were verified COMPLETE by AO II and endorsed for HRMPSB deliberation.`
-            : `Requirements Incomplete / Deficient: Your documentary requirements for "${cycle.name}" were marked INCOMPLETE by AO II. Remarks: ${remarks || 'Please check deficiencies and resubmit required documents.'}`,
+            ? `Requirements Verified Complete: Your documentary requirements for "${cycle.name}" were verified COMPLETE by ${vLabel} and endorsed for HRMPSB deliberation.`
+            : `Requirements Incomplete / Deficient: ${vLabel} returned your documentary requirements for "${cycle.name}". Replace only the returned item(s), then resubmit. Remarks: ${remarks || 'Please check deficiencies and resubmit required documents.'}`,
           type: isComplete ? 'SUCCESS' : 'WARNING',
           relatedEntityId: appId,
           relatedEntityType: 'PromotionApplication',
@@ -875,7 +896,7 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
             recipientName: `${app.personnel.firstName} ${app.personnel.lastName}`.trim(),
             subject: `Action needed: documents returned for "${cycle.name}"`,
             heading: 'Documents returned for correction',
-            message: `Your AO II reviewed your promotion application for "${cycle.name}" and returned it for correction.`
+            message: `${vLabel} reviewed your promotion application for "${cycle.name}" and returned it for correction.`
               + (returned.length ? `\n\n${returned.join('\n')}` : '')
               + (remarks ? `\n\nRemarks: ${remarks}` : '')
               + '\n\nOpen My Applications in the Digital 201 app or website, replace the returned documents, and resubmit.',
@@ -894,8 +915,8 @@ export const verifyApplicationRequirements = async (req: Request, res: Response)
       res,
       updated,
       isComplete
-        ? 'Requirements verified complete by AO II and applicant endorsed for HRMPSB deliberation.'
-        : 'Requirements marked incomplete/deficient by AO II.'
+        ? `Requirements verified complete by ${vLabel}. The applicant is endorsed for HRMPSB deliberation; HRMO owns the next step.`
+        : `Requirements returned by ${vLabel}. The applicant must replace the returned item(s) and resubmit; it then comes back to ${vLabel === 'HRMO' ? 'HRMO' : 'you'}.`
     );
   } catch (err: any) {
     logger.error({ err: err }, 'Failed to verify application requirements');
@@ -1909,7 +1930,7 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
 
   // HRMO and the applicant's own station officers; the message names the
   // applicant, so no other station's AO II may receive it.
-  const reviewerIds = await promotionReviewerIds(targetPersonnel.school);
+  const reviewerIds = await promotionReviewerIds(targetPersonnel.school, await applicantIdentity(targetPersonnelId));
   if (reviewerIds.length > 0) {
     const applicant = await prisma.personnel.findUnique({
       where: { id: targetPersonnelId },
@@ -2138,6 +2159,24 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     const priorDetails = (existing.scoreDetailsJson as Record<string, any>) || {};
     if (checklistData && existing.status === 'UNDER_REVIEW' && priorDetails.stageStatus === 'REQUIREMENTS_DEFICIENT') {
       const { requirementsCheck, ...rest } = priorDetails;
+      // Only the items the reviewer returned must change, and each must be a new file: the same
+      // document sent again would come back with the same problem. Unaffected items stay as they are.
+      const returnedCodes = deficientRequirementCodes(priorDetails);
+      const priorItems = new Map<string, any>((priorDetails.annexCChecklist?.items || []).map((it: any) => [String(it.code), it]));
+      const submittedItems = new Map<string, any>((checklistData.items || []).map((it: any) => [String(it.code), it]));
+      const unchanged = returnedCodes.filter(code => {
+        const now = submittedItems.get(code);
+        const before = priorItems.get(code);
+        return !now?.personnelDocumentId || Number(now.personnelDocumentId) === Number(before?.personnelDocumentId ?? before?.existingDocumentId);
+      });
+      if (unchanged.length > 0) {
+        const names = unchanged.map(code => priorItems.get(code)?.title || ANNEX_C_REQUIREMENTS.find(r => r.code === code)?.title || code.toUpperCase());
+        res.status(409).json({
+          status: 'error', code: 'REPLACEMENT_REQUIRED', unchangedRequirementCodes: unchanged,
+          message: `Replace the returned document${names.length === 1 ? '' : 's'} before resubmitting: ${names.join(', ')}. Only the returned items need a new file.`,
+        });
+        return;
+      }
       const resubmitted = await prisma.promotionApplication.update({
         where: { id: existing.id },
         data: {
@@ -2148,20 +2187,29 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
             stageStatus: 'RESUBMITTED',
             resubmittedAt: new Date().toISOString(),
             requirementsCheckHistory: [...(priorDetails.requirementsCheckHistory || []), ...(requirementsCheck ? [requirementsCheck] : [])],
+            // The files the reviewer saw, kept so what was returned and why can still be read.
+            annexCChecklistHistory: [...(priorDetails.annexCChecklistHistory || []), { supersededAt: new Date().toISOString(), returnedCodes, items: priorDetails.annexCChecklist?.items || [] }],
           },
         },
       });
-      const aoIds = await stationOfficerUserIds(personnel.school);
-      if (aoIds.length) {
-        await prisma.notification.createMany({ data: aoIds.map(userId => ({
+      // The reviewer who can actually act: HRMO for non-teaching applicants (or a station with no
+      // AO II), otherwise the station's AO II. Never the applicant, even when they are an AO II or HRMO.
+      const applicantUser = await prisma.user.findFirst({ where: { personnel: { id: req.user.personnelId } }, select: { id: true, role: { select: { name: true } } } });
+      const lane = laneFor(applicantUser?.role.name);
+      const officers = lane === 'AO' ? (await stationOfficerUserIds(personnel.school)).filter(id => id !== applicantUser?.id) : [];
+      const reviewerRole = lane === 'AO' && officers.length > 0 ? 'AO II' : 'HRMO';
+      const reviewerIds = reviewerRole === 'AO II' ? officers
+        : (await prisma.user.findMany({ where: { role: { name: 'HRMO' }, accountStatus: 'ACTIVE', ...(applicantUser ? { NOT: { id: applicantUser.id } } : {}) }, select: { id: true } })).map(u => u.id);
+      if (reviewerIds.length) {
+        await prisma.notification.createMany({ data: reviewerIds.map(userId => ({
           userId,
-          message: `Requirements Resubmitted: ${personnel.firstName} ${personnel.lastName} resubmitted corrected documents for "${cycle.name}". Please check completeness again.`,
+          message: `Requirements resubmitted: ${personnel.firstName} ${personnel.lastName} replaced the returned document${returnedCodes.length === 1 ? '' : 's'} for "${cycle.name}". Please check the requirements again.`,
           type: 'INFO' as const, relatedEntityId: existing.id, relatedEntityType: 'PromotionApplication',
         })) });
-        notifyUserNotifications(aoIds);
+        notifyUserNotifications(reviewerIds);
       }
       notifyTransactionChange();
-      sendSuccess(res, resubmitted, 'Corrected requirements resubmitted to AO II for checking.');
+      sendSuccess(res, resubmitted, `Corrected requirements resubmitted. ${reviewerRole} will check them again and you will be notified.`);
       return;
     }
     sendBadRequest(res, 'You have already applied for this promotion cycle.', 'ALREADY_APPLIED');
@@ -2221,7 +2269,7 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
     where: { id: req.user.personnelId },
     select: { firstName: true, lastName: true, employeeId: true, school: true },
   });
-  const reviewerIds = await promotionReviewerIds(applicantPersonnel?.school);
+  const reviewerIds = await promotionReviewerIds(applicantPersonnel?.school, await applicantIdentity(req.user.personnelId));
   if (reviewerIds.length > 0) {
     const applicantName = applicantPersonnel ? `${applicantPersonnel.firstName} ${applicantPersonnel.lastName}`.trim() : 'Personnel Applicant';
     const empId = applicantPersonnel?.employeeId || `EMP-${req.user.personnelId}`;
@@ -2578,10 +2626,18 @@ export const getMyApplications = async (req: Request, res: Response): Promise<vo
     include: { promotionCycle: { select: { id: true, name: true, type: true, status: true, endDate: true, rulesConfigurationJson: true } } },
     orderBy: { applicationDate: 'desc' },
   });
+  // Who checks this person's requirements: named the same way on the web and the phone.
+  const [self, ctx] = await Promise.all([
+    prisma.user.findFirst({ where: { personnel: { id: personnelId } }, select: { role: { select: { name: true } }, personnel: { select: { school: true } } } }),
+    loadReviewContext(),
+  ]);
+  const checker = reviewerLabel(expectedValidator({ id: 0, status: 'PENDING_VALIDATION', personnel: { school: self?.personnel?.school, user: { role: self?.role } } }, ctx));
   sendSuccess(res, apps.map(app => {
     const details = (app.scoreDetailsJson as Record<string, any>) || {};
     const check = details.requirementsCheck || null;
     const verdicts = new Map<string, any>((check?.itemVerifications || []).map((v: any) => [v.code, v]));
+    const deficient = details.stageStatus === 'REQUIREMENTS_DEFICIENT' && app.status === 'UNDER_REVIEW';
+    const returnedCodes = deficient ? deficientRequirementCodes(details) : [];
     const items = (details.annexCChecklist?.items || []).map((it: any) => {
       const v = verdicts.get(it.code);
       return {
@@ -2589,16 +2645,20 @@ export const getMyApplications = async (req: Request, res: Response): Promise<vo
         fileName: it.fileName || it.documentName || null, personnelDocumentId: it.personnelDocumentId ?? null,
         verificationStatus: v?.status || it.verificationStatus || null,
         verificationRemarks: v?.remarks ?? it.verificationRemarks ?? null,
+        // A returned item needs a new file before the application can be sent again; the others stay as they are.
+        mustReplace: returnedCodes.includes(String(it.code)),
       };
     });
-    const deficient = details.stageStatus === 'REQUIREMENTS_DEFICIENT' && app.status === 'UNDER_REVIEW';
+    const checkedBy = check?.verifiedByRole ? reviewerLabel(check.verifiedByRole) : checker;
     return {
       id: app.id, applicantNumber: app.applicantNumber, status: app.status, stageStatus: details.stageStatus || null,
       applicationDate: app.applicationDate, finalRank: app.finalRank,
       cycle: { id: app.promotionCycle.id, name: app.promotionCycle.name, type: app.promotionCycle.type,
         status: app.promotionCycle.status, endDate: app.promotionCycle.endDate,
         targetPosition: getCycleTargetPosition(app.promotionCycle) },
-      requirementsCheck: check ? { status: check.status, remarks: check.remarks, verifiedAt: check.verifiedAt } : null,
+      requirementsCheck: check ? { status: check.status, remarks: check.remarks, verifiedAt: check.verifiedAt, checkedBy } : null,
+      checker,
+      returnedCodes,
       canResubmit: deficient && app.promotionCycle.status !== 'CANCELLED',
       transactionId: Number.isSafeInteger(Number(details.transactionId)) ? Number(details.transactionId) : null,
       items,

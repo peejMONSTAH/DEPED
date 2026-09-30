@@ -13,7 +13,7 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (String label, AppStatusTone tone) = switch (status) {
       TransactionStatus.DRAFT => ('Draft', AppStatusTone.neutral),
-      TransactionStatus.SUBMITTED_TO_AO2 => ('With AO II', AppStatusTone.pending),
+      TransactionStatus.SUBMITTED_TO_AO2 => ('Awaiting validation', AppStatusTone.pending),
       TransactionStatus.RETURNED_BY_AO2 => ('Returned', AppStatusTone.danger),
       TransactionStatus.FORWARDED_TO_HRMO => ('With HRMO', AppStatusTone.info),
       TransactionStatus.RETURNED_BY_HRMO => ('Returned by HRMO', AppStatusTone.danger),

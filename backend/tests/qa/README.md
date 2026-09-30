@@ -40,6 +40,21 @@ git-ignored). Results: `out/results.json`, plus screenshots.
 
 On Git Bash for Windows set `MSYS_NO_PATHCONV=1` so paths are not rewritten.
 
+## Hand-off test bench
+
+`hr-direct-playground.cjs` serves the built website with seeded people so the review hand-off can be
+clicked through by hand. `QA_SCENARIO=handoff` adds a file HRMO 1 validated (HRMO 2 approves it), a
+returned file, a completed file, and a returned promotion requirement:
+
+```bash
+QA_SCENARIO=handoff QA_PORT=5098 \
+QA_DATABASE_URL=postgresql://postgres:test@127.0.0.1:55442/d201_handoff_bench_test \
+node backend/tests/qa/hr-direct-playground.cjs
+```
+
+The same rules are covered without a browser by `backend/tests/integration/review-handoff.cjs`
+(HR-direct review on) and `review-handoff-flag-off.cjs` (default workflow).
+
 ## Check IDs
 
 `E2E-*` main workflow · `INV-*` setup-email invitations · `ESC-*` escalation after

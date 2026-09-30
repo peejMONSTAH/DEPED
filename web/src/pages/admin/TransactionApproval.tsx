@@ -13,6 +13,9 @@ import { SkeletonStats, SkeletonList } from '../../components/common/Skeleton';
 import { SmartEmptyState } from '../../components/common/SmartEmptyState';
 import { clickable } from '../../a11y/clickable';
 import './return-sheet.css';
+import { LoadFailure, StaleNotice, PartialNotice } from '../../components/common/LoadFailure';
+import { ReviewNotice, reviewerName } from '../../components/common/ReviewNotice';
+import type { ReviewState } from '../../components/common/ReviewNotice';
 
 // ─── 201-System-Workflow.md: HRMO Steps 1, 2, 3 ──────────────────────────────
 // Step 1: Review Validated Transactions — displays Personnel Profile, Compliance Information, Uploaded Documents, Validation History
@@ -60,6 +63,8 @@ type Transaction = {
   } | null;
   remarks?: string;
   resubmissionCount?: number;
+  /** Who checked it, who acts next and what this viewer can do, decided by the server. */
+  review?: ReviewState | null;
 };
 
 // Step 3: Career Lifecycle Update fields
@@ -80,6 +85,8 @@ export const TransactionApproval: React.FC = () => {
   const confirm = useConfirm();
   const { user } = useAuthContext();
   const [approvals, setApprovals] = useState<Transaction[]>([]);
+  const approvalsRef = useRef<Transaction[]>([]);
+  approvalsRef.current = approvals;
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const [viewingDoc, setViewingDoc] = useState<DetailedDocument | null>(null);
@@ -94,13 +101,20 @@ export const TransactionApproval: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState<number[]>([]);
 
-  const canApprove = user?.role === 'HRMO' || user?.role === 'SYSTEM_ADMIN';
+  const isFallback = user?.role === 'SYSTEM_ADMIN';
+  const canApprove = user?.role === 'HRMO' || isFallback;
+  const me = reviewerName(user?.role);
+  // A failed load is not an empty queue: keep what was loaded (marked stale) and offer Retry.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
+  const [detailFailed, setDetailFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const fetchApprovals = useCallback(async () => {
-    setLoading(true);
+    setLoading(prev => prev && approvalsRef.current.length === 0);
     try {
-      // Fetch both for-approval and all transactions so HRMO has full visibility
-      const res = await apiClient.get('/transactions?limit=1000');
+      // The System Administrator sees only the fallback approvals no HRMO can give; HRMO sees the whole queue.
+      const res = await apiClient.get(isFallback ? '/transactions?limit=1000&queue=fallback' : '/transactions?limit=1000');
       const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
       const mapped: Transaction[] = list.map((tx: any) => {
         const isPromo = tx.isPromotion || tx.transactionType?.name?.toUpperCase().includes('PROMOTION') || !!tx.promotionDetails;
@@ -122,13 +136,16 @@ export const TransactionApproval: React.FC = () => {
           transactionType: tx.transactionType?.name || 'HR Transaction',
           personnelCategory: tx.personnel?.designation?.toLowerCase().includes('teacher') ? 'Teaching Personnel' : 'Non-Teaching Personnel',
           dateSubmitted: tx.submissionDate ? new Date(tx.submissionDate).toLocaleDateString() : new Date(tx.createdAt).toLocaleDateString(),
-          // The AO II who reviewed the documents, by name.
+          // Who validated the documents, by name and by the role they actually validated as.
           validatedBy: (() => {
+            const by = tx.review?.validatedBy;
             const v = (tx.uploadedDocuments || []).find((d: any) => d.validatedBy)?.validatedBy;
             const p = v?.personnel;
-            const name = p ? `${p.firstName} ${p.lastName}`.trim() : '';
-            return name ? (/\bAO\s*II\b/i.test(name) ? name : `${name} (AO II)`) : v?.email || 'AO II';
+            const name = by?.name || (p ? `${p.firstName} ${p.lastName}`.trim() : '');
+            const role = by?.role ? reviewerName(by.role) : reviewerName(tx.review?.validator);
+            return name ? `${name} (${role})` : v?.email || role;
           })(),
+          review: tx.review ?? null,
           validatedDate: tx.validationDate ? new Date(tx.validationDate).toLocaleDateString() : new Date(tx.updatedAt || tx.createdAt).toLocaleDateString(),
           complianceScore: tx.complianceScore ?? 0,
           currentPosition: tx.personnel?.designation || 'Staff',
@@ -145,6 +162,8 @@ export const TransactionApproval: React.FC = () => {
       });
 
       setApprovals(mapped);
+      setLoadFailed(false);
+      setLoadedAt(new Date());
 
       const targetTxId = searchParams.get('txId');
       if (targetTxId && openedTxIdRef.current !== targetTxId) {
@@ -156,15 +175,19 @@ export const TransactionApproval: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load approvals:', err);
-      setApprovals([]);
+      // Never turn a failure into a cleared queue: keep what was loaded and say it may be stale.
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
-  }, [searchParams]);
+  }, [searchParams, isFallback]);
+
+  const retry = async () => { setRetrying(true); try { await fetchApprovals(); } finally { setRetrying(false); } };
 
   const handleOpenTransactionDetails = async (tx: Transaction) => {
     openedTxIdRef.current = String(tx.id);
     setSelected(tx);
+    setDetailFailed(false);
     try {
       const res = await apiClient.get(`/transactions/${tx.id}`);
       const detailed = res.data?.data;
@@ -195,10 +218,12 @@ export const TransactionApproval: React.FC = () => {
           isPromotion: detailed.isPromotion !== undefined ? detailed.isPromotion : prev.isPromotion,
           promotionDetails: detailed.promotionDetails || prev.promotionDetails,
           remarks: detailed.remarks || prev.remarks,
+          review: detailed.review ?? prev.review,
         } : prev);
       }
     } catch (err) {
-      console.error('Failed to load transaction history details for HRMO:', err);
+      console.error('Failed to load transaction history details:', err);
+      setDetailFailed(true);
     }
   };
 
@@ -263,7 +288,7 @@ export const TransactionApproval: React.FC = () => {
       // One at a time, and say exactly which ones did not go through.
       const failed: string[] = [];
       for (const id of selectedTxIds) {
-        try { await apiClient.post(`/transactions/${id}/approve`, { isApproved: true, notes: 'Bulk approved by HRMO' }); }
+        try { await apiClient.post(`/transactions/${id}/approve`, { isApproved: true, notes: `Bulk approved by ${me}` }); }
         catch (e: any) { failed.push(`TRX-${id}: ${e.response?.data?.message || 'not approved'}`); }
       }
       const done = selectedTxIds.length - failed.length;
@@ -317,7 +342,7 @@ export const TransactionApproval: React.FC = () => {
   // Step 2: Approve → Status: Approved → triggers Step 3 Career Lifecycle Update
   const handleApprove = async (tx: Transaction) => {
     const { confirmed } = await confirm({
-      title: 'Final HRMO approval',
+      title: isFallback ? 'Fallback final approval' : 'Final approval',
       message: `Give final approval to ${tx.personnelName}'s ${tx.transactionType}? This updates their career record and cannot be undone from this screen.`,
       confirmLabel: 'Approve transaction',
       tone: 'primary',
@@ -327,12 +352,12 @@ export const TransactionApproval: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await apiClient.post(`/transactions/${tx.id}/approve`, {
+      const res = await apiClient.post(`/transactions/${tx.id}/approve`, {
         isApproved: true,
-        notes: 'Final Approved by HRMO',
+        notes: `Final approval by ${me}`,
       });
       playSuccessChime();
-      addToast(`TRX-${tx.id} approved. Career record updated.`, 'SUCCESS');
+      addToast(res.data?.message || `TRX-${tx.id} approved. Career record updated.`, 'SUCCESS');
       openNextAfter(tx.id);
       fetchApprovals();
       setShowCareerUpdate(tx);
@@ -356,13 +381,13 @@ export const TransactionApproval: React.FC = () => {
     }
     setIsSubmitting(true);
     try {
-      await apiClient.post(`/transactions/${selected.id}/approve`, {
+      const res = await apiClient.post(`/transactions/${selected.id}/approve`, {
         isApproved: false,
         decision: 'RETURN_FOR_CORRECTION',
         deficientDocumentIds: returnDocumentIds,
         notes: returnRemarks,
       });
-      addToast(`TRX-${selected.id} returned for correction. The personnel is notified with your remarks.`, 'WARNING');
+      addToast(res.data?.message || `TRX-${selected.id} returned for correction. The personnel is notified with your remarks.`, 'WARNING');
       setShowReturnModal(false);
       openNextAfter(selected.id);
       setReturnRemarks('');
@@ -379,7 +404,7 @@ export const TransactionApproval: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <h1 className="topbar-title" style={{ margin: 0 }}>Approvals</h1>
+        <h1 className="topbar-title" style={{ margin: 0 }}>{isFallback ? 'Fallback approvals' : 'Approvals'}</h1>
         <div className="topbar-actions flex items-center gap-2">
           {selectedTxIds.length > 0 && canApprove && (
             <>
@@ -403,12 +428,17 @@ export const TransactionApproval: React.FC = () => {
             </>
           )}
           <span className={forApprovalList.length > 0 ? 'badge badge-pending' : 'badge badge-approved'}>
-            {forApprovalList.length > 0 ? `${forApprovalList.length} Awaiting Approval` : 'Queue Cleared'}
+            {loadFailed && !loadedAt ? 'Could not load' : forApprovalList.length > 0 ? `${forApprovalList.length} Awaiting Approval` : 'Nothing awaiting approval'}
           </span>
         </div>
       </div>
 
       <div className="page-content" style={{ paddingBottom: '60px' }}>
+        {isFallback && (
+          <div role="note" style={{ marginBottom: 14, padding: '12px 16px', borderRadius: 12, border: '1px solid var(--color-border)', borderLeft: '4px solid var(--color-primary)', background: 'var(--color-bg-secondary)', fontSize: '.875rem' }}>
+            <strong>Fallback approval only.</strong> Final approval must come from a different person than the one who validated the file. This list shows only files where no other HRMO can approve (for example, the only HRMO validated it). Anything an HRMO can approve is not shown here.
+          </div>
+        )}
         {/* Top 4 Metric Overview Cards */}
         {loading ? (
           <SkeletonStats count={4} columns={4} />
@@ -675,8 +705,11 @@ export const TransactionApproval: React.FC = () => {
         }}>
           {/* Main Transaction List Container */}
           <div>
+            {loadFailed && loadedAt && <StaleNotice what={isFallback ? 'the fallback approvals' : 'the approvals queue'} since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
             {loading ? (
               <SkeletonList count={4} />
+            ) : loadFailed && !loadedAt ? (
+              <LoadFailure what={isFallback ? 'the fallback approvals' : 'the approvals queue'} onRetry={() => void retry()} retrying={retrying} />
             ) : displayList.length === 0 ? (
               search ? (
                 <SmartEmptyState
@@ -781,7 +814,7 @@ export const TransactionApproval: React.FC = () => {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          {isPending && canApprove && (
+                          {isPending && tx.review?.canApprove && (
                             <input
                               aria-label={`Select ${tx.personnelName}'s ${tx.transactionType} for bulk approval`}
                               type="checkbox"
@@ -837,11 +870,11 @@ export const TransactionApproval: React.FC = () => {
                           {isEscalatedUnvalidated && (
                             <span
                               className="badge badge-warning"
-                              title="Reached the correction limit and bypassed AO II validation. Verify the documents yourself before approving."
+                              title="Reached the correction limit and skipped the usual validation. Verify the documents yourself before approving."
                               style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                             >
                               <AppIcon name="warning" size={12} />
-                              ESCALATED — NOT AO-VALIDATED
+                              ESCALATED — NOT VALIDATED
                             </span>
                           )}
                           <span className={
@@ -856,7 +889,7 @@ export const TransactionApproval: React.FC = () => {
                                 ? 'REJECTED — NO RESUBMISSION'
                                 : isReturned
                                   ? 'RETURNED FOR CORRECTION'
-                                  : 'FOR HRMO APPROVAL'}
+                                  : isFallback ? 'FALLBACK APPROVAL' : 'FOR FINAL APPROVAL'}
                           </span>
                         </div>
                       </div>
@@ -881,7 +914,7 @@ export const TransactionApproval: React.FC = () => {
                         </div>
 
                         <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                          {isPending && canApprove ? (
+                          {isPending && tx.review?.canApprove ? (
                             <>
                               <button
                                 type="button"
@@ -904,7 +937,7 @@ export const TransactionApproval: React.FC = () => {
                               className="btn btn-secondary btn-sm"
                               onClick={() => handleOpenTransactionDetails(tx)}
                             >
-                              Inspect Dossier
+                              {isPending ? 'Inspect (not yours to approve)' : 'Inspect Dossier'}
                             </button>
                           )}
                         </div>
@@ -993,7 +1026,7 @@ export const TransactionApproval: React.FC = () => {
                 </div>
               </div>
 
-              {/* Documents Validated by AO II */}
+              {/* Documents validated by the reviewer named on the transaction */}
               <div style={{
                 background: 'var(--color-bg-secondary)',
                 border: '1px solid var(--color-border)',
@@ -1006,7 +1039,7 @@ export const TransactionApproval: React.FC = () => {
                     Submitted Requirements ({selected.detailedDocuments?.length ?? selected.documents.length})
                   </span>
                   <span className={`badge ${selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'badge-approved' : 'badge-info'}`} style={{ fontSize: 13 }}>
-                    {selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? 'Verified by AO II' : 'Checking…'}
+                    {selected.detailedDocuments?.every(d => d.status === 'VALIDATED' || d.status === 'APPROVED') ? `Verified by ${reviewerName(selected.review?.validatedBy?.role || selected.review?.validator)}` : 'Checking…'}
                   </span>
                 </div>
 
@@ -1030,7 +1063,7 @@ export const TransactionApproval: React.FC = () => {
                         <span style={{ display: 'grid', minWidth: 0 }}>
                           <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{doc.name}</span>
                           <span className="text-xs text-muted">
-                            {doc.status === 'VALIDATED' ? `Checked by AO II${(doc as DetailedDocument).validationDate ? ` on ${new Date((doc as DetailedDocument).validationDate!).toLocaleDateString('en-PH', { dateStyle: 'medium' })}` : ''}` : doc.status === 'REJECTED' ? 'Returned for correction' : 'Not checked yet'}
+                            {doc.status === 'VALIDATED' ? `Checked by ${reviewerName(selected.review?.validatedBy?.role || selected.review?.validator)}${(doc as DetailedDocument).validationDate ? ` on ${new Date((doc as DetailedDocument).validationDate!).toLocaleDateString('en-PH', { dateStyle: 'medium' })}` : ''}` : doc.status === 'REJECTED' ? 'Returned for correction' : 'Not checked yet'}
                           </span>
                           {(doc as DetailedDocument).replacedAfterReturn && (
                             <span className="text-xs" style={{ color: '#8A5A0B', fontWeight: 700 }}>
@@ -1054,16 +1087,18 @@ export const TransactionApproval: React.FC = () => {
               </div>
 
               {/* Action Buttons in Review Panel */}
-              {selected.status === 'FOR_APPROVAL' && canApprove ? (
+              <ReviewNotice review={selected.review} />
+              {detailFailed && <PartialNotice missing="The document list and history of this transaction did not load, so the files shown may be incomplete. Approve only after they load." onRetry={() => void handleOpenTransactionDetails(selected)} />}
+              {selected.status === 'FOR_APPROVAL' && selected.review?.canApprove ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button
                     type="button"
                     className="btn btn-success"
                     style={{ width: '100%', padding: '10px', fontWeight: 700 }}
                     onClick={() => handleApprove(selected)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || detailFailed}
                   >
-                    Approve
+                    {isFallback ? 'Give fallback approval' : 'Approve'}
                   </button>
                   <button
                     type="button"
@@ -1086,7 +1121,10 @@ export const TransactionApproval: React.FC = () => {
                   fontWeight: 700,
                   color: selected.status === 'APPROVED' ? 'var(--color-success-text)' : 'var(--color-warning-text)'
                 }}>
-                  {selected.status === 'APPROVED' ? '✓ Transaction Certified & Synced in Official 201 File' : 'Transaction Returned for Deficiency'}
+                  {selected.status === 'APPROVED' ? '✓ Transaction Certified & Synced in Official 201 File'
+                    : selected.status === 'FOR_APPROVAL' ? (selected.review?.youCan || 'Waiting for final approval by another reviewer.')
+                    : selected.status === 'REJECTED' ? 'Transaction rejected'
+                    : 'Transaction Returned for Deficiency'}
                 </div>
               )}
             </div>

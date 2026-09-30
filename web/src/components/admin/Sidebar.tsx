@@ -178,7 +178,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   // HRMO's validation entry exists only for the HR-direct workflow, so it stays hidden until the server turns it on.
   const filterItems = (items: NavItem[]) =>
     items.filter(item => (!item.roles || (effectiveRole && item.roles.includes(effectiveRole as UserRole)))
-      && (hrDirectReview || !(item.path === '/admin/documents' && effectiveRole === 'HRMO')));
+      && (hrDirectReview || !(item.path === '/admin/documents' && effectiveRole === 'HRMO'))
+      // The System Administrator's fallback approvals exist only for independent approval under HR-direct review.
+      && (hrDirectReview || !(item.path === '/admin/approvals' && effectiveRole === 'SYSTEM_ADMIN')));
 
   const filteredSections = navSections
     .map(sec => ({ ...sec, items: filterItems(sec.items) }))

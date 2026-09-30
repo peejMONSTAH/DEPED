@@ -197,8 +197,8 @@ test('a returned application opens editable and resubmits; other submitted ones 
   const c = src('pages/personnel/components/ApplicationChecklist.tsx');
   assert.match(c, /isReturned = cycle\.myApplication\?\.stageStatus === 'REQUIREMENTS_DEFICIENT' && cycle\.myApplication\?\.status === 'UNDER_REVIEW'/);
   assert.match(c, /status !== 'DRAFT'\) && !isReturned/);
-  assert.match(c, /'Resubmit to AO II'/);
-  assert.match(c, /Returned by AO II/, 'the AO II note is shown beside the returned item');
+  assert.match(c, /Resubmit to \$\{checker\}/);
+  assert.match(c, /Returned by \$\{checker\}/, 'the reviewer note is shown beside the returned item, naming the actual reviewer');
 });
 
 test('a file picked in the checklist is saved to the 201 record and attached by id, never dropped', () => {

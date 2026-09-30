@@ -123,7 +123,7 @@ test('every transaction status has readable text and empty states never show an 
     assert.notEqual(transactionStatusLabel(status), status);
     assert.doesNotMatch(transactionEmptyTitle(status), new RegExp(`_|\\b${status}\\b`), status);
   }
-  assert.equal(transactionEmptyTitle('PENDING_VALIDATION'), 'No transactions are with AO II.');
+  assert.equal(transactionEmptyTitle('PENDING_VALIDATION'), 'No transactions are awaiting validation.');
   assert.equal(humanizeEnum('SOME_NEW_STATUS'), 'Some new status');
   const queue = src('pages/admin/TransactionQueue.tsx');
   assert.doesNotMatch(queue, /category=\{statusFilter\}/);

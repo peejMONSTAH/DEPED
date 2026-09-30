@@ -98,7 +98,8 @@ export const App: React.FC = () => {
               <Route
                 path="approvals"
                 element={
-                  <RequireAuth allowedRoles={['HRMO']}>
+                  // System Administrator: the narrow fallback list only (the server shows nothing else and enforces eligibility).
+                  <RequireAuth allowedRoles={['HRMO', 'SYSTEM_ADMIN']}>
                     <TransactionApproval />
                   </RequireAuth>
                 }

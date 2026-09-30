@@ -35,6 +35,7 @@ import './cycle-index.css';
 import { cycleBlockReason, cycleMoves, isCancelled, isCycleReadOnly, nextCycleAction, workflowStages, STAGE_STATE_LABEL, canRegisterApplicant, canGenerateCar } from '../../promotions/cycleCapability';
 import type { CycleCounts, CycleMove, StageKey } from '../../promotions/cycleCapability';
 import './cycle-detail.css';
+import { LoadFailure, StaleNotice } from '../../components/common/LoadFailure';
 
 const STAGE_TAB: Record<StageKey, 'LEADERBOARD' | 'AO_RATING' | 'HRMO_RANKING' | 'HR_SELECTION' | 'CAR'> = {
   APPLICANTS: 'LEADERBOARD', REQUIREMENTS: 'AO_RATING', DELIBERATION: 'HRMO_RANKING', SELECTION: 'HR_SELECTION', CAR: 'CAR',
@@ -134,6 +135,8 @@ export const PromotionManagement: React.FC = () => {
 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [submittedApps, setSubmittedApps] = useState<any[]>([]);
+  // The applicants of the open cycle did not load: say so instead of showing "No applicants yet", and keep any earlier list marked as stale.
+  const [reviewLoadFailed, setReviewLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -721,8 +724,10 @@ export const PromotionManagement: React.FC = () => {
       });
 
       setSubmittedApps(backendList);
+      setReviewLoadFailed(false);
     } catch (err) {
       console.warn('Could not fetch applications:', err);
+      setReviewLoadFailed(true);
     } finally {
       // Also on failure, so a pending deep link resolves (as unavailable) rather than waiting forever.
       setAppsLoadedForCycleId(cycleId);
@@ -1595,7 +1600,10 @@ export const PromotionManagement: React.FC = () => {
                 {/* TAB 1: REALTIME RANKING LEADERBOARD */}
                 {activeTab === 'LEADERBOARD' && (
                   <div className="card promotion-leaderboard-card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)' }}>
-                    {leaderboard.length === 0 ? (
+                    {reviewLoadFailed && (leaderboard.length === 0
+                      ? <LoadFailure what="this cycle's applicants" onRetry={() => { if (selectedCycle) void fetchApplicationsForCycle(selectedCycle.id); }} />
+                      : <StaleNotice what="the applicant list" onRetry={() => { if (selectedCycle) void fetchApplicationsForCycle(selectedCycle.id); }} />)}
+                    {leaderboard.length === 0 && reviewLoadFailed ? null : leaderboard.length === 0 ? (
                       <div className="cd-empty">
                         <strong>{isCancelled(selectedCycle?.status) ? 'No applicants were registered before this cycle was cancelled.' : 'No applicants yet'}</strong>
                         {!isCancelled(selectedCycle?.status) && (

@@ -6,7 +6,7 @@ import { applicationStage, transactionStage } from '../../../constants/workflowS
 import { resolveDocumentLifecycle, PersonnelDocumentRecord } from '../../../models/documentStatus';
 import { VacancyState } from '../vacancyView';
 
-export const PROMOTION_STEPS = ['You apply', 'AO II checks', 'HRMO rates and selects', 'Appointment documents', 'HRMO approves'] as const;
+export const PROMOTION_STEPS = ['You apply', 'Requirements checked', 'HRMO rates and selects', 'Appointment documents', 'Final approval'] as const;
 
 export interface PromotionProgress {
   /** Index into PROMOTION_STEPS of the current step. */
@@ -17,7 +17,7 @@ export interface PromotionProgress {
 }
 
 type App = Parameters<typeof applicationStage>[0] & { id: number; cycle?: { targetPosition?: string | null; name?: string; status?: string | null } | null };
-type Tx = { id: number; status?: string; escalatedAt?: string | null; escalationReviewedAt?: string | null; transactionType?: { name?: string } | null };
+type Tx = { id: number; review?: { validator?: 'AO_II' | 'HRMO' | null; validatedBy?: { role?: string | null } | null; approver?: 'HRMO' | 'SYSTEM_ADMIN' | null } | null; status?: string; escalatedAt?: string | null; escalationReviewedAt?: string | null; transactionType?: { name?: string } | null };
 
 /** The first promotion still in progress, or null. An appointment wins over its application. */
 export function promotionProgress(applications: App[], transactions: Tx[]): PromotionProgress | null {
@@ -26,7 +26,7 @@ export function promotionProgress(applications: App[], transactions: Tx[]): Prom
     const title = `Promotion to ${a.cycle?.targetPosition || a.cycle?.name || 'a new position'}`;
     const tx = a.transactionId ? txById.get(a.transactionId) : undefined;
     if (tx) {
-      const st = transactionStage(tx.status, { escalated: Boolean(tx.escalatedAt && !tx.escalationReviewedAt) });
+      const st = transactionStage(tx.status, { escalated: Boolean(tx.escalatedAt && !tx.escalationReviewedAt), review: tx.review });
       if (st.done) continue;
       return { step: (tx.status || '').toUpperCase() === 'FOR_APPROVAL' ? 4 : 3, title, label: st.label, needsYou: st.needsYou };
     }
