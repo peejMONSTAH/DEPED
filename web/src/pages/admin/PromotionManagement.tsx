@@ -3257,7 +3257,7 @@ export const PromotionManagement: React.FC = () => {
             <div className="pc-create__head">
               <div>
                 <h3 id="pc-create-title" className="pc-create__title">New promotion cycle</h3>
-                <p className="pc-create__sub">Choose the vacant item, then set who can apply and when.</p>
+                <p className="pc-create__sub">Choose the open item, then set who can apply and when.</p>
               </div>
               <button type="button" className="pc-create__close" aria-label="Close" onClick={() => setShowConfigModal(false)}>×</button>
             </div>
@@ -3747,7 +3747,7 @@ export const PromotionManagement: React.FC = () => {
                                     Choose a plantilla item{(Number(newVacantPositions) || 1) > 1 ? ` for post #${idx + 1}` : ''}
                                   </div>
                                   <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                                    {availableItems.length} vacant item{availableItems.length !== 1 ? 's' : ''} available
+                                    {availableItems.length} open item{availableItems.length !== 1 ? 's' : ''} available
                                   </div>
                                 </div>
                               </div>
@@ -3764,7 +3764,7 @@ export const PromotionManagement: React.FC = () => {
                                   gap: '6px',
                                 }}
                               >
-                                <Search size={13} /> Browse Vacancies
+                                <Search size={13} /> Browse open items
                               </span>
                             </div>
                           )}
@@ -3905,6 +3905,7 @@ export const PromotionManagement: React.FC = () => {
               </div>
 
               <div className="pc-create__foot">
+                <p className="pc-create__hint">Check the notice on the right. This is what personnel will see.</p>
                 <button type="submit" disabled={creatingCycle.pending} className="btn btn-primary">
                   <AppIcon name="new-transaction" size={14} color="#ffffff" /> {creatingCycle.pending ? 'Creating…' : 'Create cycle'}
                 </button>

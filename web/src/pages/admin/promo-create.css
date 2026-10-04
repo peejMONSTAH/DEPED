@@ -1,19 +1,22 @@
 /* Create Promotion Cycle dialog: the form on the left, a live preview of the
    vacancy notice personnel will see on the right (the one bold element). */
+.pc-create.modal { background: var(--color-bg-card) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 .pc-create { max-width: 1060px; width: 95vw; max-height: 92dvh; display: flex; flex-direction: column; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.28); overflow: hidden; padding: 0; }
-.pc-create__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 28px 18px; border-bottom: 1px solid var(--color-border); }
-.pc-create__title { margin: 0; font-size: 1.375rem; font-weight: 800; letter-spacing: -0.015em; color: var(--color-text-primary); }
-.pc-create__sub { margin: 4px 0 0; font-size: .9375rem; color: var(--color-text-secondary); }
-.pc-create__close { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-card); color: var(--color-text-primary); font-size: 1.25rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.pc-create__close:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.pc-create__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 28px 20px; background: linear-gradient(135deg, #17472e, #2f7d52); border-bottom: 3px solid var(--color-accent, #c79a2e); }
+.pc-create__title { margin: 0; font-size: 1.375rem; font-weight: 800; letter-spacing: -0.015em; color: #fff !important; }
+.pc-create__sub { margin: 4px 0 0; font-size: .9375rem; color: rgba(255,255,255,.82); }
+.pc-create__close { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.14); color: #fff; font-size: 1.25rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.pc-create__close:hover { background: rgba(255,255,255,.26); }
+.pc-create__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .pc-create__form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .pc-create__main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; flex: 1; min-height: 0; }
-.pc-create__body { overflow-y: auto; padding: 4px 28px 24px; min-height: 0; }
+.pc-create__body { overflow-y: auto; padding: 8px 28px 24px; min-height: 0; counter-reset: pcstep; }
 
 .pc-sec { padding: 20px 0; border-bottom: 1px solid var(--color-border); }
 .pc-sec:last-child { border-bottom: 0; }
-.pc-sec__title { margin: 0; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); }
-.pc-sec__hint { margin: 2px 0 14px; font-size: .875rem; color: var(--color-text-secondary); }
+.pc-sec__title { margin: 0; font-size: 1.0625rem; font-weight: 800; color: var(--color-text-primary); display: flex; align-items: center; gap: 10px; }
+.pc-sec__title::before { counter-increment: pcstep; content: counter(pcstep); width: 26px; height: 26px; flex: none; border-radius: 50%; background: #17472e; color: #e2bf63; font-size: .8125rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.pc-sec__hint { margin: 4px 0 14px 36px; font-size: .875rem; color: var(--color-text-secondary); }
 .pc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 14px; }
 .pc-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .pc-field > span { font-size: .875rem; font-weight: 700; color: var(--color-text-primary); }
@@ -41,7 +44,8 @@
 .pc-notice__who { margin: 14px 0 0; font-size: .8125rem; color: #4A5A50; }
 .pc-notice__state { margin: 12px 2px 0; font-size: .8125rem; color: var(--color-text-secondary); }
 
-.pc-create__foot { display: flex; justify-content: flex-end; padding: 14px 28px; border-top: 1px solid var(--color-border); background: var(--color-bg-card); }
+.pc-create__hint { margin: 0 auto 0 0; font-size: .875rem; color: var(--color-text-secondary); align-self: center; }
+.pc-create__foot { display: flex; justify-content: flex-end; gap: 16px; padding: 14px 28px; border-top: 1px solid var(--color-border); background: var(--color-bg-card); }
 .pc-create__foot .btn { border-radius: 9999px; font-weight: 800; padding: 11px 24px; display: inline-flex; align-items: center; gap: 6px; }
 
 @media (max-width: 860px) {
