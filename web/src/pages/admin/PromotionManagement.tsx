@@ -2978,7 +2978,7 @@ export const PromotionManagement: React.FC = () => {
                         placeholder="e.g. Maria"
                         value={appFirstName}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '');
+                          const val = e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '').toUpperCase();
                           setAppFirstName(val);
                           if (!appEmail && val && appLastName) {
                             setAppEmail(`${val.toLowerCase().replace(/[^a-z0-9]/g, '')}.${appLastName.toLowerCase().replace(/[^a-z0-9]/g, '')}@deped.gov.ph`);
@@ -2998,7 +2998,7 @@ export const PromotionManagement: React.FC = () => {
                         className="form-input"
                         placeholder="e.g. Bautista"
                         value={appMiddleName}
-                        onChange={(e) => setAppMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, ''))}
+                        onChange={(e) => setAppMiddleName(e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '').toUpperCase())}
                       />
                     </div>
 
@@ -3013,7 +3013,7 @@ export const PromotionManagement: React.FC = () => {
                         placeholder="e.g. Santos"
                         value={appLastName}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '');
+                          const val = e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '').toUpperCase();
                           setAppLastName(val);
                           if (!appEmail && appFirstName && val) {
                             setAppEmail(`${appFirstName.toLowerCase().replace(/[^a-z0-9]/g, '')}.${val.toLowerCase().replace(/[^a-z0-9]/g, '')}@deped.gov.ph`);

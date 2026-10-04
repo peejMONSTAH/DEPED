@@ -342,6 +342,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     disabled
                     required
                     style={{
+                      textTransform: 'uppercase',
                       width: '100%',
                       padding: '10px 14px',
                       borderRadius: 10,
@@ -373,6 +374,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
                     disabled
                     required
                     style={{
+                      textTransform: 'uppercase',
                       width: '100%',
                       padding: '10px 14px',
                       borderRadius: 10,

@@ -1206,17 +1206,17 @@ export const CredentialDistribution: React.FC = () => {
                         <label className="form-label">
                           First Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                         </label>
-                        <input type="text" className="form-input" placeholder="e.g. Maria" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required aria-label="First Name" />
+                        <input type="text" className="form-input" placeholder="e.g. Maria" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '').toUpperCase() })} required aria-label="First Name" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Middle Name</label>
-                        <input type="text" className="form-input" placeholder="e.g. Bautista" value={formData.middleName} onChange={e => setFormData({ ...formData, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} aria-label="Middle Name" />
+                        <input type="text" className="form-input" placeholder="e.g. Bautista" value={formData.middleName} onChange={e => setFormData({ ...formData, middleName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '').toUpperCase() })} aria-label="Middle Name" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">
                           Last Name <span style={{ color: 'var(--color-danger)' }}>*</span>
                         </label>
-                        <input type="text" className="form-input" placeholder="e.g. Santos" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '') })} required aria-label="Last Name" />
+                        <input type="text" className="form-input" placeholder="e.g. Santos" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value.replace(/[^a-zA-ZÀ-ÿ\s\-'.]/g, '').toUpperCase() })} required aria-label="Last Name" />
                       </div>
                       <div className="form-group" style={{ margin: 0 }}>
                         <label className="form-label">Suffix</label>

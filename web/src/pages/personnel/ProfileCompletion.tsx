@@ -193,7 +193,7 @@ export const ProfileCompletion: React.FC = () => {
                   </select>
                 ) : (
                   <input className="form-input" type={f.kind} max={f.kind === 'date' ? todayManila() : undefined} maxLength={100}
-                    value={fill[f.key] || ''} disabled={savingFill} onChange={e => setFill({ ...fill, [f.key]: e.target.value })} />
+                    value={fill[f.key] || ''} disabled={savingFill} onChange={e => setFill({ ...fill, [f.key]: f.key === 'middleName' ? e.target.value.toUpperCase() : e.target.value })} />
                 )}
               </label>
             ))}
