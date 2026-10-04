@@ -20,7 +20,7 @@ const INVITE: Record<Onboarding['invitation']['state'], string> = {
 };
 
 const ROLE: Record<string, string> = {
-  SYSTEM_ADMIN: 'System Administrator', HRMO: 'HRMO', AO_II: 'AO II',
+  SYSTEM_ADMIN: 'System Administrator', HRMO: 'HRMO', AO_II: 'Administrative Officer II',
   TEACHING_PERSONNEL: 'Teaching personnel', NON_TEACHING_PERSONNEL: 'Non-teaching personnel',
 };
 const STATUS: Record<string, string> = { ACTIVE: 'Active', PENDING: 'Setup email not sent', INACTIVE: 'Deactivated', LOCKED: 'Locked' };

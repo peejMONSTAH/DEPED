@@ -10,6 +10,7 @@ import { loadAnnexCRequirements } from '../../promotions/annexCRequirements';
 import { ApplicationChecklist } from './components/ApplicationChecklist';
 import { PromotionCycleItem } from './components/promotionCycle';
 import { sortVacancies, vacancyView, VacancyState } from './vacancyView';
+import { humanizeEnum } from '../../constants/transactionStatus';
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import './vacancies.css';
 
@@ -128,7 +129,7 @@ export const Vacancies: React.FC = () => {
                   </div>
                   <div className="vac__side">
                     <span className="vac__deadline">{view.deadline}</span>
-                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setDetailCycle(cycle)}>View vacancy</button>
+                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setDetailCycle(cycle)}>View open item</button>
                     {view.action && (
                     <button type="button" className={`btn btn-sm ${view.action.kind === 'view' ? 'btn-secondary' : 'btn-primary'}`} onClick={() => setOpenCycle(cycle)}>
                       {view.action.label}
@@ -142,21 +143,21 @@ export const Vacancies: React.FC = () => {
 
       {detailCycle && (() => {
         const view = vacancyView(detailCycle);
-        return <ModalOverlay onDismiss={() => setDetailCycle(null)} aria-label="Vacancy details">
-          <div className="modal-content" style={{ maxWidth: 640, width: '100%', padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
+        return <ModalOverlay onDismiss={() => setDetailCycle(null)} aria-label="Open item details">
+          <section className="modal" role="dialog" aria-modal="true" aria-label="Open item details" style={{ maxWidth: 640, width: 'min(94vw, 640px)', padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
             <h2>{view.position}</h2>
             <p>{detailCycle.name}</p>
-            <p><strong>Vacancy type:</strong> {detailCycle.type}</p>
+            <p><strong>Type:</strong> {humanizeEnum(detailCycle.type)}</p>
             <p><strong>Application period:</strong> {new Date(detailCycle.startDate).toLocaleDateString('en-PH')} – {new Date(detailCycle.endDate).toLocaleDateString('en-PH')}</p>
             <p>{view.status}</p>
             {view.reason && <p>{view.reason}</p>}
             {view.note && <p>{view.note}</p>}
-            <p>Viewing this vacancy does not submit an application. Choose Apply to review and upload the required documents.</p>
+            <p>Viewing this open item does not submit an application. Choose Apply to review and upload the required documents.</p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setDetailCycle(null)}>Close</button>
               {view.action && <button type="button" className="btn btn-primary" onClick={() => { setOpenCycle(detailCycle); setDetailCycle(null); }}>{view.action.label}</button>}
             </div>
-          </div>
+          </section>
         </ModalOverlay>;
       })()}
       {openCycle && (

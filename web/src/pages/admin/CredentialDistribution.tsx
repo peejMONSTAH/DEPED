@@ -823,7 +823,7 @@ export const CredentialDistribution: React.FC = () => {
                       </strong>
                       <span>{req.designation} · {humanizeEnum(req.role)}</span>
                       <span className="acr-mono">{req.email}</span>
-                      <span>Requested by {req.requestedByUser?.email || 'AO II'}{req.contactNumber ? ` · ${req.contactNumber}` : ''}</span>
+                      <span>Requested by {req.requestedByUser?.email || 'Administrative Officer II'}{req.contactNumber ? ` · ${req.contactNumber}` : ''}</span>
                       {req.status === 'REJECTED' && req.rejectionReason && <span className="rv-remark">{req.rejectionReason}</span>}
                     </div>
                     <span className={`rv-status ${req.status === 'APPROVED' ? 'is-ok' : req.status === 'REJECTED' ? 'is-bad' : 'is-wait'}`}>

@@ -65,7 +65,7 @@ export const AccountRequestReview: React.FC<{
             <div><dt>Email</dt><dd className="acd__mono">{r.email}</dd></div>
             <div><dt>Station</dt><dd>{station}</dd></div>
             {r.employeeId && <div><dt>Employee ID</dt><dd className="acd__mono">{r.employeeId}</dd></div>}
-            <div><dt>Requested by</dt><dd>{r.requestedByUser?.email || 'AO II'}</dd></div>
+            <div><dt>Requested by</dt><dd>{r.requestedByUser?.email || 'Administrative Officer II'}</dd></div>
           </dl>
           {declining ? (
             <label className="acd__section">

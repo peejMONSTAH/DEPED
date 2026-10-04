@@ -6,7 +6,7 @@ export function personnelDisplayName(person: Identity | null | undefined, role?:
     const school = person.school
       || person.designation?.replace(/^Administrative Officer II\s*[-–—]?\s*/i, '').trim()
       || person.address?.split(',')[0]?.trim() || person.lastName || 'School station';
-    return `AO II · ${school}`;
+    return `Administrative Officer II · ${school}`;
   }
   return [person.firstName, person.lastName].filter(Boolean).join(' ');
 }

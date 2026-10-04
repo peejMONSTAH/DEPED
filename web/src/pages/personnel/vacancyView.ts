@@ -60,6 +60,11 @@ export function vacancyView(c: VacancyInput, now = new Date()): VacancyView {
     return { ...base, state: 'applied', status: `You applied${a.applicantNumber ? ` (${a.applicantNumber})` : ''} · ${stage.label}`, reason: null,
       action: returned ? { kind: 'fix', label: 'Fix and resubmit' } : { kind: 'view', label: 'View your application' }, note: stage.next || null };
   }
+  if (c.isEligible === false && /Unrecognized position title/.test(c.ineligibilityReason || '') && position === c.name) {
+    // The cycle has no target position, so the server compared against its name. That is HR's setup gap, not the person's eligibility.
+    return { ...base, state: 'not-eligible', status: 'Eligibility cannot be checked yet',
+      reason: 'HR has not set which position this open item is for. Please ask your HRMO to complete it.', action: null, note: null };
+  }
   if (c.isEligible === false) {
     return { ...base, state: 'not-eligible', status: 'Not eligible to apply',
       reason: c.ineligibilityReason || 'The system did not record a reason. Ask your HRMO.', action: null, note: null };
