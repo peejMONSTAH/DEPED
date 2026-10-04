@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { mkdtemp, readdir, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { parsePdftotextBbox, parsePdsTextLayer } from '../utils/pds-text-layer.util';
 
 export type OcrResult = {
   templateId: string;
@@ -182,6 +183,17 @@ export const extractWithTesseract = async (buffer: Buffer, mimeType: string, doc
       const info = await run(process.env.PDFINFO_BIN || 'pdfinfo', [source], 10_000);
       const pages = Number(/^Pages:\s+(\d+)$/im.exec(info)?.[1]);
       if (!Number.isInteger(pages) || pages < 1 || pages > MAX_PAGES) throw new Error(`PDF OCR supports 1-${MAX_PAGES} pages.`);
+      if (documentTypeId === 'PDS') {
+        // A digital CS Form 212 carries its entries as text: copy them exactly, no OCR guessing.
+        try {
+          const bbox = await run(process.env.PDFTOTEXT_BIN || 'pdftotext', ['-bbox', '-f', '1', '-l', '1', source, '-'], 20_000);
+          const page = parsePdftotextBbox(bbox);
+          const fields = page && parsePdsTextLayer(page);
+          if (page && fields) {
+            return { templateId: 'pds-2025', fields, rawFields: [], provider: 'TESSERACT', confidence: 0.97, text: page.words.map(w => w.text).join(' ') };
+          }
+        } catch { /* no text layer, or pdftotext unavailable: fall through to OCR */ }
+      }
       await run(process.env.PDFTOPPM_BIN || 'pdftoppm', ['-f', '1', '-l', String(pages), '-scale-to', '2400', '-png', source, path.join(workDir, 'page')], 90_000);
       images.push(...(await readdir(workDir)).filter(name => /^page-\d+\.png$/.test(name)).sort().map(name => path.join(workDir, name)));
       if (images.length !== pages) throw new Error('Not every PDF page could be rendered for OCR.');
