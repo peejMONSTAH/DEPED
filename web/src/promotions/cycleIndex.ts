@@ -55,9 +55,9 @@ export const GROUP_ACTION: Record<CycleGroup, string> = {
 
 export const isArchived = (g: CycleGroup) => g === 'FINISHED' || g === 'CANCELLED';
 
-/** "Ranking for Vacancy: Teacher VII (OSEC-…-2026)" → title + item number. */
+/** "Promotion: Teacher VII (OSEC-…-2026)" (or the older "Ranking for Vacancy: …") → title + item number. */
 export function splitCycleName(cycle: CycleLike): { title: string; item: string | null } {
-  const raw = String(cycle.name || '').replace(/^Ranking for (Natural )?Vacancy:\s*/i, '').trim();
+  const raw = String(cycle.name || '').replace(/^(?:Ranking for (?:Natural )?Vacancy|Promotion):\s*/i, '').trim();
   const m = raw.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
   const rules = cycle.rulesConfigurationJson || {};
   const configured = rules.plantillaItemNumber || (Array.isArray(rules.plantillaItemNumbers) ? rules.plantillaItemNumbers[0] : null) || rules.plantillaItemNo || null;

@@ -179,11 +179,13 @@ export const PromotionManagement: React.FC = () => {
     const dist = getPlantillaDistrict(linkedPlantilla.department, linkedPlantilla.division);
     setNewCycleDistrict(dist);
     setNewCycleSchool(linkedPlantilla.department || 'All Schools in District');
-    setNewCycleName(`Ranking for Vacancy: ${linkedPlantilla.positionTitle} (${linkedPlantilla.itemNumber})`);
+    setNewCycleName(`Promotion: ${linkedPlantilla.positionTitle} (${linkedPlantilla.itemNumber})`);
   }, [linkedPlantilla, getPlantillaDistrict]);
 
   // Modals state
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [cycleStep, setCycleStep] = useState(1);
+  useEffect(() => { if (showConfigModal) setCycleStep(1); }, [showConfigModal]);
   const [showAppModal, setShowAppModal] = useState(false);
   
   // Rating Modals State
@@ -1155,6 +1157,21 @@ export const PromotionManagement: React.FC = () => {
   const cycleErrors = useFormErrors();
   const creatingCycle = usePending();
   // Double-clicking used to send this twice, creating duplicate records.
+  /** Each step must be complete before Continue; the Review step then creates the cycle. */
+  const goNextCycleStep = () => {
+    if (cycleStep === 1) {
+      const wanted = Number(newVacantPositions) || 1;
+      if (designatedPlantillas.filter(Boolean).length < wanted) { addToast(`Choose ${wanted > 1 ? 'a plantilla item for each position' : 'a plantilla item'} first.`, 'WARNING'); return; }
+      if (!(Number(newVacantPositions) >= 1) || !(Number(newMaxApplicants) >= 1)) { addToast('Enter the positions to fill and the maximum applicants.', 'WARNING'); return; }
+    }
+    if (cycleStep === 2 && !newCycleName.trim()) { addToast('Enter a cycle title.', 'WARNING'); return; }
+    if (cycleStep === 3) {
+      if (!newStartDate || !newEndDate) { addToast('Set when the cycle opens and its deadline.', 'WARNING'); return; }
+      if (newEndDate < newStartDate) { addToast('The deadline must be on or after the opening date.', 'WARNING'); return; }
+    }
+    setCycleStep(step => Math.min(4, step + 1));
+  };
+
   const handleCreateCycle = (e: React.FormEvent) => {
     e.preventDefault();
     void creatingCycle.run(() => handleCreateCycleUnguarded(e));
@@ -3255,16 +3272,25 @@ export const PromotionManagement: React.FC = () => {
         <ModalOverlay onDismiss={() => setShowConfigModal(false)} className="modal-overlay">
           <div className="modal animate-scale-in pc-create" role="dialog" aria-modal="true" aria-labelledby="pc-create-title">
             <div className="pc-create__head">
-              <div>
+              <div className="pc-create__icon" aria-hidden="true"><AppIcon name="new-transaction" size={22} /></div>
+              <div className="pc-create__headtext">
                 <h3 id="pc-create-title" className="pc-create__title">New promotion cycle</h3>
-                <p className="pc-create__sub">Choose the open item, then set who can apply and when.</p>
+                <p className="pc-create__sub">Create and publish a promotion opportunity.</p>
               </div>
               <button type="button" className="pc-create__close" aria-label="Close" onClick={() => setShowConfigModal(false)}>×</button>
             </div>
+            <ol className="pc-steps" aria-label="Steps">
+              {['Position', 'Details', 'Schedule', 'Review'].map((label, i) => (
+                <li key={label} className={`pc-step${cycleStep === i + 1 ? ' is-current' : ''}${cycleStep > i + 1 ? ' is-done' : ''}`} aria-current={cycleStep === i + 1 ? 'step' : undefined}>
+                  <span className="pc-step__n">{cycleStep > i + 1 ? '✓' : i + 1}</span><span className="pc-step__l">{label}</span>
+                </li>
+              ))}
+            </ol>
 
-            <form onSubmit={handleCreateCycle} className="pc-create__form">
+            <form onSubmit={e => (cycleStep === 4 ? handleCreateCycle(e) : (e.preventDefault(), goNextCycleStep()))} className="pc-create__form">
               <div className="pc-create__main">
               <div className="pc-create__body">
+              {cycleStep === 1 && (<>
               <section className="pc-sec">
                 <div>
                   <h4 className="pc-sec__title">Plantilla item{(Number(newVacantPositions) || 1) > 1 ? 's' : ''}</h4>
@@ -3500,7 +3526,7 @@ export const PromotionManagement: React.FC = () => {
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px' }}>
                                 <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <Building2 size={15} color="var(--color-primary)" />
-                                  Browse & Select Vacant Plantilla Post #{idx + 1}
+                                  Choose an open plantilla item #{idx + 1}
                                 </div>
                                 <button
                                   type="button"
@@ -3811,8 +3837,10 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                 </div>
               </section>
+              </>)}
 
 
+              {cycleStep === 2 && (
               <section className="pc-sec">
                 <div>
                   <h4 className="pc-sec__title">Details</h4>
@@ -3850,7 +3878,9 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                 </div>
               </section>
+              )}
 
+              {cycleStep === 3 && (
               <section className="pc-sec">
                 <div>
                   <h4 className="pc-sec__title">Schedule</h4>
@@ -3875,9 +3905,29 @@ export const PromotionManagement: React.FC = () => {
                   </div>
                 </div>
               </section>
+              )}
+              {cycleStep === 4 && (
+              <section className="pc-sec">
+                <div>
+                  <h4 className="pc-sec__title">Review</h4>
+                  <p className="pc-sec__hint">Check everything, then create the cycle. The notice on the right is what personnel will see.</p>
+                  <dl className="pc-review">
+                    <div><dt>Position</dt><dd>{linkedPlantilla?.positionTitle || '—'}</dd></div>
+                    <div><dt>Station</dt><dd>{linkedPlantilla ? (linkedPlantilla.department || 'All schools in district') : '—'}</dd></div>
+                    <div><dt>Cycle title</dt><dd>{newCycleName.trim() || '—'}</dd></div>
+                    <div><dt>Type</dt><dd>{newCycleType === 'ECP' ? 'ECP reclassification' : 'Natural vacancy'}</dd></div>
+                    <div><dt>Open to</dt><dd>{newOpenTo === 'DISTRICT' && newCycleDistrict ? newCycleDistrict : 'Whole division'}</dd></div>
+                    <div><dt>Positions to fill</dt><dd>{Number(newVacantPositions) || 1}</dd></div>
+                    <div><dt>Maximum applicants</dt><dd>{Number(newMaxApplicants) || 10}</dd></div>
+                    <div><dt>Applications</dt><dd>{newStartDate ? formatDateString(newStartDate) : '—'} to {newEndDate ? formatDateString(newEndDate) : '—'}</dd></div>
+                  </dl>
+                </div>
+              </section>
+              )}
               </div>
               <aside className="pc-notice" aria-label="Preview of the vacancy notice">
-                <p className="pc-notice__kicker">Personnel will see</p>
+                <p className="pc-notice__kicker">Applicant preview</p>
+                <p className="pc-notice__sub">This is what personnel will see.</p>
                 <div className="pc-notice__sheet">
                   <p className="pc-notice__type">{newCycleType === 'ECP' ? 'ECP reclassification' : 'Natural vacancy'}</p>
                   <h4 className="pc-notice__position">{linkedPlantilla?.positionTitle || 'Choose a plantilla item'}</h4>
@@ -3905,10 +3955,14 @@ export const PromotionManagement: React.FC = () => {
               </div>
 
               <div className="pc-create__foot">
-                <p className="pc-create__hint">Check the notice on the right. This is what personnel will see.</p>
-                <button type="submit" disabled={creatingCycle.pending} className="btn btn-primary">
-                  <AppIcon name="new-transaction" size={14} color="#ffffff" /> {creatingCycle.pending ? 'Creating…' : 'Create cycle'}
-                </button>
+                {cycleStep > 1
+                  ? <button type="button" className="btn btn-secondary pc-back" onClick={() => setCycleStep(s => s - 1)}>Back</button>
+                  : <p className="pc-create__hint">Step 1 of 4. The notice on the right updates as you go.</p>}
+                {cycleStep < 4
+                  ? <button type="button" className="btn btn-primary" onClick={goNextCycleStep}>Continue →</button>
+                  : <button type="submit" disabled={creatingCycle.pending} className="btn btn-primary">
+                      <AppIcon name="new-transaction" size={14} color="#ffffff" /> {creatingCycle.pending ? 'Creating…' : 'Create cycle'}
+                    </button>}
               </div>
             </form>
           </div>

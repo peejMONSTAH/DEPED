@@ -415,9 +415,9 @@ export interface CanonicalPositionInfo {
 export const resolveCanonicalPosition = (rawTitle?: string | null): CanonicalPositionInfo | null => {
   if (!rawTitle) return null;
 
-  // Clean prefixes such as "Ranking for Vacancy: ", etc.
+  // Clean prefixes such as "Promotion: " or the older "Ranking for Vacancy: ".
   let cleaned = String(rawTitle)
-    .replace(/^ranking\s+for\s+(?:natural\s+)?vacancy\s*:\s*/i, '')
+    .replace(/^(?:ranking\s+for\s+(?:natural\s+)?vacancy|promotion)\s*:\s*/i, '')
     .trim();
 
   const lower = cleaned.toLowerCase();
