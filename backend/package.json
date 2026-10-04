@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "node scripts/local-db-guard.cjs \"prisma migrate dev\" && prisma migrate dev",
+    "db:reset": "node scripts/reset-database.cjs",
     "prisma:seed": "node scripts/local-db-guard.cjs \"prisma seed\" && ts-node prisma/seed.ts",
     "bootstrap:admin": "node dist/scripts/bootstrap-production.js",
     "test:email": "ts-node scripts/test-deficiency-email.ts",
