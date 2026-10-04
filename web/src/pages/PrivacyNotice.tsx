@@ -7,6 +7,7 @@ import './privacy-notice.css';
 const PrivacyNotice: React.FC = () => (
   <main className="pn-page">
     <article className="pn-card">
+      <img className="pn-logo" src="/brand/digital201-header-lockup.png" alt="Digital 201" />
       <p className="pn-kicker">Digital 201 · Schools Division of Koronadal City</p>
       <h1>Privacy Notice</h1>
       <p className="pn-version">Version {PRIVACY_NOTICE_VERSION}</p>

@@ -1,6 +1,8 @@
 /* Public Privacy Notice page and the first-sign-in gate that shows the same text. */
-.pn-page { min-height: 100dvh; padding: 40px 16px; background: var(--color-bg-secondary); display: flex; justify-content: center; }
-.pn-card { width: 100%; max-width: 760px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 18px; padding: 36px 40px; align-self: flex-start; }
+.pn-page { width: 100%; box-sizing: border-box; min-height: 100dvh; padding: 40px 16px; background: linear-gradient(160deg, #e3efe7, #f3efe0); display: flex; justify-content: center; }
+.pn-card { box-sizing: border-box; width: 100%; max-width: 760px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 18px; padding: 36px 40px; align-self: flex-start; }
+.pn-logo { display: block; height: 44px; width: auto; margin: 0 0 22px; }
+.pn-card { box-shadow: 0 18px 50px rgba(20, 60, 40, .12); }
 .pn-kicker { margin: 0 0 6px; font-size: .8125rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #2f7d52; }
 .pn-card h1 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--color-text-primary); }
 .pn-version { margin: 4px 0 20px; font-size: .875rem; color: var(--color-text-secondary); }
