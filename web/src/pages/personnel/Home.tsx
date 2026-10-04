@@ -116,7 +116,7 @@ export const PersonnelHome: React.FC = () => {
     { to: '/personnel/documents', icon: 'document', title: '201 Files',
       line: fileAttention ? `${fileAttention} need${fileAttention === 1 ? 's' : ''} attention`
         : readiness.total ? `${readiness.total - readiness.missing} of ${readiness.total} uploaded${expiry ? ` · next expiry ${monthYear(expiry.date)}` : ''}` : 'No files listed yet' },
-    { to: '/personnel/vacancies', icon: 'employment', title: 'Vacancies', line: vacancyLine(sortVacancies(cycles as any).map(v => v.view.state)) },
+    { to: '/personnel/vacancies', icon: 'employment', title: 'Open items', line: vacancyLine(sortVacancies(cycles as any).map(v => v.view.state)) },
   ];
 
   const allClearHint = expiry

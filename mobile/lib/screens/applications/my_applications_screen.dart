@@ -217,7 +217,7 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
           const SizedBox(height: 8),
           Text('No applications yet (this list loaded correctly)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('Open vacancies appear on Portal Home. Your applications will show here.',
+          Text('Open items appear on Portal Home. Your applications will show here.',
               textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textSecondary)),
         ]),
       );

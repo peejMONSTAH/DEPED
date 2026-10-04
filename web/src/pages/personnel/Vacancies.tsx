@@ -87,7 +87,7 @@ export const Vacancies: React.FC = () => {
   return (
     <div className="animate-fade-in personnel-content-container">
       <PortalBand
-        title="Vacancies"
+        title="Open items"
         facts={loading || error ? undefined : [{ label: 'You can apply', value: count('apply') }, { label: 'Applied', value: count('applied') }, { label: 'All vacancies', value: cycles.length }]}
       />
       {linkGone && <div className="vac__box" role="status"><p>That vacancy is no longer open to you. It may have closed, been cancelled, or be outside your station.</p><button type="button" className="btn btn-secondary btn-sm" onClick={() => setLinkGone(false)}>Dismiss</button></div>}

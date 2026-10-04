@@ -831,7 +831,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           // Open promotion & reclassification positions
           if (_activeCycles.isNotEmpty) ...[
             SectionHeading(
-              title: 'Open vacancies',
+              title: 'Open items',
               trailing: StatusPill(
                 label: pluralize(_activeCycles.length, 'cycle'),
               ),
