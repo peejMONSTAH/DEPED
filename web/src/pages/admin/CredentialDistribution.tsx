@@ -980,7 +980,7 @@ export const CredentialDistribution: React.FC = () => {
                         </optgroup>
                         {isSysAdmin && (
                           <optgroup label="Administrative System Roles">
-                            <option value="AO_II">Administrative Officer II (AO II / SO II)</option>
+                            <option value="AO_II">Administrative Officer II</option>
                             {/* Division-level roles are granted by a System Administrator only (server-enforced). */}
                             {user?.role === 'SYSTEM_ADMIN' && (
                               <>
@@ -1278,10 +1278,7 @@ export const CredentialDistribution: React.FC = () => {
                         <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                         <input aria-label="Date Hired" type="date" className="form-input" max={todayDateInput()} value={formData.dateHired} onChange={e => setFormData({ ...formData, dateHired: e.target.value })} required />
                       </div>
-                      <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                        <input aria-label="Initial Password" type="text" className="form-input" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} required />
-                      </div>
+                      {/* The initial password is generated for the person and emailed to them; nobody types it. */}
                       <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
                         <label className="form-label">Station Address</label>
                         <input type="text" className="form-input" placeholder="School Campus, City, Province" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} aria-label="Station Address" />

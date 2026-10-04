@@ -1291,7 +1291,7 @@ export const PersonnelManagement: React.FC = () => {
                           <option value="NON_TEACHING">Non-Teaching Personnel</option>
                         </optgroup>
                         <optgroup label="Administrative System Roles">
-                          <option value="AO_II">Administrative Officer II (AO II / SO II)</option>
+                          <option value="AO_II">Administrative Officer II</option>
                           {/* Division-level roles are granted by a System Administrator only (server-enforced). */}
                           {user?.role === 'SYSTEM_ADMIN' && (
                             <>
