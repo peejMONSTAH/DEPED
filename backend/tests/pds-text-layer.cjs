@@ -1,7 +1,7 @@
 require('ts-node/register/transpile-only');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parsePdftotextBbox, parsePdsTextLayer } = require('../src/utils/pds-text-layer.util');
+const { parsePdftotextBbox, parsePdsTextLayer, pdsCheckboxTargets, readPdsTicks, parsePgm } = require('../src/utils/pds-text-layer.util');
 
 // Synthetic CS Form 212 page: same cell geometry as the official form, invented person.
 const word = (x, y, text) => ({ x0: x, y0: y - 4, x1: x + text.length * 5.5, y1: y + 4, text });
@@ -24,12 +24,15 @@ const form = () => [
   ...row(256, 327, '18. PERMANENT ADDRESS'),
   ...row(256, 411, '19. TELEPHONE NO.'), ...row(463, 408, 'N/A'),
   ...row(256, 432, '20. MOBILE NO.'), ...row(413, 429, '0917 123 4567 / 0918 765 4321'),
+  ...row(256, 450, '21. E-MAIL ADDRESS (if any)'), ...row(399, 450, 'Juan.Sample@deped.gov.ph'),
+  ...row(19, 234, '5. SEX AT BIRTH'), ...row(131, 236, 'Male'), ...row(215, 236, 'Female'),
+  ...row(20, 252, '6 CIVIL STATUS'), ...row(131, 253, 'Single'), ...row(215, 253, 'Married'), ...row(131, 265, 'Widowed'), ...row(215, 265, 'Separated'), ...row(131, 277, 'Other/s:'),
 ];
 const page = (words, width = 612, height = 1008) => ({ width, height, words });
 
 test('CS Form 212 text layer yields the identity block exactly', () => {
   assert.deepEqual(parsePdsTextLayer(page(form())), {
-    surname: 'DELA CRUZ', firstName: 'JUAN', birthDate: '1972-11-03', mobile: '09171234567',
+    surname: 'DELA CRUZ', firstName: 'JUAN', birthDate: '1972-11-03', mobile: '09171234567', email: 'juan.sample@deped.gov.ph',
     'residential.subdivision': 'SAMPLE SUBD.', 'residential.barangay': 'BRGY. UNO',
     'residential.city': 'SAMPLE CITY', 'residential.province': 'SAMPLE REGION', residentialZip: '9000',
   });
@@ -53,4 +56,32 @@ test('an impossible birth date is dropped rather than guessed', () => {
 test('pdftotext -bbox output is parsed with entities decoded', () => {
   const parsed = parsePdftotextBbox('<page width="612.000000" height="1008.000000"><word xMin="1.5" yMin="2" xMax="10" yMax="12">A&amp;B</word></page>');
   assert.deepEqual(parsed, { width: 612, height: 1008, words: [{ x0: 1.5, y0: 2, x1: 10, y1: 12, text: 'A&B' }] });
+});
+
+// A rendered 612 x 1008 page (1 px per pt): white, with a dark tick painted inside chosen boxes.
+const gray = ticked => {
+  const g = { width: 612, height: 1008, data: new Uint8Array(612 * 1008).fill(255) };
+  for (const t of pdsCheckboxTargets(page(form()))) {
+    if (!ticked.includes(t.key)) continue;
+    for (let y = Math.floor(t.y0); y < Math.ceil(t.y1); y++) for (let x = Math.floor(t.x0); x < Math.ceil(t.x1); x++) g.data[y * 612 + x] = 20;
+  }
+  return g;
+};
+
+test('tick boxes: exactly one ticked option per group is read', () => {
+  const targets = pdsCheckboxTargets(page(form()));
+  assert.equal(targets.length, 7);
+  assert.deepEqual(readPdsTicks(targets, gray(['sex.female', 'civilStatus.married'])), { 'sex.female': 'x', 'civilStatus.married': 'x' });
+});
+
+test('tick boxes: none, several, or "Other/s" ticked leaves the field for manual entry', () => {
+  const targets = pdsCheckboxTargets(page(form()));
+  assert.deepEqual(readPdsTicks(targets, gray([])), {});
+  assert.deepEqual(readPdsTicks(targets, gray(['sex.male', 'sex.female', 'civilStatus.other'])), {});
+});
+
+test('a PGM from pdftoppm -gray is parsed', () => {
+  const pgm = Buffer.concat([Buffer.from('P5\n2 2\n255\n'), Buffer.from([0, 255, 255, 0])]);
+  assert.deepEqual(Array.from(parsePgm(pgm).data), [0, 255, 255, 0]);
+  assert.equal(parsePgm(Buffer.from('nope')), null);
 });

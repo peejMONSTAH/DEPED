@@ -92,6 +92,10 @@ export const parsePdsTextLayer = (page: PdftotextPage): Record<string, string> |
     const first = v.split('/')[0].replace(/\D/g, '');
     return first.length >= 10 && first.length <= 13 ? first : null;
   });
+  put('email', ['EMAIL', 'ADDRESS'], 330, 612, v => {
+    const candidate = v.replace(/^\(if\s*any\)\s*/i, '').replace(/\s+/g, '').toLowerCase();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : null;
+  });
   if (!fields.surname || !fields.firstName) return null;
 
   // Residential address: each cell's entry sits just above its label, in the left or right half.
@@ -123,4 +127,70 @@ export const parsePdsTextLayer = (page: PdftotextPage): Record<string, string> |
     }
   }
   return fields;
+};
+
+// ── Tick boxes (sex at birth, civil status) ───────────────────────────────────────────────────────
+// The form's boxes are small images, so a tick is not in the text layer. The reader finds each
+// option's word, then measures how dark the inside of the box just left of it is on a rendered
+// page. An empty box interior is near white; a ticked one is visibly darker.
+export interface CheckboxTarget { key: string; x0: number; y0: number; x1: number; y1: number }
+export interface GrayPage { width: number; height: number; data: Uint8Array }
+
+const OPTION_KEYS: Record<string, string> = {
+  MALE: 'sex.male', FEMALE: 'sex.female', SINGLE: 'civilStatus.single', MARRIED: 'civilStatus.married',
+  WIDOWED: 'civilStatus.widowed', SEPARATED: 'civilStatus.separated', OTHERS: 'civilStatus.other',
+};
+const TICKED_BELOW = 235;
+
+/** Where each option's box interior is, in the form's 612 x 1008 pt space. */
+export const pdsCheckboxTargets = (page: PdftotextPage): CheckboxTarget[] => {
+  const sx = REF_W / page.width;
+  const sy = REF_H / page.height;
+  const words = page.words.map(w => ({ ...w, x0: w.x0 * sx, x1: w.x1 * sx, y0: w.y0 * sy, y1: w.y1 * sy }));
+  const sex = findLabel(words, ['SEX', 'AT', 'BIRTH']);
+  const civil = findLabel(words, ['CIVIL', 'STATUS']);
+  if (!sex || !civil) return [];
+  const top = box(sex).cy - 14;
+  const bottom = box(civil).cy + 60;
+  return words.flatMap(w => {
+    const key = OPTION_KEYS[clean(w.text)];
+    if (!key || w.x0 < 115 || w.x0 > 262 || cy(w) < top || cy(w) > bottom) return [];
+    return [{ key, x0: w.x0 - 10, x1: w.x0 - 6, y0: cy(w) - 2.2, y1: cy(w) + 2.2 }];
+  });
+};
+
+/** Parse the binary PGM that `pdftoppm -gray` writes. */
+export const parsePgm = (buffer: Buffer): GrayPage | null => {
+  const header = /^P5\s+(\d+)\s+(\d+)\s+255\s/.exec(buffer.subarray(0, 40).toString('latin1'));
+  if (!header) return null;
+  const width = Number(header[1]);
+  const height = Number(header[2]);
+  const data = buffer.subarray(header[0].length);
+  return data.length >= width * height ? { width, height, data: new Uint8Array(data.subarray(0, width * height)) } : null;
+};
+
+const meanLuminance = (gray: GrayPage, t: CheckboxTarget): number | null => {
+  const px = gray.width / REF_W;
+  const py = gray.height / REF_H;
+  let sum = 0;
+  let count = 0;
+  for (let y = Math.round(t.y0 * py); y < Math.round(t.y1 * py); y++) {
+    for (let x = Math.round(t.x0 * px); x < Math.round(t.x1 * px); x++) {
+      if (x < 0 || y < 0 || x >= gray.width || y >= gray.height) continue;
+      sum += gray.data[y * gray.width + x];
+      count++;
+    }
+  }
+  return count ? sum / count : null;
+};
+
+/** Keys such as `sex.female` / `civilStatus.married`, only when exactly one option in the group is ticked. */
+export const readPdsTicks = (targets: CheckboxTarget[], gray: GrayPage): Record<string, string> => {
+  const ticked = targets.filter(t => { const m = meanLuminance(gray, t); return m !== null && m < TICKED_BELOW; });
+  const out: Record<string, string> = {};
+  const sex = ticked.filter(t => t.key.startsWith('sex.'));
+  if (sex.length === 1) out[sex[0].key] = 'x';
+  const civil = ticked.filter(t => t.key.startsWith('civilStatus.'));
+  if (civil.length === 1 && civil[0].key !== 'civilStatus.other') out[civil[0].key] = 'x';
+  return out;
 };

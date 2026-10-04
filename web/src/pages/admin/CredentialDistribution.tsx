@@ -299,6 +299,7 @@ export const CredentialDistribution: React.FC = () => {
         gender: ['MALE', 'FEMALE', 'OTHER'].includes(fields.gender) ? fields.gender : previous.gender,
         civilStatus: ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED'].includes(fields.civilStatus) ? fields.civilStatus : previous.civilStatus,
         contactNumber: fields.contactNumber || previous.contactNumber,
+        email: fields.email || previous.email,
       }));
       setPdsExtractionNote('Recognized PDS details were filled in below. Review them before submitting.');
       addToast('PDS read successfully. Please review the extracted details.', 'SUCCESS');

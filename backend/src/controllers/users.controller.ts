@@ -878,8 +878,10 @@ export const extractAccountRequestPds = async (req: Request, res: Response): Pro
     if (!Object.values(extracted.fields).some(value => typeof value === 'string' && value.trim())) {
       throw new Error('No supported identity fields could be read from this PDS. The file can still be attached and the details entered manually.');
     }
+    // The form's e-mail line is not a profile field, but the account request needs it.
+    const email = typeof result.fields.email === 'string' ? result.fields.email : '';
     sendSuccess(res, {
-      fields: extracted.fields,
+      fields: { ...extracted.fields, ...(email ? { email } : {}) },
       confidence: extracted.confidence,
       fileName: req.file.originalname,
     }, 'PDS fields extracted. Review every field before submitting the request.');

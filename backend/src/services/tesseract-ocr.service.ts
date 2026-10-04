@@ -1,8 +1,8 @@
 import { spawn } from 'child_process';
-import { mkdtemp, readdir, rm, writeFile } from 'fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { parsePdftotextBbox, parsePdsTextLayer } from '../utils/pds-text-layer.util';
+import { parsePdftotextBbox, parsePdsTextLayer, pdsCheckboxTargets, parsePgm, readPdsTicks } from '../utils/pds-text-layer.util';
 
 export type OcrResult = {
   templateId: string;
@@ -190,6 +190,16 @@ export const extractWithTesseract = async (buffer: Buffer, mimeType: string, doc
           const page = parsePdftotextBbox(bbox);
           const fields = page && parsePdsTextLayer(page);
           if (page && fields) {
+            try {
+              // Tick boxes are images: measure them on a rendered page. A failure just leaves sex/civil status blank.
+              const targets = pdsCheckboxTargets(page);
+              if (targets.length) {
+                await run(process.env.PDFTOPPM_BIN || 'pdftoppm', ['-gray', '-r', '150', '-f', '1', '-l', '1', source, path.join(workDir, 'box')], 30_000);
+                const file = (await readdir(workDir)).find(name => /^box-\d+\.pgm$/.test(name));
+                const gray = file ? parsePgm(await readFile(path.join(workDir, file))) : null;
+                if (gray) Object.assign(fields, readPdsTicks(targets, gray));
+              }
+            } catch { /* leave sex and civil status for manual entry */ }
             return { templateId: 'pds-2025', fields, rawFields: [], provider: 'TESSERACT', confidence: 0.97, text: page.words.map(w => w.text).join(' ') };
           }
         } catch { /* no text layer, or pdftotext unavailable: fall through to OCR */ }
