@@ -8,6 +8,7 @@ import '../../models/user_model.dart';
 import '../../services/api_service.dart';
 import '../../services/local_notification_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/privacy_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/realtime_service.dart';
 import '../../services/transaction_service.dart';
@@ -19,6 +20,7 @@ import '../../widgets/eminence_logo.dart';
 import '../../widgets/status_badge.dart';
 import '../applications/my_applications_screen.dart';
 import '../auth/login_screen.dart';
+import '../auth/privacy_consent_dialog.dart';
 import '../career/career_timeline_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
@@ -76,6 +78,27 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     LocalNotificationService.instance.init();
     _loadData();
     _initRealtimeListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensurePrivacyConsent());
+  }
+
+  /// Asks the person to read the Privacy Notice once. Declining means signing out.
+  Future<void> _ensurePrivacyConsent() async {
+    final privacy = PrivacyService(_apiService);
+    if (await privacy.isAccepted() || !mounted) return;
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PrivacyConsentDialog(onAccept: privacy.accept),
+    );
+    if (accepted == true || !mounted) return;
+    await AuthService(ApiService()).logout();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, a1, a2) => const LoginScreen(),
+        transitionsBuilder: (_, a1, a2, child) => FadeTransition(opacity: a1, child: child),
+      ),
+    );
   }
 
   void _initRealtimeListeners() {

@@ -10,6 +10,8 @@ test('the web and backend agree on the Privacy Notice version', () => {
   const web = /PRIVACY_NOTICE_VERSION = '([^']+)'/.exec(read('web/src/constants/privacyNotice.ts'))[1];
   const api = /PRIVACY_NOTICE_VERSION = '([^']+)'/.exec(read('backend/src/utils/privacy-notice.util.ts'))[1];
   assert.equal(web, api);
+  const mobile = /privacyNoticeVersion = '([^']+)'/.exec(read('mobile/lib/config/privacy_notice.dart'))[1];
+  assert.equal(mobile, api);
 });
 
 test('consent routes require sign-in and the account-request route requires the attestation', () => {
