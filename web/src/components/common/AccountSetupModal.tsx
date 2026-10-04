@@ -39,8 +39,8 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
 
   useEffect(() => {
     if (user) {
-      setFirstName(user.firstName || '');
-      setLastName(user.lastName || '');
+      setFirstName(user.personnel?.firstName || user.firstName || '');
+      setLastName(user.personnel?.lastName || user.lastName || '');
       setEmail(user.email || '');
       setPhone('');
       setDesignation(
@@ -120,7 +120,7 @@ export const AccountSetupModal: React.FC<AccountSetupModalProps> = ({ isOpen, on
   };
 
   const initials = user
-    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || user.email[0]}`.toUpperCase()
+    ? `${(user.personnel?.firstName || user.firstName)?.[0] || ''}${(user.personnel?.lastName || user.lastName)?.[0] || user.email[0]}`.toUpperCase()
     : 'U';
 
   const isDark = theme === 'dark';

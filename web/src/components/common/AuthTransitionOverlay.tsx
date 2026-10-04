@@ -95,11 +95,12 @@ export const AuthTransitionOverlay: React.FC<AuthTransitionOverlayProps> = ({
 
   const userRole = user?.role || 'SYSTEM_ADMIN';
   const roleName = roleLabels[userRole] || userRole;
+  const person = user?.personnel || user;
   const initials = user
-    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || user.email[0]}`.toUpperCase()
+    ? `${person?.firstName?.[0] || ''}${person?.lastName?.[0] || user.email[0]}`.toUpperCase()
     : 'U';
-  const userName = user?.firstName
-    ? `${user.firstName} ${user.lastName}`
+  const userName = person?.firstName
+    ? `${person.firstName} ${person.lastName ?? ''}`.trim()
     : user?.email?.split('@')[0] || 'User';
 
   const handleNextTip = (e: React.MouseEvent) => {

@@ -9,6 +9,7 @@ import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../api/queryClient';
+import { personnelDisplayName } from '../../utils/personnel-display';
 import { AccountSetupModal } from '../../components/common/AccountSetupModal';
 import { clickable } from '../../a11y/clickable';
 import { notificationPromotionPath } from '../../promotions/deepLink';
@@ -243,9 +244,8 @@ export const AdminDashboard: React.FC = () => {
     ['Staff', roleCounts.NON_TEACHING_PERSONNEL || 0],
   ];
 
-  const userFullName = user?.firstName
-    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}`.trim()
-    : user?.email?.split('@')[0] || 'User';
+  // The name lives on the personnel record; the sidebar reads it from there too.
+  const userFullName = personnelDisplayName(user?.personnel || user, user?.role) || user?.email?.split('@')[0] || 'User';
 
   const userRoleBadge =
     user?.role === 'SYSTEM_ADMIN' ? 'System Administrator' :
