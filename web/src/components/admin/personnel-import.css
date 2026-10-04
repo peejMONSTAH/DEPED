@@ -25,6 +25,8 @@
 .pi-body h3 { margin: 16px 0 4px; font-size: 1rem; font-weight: 800; }
 .pi-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 28px; border-top: 1px solid var(--color-border); }
 .pi-foot .btn { border-radius: 9999px; font-weight: 800; padding: 10px 22px; }
+.pi-foot .btn:disabled { opacity: .45; cursor: not-allowed; }
+.pi-status { margin-right: auto; align-self: center; font-size: .875rem; color: var(--color-text-secondary); }
 @media (max-width: 560px) {
   .pi-head, .pi-body, .pi-foot { padding-left: 16px; padding-right: 16px; }
   .pi-foot { flex-direction: column-reverse; }

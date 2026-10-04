@@ -23,7 +23,7 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
   const [preview, setPreview] = useState<{ summary: Summary; rows: RowResult[] } | null>(null);
   const [report, setReport] = useState<Report | null>(null);
 
-  const body = () => { const form = new FormData(); form.append('file', file as File); return form; };
+  const body = (f: File | null = file) => { const form = new FormData(); form.append('file', f as File); return form; };
 
   const downloadTemplate = async () => {
     try {
@@ -35,12 +35,13 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
     } catch (e) { setError(message(e, 'The template could not be downloaded.')); }
   };
 
-  const choose = (f: File | null) => { setFile(f); setPreview(null); setReport(null); setError(''); };
+  // Choosing a file checks it straight away, so the Import button is ready as soon as the file is.
+  const choose = (f: File | null) => { setFile(f); setPreview(null); setReport(null); setError(''); if (f) void check(f); };
 
-  const check = async () => {
-    if (!file) return;
+  const check = async (f: File | null = file) => {
+    if (!f) return;
     setBusy('check'); setError('');
-    try { setPreview((await apiClient.post('/users/import/preview', body())).data.data); }
+    try { setPreview((await apiClient.post('/users/import/preview', body(f))).data.data); }
     catch (e) { setPreview(null); setError(message(e, 'The file could not be checked.')); }
     finally { setBusy(null); }
   };
@@ -89,7 +90,7 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
                   <button type="button" className="btn btn-secondary btn-sm" onClick={downloadTemplate}>Download template</button>
                 </li>
                 <li>
-                  <b>Choose your file.</b> Save it from Excel as CSV first.
+                  <b>Choose your file.</b> Save it from Excel as CSV first. It is checked as soon as you choose it.
                   <div className="pi-file">
                     <input ref={input} type="file" accept=".csv,text/csv" onChange={e => choose(e.target.files?.[0] ?? null)} aria-label="CSV file" />
                   </div>
@@ -127,7 +128,8 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
           {report
             ? <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
             : <>
-                <button type="button" className="btn btn-secondary" onClick={check} disabled={!file || Boolean(busy)}>{busy === 'check' ? 'Checking…' : 'Check file'}</button>
+                <span className="pi-status" aria-live="polite">{busy === 'check' ? 'Checking the file…' : !file ? 'Choose a file to begin.' : !preview && !error ? '' : preview && preview.summary.ok === 0 ? 'Nothing can be imported yet. Fix the lines above.' : ''}</span>
+                <button type="button" className="btn btn-secondary" onClick={() => check()} disabled={!file || Boolean(busy)}>Check again</button>
                 <button type="button" className="btn btn-primary" onClick={run} disabled={!preview || preview.summary.ok === 0 || Boolean(busy)}>
                   {busy === 'import' ? 'Importing…' : `Import ${preview ? preview.summary.ok : ''} ${preview?.summary.ok === 1 ? 'person' : 'people'}`.replace('  ', ' ')}
                 </button>
