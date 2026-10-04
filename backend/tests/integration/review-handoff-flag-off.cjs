@@ -159,7 +159,7 @@ test('off 2. any HRMO approves; the System Administrator has no fallback; notice
   assert.equal(awaiting.json.data[0].review.canApprove, true);
   const sys = await post(people.sysadmin, `/transactions/${tx.id}/approve`, { isApproved: true, notes: 'x' });
   assert.equal(sys.status, 403, 'no System Administrator approval in the default workflow');
-  assert.deepEqual((await get(people.sysadmin, '/transactions?queue=fallback')).json.data, []);
+  assert.deepEqual((await get(people.sysadmin, '/transactions?queue=awaiting')).json.data, []);
   assert.equal((await post(people.hrmo1, `/transactions/${tx.id}/approve`, { isApproved: true, notes: 'ok' })).status, 200);
   for (const key of ['hrmo1', 'hrmo2']) assert.ok((await inbox(key)).every(n => n.actionResolved === true), `${key} has nothing left after approval`);
 });

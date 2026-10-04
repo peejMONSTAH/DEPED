@@ -20,7 +20,7 @@ type NotificationItem = {
   relatedEntityId?: number;
   relatedEntityType?: string;
   /** Where this notice should open, decided by the server from the record's state and the viewer's role. */
-  actionTarget?: { path: string; label: string; badge: string; kind: 'own' | 'review' | 'fallback' | 'view' };
+  actionTarget?: { path: string; label: string; badge: string; kind: 'own' | 'review' | 'view' };
 };
 
 export const AdminNotifications: React.FC = () => {
@@ -94,9 +94,9 @@ export const AdminNotifications: React.FC = () => {
       return {
         path: t.path,
         label: t.label,
-        btnClass: t.kind === 'review' || t.kind === 'fallback' || t.kind === 'own' ? 'btn-primary' : 'btn-secondary',
+        btnClass: t.kind === 'review' || t.kind === 'own' ? 'btn-primary' : 'btn-secondary',
         badge: t.badge,
-        iconName: (t.kind === 'fallback' ? 'approvals' : t.kind === 'review' ? 'verification' : 'notifications') as 'approvals' | 'verification' | 'notifications',
+        iconName: (t.kind === 'review' ? 'verification' : 'notifications') as 'approvals' | 'verification' | 'notifications',
       };
     }
 

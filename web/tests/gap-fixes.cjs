@@ -26,9 +26,9 @@ test('System Administrator is kept out of HR transaction decisions in the web ap
   assert.match(queue, /review\?\.canApprove/);
   assert.doesNotMatch(queue, /const canValidate = user\?\.role/);
   assert.match(src('App.tsx'), /path="transactions(\/:id\?)?" element=\{<RequireAuth allowedRoles=\{\['AO_II', 'HRMO'\]\}>/);
-  // The System Administrator reaches only the narrow fallback list on the approvals page, and never the queue or validation.
-  assert.match(src('App.tsx'), /allowedRoles=\{\['HRMO', 'SYSTEM_ADMIN'\]\}>\s*<TransactionApproval/);
-  assert.match(src('pages/admin/TransactionApproval.tsx'), /queue=fallback/);
+  // Only HRMO reaches the approvals page. The System Administrator never approves, and never sees the queue or validation.
+  assert.match(src('App.tsx'), /allowedRoles=\{\['HRMO'\]\}>\s*<TransactionApproval/);
+  assert.doesNotMatch(src('pages/admin/TransactionApproval.tsx'), /queue=fallback|isFallback/);
   assert.doesNotMatch(src('App.tsx'), /path="documents"[\s\S]{0,120}SYSTEM_ADMIN/);
 });
 
@@ -87,8 +87,10 @@ test('status labels come from one table', () => {
 
 test('the Sidebar and Command Palette share one role-filtered navigation list', () => {
   const nav = src('navigation/navItems.ts');
-  assert.match(nav, /label: 'Security overview'/);
-  for (const p of ['/admin/access', '/admin/health', '/admin/email']) assert.ok(nav.includes(p), p);
+  assert.match(nav, /label: 'Access & security'/);
+  assert.match(nav, /label: 'Service health'/);
+  for (const p of ['/admin/access', '/admin/health']) assert.ok(nav.includes(p), p);
+  for (const gone of ['Security overview', 'Email delivery', 'Sessions & devices']) assert.ok(!nav.includes(`label: '${gone}'`), `${gone} is a tab now`);
   assert.doesNotMatch(nav, /Settings & Roles/);
   assert.match(src('components/admin/Sidebar.tsx'), /from '\.\.\/\.\.\/navigation\/navItems'/);
   const palette = src('components/common/CommandPalette.tsx');

@@ -101,8 +101,7 @@ export const TransactionApproval: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTxIds, setSelectedTxIds] = useState<number[]>([]);
 
-  const isFallback = user?.role === 'SYSTEM_ADMIN';
-  const canApprove = user?.role === 'HRMO' || isFallback;
+  const canApprove = user?.role === 'HRMO';
   const me = reviewerName(user?.role);
   // A failed load is not an empty queue: keep what was loaded (marked stale) and offer Retry.
   const [loadFailed, setLoadFailed] = useState(false);
@@ -113,8 +112,8 @@ export const TransactionApproval: React.FC = () => {
   const fetchApprovals = useCallback(async () => {
     setLoading(prev => prev && approvalsRef.current.length === 0);
     try {
-      // The System Administrator sees only the fallback approvals no HRMO can give; HRMO sees the whole queue.
-      const res = await apiClient.get(isFallback ? '/transactions?limit=1000&queue=fallback' : '/transactions?limit=1000');
+      // HRMO sees the whole approvals queue; the server decides which rows can be approved.
+      const res = await apiClient.get('/transactions?limit=1000');
       const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
       const mapped: Transaction[] = list.map((tx: any) => {
         const isPromo = tx.isPromotion || tx.transactionType?.name?.toUpperCase().includes('PROMOTION') || !!tx.promotionDetails;
@@ -180,7 +179,7 @@ export const TransactionApproval: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchParams, isFallback]);
+  }, [searchParams]);
 
   const retry = async () => { setRetrying(true); try { await fetchApprovals(); } finally { setRetrying(false); } };
 
@@ -342,7 +341,7 @@ export const TransactionApproval: React.FC = () => {
   // Step 2: Approve → Status: Approved → triggers Step 3 Career Lifecycle Update
   const handleApprove = async (tx: Transaction) => {
     const { confirmed } = await confirm({
-      title: isFallback ? 'Fallback final approval' : 'Final approval',
+      title: 'Final approval',
       message: `Give final approval to ${tx.personnelName}'s ${tx.transactionType}? This updates their career record and cannot be undone from this screen.`,
       confirmLabel: 'Approve transaction',
       tone: 'primary',
@@ -404,7 +403,7 @@ export const TransactionApproval: React.FC = () => {
     <div className="animate-fade-in">
       {/* Topbar */}
       <div className="topbar">
-        <h1 className="topbar-title" style={{ margin: 0 }}>{isFallback ? 'Fallback approvals' : 'Approvals'}</h1>
+        <h1 className="topbar-title" style={{ margin: 0 }}>Approvals</h1>
         <div className="topbar-actions flex items-center gap-2">
           {selectedTxIds.length > 0 && canApprove && (
             <>
@@ -434,11 +433,6 @@ export const TransactionApproval: React.FC = () => {
       </div>
 
       <div className="page-content" style={{ paddingBottom: '60px' }}>
-        {isFallback && (
-          <div role="note" style={{ marginBottom: 14, padding: '12px 16px', borderRadius: 12, border: '1px solid var(--color-border)', borderLeft: '4px solid var(--color-primary)', background: 'var(--color-bg-secondary)', fontSize: '.875rem' }}>
-            <strong>Fallback approval only.</strong> Final approval must come from a different person than the one who validated the file. This list shows only files where no other HRMO can approve (for example, the only HRMO validated it). Anything an HRMO can approve is not shown here.
-          </div>
-        )}
         {/* Top 4 Metric Overview Cards */}
         {loading ? (
           <SkeletonStats count={4} columns={4} />
@@ -705,11 +699,11 @@ export const TransactionApproval: React.FC = () => {
         }}>
           {/* Main Transaction List Container */}
           <div>
-            {loadFailed && loadedAt && <StaleNotice what={isFallback ? 'the fallback approvals' : 'the approvals queue'} since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
+            {loadFailed && loadedAt && <StaleNotice what="the approvals queue" since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
             {loading ? (
               <SkeletonList count={4} />
             ) : loadFailed && !loadedAt ? (
-              <LoadFailure what={isFallback ? 'the fallback approvals' : 'the approvals queue'} onRetry={() => void retry()} retrying={retrying} />
+              <LoadFailure what="the approvals queue" onRetry={() => void retry()} retrying={retrying} />
             ) : displayList.length === 0 ? (
               search ? (
                 <SmartEmptyState
@@ -889,7 +883,7 @@ export const TransactionApproval: React.FC = () => {
                                 ? 'REJECTED — NO RESUBMISSION'
                                 : isReturned
                                   ? 'RETURNED FOR CORRECTION'
-                                  : isFallback ? 'FALLBACK APPROVAL' : 'FOR FINAL APPROVAL'}
+                                  : 'FOR FINAL APPROVAL'}
                           </span>
                         </div>
                       </div>
@@ -1098,7 +1092,7 @@ export const TransactionApproval: React.FC = () => {
                     onClick={() => handleApprove(selected)}
                     disabled={isSubmitting || detailFailed}
                   >
-                    {isFallback ? 'Give fallback approval' : 'Approve'}
+                    Approve
                   </button>
                   <button
                     type="button"

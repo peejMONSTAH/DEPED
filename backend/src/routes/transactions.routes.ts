@@ -52,7 +52,7 @@ router.post('/:id/upload', upload.single('file'), uploadDocument);
 // HR decisions stay with HR: AO II validates, HRMO approves. The System
 // Administrator runs the system and is excluded here, as in promotion selection.
 router.post('/:id/validate', authorize('AO_II', 'HRMO'), validateTransaction);
-router.post('/:id/approve', authorize('HRMO', 'SYSTEM_ADMIN'), approveTransaction);
+router.post('/:id/approve', authorize('HRMO'), approveTransaction);
 router.post('/:id/reopen', authorize('HRMO', 'TEACHING_PERSONNEL', 'NON_TEACHING_PERSONNEL'), reopenTransaction);
 router.get('/:id/requirements', getTransactionRequirements);
 

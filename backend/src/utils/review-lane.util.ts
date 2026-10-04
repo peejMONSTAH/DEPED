@@ -80,20 +80,13 @@ export interface ApprovalFacts {
 
 /**
  * Independent final approval. Off (no extra rule) unless the switch is on. The
- * System Administrator may approve only when no other HRMO could.
+ * System Administrator never approves.
  */
 export function decideApproval(f: ApprovalFacts): Verdict {
   if (!hrDirectEnabled()) return f.actorRole === 'HRMO' ? { ok: true } : { ok: false, reason: 'Only HRMO gives final approval.' };
-  if (f.actorRole === 'SYSTEM_ADMIN') {
-    return f.otherApproverExists
-      ? { ok: false, reason: 'Another HRMO is available to give final approval.' }
-      : { ok: true };
-  }
   if (f.actorRole !== 'HRMO') return { ok: false, reason: 'Only HRMO gives final approval.' };
   if (f.actorUserId && f.validatorIds.includes(f.actorUserId)) {
-    return f.otherApproverExists
-      ? { ok: false, reason: 'A different HRMO must give final approval to a file you validated.' }
-      : { ok: false, reason: 'You validated this file. With no other HRMO available, the System Administrator gives final approval.' };
+    return { ok: false, reason: 'A different HRMO must give final approval to a file you validated.' };
   }
   return { ok: true };
 }
@@ -104,7 +97,7 @@ export async function approvalAllowed(
 ): Promise<Verdict> {
   const validatorIds = transaction.uploadedDocuments.map(d => d.validatedByUserId).filter((id): id is number => typeof id === 'number');
   let otherApproverExists = true;
-  if (hrDirectEnabled() && (actor?.role === 'SYSTEM_ADMIN' || validatorIds.includes(actor?.userId ?? -1))) {
+  if (hrDirectEnabled() && validatorIds.includes(actor?.userId ?? -1)) {
     otherApproverExists = (await prisma.user.count({
       where: {
         accountStatus: 'ACTIVE',

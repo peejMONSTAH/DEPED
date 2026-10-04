@@ -5,12 +5,10 @@ const path = require('node:path');
 
 const src = p => fs.readFileSync(path.join(__dirname, '../src', p), 'utf8');
 
-test('operational reports are downloaded from the server, never built in the browser', () => {
-  const reports = src('pages/admin/Reports.tsx');
-  assert.match(reports, /\/admin\/reports\/\$\{type\}\/export/);
-  assert.doesNotMatch(reports, /new Blob\(\[csv/, 'no client-side CSV');
-  assert.doesNotMatch(reports, /audit-logs\?limit=500/, 'no export from a loaded page of data');
-  for (const hr of ['promotion', 'plantilla', 'demographic', 'ranking']) assert.doesNotMatch(reports, new RegExp(`type: '[^']*${hr}`, 'i'), `no HR report: ${hr}`);
+test('the Operational reports module is not offered; its old link lands on the Audit trail', () => {
+  assert.ok(!fs.existsSync(path.join(__dirname, '../src/pages/admin/Reports.tsx')), 'page removed');
+  assert.ok(!src('navigation/navItems.ts').includes('Operational reports'), 'not in the menu');
+  assert.match(src('App.tsx'), /path="reports" element=\{<Navigate to="\/admin\/audit" replace \/>\}/);
 });
 
 test('each admin page reads its own API and shows loading, error and empty states without fallback data', () => {

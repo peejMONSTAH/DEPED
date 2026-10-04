@@ -10,6 +10,8 @@ import { RequireAuth, RootRedirect } from './routes/RequireAuth';
 import { ADMIN_PORTAL_ROLES, PERSONNEL_PORTAL_ROLES } from './auth/permissions';
 import { RouteContent } from './routes/RouteContent';
 
+const AccessSecurity = React.lazy(() => import('./pages/admin/SystemTabs').then(m => ({ default: m.AccessSecurity })));
+const SystemHealth = React.lazy(() => import('./pages/admin/SystemTabs').then(m => ({ default: m.SystemHealth })));
 // Layouts
 import { AdminLayout } from './layouts/AdminLayout';
 import { PersonnelLayout } from './layouts/PersonnelLayout';
@@ -22,9 +24,6 @@ const MagicLogin = React.lazy(() => import('./pages/auth/MagicLogin').then(m => 
 const SetupAccount = React.lazy(() => import('./pages/auth/SetupAccount').then(m => ({ default: m.SetupAccount })));
 
 // Admin Pages
-const AccessSessions = React.lazy(() => import('./pages/admin/AccessSessions').then(m => ({ default: m.AccessSessions })));
-const EmailDelivery = React.lazy(() => import('./pages/admin/EmailDelivery').then(m => ({ default: m.EmailDelivery })));
-const ServiceHealth = React.lazy(() => import('./pages/admin/ServiceHealth').then(m => ({ default: m.ServiceHealth })));
 const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })));
 const AdminNotifications = React.lazy(() => import('./pages/admin/Notifications').then(m => ({ default: m.AdminNotifications })));
 const TransactionQueue = React.lazy(() => import('./pages/admin/TransactionQueue').then(m => ({ default: m.TransactionQueue })));
@@ -35,8 +34,6 @@ const PromotionManagement = React.lazy(() => import('./pages/admin/PromotionMana
 const CredentialDistribution = React.lazy(() => import('./pages/admin/CredentialDistribution').then(m => ({ default: m.CredentialDistribution })));
 const ComplianceMonitoring = React.lazy(() => import('./pages/admin/ComplianceMonitoring').then(m => ({ default: m.ComplianceMonitoring })));
 const AuditLog = React.lazy(() => import('./pages/admin/AuditLog').then(m => ({ default: m.AuditLog })));
-const Reports = React.lazy(() => import('./pages/admin/Reports').then(m => ({ default: m.Reports })));
-const Settings = React.lazy(() => import('./pages/admin/Settings').then(m => ({ default: m.Settings })));
 const PlantillaManagement = React.lazy(() => import('./pages/admin/PlantillaManagement').then(m => ({ default: m.PlantillaManagement })));
 
 // Personnel Pages (Mobile Web Portal)
@@ -99,8 +96,8 @@ export const App: React.FC = () => {
               <Route
                 path="approvals"
                 element={
-                  // System Administrator: the narrow fallback list only (the server shows nothing else and enforces eligibility).
-                  <RequireAuth allowedRoles={['HRMO', 'SYSTEM_ADMIN']}>
+                  // Only HRMO gives final approval; the System Administrator does not.
+                  <RequireAuth allowedRoles={['HRMO']}>
                     <TransactionApproval />
                   </RequireAuth>
                 }
@@ -166,29 +163,13 @@ export const App: React.FC = () => {
                 }
               />
 
-              {/* Sys Admin only: Reports */}
-              <Route
-                path="reports"
-                element={
-                  <RequireAuth allowedRoles={['SYSTEM_ADMIN']}>
-                    <Reports />
-                  </RequireAuth>
-                }
-              />
+              {/* Security overview and Email delivery are tabs now, and Operational reports was removed; old links still arrive somewhere sensible. */}
+              <Route path="settings" element={<Navigate to="/admin/access?tab=security" replace />} />
+              <Route path="reports" element={<Navigate to="/admin/audit" replace />} />
+              <Route path="email" element={<Navigate to="/admin/health?tab=email" replace />} />
 
-              {/* Sys Admin only: Settings + Roles & Permissions (Step 4) */}
-              <Route
-                path="settings"
-                element={
-                  <RequireAuth allowedRoles={['SYSTEM_ADMIN']}>
-                    <Settings />
-                  </RequireAuth>
-                }
-              />
-
-              <Route path="access" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><AccessSessions /></RequireAuth>} />
-              <Route path="email" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><EmailDelivery /></RequireAuth>} />
-              <Route path="health" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><ServiceHealth /></RequireAuth>} />
+              <Route path="access" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><AccessSecurity /></RequireAuth>} />
+              <Route path="health" element={<RequireAuth allowedRoles={['SYSTEM_ADMIN']}><SystemHealth /></RequireAuth>} />
 
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>

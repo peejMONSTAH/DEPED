@@ -27,8 +27,6 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
       { label: 'Transaction Queue',  icon: 'transactions', path: '/admin/transactions', roles: ['AO_II', 'HRMO'] },
       { label: 'Doc. Validation',    icon: 'validation',   path: '/admin/documents',    roles: ['AO_II', 'HRMO'] },
       { label: 'HRMO Approvals',     icon: 'approvals',    path: '/admin/approvals',    roles: ['HRMO'] },
-      // Only when HR-direct review is on: files that no HRMO can approve independently.
-      { label: 'Fallback approvals', icon: 'approvals',    path: '/admin/approvals',    roles: ['SYSTEM_ADMIN'] },
     ],
   },
   {
@@ -42,24 +40,16 @@ export const NAV_SECTIONS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'Access management',
+    label: 'System administration',
     items: [
-      { label: 'Sessions & devices', icon: 'credentials',  path: '/admin/access',       roles: ['SYSTEM_ADMIN'] },
-    ],
-  },
-  {
-    label: 'System operations',
-    items: [
-      { label: 'Security overview',  icon: 'settings',     path: '/admin/settings',     roles: ['SYSTEM_ADMIN'] },
-      { label: 'Service health',     icon: 'dashboard',    path: '/admin/health',       roles: ['SYSTEM_ADMIN'] },
-      { label: 'Email delivery',     icon: 'notifications',path: '/admin/email',        roles: ['SYSTEM_ADMIN'] },
+      { label: 'Access & security', icon: 'credentials',  path: '/admin/access',       roles: ['SYSTEM_ADMIN'] },
+      { label: 'Service health',    icon: 'dashboard',    path: '/admin/health',       roles: ['SYSTEM_ADMIN'] },
     ],
   },
   {
     label: 'Governance',
     items: [
       { label: 'Audit trail',        icon: 'audit',        path: '/admin/audit',        roles: ['SYSTEM_ADMIN'] },
-      { label: 'Operational reports',icon: 'reports',      path: '/admin/reports',      roles: ['SYSTEM_ADMIN'] },
     ],
   },
   {

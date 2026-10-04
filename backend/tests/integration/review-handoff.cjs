@@ -1,7 +1,7 @@
 // Review hand-off, end to end: the real app, routes, middleware, controllers, signed JWTs and
 // PostgreSQL, with HR_DIRECT_REVIEW switched on and synthetic people only.
 //
-// Covers: independent approval and the System Administrator's narrow fallback, notification
+// Covers: independent approval (the System Administrator never approves), notification
 // ownership / action state / links, queue completeness and counts, cross-station denial,
 // AO II and HRMO submitting as personnel, and the promotion correction loop.
 //
@@ -235,13 +235,13 @@ test('4. queues are complete and consistent: awaiting, validation lane in every 
   assert.ok(onlyPending.json.data.every(r => r.status === 'PENDING_VALIDATION'));
 });
 
-test('5. approval rules: not the validator, not the System Administrator while another HRMO can, then the other HRMO', async () => {
+test('5. approval rules: not the validator, never the System Administrator, then the other HRMO', async () => {
   const same = await post(people.hrmo1, `/transactions/${f.staff.id}/approve`, { isApproved: true, notes: 'ok' });
   assert.equal(same.status, 403);
   const sys = await post(people.sysadmin, `/transactions/${f.staff.id}/approve`, { isApproved: true, notes: 'ok' });
   assert.equal(sys.status, 403);
-  const fallbackList = await get(people.sysadmin, '/transactions?queue=fallback&limit=100');
-  assert.deepEqual(fallbackList.json.data, [], 'nothing an HRMO can approve is shown to the System Administrator');
+  const adminQueue = await get(people.sysadmin, '/transactions?queue=awaiting&limit=100');
+  assert.deepEqual(adminQueue.json.data, [], 'the System Administrator has nothing awaiting: it reviews and approves nothing');
   const done = await post(people.hrmo2, `/transactions/${f.staff.id}/approve`, { isApproved: true, notes: 'ok' });
   assert.equal(done.status, 200, done.text);
   assert.match(done.json.message, /approved/);
@@ -255,68 +255,42 @@ test('5. approval rules: not the validator, not the System Administrator while a
   assert.doesNotMatch(staffNotice, /AO II/, 'the applicant is never told an AO II validated what an HRMO validated');
 });
 
-test('6. the only eligible HRMO validated it: a clear, narrow System Administrator fallback', async () => {
+test('6. the only eligible HRMO validated it: nobody can approve until another HRMO exists, and the administrator is told to add one', async () => {
   await setStatus('hrmo2', 'INACTIVE');
   f.solo = await transaction(people.matulasStaff, 'PENDING_VALIDATION');
   const validated = await post(people.hrmo1, `/transactions/${f.solo.id}/validate`, validateBody(f.solo));
   assert.equal(validated.status, 200, validated.text);
-  assert.match(validated.json.message, /No other HRMO can approve it, so the System Administrator was asked for the fallback approval/);
-  assert.equal(validated.json.data.nextOwner, 'SYSTEM_ADMIN');
+  assert.match(validated.json.message, /no other HRMO can give the final approval/);
+  assert.equal(validated.json.data.nextOwner, 'NONE');
 
   const hrNotices = await notices(people.hrmo1.userId, { relatedEntityId: f.solo.id });
-  assert.ok(!hrNotices.some(n => /Fallback approval|Final approval/.test(n.message)), 'the validator is not asked to approve');
-  const adminNotice = (await notices(people.sysadmin.userId)).find(n => n.relatedEntityId === f.solo.id);
-  assert.ok(adminNotice, 'the System Administrator is notified');
-  assert.equal(adminNotice.relatedEntityType, 'ApprovalFallback');
+  assert.ok(!hrNotices.some(n => /Final approval/.test(n.message)), 'the validator is not asked to approve');
+  const adminNotice = (await notices(people.sysadmin.userId)).find(n => /no other HRMO can give the final approval/.test(n.message));
+  assert.ok(adminNotice, 'the System Administrator is told an HRMO must be added or reactivated');
+  assert.ok(!/ApprovalFallback/.test(String(adminNotice.relatedEntityType)), 'there is no fallback approval to act on');
 
-  const inbox = (await get(people.sysadmin, '/notifications')).json.data.find(n => n.id === adminNotice.id);
-  assert.equal(inbox.actionResolved, false, 'the fallback notice is actionable');
-  assert.equal(inbox.actionTarget.path, `/admin/approvals?txId=${f.solo.id}`);
-
-  // Narrow list: exactly the files no HRMO can approve.
-  const list = await get(people.sysadmin, '/transactions?queue=fallback&limit=100');
-  assert.deepEqual(list.json.data.map(r => r.id), [f.solo.id]);
-  const detail = await get(people.sysadmin, `/transactions/${f.solo.id}`);
-  assert.equal(detail.json.data.review.approver, 'SYSTEM_ADMIN');
-  assert.equal(detail.json.data.review.canApprove, true);
-  assert.match(detail.json.data.review.summary, /System Administrator \(fallback/);
-  assert.equal((await get(people.hrmo1, `/transactions/${f.solo.id}`)).json.data.review.canApprove, false);
-
-  // No general expansion of authority.
+  // Nobody can approve it now: the validator may not, and the System Administrator never does.
+  assert.equal((await post(people.hrmo1, `/transactions/${f.solo.id}/approve`, { isApproved: true, notes: 'ok' })).status, 403, 'the validator cannot approve');
+  assert.equal((await post(people.sysadmin, `/transactions/${f.solo.id}/approve`, { isApproved: true, notes: 'ok' })).status, 403, 'the System Administrator never approves');
   assert.equal((await post(people.sysadmin, `/transactions/${f.solo.id}/validate`, validateBody(f.solo))).status, 403, 'the System Administrator never validates');
-  assert.equal((await post(people.hrmo1, `/transactions/${f.solo.id}/approve`, { isApproved: true, notes: 'ok' })).status, 403, 'the validator still cannot approve');
-  assert.equal((await get(people.moralesAo, '/transactions?queue=fallback')).json.data.length, 0, 'other roles get nothing from the fallback list');
+  assert.equal((await db.transaction.findUnique({ where: { id: f.solo.id } })).status, 'FOR_APPROVAL');
 
-  const approved = await post(people.sysadmin, `/transactions/${f.solo.id}/approve`, { isApproved: true, notes: 'Fallback approval' });
+  // Reactivating another HRMO unblocks it, and that HRMO approves.
+  await setStatus('hrmo2', 'ACTIVE');
+  assert.equal((await get(people.hrmo2, `/transactions/${f.solo.id}`)).json.data.review.canApprove, true);
+  const approved = await post(people.hrmo2, `/transactions/${f.solo.id}/approve`, { isApproved: true, notes: 'Approved' });
   assert.equal(approved.status, 200, approved.text);
   assert.equal((await db.transaction.findUnique({ where: { id: f.solo.id } })).status, 'APPROVED');
-  const resolved = (await get(people.sysadmin, '/notifications')).json.data.find(n => n.id === adminNotice.id);
-  assert.equal(resolved.actionResolved, true, 'after the fallback approval nothing is left to do');
-  const after = (await get(people.hrmo1, `/transactions/${f.solo.id}`)).json.data.review;
-  assert.equal(after.approvedBy, 'SYSTEM_ADMIN', 'a fallback approval is attributed to the System Administrator, not to HRMO');
-  assert.match(after.summary, /Approved by the System Administrator \(fallback\)/);
   const audit = await db.validationLog.findFirst({ where: { entityId: f.solo.id, action: 'TRANSACTION_APPROVED' } });
-  assert.equal(audit.userId, people.sysadmin.userId, 'the audit history names who approved');
-});
-
-test('7. the fallback needs a validator who is the only HRMO, never merely a busy one', async () => {
-  f.busy = await transaction(people.moralesStaff, 'PENDING_VALIDATION');
-  await setStatus('hrmo2', 'ACTIVE');
-  await post(people.hrmo1, `/transactions/${f.busy.id}/validate`, validateBody(f.busy));
-  const denied = await post(people.sysadmin, `/transactions/${f.busy.id}/approve`, { isApproved: true, notes: 'ok' });
-  assert.equal(denied.status, 403, 'with hrmo2 active again the fallback is closed');
-  assert.deepEqual((await get(people.sysadmin, '/transactions?queue=fallback')).json.data, []);
-  assert.equal((await get(people.hrmo2, `/transactions/${f.busy.id}`)).json.data.review.canApprove, true);
-  // The System Administrator's earlier fallback notice, if any, stops asking once an HRMO can act.
-  await setStatus('hrmo2', 'INACTIVE');
-  const re = await get(people.sysadmin, '/transactions?queue=fallback');
-  assert.deepEqual(re.json.data.map(r => r.id), [f.busy.id], 'and reopens if the other HRMO goes away again');
-  await setStatus('hrmo2', 'ACTIVE');
+  assert.equal(audit.userId, people.hrmo2.userId, 'the audit history names who approved');
 });
 
 // ── 2. Cross-school denial and unauthorised attempts ─────────────────────────────────────────────
 
 test('8. an AO II cannot see, validate or approve outside their station and lane', async () => {
+  // A non-teaching file already validated by HRMO, for the lane checks below.
+  f.busy = await transaction(people.moralesStaff, 'PENDING_VALIDATION');
+  await post(people.hrmo1, `/transactions/${f.busy.id}/validate`, validateBody(f.busy));
   f.matulasTeach = await transaction(people.matulasTeacher, 'PENDING_VALIDATION');
   f.moralesTeach = await transaction(people.moralesTeacher, 'PENDING_VALIDATION');
   const cross = await post(people.moralesAo, `/transactions/${f.matulasTeach.id}/validate`, validateBody(f.matulasTeach));

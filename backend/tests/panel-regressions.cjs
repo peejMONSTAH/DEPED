@@ -46,7 +46,7 @@ const cases = [
   ['users','post','/requests/:id/reject',['SYSTEM_ADMIN']],
   ['personnel','get','/',['SYSTEM_ADMIN','HRMO','AO_II']],
   ['transactions','post','/:id/validate',['AO_II','HRMO']], // the review lane (review-lane.util) decides which of the two may act
-  ['transactions','post','/:id/approve',['HRMO','SYSTEM_ADMIN']], // System Administrator only when no other HRMO could approve
+  ['transactions','post','/:id/approve',['HRMO']], // the System Administrator never approves
   ['promotions','post','/cycles',['HRMO']],
   ['promotions','post','/cycles/:id/applications/:appId/final-rating',['HRMO']],
   ['promotions','post','/cycles/:id/apply',['TEACHING_PERSONNEL','NON_TEACHING_PERSONNEL']],

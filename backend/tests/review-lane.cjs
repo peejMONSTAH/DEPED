@@ -69,13 +69,18 @@ test('approval: a different HRMO approves what an HRMO validated', () => {
   });
 });
 
-test('approval: the System Administrator steps in only when no other HRMO could', () => {
+test('approval: the System Administrator never approves; an HRMO cannot approve a file they validated', () => {
   withSwitch('on', () => {
-    assert.equal(decideApproval({ actorRole: 'SYSTEM_ADMIN', actorUserId: 9, validatorIds: [5], otherApproverExists: true }).ok, false);
-    assert.equal(decideApproval({ actorRole: 'SYSTEM_ADMIN', actorUserId: 9, validatorIds: [5], otherApproverExists: false }).ok, true);
-    const lone = decideApproval({ actorRole: 'HRMO', actorUserId: 5, validatorIds: [5], otherApproverExists: false });
-    assert.equal(lone.ok, false);
-    assert.match(lone.reason, /System Administrator/);
+    for (const other of [true, false]) {
+      assert.equal(decideApproval({ actorRole: 'SYSTEM_ADMIN', actorUserId: 9, validatorIds: [5], otherApproverExists: other }).ok, false);
+    }
+    const validator = decideApproval({ actorRole: 'HRMO', actorUserId: 5, validatorIds: [5], otherApproverExists: false });
+    assert.equal(validator.ok, false);
+    assert.match(validator.reason, /different HRMO/);
+    assert.equal(decideApproval({ actorRole: 'HRMO', actorUserId: 6, validatorIds: [5], otherApproverExists: true }).ok, true);
+  });
+  withSwitch(undefined, () => {
+    assert.equal(decideApproval({ actorRole: 'SYSTEM_ADMIN', actorUserId: 9, validatorIds: [], otherApproverExists: true }).ok, false);
   });
 });
 

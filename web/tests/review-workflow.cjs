@@ -125,13 +125,12 @@ test('HRMO validation lists request the whole lane, so Returned and Done are com
   assert.doesNotMatch(s, /queue=validation/, 'the pending-only queue is not used for lists that also show Returned and Done');
 });
 
-test('review buttons follow the server per row; the System Administrator gets only the fallback list', () => {
+test('review buttons follow the server per row; there is no fallback approval for the System Administrator', () => {
   const a = src('pages/admin/TransactionApproval.tsx');
   assert.match(a, /tx\.review\?\.canApprove/);
-  assert.match(a, /queue=fallback/);
-  assert.match(a, /Fallback approvals/);
-  assert.match(src('navigation/navItems.ts'), /label: 'Fallback approvals'[^\n]*roles: \['SYSTEM_ADMIN'\]/);
-  assert.match(src('components/admin/Sidebar.tsx'), /'\/admin\/approvals' && effectiveRole === 'SYSTEM_ADMIN'/, 'shown only when HR-direct review is on');
+  assert.doesNotMatch(a, /queue=fallback|isFallback|Fallback approval/);
+  assert.doesNotMatch(src('navigation/navItems.ts'), /Fallback approvals/);
+  assert.doesNotMatch(src('components/admin/Sidebar.tsx'), /fallback approval/i);
   const m = src('pages/admin/TransactionReviewModal.tsx');
   assert.match(m, /tx\.review\.canValidate/);
   assert.match(m, /res\.data\?\.message/, 'the toast says where the case went and who owns the next step');

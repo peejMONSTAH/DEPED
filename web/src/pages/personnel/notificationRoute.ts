@@ -18,7 +18,7 @@ export interface PersonnelNotification {
   /** true once the requested action is done; null for information. */
   actionResolved?: boolean | null;
   /** Where the server says this notice should open for this account (reviewer work opens the review screen, not the personnel view). */
-  actionTarget?: { path: string; label: string; badge: string; kind: 'own' | 'review' | 'fallback' | 'view' };
+  actionTarget?: { path: string; label: string; badge: string; kind: 'own' | 'review' | 'view' };
 }
 
 export type NoticeKind = 'appointment' | 'application' | 'vacancy' | 'file' | 'account' | 'service-record' | 'general';

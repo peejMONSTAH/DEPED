@@ -900,19 +900,6 @@ export const AdminDashboard: React.FC = () => {
                   </p>
                 </div>
               </Link>
-
-              {/* Action 4: System Reports */}
-              <Link to="/admin/reports" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-lime-bg">
-                    <AppIcon name="reports" size={20} color="#1f3a2c" />
-                  </div>
-                  <h4 className="bento-card-title">Operational Reports</h4>
-                  <p className="bento-card-desc">
-                    Export account access, security event, email delivery, and system audit evidence.
-                  </p>
-                </div>
-              </Link>
             </div>
           </div>
         </>

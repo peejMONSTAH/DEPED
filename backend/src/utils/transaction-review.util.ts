@@ -106,7 +106,7 @@ export function describeReview(row: ReviewRow, viewer: ReviewViewer | undefined 
   const isSelf = Boolean(viewer?.personnelId && row.personnelId && viewer.personnelId === row.personnelId);
   const eligible = eligibleApproverIds(row, ctx);
   const approver: ReviewState['approver'] = row.status === 'FOR_APPROVAL'
-    ? (eligible.length > 0 || !hrDirectEnabled() ? 'HRMO' : 'SYSTEM_ADMIN')
+    ? 'HRMO'
     : null;
 
   const canValidate = row.status === 'PENDING_VALIDATION' && !isSelf && decideValidation({
@@ -118,7 +118,7 @@ export function describeReview(row: ReviewRow, viewer: ReviewViewer | undefined 
   }).ok;
 
   const approvedBy: ReviewState['approvedBy'] = ['APPROVED', 'COMPLETED'].includes(row.status)
-    ? (row.currentAssigneeId && ctx.sysadminIds.has(row.currentAssigneeId) ? 'SYSTEM_ADMIN' : 'HRMO')
+    ? 'HRMO'
     : null;
   const escalated = Boolean(row.escalatedAt) && !row.escalationReviewedAt;
   const viewerValidated = Boolean(viewer?.userId && validatorIds.includes(viewer.userId));
@@ -148,8 +148,8 @@ export function describeReview(row: ReviewRow, viewer: ReviewViewer | undefined 
       youCan = applicant ? 'Replace only the documents marked as returned, then resubmit.' : '';
       break;
     case 'FOR_APPROVAL': {
-      const who = approver === 'SYSTEM_ADMIN' ? 'the System Administrator (fallback: no other HRMO can approve it)' : hrDirectEnabled() ? 'a different HRMO' : 'HRMO';
-      owner = { role: approver, label: approver === 'SYSTEM_ADMIN' ? 'System Administrator (fallback)' : 'HRMO' };
+      const who = hrDirectEnabled() ? 'a different HRMO' : 'HRMO';
+      owner = { role: approver, label: 'HRMO' };
       summary = escalated
         ? 'Escalated to HRMO after repeated corrections. HRMO must review it and return the files that need fixing, or decide.'
         : `Validated by ${vWho}. Waiting for final approval by ${who}.`;
@@ -161,7 +161,7 @@ export function describeReview(row: ReviewRow, viewer: ReviewViewer | undefined 
     }
     case 'APPROVED':
     case 'COMPLETED':
-      summary = `Approved by ${approvedBy === 'SYSTEM_ADMIN' ? 'the System Administrator (fallback)' : 'HRMO'}. The record is part of the Digital 201 file.`;
+      summary = 'Approved by HRMO. The record is part of the Digital 201 file.';
       break;
     case 'REJECTED':
       summary = 'Not approved. The reason is recorded on the transaction.';
@@ -189,21 +189,10 @@ export const hrmoValidationLaneWhere = async (): Promise<Prisma.TransactionWhere
   };
 };
 
-/** Transactions waiting for final approval that no HRMO can give: the System Administrator's narrow fallback list. */
-export const fallbackApprovalIds = async (ctx?: ReviewContext): Promise<number[]> => {
-  if (!hrDirectEnabled()) return [];
-  const context = ctx ?? await loadReviewContext();
-  const rows = await prisma.transaction.findMany({
-    where: { status: 'FOR_APPROVAL' },
-    select: { id: true, personnelId: true, uploadedDocuments: { select: { validatedByUserId: true } } },
-  });
-  return rows.filter(row => eligibleApproverIds({ id: row.id, status: 'FOR_APPROVAL', personnelId: row.personnelId, uploadedDocuments: row.uploadedDocuments }, context).length === 0).map(row => row.id);
-};
-
 /** The where-clause for "work waiting for me", the same one the list, its counts and the notices use. */
 export const awaitingWhereFor = async (viewer: ReviewViewer | undefined | null): Promise<Prisma.TransactionWhereInput> => {
   if (viewer?.role === 'AO_II') return { status: 'PENDING_VALIDATION' };
-  if (viewer?.role === 'SYSTEM_ADMIN') return { id: { in: await fallbackApprovalIds() } };
+  if (viewer?.role === 'SYSTEM_ADMIN') return { id: -1 };
   if (viewer?.role === 'HRMO') {
     const hrDirect = hrDirectEnabled();
     const notMine: Prisma.TransactionWhereInput = viewer.personnelId ? { NOT: { personnelId: viewer.personnelId } } : {};

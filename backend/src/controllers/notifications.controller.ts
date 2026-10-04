@@ -5,7 +5,6 @@ import { sendSuccess, getPaginationParams, buildPaginationMeta } from '../utils/
 import { logger } from '../utils/logger';
 import { plainNotificationText } from '../utils/notification-text.util';
 import { hrDirectEnabled } from '../utils/review-lane.util';
-import { fallbackApprovalIds } from '../utils/transaction-review.util';
 
 export const notificationEvents = new EventEmitter();
 // One listener per open stream; the default cap of 10 would warn with a normal pilot.
@@ -86,7 +85,7 @@ export const withPromotionTargets = async <T extends { relatedEntityId: number |
  * the notice just stops asking for action. null = informational, not an action.
  */
 /** Where the notice should open, decided by the server from the record's state and the viewer's real role. */
-export interface ActionTarget { path: string; label: string; badge: string; kind: 'own' | 'review' | 'fallback' | 'view' }
+export interface ActionTarget { path: string; label: string; badge: string; kind: 'own' | 'review' | 'view' }
 
 export interface ActionViewer { userId?: number; /** The account's own role, never the view it is currently in. */ role?: string; personnelId?: number | null }
 
@@ -96,27 +95,21 @@ export const withActionState = async <T extends { relatedEntityId: number | null
   const v: ActionViewer = typeof viewer === 'string' ? { role: viewer } : (viewer ?? {});
   const role = v.role;
   const ids = (type: string) => [...new Set(rows.filter(n => n.relatedEntityType === type && n.relatedEntityId).map(n => n.relatedEntityId as number))];
-  const txIds = [...new Set([...ids('Transaction'), ...ids('ApprovalFallback')])];
-  const [txs, reqs, apps, fallbackIds] = await Promise.all([
+  const txIds = ids('Transaction');
+  const [txs, reqs, apps] = await Promise.all([
     txIds.length ? prisma.transaction.findMany({ where: { id: { in: txIds } }, select: { id: true, status: true, personnelId: true, uploadedDocuments: { select: { validatedByUserId: true, status: true, requirementTemplateId: true } } } }) : [],
     ids('AccountCreationRequest').length ? prisma.accountCreationRequest.findMany({ where: { id: { in: ids('AccountCreationRequest') } }, select: { id: true, status: true } }) : [],
     ids('PromotionApplication').length ? prisma.promotionApplication.findMany({ where: { id: { in: ids('PromotionApplication') } }, select: { id: true, status: true, personnelId: true, scoreDetailsJson: true } }) : [],
-    ids('ApprovalFallback').length ? fallbackApprovalIds() : Promise.resolve([] as number[]),
   ]);
   const tx = new Map(txs.map(t => [t.id, t]));
   const rq = new Map(reqs.map(r => [r.id, r.status as string]));
   const ap = new Map(apps.map(a => [a.id, a]));
-  const fallback = new Set(fallbackIds);
   return rows.map(n => {
     let resolved: boolean | null = null;
     let target: ActionTarget | undefined;
     const id = n.relatedEntityId;
     if (id && n.type !== 'SUCCESS') {
-      if (n.relatedEntityType === 'ApprovalFallback' && tx.has(id)) {
-        // Actionable only while the file still waits and no HRMO can approve it.
-        resolved = !(tx.get(id)!.status === 'FOR_APPROVAL' && fallback.has(id));
-        target = { path: `/admin/approvals?txId=${id}`, label: 'Give fallback approval', badge: 'Fallback approval', kind: 'fallback' };
-      } else if (n.relatedEntityType === 'Transaction' && tx.has(id)) {
+      if (n.relatedEntityType === 'Transaction' && tx.has(id)) {
         const t = tx.get(id)!;
         // The viewer's own file: they are the applicant. Anyone else's: they are a reviewer, whatever view they are in.
         const own = Boolean(v.personnelId && t.personnelId === v.personnelId);
