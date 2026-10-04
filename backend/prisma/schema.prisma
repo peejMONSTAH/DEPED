@@ -48,6 +48,7 @@ model User {
   personnel                Personnel?               @relation("PersonnelBelongsToUser")
   refreshTokens            RefreshToken[]
   trustedDevices           TrustedDevice[]
+  privacyConsents          PrivacyConsent[]
   loginChallenges          LoginChallenge[]
   assignedTransactions     Transaction[]            @relation("CurrentAssignee")
   uploadedDocuments        UploadedDocument[]       @relation("Uploader")
@@ -92,6 +93,20 @@ model TrustedDevice {
 
   @@index([userId])
   @@map("trusted_devices")
+}
+
+/// Evidence that a person read a version of the Privacy Notice before using the system.
+model PrivacyConsent {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  noticeVersion String   @map("notice_version")
+  acceptedAt    DateTime @default(now()) @map("accepted_at")
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noticeVersion])
+  @@map("privacy_consents")
 }
 
 /// One pending "is this you?" sign-in: a hashed 6-digit code and its limits.

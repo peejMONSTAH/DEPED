@@ -91,6 +91,7 @@ export const CredentialDistribution: React.FC = () => {
   const [isNonPlantilla, setIsNonPlantilla] = useState(false);
   const [loadingPlantillas, setLoadingPlantillas] = useState(false);
   const [pdsFile, setPdsFile] = useState<File | null>(null);
+  const [privacyAttested, setPrivacyAttested] = useState(false);
   const [extractingPds, setExtractingPds] = useState(false);
   const [pdsExtractionNote, setPdsExtractionNote] = useState('');
 
@@ -267,6 +268,7 @@ export const CredentialDistribution: React.FC = () => {
         position: TEACHING_POSITIONS[0],
       }));
     }
+    setPrivacyAttested(false);
     setShowAddModal(true);
   };
 
@@ -397,6 +399,7 @@ export const CredentialDistribution: React.FC = () => {
         Object.entries(payload).forEach(([key, value]) => {
           if (value !== undefined && value !== null) requestForm.append(key, String(value));
         });
+        requestForm.append('privacyAttested', 'true');
         if (pdsFile) requestForm.append('pdsFile', pdsFile);
         await apiClient.post('/users/requests', requestForm);
         const displayName = `${effectiveFirstName} ${effectiveLastName}`;
@@ -1288,9 +1291,16 @@ export const CredentialDistribution: React.FC = () => {
                 </div>
               </div>
 
+              {!isSysAdmin && (
+                <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 28px', borderTop: '1px solid var(--color-border)', fontSize: '.9rem', lineHeight: 1.45, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={privacyAttested} onChange={e => setPrivacyAttested(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, flex: 'none', accentColor: '#2f7d52' }} />
+                  <span>I confirm this person has been informed of the Digital 201 <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Notice</a> and that I am authorized to submit their personal data.</span>
+                </label>
+              )}
+
               {/* Footer */}
               <div style={{ padding: '14px 28px', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-tertiary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
-                <button type="submit" disabled={creatingAccount.pending || extractingPds} className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
+                <button type="submit" disabled={creatingAccount.pending || extractingPds || (!isSysAdmin && !privacyAttested)} className="btn btn-primary" style={{ borderRadius: '9999px', fontWeight: 700 }}>
                   {formData.personnelType === 'AO_II'
                     ? (isSysAdmin ? 'Create AO II Account' : 'Submit AO II Request')
                     : (isSysAdmin ? 'Create Personnel Account' : 'Submit Request to System Admin')}

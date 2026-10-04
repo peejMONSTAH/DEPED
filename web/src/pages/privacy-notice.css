@@ -1,0 +1,30 @@
+/* Public Privacy Notice page and the first-sign-in gate that shows the same text. */
+.pn-page { min-height: 100dvh; padding: 40px 16px; background: var(--color-bg-secondary); display: flex; justify-content: center; }
+.pn-card { width: 100%; max-width: 760px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 18px; padding: 36px 40px; align-self: flex-start; }
+.pn-kicker { margin: 0 0 6px; font-size: .8125rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #2f7d52; }
+.pn-card h1 { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--color-text-primary); }
+.pn-version { margin: 4px 0 20px; font-size: .875rem; color: var(--color-text-secondary); }
+.pn-card h2 { margin: 24px 0 6px; font-size: 1.125rem; font-weight: 800; color: var(--color-text-primary); }
+.pn-card p { margin: 0 0 10px; line-height: 1.6; color: var(--color-text-primary); }
+.pn-back { margin-top: 28px !important; }
+
+.modal.pg-card { background: var(--color-bg-card) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; width: min(94vw, 720px); max-height: 92dvh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 18px; }
+.pg-head { padding: 22px 28px 18px; background: linear-gradient(135deg, #17472e, #2f7d52); border-bottom: 3px solid var(--color-accent, #c79a2e); }
+.modal.pg-card .pg-head h2 { margin: 0; font-size: 1.375rem; font-weight: 800; color: #fff !important; }
+.pg-head p { margin: 4px 0 0; color: rgba(255,255,255,.85); }
+.pg-body { padding: 18px 28px; overflow-y: auto; min-height: 0; }
+.pg-body h3 { margin: 16px 0 4px; font-size: 1rem; font-weight: 800; color: var(--color-text-primary); }
+.pg-body p { margin: 0 0 8px; line-height: 1.55; font-size: .9375rem; color: var(--color-text-primary); }
+.pg-link { margin-top: 14px !important; }
+.pg-foot { padding: 16px 28px 20px; border-top: 1px solid var(--color-border); background: var(--color-bg-card); }
+.pg-check { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: .9375rem; line-height: 1.5; color: var(--color-text-primary); }
+.pg-check input { width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: #2f7d52; }
+.pg-error { margin: 10px 0 0; color: var(--color-danger); font-size: .875rem; }
+.pg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.pg-actions .btn { border-radius: 9999px; font-weight: 800; padding: 10px 22px; }
+@media (max-width: 560px) {
+  .pn-card { padding: 24px 18px; }
+  .pg-head, .pg-body, .pg-foot { padding-left: 16px; padding-right: 16px; }
+  .pg-actions { flex-direction: column-reverse; }
+  .pg-actions .btn { width: 100%; }
+}

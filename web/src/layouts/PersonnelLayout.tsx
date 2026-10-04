@@ -1,3 +1,4 @@
+import { PrivacyConsentGate } from '../components/common/PrivacyConsentGate';
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useOutlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -54,6 +55,7 @@ export const PersonnelLayout: React.FC = () => {
 
   return (
     <div className="shell-viewport-root">
+      <PrivacyConsentGate />
       {/* Outer Centered Application Shell Frame */}
       <div className="app-shell-frame">
         {/* Dark Integrated Sidebar */}

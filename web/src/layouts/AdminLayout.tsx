@@ -1,3 +1,4 @@
+import { PrivacyConsentGate } from '../components/common/PrivacyConsentGate';
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useOutlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -87,6 +88,7 @@ export const AdminLayout: React.FC = () => {
                 className="page-transition-container"
               >
                 <RouteContent>{currentOutlet}</RouteContent>
+                <PrivacyConsentGate />
               </motion.div>
             </AnimatePresence>
           </main>

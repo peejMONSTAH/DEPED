@@ -895,6 +895,7 @@ export const submitAccountRequest = async (req: Request, res: Response): Promise
   if (typeof req.body.nonPlantilla === 'string') req.body.nonPlantilla = req.body.nonPlantilla === 'true';
   const inputError = validateAccountInput(req.body);
   if (inputError) { sendBadRequest(res, inputError); return; }
+  if (String(req.body.privacyAttested) !== 'true') { sendBadRequest(res, 'Confirm that the person was informed of the Privacy Notice and that you are authorized to submit their data.', 'PRIVACY_ATTESTATION_REQUIRED'); return; }
   if (!isPersonnelRole(req.body.role)) { sendBadRequest(res, 'Only teaching and non-teaching personnel accounts can be requested.'); return; }
   const {
     firstName, lastName, middleName, suffix, email,

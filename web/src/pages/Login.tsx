@@ -250,6 +250,7 @@ export const LoginPage: React.FC = () => {
             )}
             <p className="split-login-help">Accounts are issued by your school&apos;s AO II or the Division HR office.</p>
             <p className="split-login-help"><Link to="/download" className="split-login-link">Get the Android app</Link></p>
+            <p className="split-login-help"><Link to="/privacy" className="split-login-link">Privacy Notice</Link></p>
           </div>
         </section>
 

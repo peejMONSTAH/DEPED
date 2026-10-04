@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { login, refreshToken, logout, changePassword, magicLogin, completeAccountSetup, verifyDevice, resendCode, getDevices, removeDevice } from '../controllers/auth.controller';
 import rateLimit from 'express-rate-limit';
 import { authenticate } from '../middleware/auth.middleware';
+import { getPrivacyConsent, acceptPrivacyConsent } from '../controllers/privacy.controller';
 
 const router = Router();
 
@@ -53,5 +54,11 @@ router.post('/resend-code', codeLimiter, resendCode);
  */
 router.get('/devices', authenticate, getDevices);
 router.delete('/devices/:id', authenticate, removeDevice);
+
+/**
+ * GET/POST /auth/privacy-consent — Whether the person accepted the current Privacy Notice, and recording it
+ */
+router.get('/privacy-consent', authenticate, getPrivacyConsent);
+router.post('/privacy-consent', authenticate, acceptPrivacyConsent);
 
 export default router;
