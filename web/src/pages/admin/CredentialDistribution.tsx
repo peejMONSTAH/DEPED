@@ -2,6 +2,7 @@ import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { PersonnelImportModal } from '../../components/admin/PersonnelImportModal';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { AppIcon } from '../../components/common/AppIcon';
@@ -92,6 +93,7 @@ export const CredentialDistribution: React.FC = () => {
   const [loadingPlantillas, setLoadingPlantillas] = useState(false);
   const [pdsFile, setPdsFile] = useState<File | null>(null);
   const [privacyAttested, setPrivacyAttested] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [extractingPds, setExtractingPds] = useState(false);
   const [pdsExtractionNote, setPdsExtractionNote] = useState('');
 
@@ -738,6 +740,12 @@ export const CredentialDistribution: React.FC = () => {
           )}
         </div>
         <div className="topbar-actions">
+          {isSysAdmin && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)} style={{ marginRight: 8 }}>
+              Import personnel
+            </button>
+          )}
+          {showImport && <PersonnelImportModal onClose={() => setShowImport(false)} onImported={() => { void fetchUsers(); }} />}
           <button className="btn btn-primary btn-sm" onClick={handleOpenAddModal} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             {isSysAdmin ? (
               <>+ Create Personnel Account</>

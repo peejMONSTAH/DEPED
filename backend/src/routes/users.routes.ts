@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import { personnelDocumentUpload } from '../middleware/personnel-document-upload.middleware';
+import { csvUpload } from '../middleware/csv-upload.middleware';
+import { getImportTemplate, previewPersonnelImport, runPersonnelImport } from '../controllers/personnel-import.controller';
 import {
   getUsers, createUser, getUserById, updateUser, deleteUser, distributeCredentials, getAccountOnboarding, resendInvitation, resetUserPassword,
   extractAccountRequestPds, submitAccountRequest, getAccountRequests, approveAccountRequest, rejectAccountRequest,
@@ -15,6 +17,10 @@ const router = Router();
 // All user routes require authentication
 router.use(authenticate);
 
+// Bulk-adding people from an HR file. HRMO and System Administrator only; defined before '/:id'.
+router.get('/import/template', authorize('SYSTEM_ADMIN', 'HRMO'), getImportTemplate);
+router.post('/import/preview', authorize('SYSTEM_ADMIN', 'HRMO'), csvUpload.single('file'), previewPersonnelImport);
+router.post('/import', authorize('SYSTEM_ADMIN', 'HRMO'), csvUpload.single('file'), runPersonnelImport);
 router.get('/requests', authorize('SYSTEM_ADMIN', 'AO_II', 'HRMO'), getAccountRequests);
 
 // Which optional workflow features are on, so the app shows only controls that work. Any signed-in user.

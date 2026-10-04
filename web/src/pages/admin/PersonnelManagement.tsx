@@ -1,6 +1,7 @@
 import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useEffect, useState } from 'react';
 import { useAuthContext } from '../../contexts/AuthContext';
+import { PersonnelImportModal } from '../../components/admin/PersonnelImportModal';
 import { useToast } from '../../contexts/ToastContext';
 import { StatusBadge } from '../../components/shared/StatusBadge';
 import { humanizeEnum } from '../../constants/transactionStatus';
@@ -208,6 +209,7 @@ export const PersonnelManagement: React.FC = () => {
 
   const isAo = user?.role === 'AO_II';
   const canManage = user?.role === 'HRMO' || user?.role === 'SYSTEM_ADMIN';
+  const [showImport, setShowImport] = useState(false);
   const { hrDirectReview } = useWorkflowFeatures();
   const [handoverOpen, setHandoverOpen] = useState(false);
 
@@ -454,10 +456,16 @@ export const PersonnelManagement: React.FC = () => {
         </div>
         <div className="topbar-actions">
           {canManage && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)} style={{ marginRight: 8 }}>
+              Import
+            </button>
+          )}
+          {canManage && (
             <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
               Add Personnel
             </button>
           )}
+          {showImport && <PersonnelImportModal onClose={() => setShowImport(false)} onImported={() => { void fetchPersonnel(); }} />}
         </div>
       </div>
 

@@ -1,0 +1,32 @@
+/* Import personnel dialog. Solid white card: the global .modal glass style is see-through over the overlay. */
+.modal.pi-card { background: var(--color-bg-card) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; width: min(94vw, 760px); max-height: 90dvh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 18px; }
+.pi-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 28px 16px; border-bottom: 1px solid var(--color-border); }
+.modal.pi-card .pi-head h2 { margin: 0; font-size: 1.375rem; font-weight: 800; letter-spacing: -0.015em; color: var(--color-text-primary) !important; }
+.pi-head p { margin: 4px 0 0; color: var(--color-text-secondary); font-size: .9375rem; }
+.pi-close { width: 38px; height: 38px; flex: none; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-secondary); color: var(--color-text-primary); font-size: 1.25rem; cursor: pointer; }
+.pi-body { padding: 18px 28px; overflow-y: auto; min-height: 0; }
+.pi-steps { margin: 0; padding-left: 20px; display: grid; gap: 16px; color: var(--color-text-primary); }
+.pi-steps li { line-height: 1.5; }
+.pi-steps li .btn, .pi-file { display: block; margin-top: 8px; }
+.pi-result { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.pi-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.pi-chip { padding: 6px 14px; border-radius: 9999px; background: var(--color-bg-secondary); border: 1px solid var(--color-border); font-weight: 700; font-size: .875rem; }
+.pi-chip--ok { background: #e7f4ec; border-color: #b9dcc5; color: #17472e; }
+.pi-chip--bad { background: #fdecec; border-color: #f2b8b8; color: #8a1f1f; }
+.pi-list { list-style: none; margin: 8px 0; padding: 0; max-height: 280px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 12px; }
+.pi-list li { padding: 10px 14px; border-bottom: 1px solid var(--color-border); font-size: .9rem; line-height: 1.45; }
+.pi-list li:last-child { border-bottom: 0; }
+.pi-list li.is-error { background: #fff7f7; }
+.pi-msg { display: block; color: var(--color-text-secondary); }
+.pi-msg--bad { color: #8a1f1f; }
+.pi-hint { margin: 8px 0 0; font-size: .875rem; color: var(--color-text-secondary); }
+.pi-error { margin: 12px 0 0; color: var(--color-danger); font-weight: 600; }
+.pi-done { margin: 0 0 12px; line-height: 1.55; }
+.pi-body h3 { margin: 16px 0 4px; font-size: 1rem; font-weight: 800; }
+.pi-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 28px; border-top: 1px solid var(--color-border); }
+.pi-foot .btn { border-radius: 9999px; font-weight: 800; padding: 10px 22px; }
+@media (max-width: 560px) {
+  .pi-head, .pi-body, .pi-foot { padding-left: 16px; padding-right: 16px; }
+  .pi-foot { flex-direction: column-reverse; }
+  .pi-foot .btn { width: 100%; }
+}
