@@ -24,6 +24,10 @@ class AuthService {
   /// Held by a device that passed an emailed sign-in code; survives sign-out.
   static const keyDeviceToken = 'key_device_token';
 
+  /// One trusted-device token per account: a token proves the emailed code was entered for that account.
+  /// [keyDeviceToken] stays as the token of whoever is signed in now (sent as X-Device-Token).
+  static String deviceKeyFor(String email) => '${keyDeviceToken}_${email.trim().toLowerCase()}';
+
   Future<UserModel> login(String email, String password) async {
     try {
       // Nothing cached by a previous account may be shown to this one, even if
@@ -35,7 +39,7 @@ class AuthService {
         data: {
           'email': email,
           'password': password,
-          'deviceToken': await _storage.read(key: keyDeviceToken),
+          'deviceToken': await _storage.read(key: deviceKeyFor(email)) ?? await _storage.read(key: keyDeviceToken),
           'deviceName': 'Digital 201 app',
         },
       );
@@ -98,8 +102,13 @@ class AuthService {
     await _storage.write(key: AppConfig.keyRefreshToken, value: refreshToken);
     await _storage.write(key: 'key_saved_user', value: jsonEncode(userJson));
     final deviceToken = data['deviceToken'];
+    final email = userJson['email'];
     if (deviceToken is String && deviceToken.isNotEmpty) {
       await _storage.write(key: keyDeviceToken, value: deviceToken);
+      if (email is String) await _storage.write(key: deviceKeyFor(email), value: deviceToken);
+    } else if (email is String) {
+      final known = await _storage.read(key: deviceKeyFor(email));
+      if (known != null) await _storage.write(key: keyDeviceToken, value: known);
     }
 
     final user = UserModel.fromJson(userJson);
@@ -161,9 +170,11 @@ class AuthService {
       }
     } catch (_) {} finally {
       // Sign-out ends the session, not the device's trust.
-      final deviceToken = await _storage.read(key: keyDeviceToken);
+      final trust = (await _storage.readAll()).entries.where((e) => e.key.startsWith(keyDeviceToken)).toList();
       await _storage.deleteAll();
-      if (deviceToken != null) await _storage.write(key: keyDeviceToken, value: deviceToken);
+      for (final t in trust) {
+        await _storage.write(key: t.key, value: t.value);
+      }
       await clearAccountCaches();
     }
   }

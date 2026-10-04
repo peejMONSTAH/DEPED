@@ -1,9 +1,8 @@
 import apiClient from './client';
 import type { ApiResponse, LoginResponse } from '../types';
 
-/** Proves this browser passed an emailed sign-in code; kept across sign-outs. */
-export const DEVICE_TOKEN_KEY = 'deviceToken';
-export const getDeviceToken = () => localStorage.getItem(DEVICE_TOKEN_KEY) || undefined;
+import { deviceTokenFor } from './deviceTokens';
+export { DEVICE_TOKEN_KEY, DEVICE_TOKENS_KEY } from './deviceTokens';
 
 export interface VerificationChallenge {
   requiresVerification: true;
@@ -25,7 +24,7 @@ type SignIn = LoginResponse & { deviceToken?: string };
 
 export const authApi = {
   login: (email: string, password: string) =>
-    apiClient.post<ApiResponse<SignIn | VerificationChallenge>>('/auth/login', { email, password, deviceToken: getDeviceToken() }),
+    apiClient.post<ApiResponse<SignIn | VerificationChallenge>>('/auth/login', { email, password, deviceToken: deviceTokenFor(email) }),
 
   verifyDevice: (challengeToken: string, code: string) =>
     apiClient.post<ApiResponse<SignIn>>('/auth/verify-device', { challengeToken, code }),

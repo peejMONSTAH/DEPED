@@ -140,7 +140,7 @@ test('files returned inside a filing are listed with the reviewer note and a lin
 test('the 201 Files page explains uploaded vs checked vs approved and puts attention items first', () => {
   const page = src('pages/personnel/MyDocuments.tsx');
   assert.match(page, /<dt>Uploaded<\/dt>[\s\S]*Nobody has checked it yet/);
-  assert.match(page, /<dt>Checked<\/dt>[\s\S]*AO II validated/);
+  assert.match(page, /<dt>Checked<\/dt>[\s\S]*A reviewer validated/);
   assert.match(page, /<dt>Approved<\/dt>[\s\S]*HRMO approved the appointment/);
   assert.ok(page.indexOf('Needs attention') < page.indexOf('>All files<'), 'attention list comes before the full list');
   assert.match(page, /Replacing a file keeps the earlier version/);

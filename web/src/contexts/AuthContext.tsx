@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AuthUser } from '../types';
-import { authApi, DEVICE_TOKEN_KEY, type VerificationChallenge } from '../api/auth.api';
+import { authApi, type VerificationChallenge } from '../api/auth.api';
+import { DEVICE_TOKEN_KEY, DEVICE_TOKENS_KEY, rememberDeviceToken } from '../api/deviceTokens';
 import { resetClientCaches } from '../api/queryClient';
 import { useIdleSignOut } from '../hooks/useIdleSignOut';
 
@@ -18,9 +19,9 @@ interface AuthContextValue {
 
 // Sign-out forgets the session, never the device's trust.
 const clearSessionStorage = () => {
-  const deviceToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+  const kept = [DEVICE_TOKEN_KEY, DEVICE_TOKENS_KEY].map(k => [k, localStorage.getItem(k)] as const);
   localStorage.clear();
-  if (deviceToken) localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
+  kept.forEach(([k, v]) => { if (v) localStorage.setItem(k, v); });
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -50,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('user', JSON.stringify(data.user));
-    if (data.deviceToken) localStorage.setItem(DEVICE_TOKEN_KEY, data.deviceToken);
+    rememberDeviceToken(data.user.email, data.deviceToken);
     setUser(data.user);
   }, []);
 
