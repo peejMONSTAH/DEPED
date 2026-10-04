@@ -640,7 +640,7 @@ export const PlantillaManagement: React.FC = () => {
             {stats.vacantItems}
           </div>
           <div style={{ fontSize: '0.8125rem', color: '#D97706', marginTop: '6px' }}>
-            {stats.availabilityRate}% Ready for Ranking / Hiring
+            {stats.availabilityRate}% Ready for Comparative Assessment
           </div>
         </div>
 

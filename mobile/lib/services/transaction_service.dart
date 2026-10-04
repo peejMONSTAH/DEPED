@@ -232,7 +232,7 @@ class TransactionService {
       {TransactionType? type}) async {
     if (transactionId <= 0) {
       throw StateError(
-        'This is not an assigned transaction. Wait for the AO or HRMO to assign your hiring or promotion transaction.',
+        'This is not an assigned transaction. Wait for the AO or HRMO to assign your promotion transaction.',
       );
     }
 

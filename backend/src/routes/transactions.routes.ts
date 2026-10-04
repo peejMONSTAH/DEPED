@@ -38,9 +38,9 @@ router.get('/stream', streamTransactions);
 
 router.get('/my-transactions', getMyTransactions);
 router.get('/', getTransactions);
-// Appointment transactions are created inside the hiring/promotion workflow only.
+// Appointment transactions are created inside the promotion workflow only.
 router.post('/', (_req, res) => {
-  res.status(403).json({ status: 'error', code: 'ASSIGNED_TRANSACTIONS_ONLY', message: 'Transactions are assigned through the hiring or promotion workflow.' });
+  res.status(403).json({ status: 'error', code: 'ASSIGNED_TRANSACTIONS_ONLY', message: 'Transactions are assigned through the promotion workflow.' });
 });
 router.get('/:id', getTransactionById);
 router.post('/:id/submit', submitTransaction);

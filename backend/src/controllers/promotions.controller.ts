@@ -34,6 +34,7 @@ import { cycleSelectionBlockReason, deliberationBlockReason, selectionBlockReaso
 import { ANNEX_C_REQUIREMENTS, MANDATORY_ANNEX_C_CODES } from '../utils/annex-c.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
 import { canChangeSelection, canEditCycle, canGenerateCar, canRegisterApplicants, canReviewApplicants, isReopening, readOnlyReason, transitionBlockReason } from '../utils/cycle-capability.util';
+import { newHiringBlocked, newHiringEnabled, NEW_HIRING_SUSPENDED_MESSAGE } from '../utils/new-hiring.util';
 
 // ── Promotion Cycles ───────────────────────────────────────────────────────
 
@@ -285,6 +286,7 @@ export const createPromotionCycle = async (req: Request, res: Response): Promise
     }
 
     const { name, type, startDate, endDate, rulesConfigurationJson, status } = req.body;
+    if (newHiringBlocked(rulesConfigurationJson?.targetPosition ?? rulesConfigurationJson?.positionTitle)) { sendBadRequest(res, NEW_HIRING_SUSPENDED_MESSAGE, 'NEW_HIRING_SUSPENDED'); return; }
     if (!name || !type || !startDate || !endDate) {
       sendBadRequest(res, 'name, type, startDate, and endDate are required.');
       return;
@@ -408,6 +410,7 @@ export const updatePromotionCycle = async (req: Request, res: Response): Promise
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { sendBadRequest(res, 'Invalid cycle ID format.'); return; }
   const { status, endDate, rulesConfigurationJson, cancellationReason } = req.body;
+  if (newHiringBlocked(rulesConfigurationJson?.targetPosition ?? rulesConfigurationJson?.positionTitle)) { sendBadRequest(res, NEW_HIRING_SUSPENDED_MESSAGE, 'NEW_HIRING_SUSPENDED'); return; }
   let targetStatus = status;
   if (targetStatus === 'COMPLETED') {
     targetStatus = 'CLOSED';
@@ -1452,6 +1455,7 @@ export const selectPromotionCandidate = async (req: Request, res: Response): Pro
     return;
   }
   const isTeacherOne = /^(teacher (?:i|1))$/.test(normalizePositionTitle(targetPos));
+  if (isPromoted && isTeacherOne && !newHiringEnabled()) { sendBadRequest(res, NEW_HIRING_SUSPENDED_MESSAGE, 'NEW_HIRING_SUSPENDED'); return; }
   if (!isPromoted && currentDetails.appointmentApproved) {
     sendBadRequest(res, 'An officially approved appointment cannot be removed from candidate selection.', 'APPOINTMENT_ALREADY_APPROVED');
     return;
@@ -1733,6 +1737,10 @@ export const submitManualApplication = async (req: Request, res: Response): Prom
 
   const cycleRules = (cycle.rulesConfigurationJson as Record<string, any>) || {};
   const targetPos = cycleRules.targetPosition || 'Teacher I';
+  if (!newHiringEnabled() && (newHiringBlocked(targetPos) || (!req.body.personnelId && req.body.firstName && req.body.lastName))) {
+    sendBadRequest(res, NEW_HIRING_SUSPENDED_MESSAGE, 'NEW_HIRING_SUSPENDED');
+    return;
+  }
   let schoolStation = cycleRules.schoolStation || cycleRules.designatedSchool || null;
   let district = cycleRules.designatedDistrict || null;
   const scope = await getStationScope(req.user);
@@ -1996,6 +2004,7 @@ export const applyForPromotion = async (req: Request, res: Response): Promise<vo
 
   const currentPosition = personnel.designation || personnel.plantillaItem?.positionTitle || '';
   const targetPosition = getCycleTargetPosition(cycle);
+  if (newHiringBlocked(targetPosition)) { sendBadRequest(res, NEW_HIRING_SUSPENDED_MESSAGE, 'NEW_HIRING_SUSPENDED'); return; }
 
   if (!cycleOpenToPerson(cycle, personnel)) {
     sendForbidden(res, `This vacancy is open only to personnel of ${cycleOpenToDistrict(cycle)}.`);

@@ -15,6 +15,7 @@ import { AppIcon } from '../../components/common/AppIcon';
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
 import { accessDeniedMessage } from '../../api/access';
+import { useWorkflowFeatures } from '../../api/features';
 import { TEACHING_POSITIONS, NON_TEACHING_POSITIONS, DEPED_KORONADAL_DISTRICTS, NAME_SUFFIX_OPTIONS } from '../../constants/depedData';
 import { Search, Filter, CheckCircle2, Clock, XCircle, AlertCircle, PlayCircle, Layers, RefreshCw, Archive, ChevronDown, ChevronUp, Building2, Check, X, Sparkles, Plus, Edit3, Trash2 } from 'lucide-react';
 import { clickable, clickableRow } from '../../a11y/clickable';
@@ -467,6 +468,7 @@ export const PromotionManagement: React.FC = () => {
 
   // Complete PDS Form 212 Fields for External / Teacher 1 Applicants
   const [appFirstName, setAppFirstName] = useState<string>('');
+  const { newHiring } = useWorkflowFeatures();
   const [appMiddleName, setAppMiddleName] = useState<string>('');
   const [appLastName, setAppLastName] = useState<string>('');
   const [appSuffix, setAppSuffix] = useState<string>('');
@@ -1507,7 +1509,9 @@ export const PromotionManagement: React.FC = () => {
                 const { title, item } = splitCycleName(selectedCycle);
                 const group = cycleGroup(status);
                 const blockReason = cycleBlockReason(status, selectedCycle);
-                const next = nextCycleAction(status, cycleCounts, user?.role, selectedCycle);
+                const nextRaw = nextCycleAction(status, cycleCounts, user?.role, selectedCycle);
+                // Registering external applicants belongs to new hiring, which is suspended.
+                const next = nextRaw?.kind === 'REGISTER' && !newHiring ? null : nextRaw;
                 const moves = cycleMoves(status, user?.role);
                 const stages = workflowStages(status, cycleCounts, user?.role);
                 const cancelledNote = selectedCycle.rulesConfigurationJson?.cancellationReason || selectedCycle.cancellationReason;
@@ -1617,9 +1621,9 @@ export const PromotionManagement: React.FC = () => {
                       <div className="cd-empty">
                         <strong>{isCancelled(selectedCycle?.status) ? 'No applicants were registered before this cycle was cancelled.' : 'No applicants yet'}</strong>
                         {!isCancelled(selectedCycle?.status) && (
-                          <p>{canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {}) ? 'Register the first applicant to start the review.' : 'Applicants appear here once they apply or are registered.'}</p>
+                          <p>{(newHiring && canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {})) ? 'Register the first applicant to start the review.' : 'Applicants appear here once they apply or are registered.'}</p>
                         )}
-                        {canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {}) && (
+                        {(newHiring && canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {})) && (
                           <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowAppModal(true)}>Register applicant</button>
                         )}
                       </div>
@@ -1634,7 +1638,7 @@ export const PromotionManagement: React.FC = () => {
                         <button type="button" className="btn btn-secondary btn-sm" onClick={handleToggleExpandAll}>
                           {expandAll ? <ChevronUp size={13} /> : <ChevronDown size={13} />} {expandAll ? 'Collapse all' : 'Expand all'}
                         </button>
-                        {canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {}) && (
+                        {(newHiring && canRegisterApplicant(selectedCycle?.status, user?.role, selectedCycle || {})) && (
                           <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAppModal(true)}>Register applicant</button>
                         )}
                       </div>

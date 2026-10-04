@@ -87,7 +87,7 @@ export const Checklist: React.FC = () => {
         } else {
           setTxId('');
           setLoading(false);
-          addToast('No assigned transaction. Your hiring or promotion transaction will appear after assignment.', 'INFO');
+          addToast('No assigned transaction. Your promotion transaction will appear after assignment.', 'INFO');
         }
       } catch (_) {
         setTxId('');

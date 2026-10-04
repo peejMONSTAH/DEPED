@@ -924,7 +924,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               icon: LucideIcons.folderOpen,
               title: 'No assigned transactions',
               message:
-                  'A hiring or promotion transaction will appear here once the AO or HRMO assigns one to you.',
+                  'A promotion transaction will appear here once the AO or HRMO assigns one to you.',
             )
           else
             Column(
