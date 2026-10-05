@@ -190,47 +190,73 @@
   text-align: center;
 }
 
-/* Artwork */
+/* Artwork: the Division office building, framed in the brand green */
 .split-login-art {
   position: relative;
   overflow: hidden;
   border-radius: 24px;
   background: #1d3a2c;
+  isolation: isolate;
 }
-.split-login-waves { position: absolute; inset: 0; width: 100%; height: 100%; }
-.split-wave { transform-origin: center; animation: split-wave-drift 14s ease-in-out infinite alternate; }
-.split-wave-2 { animation-duration: 18s; animation-delay: -4s; }
-.split-wave-3 { animation-duration: 16s; animation-delay: -8s; }
-.split-wave-4 { animation-duration: 22s; animation-delay: -2s; }
-@keyframes split-wave-drift {
-  from { transform: translate3d(-10px, 0, 0) scale(1); }
-  to { transform: translate3d(14px, -12px, 0) scale(1.04); }
+.split-login-art picture { position: absolute; inset: 0; }
+.split-login-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Keep the entrance and the DepEd Koronadal City sign in frame on a portrait panel. */
+  object-position: 76% 50%;
+  transform-origin: 76% 60%;
+  animation: split-photo-drift 24s ease-in-out infinite alternate;
+  filter: saturate(1.05) contrast(1.03);
+}
+@keyframes split-photo-drift {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.09) translate3d(-1.5%, -1%, 0); }
+}
+/* Green scrim: ties the photo to the brand and keeps the caption readable over the bright facade. */
+.split-login-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(23, 71, 46, 0.10) 0%, rgba(23, 71, 46, 0) 35%, rgba(17, 54, 35, 0.55) 72%, rgba(12, 40, 26, 0.92) 100%),
+    linear-gradient(90deg, rgba(23, 71, 46, 0.35) 0%, rgba(23, 71, 46, 0) 30%);
+}
+.split-login-art::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 5px;
+  z-index: 2;
+  background: linear-gradient(90deg, #17472e, #d4a017 55%, #f0c95a);
 }
 @media (prefers-reduced-motion: reduce) {
-  .split-wave { animation: none; }
+  .split-login-photo { animation: none; transform: scale(1.02); }
 }
 
 .split-login-caption {
   position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
+  left: 32px;
+  right: 32px;
+  bottom: 36px;
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  gap: 6px;
   color: #ffffff;
-  text-align: center;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  text-align: left;
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
-.split-login-caption strong { font-size: 0.8125rem; }
+.split-login-caption__kicker {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f0c95a;
+}
+.split-login-caption strong { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+.split-login-caption span:last-child { font-size: 1.0625rem; color: rgba(255, 255, 255, 0.9); max-width: 34ch; }
 
 /* Tablet: narrower art column. Phone: form only, art becomes a slim banner. */
 @media (max-width: 900px) {

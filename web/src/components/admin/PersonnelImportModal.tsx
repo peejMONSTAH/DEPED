@@ -11,7 +11,7 @@ const SHOWN = 200;
 const message = (e: any, fallback: string) => e?.response?.data?.message || e?.message || fallback;
 
 /**
- * Add many people from an HR file at once: download the template, upload the CSV, read what the
+ * Add many personnel from an HR file at once: download the template, upload the CSV, read what the
  * system found, then import. Nothing is written until the last step, accounts are created pending,
  * and no email is sent.
  */
@@ -62,7 +62,7 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
         <header className="pi-head">
           <div>
             <h2 id="pi-title">Import personnel</h2>
-            <p>Add many people at once from an HR spreadsheet saved as CSV.</p>
+            <p>Add many personnel at once from an HR spreadsheet saved as CSV.</p>
           </div>
           <button type="button" className="pi-close" aria-label="Close" onClick={onClose} disabled={Boolean(busy)}>×</button>
         </header>
@@ -70,7 +70,7 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
         <div className="pi-body">
           {report ? (
             <>
-              <p className="pi-done"><strong>{report.summary.created}</strong> {report.summary.created === 1 ? 'person was' : 'people were'} imported. Their accounts are pending and no emails were sent. Send each person’s credentials from Accounts when you are ready.</p>
+              <p className="pi-done"><strong>{report.summary.created}</strong> personnel {report.summary.created === 1 ? 'record was' : 'records were'} imported. Their accounts are pending and no emails were sent. Send each one’s credentials from Accounts when you are ready.</p>
               {(report.skipped.length > 0 || report.failed.length > 0) && (
                 <>
                   <h3>Not imported ({report.skipped.length + report.failed.length})</h3>
@@ -78,7 +78,7 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
                     {report.skipped.slice(0, SHOWN).map(r => <li key={`s${r.line}`}><b>Line {r.line}</b> {r.name || r.email}: {r.errors.join(' ')}</li>)}
                     {report.failed.map(f => <li key={`f${f.line}`}><b>Line {f.line}</b>: {f.error}</li>)}
                   </ul>
-                  <p className="pi-hint">Fix those lines in your file and import again. People already added are recognized and skipped.</p>
+                  <p className="pi-hint">Fix those lines in your file and import again. Personnel already added are recognized and skipped.</p>
                 </>
               )}
             </>
@@ -131,7 +131,7 @@ export const PersonnelImportModal: React.FC<{ onClose: () => void; onImported?: 
                 <span className="pi-status" aria-live="polite">{busy === 'check' ? 'Checking the file…' : !file ? 'Choose a file to begin.' : !preview && !error ? '' : preview && preview.summary.ok === 0 ? 'Nothing can be imported yet. Fix the lines above.' : ''}</span>
                 <button type="button" className="btn btn-secondary" onClick={() => check()} disabled={!file || Boolean(busy)}>Check again</button>
                 <button type="button" className="btn btn-primary" onClick={run} disabled={!preview || preview.summary.ok === 0 || Boolean(busy)}>
-                  {busy === 'import' ? 'Importing…' : `Import ${preview ? preview.summary.ok : ''} ${preview?.summary.ok === 1 ? 'person' : 'people'}`.replace('  ', ' ')}
+                  {busy === 'import' ? 'Importing…' : `Import ${preview ? preview.summary.ok : ''} personnel`.replace('  ', ' ')}
                 </button>
               </>}
         </footer>
