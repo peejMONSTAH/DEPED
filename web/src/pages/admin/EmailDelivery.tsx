@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Mail, RefreshCw, RotateCcw } from 'lucide-react';
 import apiClient from '../../api/client';
-import { AppIcon } from '../../components/common/AppIcon';
 import { useToast } from '../../contexts/ToastContext';
-import './system-operations.css';
-import './review-list.css';
+import './sysadmin-pages.css';
 
 type Message = { id: string; kind: string; category: string; state: 'PENDING' | 'RETRYING' | 'FAILED' | 'SENT'; attempts: number; recipient: string | null; createdAt: string; nextAttemptAt: string | null; sentAt: string | null; error: string | null; deliveryConfirmation: string | null };
 
 const STATES = [['ATTENTION', 'Needs attention'], ['FAILED', 'Failed'], ['RETRYING', 'Retrying'], ['PENDING', 'Pending'], ['SENT', 'Sent'], ['ALL', 'All']] as const;
-const LABEL: Record<Message['state'], string> = { PENDING: 'Pending', RETRYING: 'Retrying', FAILED: 'Failed', SENT: 'Accepted by provider' };
+const LABEL: Record<Message['state'], string> = { PENDING: 'Pending', RETRYING: 'Retrying', FAILED: 'Failed', SENT: 'Sent' };
+const TONE: Record<Message['state'], string> = { PENDING: 'is-muted', RETRYING: 'is-warn', FAILED: 'is-bad', SENT: 'is-ok' };
 const when = (d: string | null) => (d ? new Date(d).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 const words = (s: string) => s.replace(/[_-]/g, ' ').toLowerCase().replace(/^\S/, c => c.toUpperCase());
 
@@ -37,24 +37,34 @@ export const EmailDelivery: React.FC = () => {
     finally { setBusy(null); }
   };
 
-  return <div className="animate-fade-in sysops-page">
-    <header className="sysops-header"><div><p className="sysops-eyebrow">System operations</p><h1>Email delivery</h1><p>Workflow and account emails. "Accepted by provider" means the provider took the message; inbox delivery is not confirmed.</p></div>
-      <button type="button" className="btn btn-secondary" onClick={() => void load()}><AppIcon name="refresh" size={16} /> Refresh</button></header>
-    <nav className="rv-tabs" aria-label="Filter by state" style={{ margin: '1rem 0' }}>
-      {STATES.map(([k, l]) => <button key={k} type="button" aria-current={state === k ? 'page' : undefined} onClick={() => setState(k)}>{l}</button>)}
-    </nav>
-    {error ? <section className="sysops-error" role="alert"><div><strong>Queue unavailable</strong><span>{error}</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => void load()}>Try again</button></section>
-    : !rows ? <div className="sysops-loading" aria-busy="true">Loading…</div>
-    : rows.length === 0 ? <div className="sysops-empty">{state === 'ATTENTION' ? 'No failed or retrying messages.' : 'No messages in this view.'}</div>
-    : <section className="sysops-panel"><ul className="adm-list">{rows.map(m => <li key={m.id}>
-      <div className="adm-list__main">
-        <strong>{words(m.category)} <span className={`adm-state is-${m.state.toLowerCase()}`}>{LABEL[m.state]}</span></strong>
-        <span>To {m.recipient || 'unknown'} · created {when(m.createdAt)} · {m.attempts} attempt{m.attempts === 1 ? '' : 's'}</span>
-        {m.state === 'RETRYING' && <span>Next attempt {when(m.nextAttemptAt)}</span>}
-        {m.state === 'SENT' && <span>Accepted {when(m.sentAt)}</span>}
-        {m.error && <span className="adm-error">{m.error}</span>}
-      </div>
-      {m.state === 'FAILED' && <div className="adm-list__actions"><button type="button" className="btn btn-secondary btn-sm" disabled={busy !== null} onClick={() => void retry(m)}>{busy === m.id ? 'Queuing…' : 'Retry'}</button></div>}
-    </li>)}</ul></section>}
+  return <div className="sap animate-fade-in">
+    <header className="sap-head">
+      <h1>Email delivery</h1>
+      <button type="button" className="sap-btn sap-btn--ghost" onClick={() => void load()}><RefreshCw size={18} aria-hidden="true" /> Refresh</button>
+    </header>
+    <div className="sap-seg" role="group" aria-label="Filter by state" style={{ justifySelf: 'start' }}>
+      {STATES.map(([k, l]) => <button key={k} type="button" aria-pressed={state === k} onClick={() => setState(k)}>{l}</button>)}
+    </div>
+    {error ? <div className="sap-strip is-bad" role="alert"><span>{error}</span><button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => void load()}>Try again</button></div>
+    : !rows ? <div aria-busy="true" style={{ display: 'grid', gap: 12 }}>{[0, 1, 2].map(i => <div key={i} className="sap-skel" />)}</div>
+    : <section className="sap-card" aria-label="Messages">
+      {rows.length === 0 ? <div className="sap-empty">{state === 'ATTENTION' ? 'No failed or retrying emails.' : 'No emails here.'}</div>
+      : <ul className="sap-rows">{rows.map(m => <li key={m.id} className="sap-row">
+        <span className="sap-avatar is-icon"><Mail size={24} aria-hidden="true" /></span>
+        <div className="sap-who">
+          <span className="sap-who__name">{words(m.category)}</span>
+          <span className="sap-who__line">To {m.recipient || 'unknown'} · {when(m.createdAt)} · {m.attempts} attempt{m.attempts === 1 ? '' : 's'}</span>
+          {m.state === 'RETRYING' && <span className="sap-who__line">Next try {when(m.nextAttemptAt)}</span>}
+          {m.state === 'SENT' && <span className="sap-who__line">Sent {when(m.sentAt)}</span>}
+          {m.error && <span className="sap-who__line" style={{ color: 'var(--sap-bad)' }}>{m.error}</span>}
+        </div>
+        <span className={`sap-pill ${TONE[m.state]}`}>{LABEL[m.state]}</span>
+        <div className="sap-row__actions">
+          {m.state === 'FAILED' && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" disabled={busy !== null} onClick={() => void retry(m)}>
+            <RotateCcw size={17} aria-hidden="true" /> {busy === m.id ? 'Queuing…' : 'Retry'}
+          </button>}
+        </div>
+      </li>)}</ul>}
+    </section>}
   </div>;
 };

@@ -14,10 +14,11 @@ import { personnelDisplayName } from '../../utils/personnel-display';
 import { generateInitialPassword } from '../../utils/password-issue';
 import { usePending } from '../../hooks/usePending';
 import { assignableVacantPlantillas } from '../../utils/plantillaFilters';
-import { Eye, Pencil, KeyRound, Ban, RotateCcw, X, LogOut, ShieldCheck } from 'lucide-react';
+import { Eye, Pencil, KeyRound, Ban, RotateCcw, X, LogOut, ShieldCheck, Search, Upload, UserPlus, Send, ChevronRight } from 'lucide-react';
 import { RowActionMenu, RowAction } from '../../components/common/RowActionMenu';
-import { accountActionsFor, ACCOUNT_STATUS_BADGE, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
+import { accountActionsFor, ACCOUNT_STATUS_LABEL } from '../../api/accountActions';
 import './review-list.css';
+import './sysadmin-pages.css';
 import { humanizeEnum } from '../../constants/transactionStatus';
 import { AccountDetail } from './AccountDetail';
 import { AccountRequestReview, PendingRequest } from './AccountRequestReview';
@@ -438,55 +439,6 @@ export const CredentialDistribution: React.FC = () => {
     }
   };
 
-  const handleApproveRequest = async (requestId: number, name: string) => {
-    const { confirmed } = await confirm({
-      title: 'Approve account request',
-      message: `Approve ${name}? Their account is created and the setup email is sent right away.`,
-      confirmLabel: 'Approve and send',
-      tone: 'primary',
-      icon: 'credentials',
-    });
-    if (!confirmed) return;
-
-    try {
-      const res = await apiClient.post(`/users/requests/${requestId}/approve`);
-      const data = res.data?.data;
-      addToast(`${name} approved (${data?.employeeId}). The setup email is on its way.`, 'SUCCESS');
-      fetchUsers();
-      fetchRequests();
-    } catch (err: any) {
-      addToast(err.response?.data?.message || 'Failed to approve request.', 'ERROR');
-    }
-  };
-
-  // Approves each selected request in turn; one failure does not stop the rest.
-  const [selectedRequests, setSelectedRequests] = useState<number[]>([]);
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const handleBulkApprove = async () => {
-    const ids = selectedRequests;
-    if (!ids.length || bulkBusy) return;
-    const { confirmed } = await confirm({
-      title: `Approve ${ids.length} request${ids.length === 1 ? '' : 's'}`,
-      message: 'Each account is created and its setup email sent right away.',
-      confirmLabel: 'Approve and send',
-      tone: 'primary',
-      icon: 'credentials',
-    });
-    if (!confirmed) return;
-    setBulkBusy(true);
-    let ok = 0;
-    const failed: string[] = [];
-    for (const id of ids) {
-      try { await apiClient.post(`/users/requests/${id}/approve`); ok++; }
-      catch (err: any) { failed.push(err.response?.data?.message || `Request ${id} failed`); }
-    }
-    setBulkBusy(false);
-    setSelectedRequests([]);
-    addToast(failed.length ? `${ok} approved. ${failed.length} not approved: ${failed[0]}` : `${ok} approved. Setup emails are on their way.`, failed.length ? 'WARNING' : 'SUCCESS');
-    fetchUsers();
-    fetchRequests();
-  };
-
   // --- Review dialog: the dialog itself is the confirmation, so no second prompt.
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewStartId, setReviewStartId] = useState<number | null>(null);
@@ -563,29 +515,6 @@ export const CredentialDistribution: React.FC = () => {
     }
     addToast(failed.length ? `${ok} approved. ${failed.length} not approved: ${failed[0]}` : `${ok} approved. Setup emails are on their way.`, failed.length ? 'WARNING' : 'SUCCESS');
     fetchUsers(); fetchRequests();
-  };
-
-  const handleRejectRequest = async (requestId: number, name: string) => {
-    const { confirmed, reason } = await confirm({
-      title: 'Reject account request',
-      message: `Reject the account request for ${name}? The requesting AO II will be notified with your reason.`,
-      confirmLabel: 'Reject request',
-      reason: {
-        label: 'Reason for rejection',
-        placeholder: 'e.g. Incomplete or unverified details.',
-        required: true,
-      },
-    });
-    if (!confirmed) return;
-
-    try {
-      await apiClient.post(`/users/requests/${requestId}/reject`, { reason });
-      addToast(`Request for ${name} rejected. Notification sent to AO II.`, 'SUCCESS');
-      fetchUsers();
-      fetchRequests();
-    } catch (err: any) {
-      addToast(err.response?.data?.message || 'Failed to reject request.', 'ERROR');
-    }
   };
 
   // Mutations patch the one affected row; the list is not refetched.
@@ -727,180 +656,197 @@ export const CredentialDistribution: React.FC = () => {
       return true;
     });
   }, [usersList, isAo, user?.id, aoStationInfo?.schoolName]);
+  const [accountQuery, setAccountQuery] = useState('');
+  const [accountStatus, setAccountStatus] = useState('ALL');
+  const [accountRole, setAccountRole] = useState<'ALL' | 'TEACHING' | 'NON_TEACHING' | 'OFFICE'>('ALL');
+
+  const q = accountQuery.trim().toLowerCase();
+  const statusCounts = displayedUsers.reduce<Record<string, number>>((m, u) => { m[u.accountStatus] = (m[u.accountStatus] || 0) + 1; return m; }, {});
+  const roleKey = (r: string) => (r === 'TEACHING_PERSONNEL' ? 'TEACHING' : r === 'NON_TEACHING_PERSONNEL' ? 'NON_TEACHING' : 'OFFICE');
+  const filteredUsers = displayedUsers.filter(u => {
+    if (accountStatus !== 'ALL' && u.accountStatus !== accountStatus) return false;
+    if (accountRole !== 'ALL' && roleKey(u.role) !== accountRole) return false;
+    if (!q) return true;
+    const p = u.personnel;
+    return [u.email, p?.firstName, p?.lastName, p?.employeeId, p?.designation, p?.school].filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+  const STATUS_FILTERS: [string, string][] = [['ALL', 'All'], ['PENDING', 'Pending distribution'], ['ACTIVE', 'Active'], ['LOCKED', 'Locked'], ['INACTIVE', 'Deactivated']];
+  const STATUS_TONE: Record<string, string> = { PENDING: 'is-warn', ACTIVE: 'is-ok', LOCKED: 'is-bad', INACTIVE: 'is-muted' };
+  const ini = (a?: string, b?: string) => `${a?.[0] || ''}${b?.[0] || ''}`.toUpperCase() || '?';
 
   return (
-    <div className="animate-fade-in">
-      <div className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h1 className="topbar-title" style={{ margin: 0 }}>Accounts</h1>
-          {!isSysAdmin && (
-            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
-              <AppIcon name="school" size={13} /> {aoStationInfo?.schoolName || 'Assigned School'}
-            </span>
-          )}
+    <div className="sap animate-fade-in">
+      <header className="sap-head">
+        <div className="sap-head__title">
+          <h1>Accounts</h1>
+          {!isSysAdmin && <span className="sap-tag"><AppIcon name="school" size={14} /> {aoStationInfo?.schoolName || 'Assigned school'}</span>}
         </div>
-        <div className="topbar-actions">
+        <div className="sap-head__actions">
           {isSysAdmin && (
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)} style={{ marginRight: 8 }}>
-              Import personnel
+            <button type="button" className="sap-btn sap-btn--ghost" onClick={() => setShowImport(true)}>
+              <Upload size={18} aria-hidden="true" /> Import
             </button>
           )}
-          {showImport && <PersonnelImportModal onClose={() => setShowImport(false)} onImported={() => { void fetchUsers(); }} />}
-          <button className="btn btn-primary btn-sm" onClick={handleOpenAddModal} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {isSysAdmin ? (
-              <>+ Create Personnel Account</>
-            ) : (
-              <><AppIcon name="checklist" size={14} /> Request Account Creation</>
-            )}
+          <button type="button" className="sap-btn sap-btn--primary" onClick={handleOpenAddModal}>
+            <UserPlus size={18} aria-hidden="true" /> {isSysAdmin ? 'New account' : 'Request account'}
           </button>
         </div>
-      </div>
+      </header>
+      {showImport && <PersonnelImportModal onClose={() => setShowImport(false)} onImported={() => { void fetchUsers(); }} />}
 
+      {/* Administrators approve through the review dialog; the strip keeps waiting requests visible after "Later". */}
+      {isSysAdmin && pendingRequests.length > 0 && (
+        <div className="sap-strip" role="status">
+          <span>{pendingRequests.length} account request{pendingRequests.length === 1 ? '' : 's'} waiting</span>
+          <button type="button" className="sap-btn sap-btn--primary sap-btn--sm" onClick={() => { setReviewStartId(null); setReviewOpen(true); }}>Review</button>
+        </div>
+      )}
+      {isSysAdmin && reviewOpen && pendingRequests.length > 0 && (
+        <AccountRequestReview
+          requests={pendingRequests}
+          startId={reviewStartId}
+          duplicateOf={duplicateOf}
+          onApprove={approveFromReview}
+          onDecline={declineFromReview}
+          onApproveAll={approveAllFromReview}
+          onClose={closeReview}
+        />
+      )}
 
-      <div className="page-content">
+      <section className="sap-stats" aria-label="Accounts by status">
+        <div className="sap-stat"><span className="sap-stat__label">All accounts</span><span className="sap-stat__num">{displayedUsers.length}</span></div>
+        <div className="sap-stat"><span className="sap-stat__label">Active</span><span className="sap-stat__num">{statusCounts.ACTIVE || 0}</span></div>
+        <div className={`sap-stat${statusCounts.PENDING ? ' is-warn' : ''}`}><span className="sap-stat__label">Pending distribution</span><span className="sap-stat__num">{statusCounts.PENDING || 0}</span></div>
+        <div className={`sap-stat${statusCounts.LOCKED ? ' is-bad' : ''}`}><span className="sap-stat__label">Locked</span><span className="sap-stat__num">{statusCounts.LOCKED || 0}</span></div>
+      </section>
 
-        {/* Administrators approve through the review dialog; the strip keeps
-            waiting requests visible after "Later". */}
-        {isSysAdmin && pendingRequests.length > 0 && (
-          <div className="acr-strip mb-6" role="status">
-            <span>{pendingRequests.length} account request{pendingRequests.length === 1 ? '' : 's'} waiting for approval</span>
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => { setReviewStartId(null); setReviewOpen(true); }}>Review</button>
+      {/* AO II: their own requests (AO II -> System Administrator) */}
+      {!isSysAdmin && (
+        <section className="sap-card" aria-labelledby="acr-title">
+          <div className="sap-card__head">
+            <h2 id="acr-title">My requests <small>{accountRequests.length}</small></h2>
+            {pendingRequestsCount > 0 && <span className="sap-pill is-warn">{pendingRequestsCount} waiting</span>}
           </div>
-        )}
-        {isSysAdmin && reviewOpen && pendingRequests.length > 0 && (
-          <AccountRequestReview
-            requests={pendingRequests}
-            startId={reviewStartId}
-            duplicateOf={duplicateOf}
-            onApprove={approveFromReview}
-            onDecline={declineFromReview}
-            onApproveAll={approveAllFromReview}
-            onClose={closeReview}
-          />
-        )}
-
-        {/* Account creation requests (AO II -> System Administrator) */}
-        {isSysAdmin ? (accountRequests.some(r => r.status !== 'PENDING') && (
-          <details className="rv-panel mb-6 acr-history">
-            <summary>Past requests ({accountRequests.filter(r => r.status !== 'PENDING').length})</summary>
-            <ul className="rv-list">
-              {accountRequests.filter(r => r.status !== 'PENDING').map((req: any) => (
-                <li key={req.id} className="rv-row acr-row">
-                  <div className="rv-who">
-                    <strong>{req.lastName}, {req.firstName}</strong>
-                    <span>{req.designation} · {humanizeEnum(req.role)}</span>
-                    <span className="acr-mono">{req.email}</span>
-                    {req.status === 'REJECTED' && req.rejectionReason && <span className="rv-remark">{req.rejectionReason}</span>}
-                  </div>
-                  <span className={`rv-status ${req.status === 'APPROVED' ? 'is-ok' : 'is-bad'}`}>
-                    {req.status === 'APPROVED' ? (req.createdUser?.personnel?.employeeId ? `Created · ${req.createdUser.personnel.employeeId}` : 'Account created') : 'Declined'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        )) : (
-        <section className="rv-panel mb-6" aria-labelledby="acr-title">
-          <div className="rv-toolbar">
-            <div>
-              <h3 id="acr-title" className="rv-title">Account creation requests</h3>
-              <p className="rv-sub">{isSysAdmin ? 'Submitted by AO II for your approval.' : 'Requests you submitted for teachers and staff.'}</p>
-            </div>
-            {pendingRequestsCount > 0 && isSysAdmin && (
-              <div className="rv-actions">
-                <span className="rv-status is-wait">{pendingRequestsCount} pending</span>
-                <button type="button" className="btn btn-primary btn-sm" disabled={!selectedRequests.length || bulkBusy} onClick={() => void handleBulkApprove()}>
-                  {bulkBusy ? 'Approving…' : `Approve selected (${selectedRequests.length})`}
-                </button>
-              </div>
-            )}
-          </div>
-          {accountRequests.length === 0 ? (
-            <p className="rv-empty">{isSysAdmin ? 'No requests yet.' : 'You have not submitted any requests yet.'}</p>
-          ) : (
-            <ul className="rv-list">
+          {accountRequests.length === 0 ? <div className="sap-empty">No requests yet.</div> : (
+            <ul className="sap-rows">
               {accountRequests.map((req: any) => {
                 const name = `${req.lastName}, ${req.firstName}${req.middleName ? ` ${req.middleName}` : ''}${req.suffix ? ` ${req.suffix}` : ''}`;
                 return (
-                  <li key={req.id} className="rv-row acr-row">
-                    <div className="rv-who">
-                      <strong>
-                        {isSysAdmin && req.status === 'PENDING' && (
-                          <input type="checkbox" className="acr-check" aria-label={`Select ${name}`}
-                            checked={selectedRequests.includes(req.id)}
-                            onChange={e => setSelectedRequests(s => e.target.checked ? [...s, req.id] : s.filter(x => x !== req.id))} />
-                        )}
-                        {name}
-                      </strong>
-                      <span>{req.designation} · {humanizeEnum(req.role)}</span>
-                      <span className="acr-mono">{req.email}</span>
-                      <span>Requested by {req.requestedByUser?.email || 'Administrative Officer II'}{req.contactNumber ? ` · ${req.contactNumber}` : ''}</span>
-                      {req.status === 'REJECTED' && req.rejectionReason && <span className="rv-remark">{req.rejectionReason}</span>}
+                  <li key={req.id} className="sap-row">
+                    <span className="sap-avatar">{ini(req.firstName, req.lastName)}</span>
+                    <div className="sap-who">
+                      <span className="sap-who__name">{name}</span>
+                      <span className="sap-who__line">{req.designation} · {humanizeEnum(req.role)}</span>
+                      <span className="sap-who__mono">{req.email}</span>
+                      {req.status === 'REJECTED' && req.rejectionReason && <span className="sap-who__line" style={{ color: 'var(--sap-bad)' }}>{req.rejectionReason}</span>}
                     </div>
-                    <span className={`rv-status ${req.status === 'APPROVED' ? 'is-ok' : req.status === 'REJECTED' ? 'is-bad' : 'is-wait'}`}>
-                      {req.status === 'APPROVED' ? (req.createdUser?.personnel?.employeeId ? `Created · ${req.createdUser.personnel.employeeId}` : 'Account created') : req.status === 'REJECTED' ? 'Rejected' : 'Pending approval'}
+                    <span className={`sap-pill ${req.status === 'APPROVED' ? 'is-ok' : req.status === 'REJECTED' ? 'is-bad' : 'is-warn'}`}>
+                      {req.status === 'APPROVED' ? (req.createdUser?.personnel?.employeeId ? `Created · ${req.createdUser.personnel.employeeId}` : 'Created') : req.status === 'REJECTED' ? 'Rejected' : 'Waiting'}
                     </span>
-                    <div className="rv-actions">
-                      {isSysAdmin && req.status === 'PENDING' && <>
-                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleRejectRequest(req.id, `${req.firstName} ${req.lastName}`)}>Reject</button>
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApproveRequest(req.id, `${req.firstName} ${req.lastName}`)}>Approve</button>
-                      </>}
-                    </div>
+                    <span />
                   </li>
                 );
               })}
             </ul>
           )}
         </section>
-        )}
+      )}
 
-        {/* Accounts */}
-        <section className="rv-panel" aria-labelledby="acc-title">
-          <div className="rv-toolbar">
-            <h3 id="acc-title" className="rv-title">Accounts <span className="rv-count">{displayedUsers.length}</span></h3>
+      <section className="sap-card" aria-labelledby="acc-title">
+        <div className="sap-card__head" style={{ display: 'grid', gap: 16 }}>
+          <h2 id="acc-title">Accounts <small>{filteredUsers.length === displayedUsers.length ? displayedUsers.length : `${filteredUsers.length} of ${displayedUsers.length}`}</small></h2>
+          <div className="sap-toolbar">
+            <label className="sap-search">
+              <Search size={20} aria-hidden="true" />
+              <span className="sr-only">Search accounts</span>
+              <input type="search" value={accountQuery} onChange={e => setAccountQuery(e.target.value)} placeholder="Search name, email or employee ID" />
+            </label>
+            {!isAo && (
+              <div className="sap-seg" role="group" aria-label="Role">
+                {([['ALL', 'All roles'], ['TEACHING', 'Teaching'], ['NON_TEACHING', 'Non-teaching'], ['OFFICE', 'Office']] as const).map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={accountRole === k} onClick={() => setAccountRole(k)}>{l}</button>
+                ))}
+              </div>
+            )}
           </div>
-          {displayedUsers.length === 0 ? (
-            <p className="rv-empty">{isAo ? `No accounts yet for ${aoStationInfo?.schoolName || 'your school'}.` : 'No accounts yet.'}</p>
-          ) : (
-            <ul className="rv-list">
-              {displayedUsers.map(u => {
-                const p = u.personnel;
-                const name = p ? `${p.lastName}, ${p.firstName}` : u.email;
-                const roleLabel = u.role === 'AO_II' ? 'AO II' : u.role === 'HRMO' ? 'HRMO' : u.role === 'SYSTEM_ADMIN' ? 'System Administrator' : u.role === 'TEACHING_PERSONNEL' ? 'Teaching' : 'Non-teaching';
-                const station = ['SYSTEM_ADMIN', 'HRMO'].includes(u.role) ? 'Division office'
-                  : [p?.school || p?.address?.split(',')[0], p?.district].filter(Boolean).join(' · ');
-                const allowed = accountActionsFor({ role: user?.role, userId: user?.id }, u);
-                const menu: RowAction[] = [];
-                if (allowed.includes('view')) menu.push({ id: 'view', label: 'View details', icon: <Eye size={16} aria-hidden="true" />, onSelect: () => setSelectedAccount(u) });
-                if (allowed.includes('edit')) menu.push({ id: 'edit', label: 'Edit account', icon: <Pencil size={16} aria-hidden="true" />, onSelect: () => { setEditAccount(u); setEditEmail(u.email); } });
-                if (allowed.includes('resetPassword')) menu.push({ id: 'reset', label: 'Reset password', icon: <KeyRound size={16} aria-hidden="true" />, onSelect: () => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); } });
-                if (allowed.includes('reactivate')) menu.push({ id: 'reactivate', label: 'Reactivate account', icon: <RotateCcw size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'ACTIVE') });
-                if (isSysAdmin && u.accountStatus === 'ACTIVE') {
-                  menu.push({ id: 'signout', label: 'Sign out everywhere', icon: <LogOut size={16} aria-hidden="true" />, onSelect: () => void handleAccessAction(u, 'signout') });
-                  menu.push({ id: 'codes', label: 'Require sign-in codes', icon: <ShieldCheck size={16} aria-hidden="true" />, onSelect: () => void handleAccessAction(u, 'codes') });
-                }
-                if (allowed.includes('deactivate')) menu.push({ id: 'deactivate', label: 'Deactivate account', tone: 'danger', icon: <Ban size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'INACTIVE') });
-                return (
-                  <li key={u.id} className="rv-row acr-row">
-                    <div className="rv-who">
-                      <strong>{name} <span className="acr-role">{roleLabel}</span></strong>
-                      <span>{p?.designation || roleLabel}{station ? ` · ${station}` : ''}</span>
-                      <span className="acr-mono">{p?.employeeId ? `${p.employeeId} · ` : ''}{u.email}</span>
-                    </div>
-                    <span className={`badge ${ACCOUNT_STATUS_BADGE[u.accountStatus] || 'badge-pending'}`}>{ACCOUNT_STATUS_LABEL[u.accountStatus] || 'Unknown'}</span>
-                    <div className="rv-actions">
-                      {allowed.includes('distribute') && (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => handleDistribute(u.id, u.email)}>Send setup email</button>
-                      )}
-                      <RowActionMenu label={`Actions for ${name}`} actions={menu} />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      </div>
+          <div className="sap-seg" role="group" aria-label="Status" style={{ justifySelf: 'start' }}>
+            {STATUS_FILTERS.filter(([k]) => k === 'ALL' || statusCounts[k]).map(([k, l]) => (
+              <button key={k} type="button" aria-pressed={accountStatus === k} onClick={() => setAccountStatus(k)}>
+                {l} <b className={k === 'PENDING' || k === 'LOCKED' ? 'is-warn' : ''}>{k === 'ALL' ? displayedUsers.length : statusCounts[k]}</b>
+              </button>
+            ))}
+          </div>
+        </div>
+        {displayedUsers.length === 0 ? (
+          <div className="sap-empty">{isAo ? `No accounts yet for ${aoStationInfo?.schoolName || 'your school'}.` : 'No accounts yet.'}</div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="sap-empty">No accounts match.</div>
+        ) : (
+          <ul className="sap-rows">
+            {filteredUsers.map(u => {
+              const p = u.personnel;
+              const name = p ? `${p.lastName}, ${p.firstName}` : u.email;
+              const roleLabel = u.role === 'AO_II' ? 'AO II' : u.role === 'HRMO' ? 'HRMO' : u.role === 'SYSTEM_ADMIN' ? 'System Administrator' : u.role === 'TEACHING_PERSONNEL' ? 'Teaching' : 'Non-teaching';
+              const station = ['SYSTEM_ADMIN', 'HRMO'].includes(u.role) ? 'Division office'
+                : [p?.school || p?.address?.split(',')[0], p?.district].filter(Boolean).join(' · ');
+              const allowed = accountActionsFor({ role: user?.role, userId: user?.id }, u);
+              const menu: RowAction[] = [];
+              if (allowed.includes('view')) menu.push({ id: 'view', label: 'View details', icon: <Eye size={16} aria-hidden="true" />, onSelect: () => setSelectedAccount(u) });
+              if (allowed.includes('edit')) menu.push({ id: 'edit', label: 'Edit account', icon: <Pencil size={16} aria-hidden="true" />, onSelect: () => { setEditAccount(u); setEditEmail(u.email); } });
+              if (allowed.includes('resetPassword')) menu.push({ id: 'reset', label: 'Reset password', icon: <KeyRound size={16} aria-hidden="true" />, onSelect: () => { setResetModalUser(u); setNewResetPass(generateInitialPassword()); } });
+              if (allowed.includes('reactivate')) menu.push({ id: 'reactivate', label: 'Reactivate account', icon: <RotateCcw size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'ACTIVE') });
+              if (isSysAdmin && u.accountStatus === 'ACTIVE') {
+                menu.push({ id: 'signout', label: 'Sign out everywhere', icon: <LogOut size={16} aria-hidden="true" />, onSelect: () => void handleAccessAction(u, 'signout') });
+                menu.push({ id: 'codes', label: 'Require sign-in codes', icon: <ShieldCheck size={16} aria-hidden="true" />, onSelect: () => void handleAccessAction(u, 'codes') });
+              }
+              if (allowed.includes('deactivate')) menu.push({ id: 'deactivate', label: 'Deactivate account', tone: 'danger', icon: <Ban size={16} aria-hidden="true" />, onSelect: () => void handleSetAccountStatus(u, 'INACTIVE') });
+              return (
+                <li key={u.id} className="sap-row">
+                  <span className="sap-avatar">{p ? ini(p.firstName, p.lastName) : ini(u.email, u.email?.[1])}</span>
+                  <div className="sap-who">
+                    <span className="sap-who__name">{name} <span className="sap-tag">{roleLabel}</span></span>
+                    <span className="sap-who__line">{p?.designation || roleLabel}{station ? ` · ${station}` : ''}</span>
+                    <span className="sap-who__mono">{p?.employeeId ? `${p.employeeId} · ` : ''}{u.email}</span>
+                  </div>
+                  <span className={`sap-pill ${STATUS_TONE[u.accountStatus] || 'is-muted'}`}>{(ACCOUNT_STATUS_LABEL as Record<string, string>)[u.accountStatus] || 'Unknown'}</span>
+                  <div className="sap-row__actions">
+                    {allowed.includes('distribute') && (
+                      <button type="button" className="sap-btn sap-btn--primary sap-btn--sm" onClick={() => handleDistribute(u.id, u.email)}>
+                        <Send size={17} aria-hidden="true" /> Send setup email
+                      </button>
+                    )}
+                    <RowActionMenu label={`Actions for ${name}`} actions={menu} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* Past requests (System Administrator) */}
+      {isSysAdmin && accountRequests.some(r => r.status !== 'PENDING') && (
+        <details className="sap-card sap-disclosure">
+          <summary><ChevronRight size={22} aria-hidden="true" /> Past requests <span className="sap-tag">{accountRequests.filter(r => r.status !== 'PENDING').length}</span></summary>
+          <ul className="sap-rows">
+            {accountRequests.filter(r => r.status !== 'PENDING').map((req: any) => (
+              <li key={req.id} className="sap-row">
+                <span className="sap-avatar">{ini(req.firstName, req.lastName)}</span>
+                <div className="sap-who">
+                  <span className="sap-who__name">{req.lastName}, {req.firstName}</span>
+                  <span className="sap-who__line">{req.designation} · {humanizeEnum(req.role)}</span>
+                  <span className="sap-who__mono">{req.email}</span>
+                  {req.status === 'REJECTED' && req.rejectionReason && <span className="sap-who__line" style={{ color: 'var(--sap-bad)' }}>{req.rejectionReason}</span>}
+                </div>
+                <span className={`sap-pill ${req.status === 'APPROVED' ? 'is-ok' : 'is-bad'}`}>
+                  {req.status === 'APPROVED' ? (req.createdUser?.personnel?.employeeId ? `Created · ${req.createdUser.personnel.employeeId}` : 'Created') : 'Declined'}
+                </span>
+                <span />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       {/* Account Creation Modal */}
       {showAddModal && createPortal(

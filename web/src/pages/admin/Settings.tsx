@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { RefreshCw, CircleCheck, TriangleAlert } from 'lucide-react';
 import apiClient from '../../api/client';
-import { AppIcon } from '../../components/common/AppIcon';
-import './system-operations.css';
+import './sysadmin-pages.css';
 
 type Operations = {
   generatedAt: string;
@@ -17,6 +17,8 @@ type Operations = {
 };
 
 const humanize = (value: string) => value.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase());
+const when = (d: string) => new Date(d).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+const tone = (n: number, kind: 'warn' | 'bad') => (n ? `is-${kind}` : '');
 
 export const Settings: React.FC = () => {
   const [data, setData] = useState<Operations | null>(null);
@@ -30,62 +32,80 @@ export const Settings: React.FC = () => {
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const attentionCount = data ? data.accounts.locked + data.accounts.pending + data.accounts.passwordChangeRequired + data.delivery.failed + data.securityEvents.accessDenied24h : 0;
+  const attention = data ? data.accounts.locked + data.accounts.pending + data.accounts.passwordChangeRequired + data.delivery.failed + data.securityEvents.accessDenied24h : 0;
 
-  return <div className="animate-fade-in sysops-page">
-    <header className="sysops-header">
-      <div><p className="sysops-eyebrow">System administration</p><h1>Security overview</h1><p>Accounts, sign-ins and email at a glance.</p></div>
-      <button type="button" className="btn btn-secondary" onClick={() => void load()} disabled={loading}><AppIcon name="refresh" size={16} /> {loading ? 'Refreshing…' : 'Refresh status'}</button>
+  return <div className="sap animate-fade-in">
+    <header className="sap-head">
+      <h1>Security overview</h1>
+      <button type="button" className="sap-btn sap-btn--ghost" onClick={() => void load()} disabled={loading}>
+        <RefreshCw size={18} className={loading ? 'sap-spin' : ''} aria-hidden="true" /> Refresh
+      </button>
     </header>
 
-    {error ? <section className="sysops-error" role="alert"><div><strong>Operational status unavailable</strong><span>{error}</span></div><button type="button" className="btn btn-secondary btn-sm" onClick={() => void load()}>Try again</button></section>
-    : loading && !data ? <div className="sysops-loading" aria-busy="true">Loading live system status…</div>
+    {error ? <div className="sap-strip is-bad" role="alert"><span>{error}</span><button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => void load()}>Try again</button></div>
+    : loading && !data ? <div aria-busy="true" style={{ display: 'grid', gap: 16 }}><div className="sap-skel" /><div className="sap-skel" style={{ height: 300 }} /></div>
     : data ? <>
-      <section className="sysops-summary" aria-label="System status summary">
-        <article className={`sysops-priority ${attentionCount ? 'needs-attention' : 'healthy'}`}><span className="sysops-priority-icon"><AppIcon name={attentionCount ? 'warning' : 'approved'} size={22} /></span><div><span className="sysops-label">Administrator attention</span><strong>{attentionCount ? `${attentionCount} item${attentionCount === 1 ? '' : 's'} need review` : 'No urgent operational issues'}</strong><small>Locked or pending accounts, password changes, denied access, and exhausted deliveries</small></div></article>
-        <article><span className="sysops-label">Active accounts</span><strong>{data.accounts.active}<small> / {data.accounts.total}</small></strong><span>{data.accounts.pending} pending activation</span></article>
-        <article><span className="sysops-label">Active sessions</span><strong>{data.access.activeSessions}</strong><span>{data.access.activeTrustedDevices} trusted devices</span></article>
-        <article><span className="sysops-label">Email delivery</span><strong>{data.delivery.failed ? `${data.delivery.failed} failed` : 'Operational'}</strong><span>{data.delivery.delivered24h} delivered in 24 hours</span></article>
+      <section className={`sap-hero ${attention ? 'is-warn' : 'is-ok'}`} role="status">
+        <span className="sap-hero__icon">{attention ? <TriangleAlert size={30} aria-hidden="true" /> : <CircleCheck size={30} aria-hidden="true" />}</span>
+        <div className="sap-hero__text"><strong>{attention ? `${attention} item${attention === 1 ? '' : 's'} to review` : 'Nothing to review'}</strong><span>Updated {when(data.generatedAt)}</span></div>
       </section>
 
-      <div className="sysops-grid">
-        <section className="sysops-panel">
-          <div className="sysops-panel-heading"><div><h2>Account and access health</h2><p>Items that affect a user's ability to sign in and work.</p></div><Link to="/admin/credentials">Manage credentials</Link></div>
-          <div className="sysops-metric-list">
-            <div><span>Locked accounts</span><strong className={data.accounts.locked ? 'danger' : ''}>{data.accounts.locked}</strong></div>
-            <div><span>Temporary password change required</span><strong>{data.accounts.passwordChangeRequired}</strong></div>
-            <div><span>Device verification disabled</span><strong className={data.accounts.deviceVerificationDisabled ? 'warning' : ''}>{data.accounts.deviceVerificationDisabled}</strong></div>
-            <div><span>Pending sign-in challenges</span><strong>{data.access.pendingChallenges}</strong></div>
-            <div><span>Failed sign-ins, last 24 hours</span><strong className={data.securityEvents.failedLogins24h ? 'warning' : ''}>{data.securityEvents.failedLogins24h}</strong></div>
-            <div><span>Denied access, last 24 hours</span><strong className={data.securityEvents.accessDenied24h ? 'danger' : ''}>{data.securityEvents.accessDenied24h}</strong></div>
-          </div>
+      <section className="sap-stats" aria-label="Summary">
+        <div className="sap-stat"><span className="sap-stat__label">Active accounts</span><span className="sap-stat__num">{data.accounts.active}<small> / {data.accounts.total}</small></span></div>
+        <div className="sap-stat"><span className="sap-stat__label">Sessions</span><span className="sap-stat__num">{data.access.activeSessions}</span></div>
+        <div className="sap-stat"><span className="sap-stat__label">Trusted devices</span><span className="sap-stat__num">{data.access.activeTrustedDevices}</span></div>
+        <div className={`sap-stat${data.delivery.failed ? ' is-bad' : ''}`}><span className="sap-stat__label">Failed emails</span><span className="sap-stat__num">{data.delivery.failed}</span></div>
+      </section>
+
+      <div className="sap-grid2">
+        <section className="sap-card" aria-labelledby="so-access">
+          <div className="sap-card__head"><h2 id="so-access">Accounts & sign-in</h2><Link to="/admin/credentials" className="sap-link">Accounts →</Link></div>
+          <ul className="sap-kv">
+            <li><span>Locked</span><strong className={tone(data.accounts.locked, 'bad')}>{data.accounts.locked}</strong></li>
+            <li><span>Pending activation</span><strong className={tone(data.accounts.pending, 'warn')}>{data.accounts.pending}</strong></li>
+            <li><span>Must change password</span><strong>{data.accounts.passwordChangeRequired}</strong></li>
+            <li><span>Device codes turned off</span><strong className={tone(data.accounts.deviceVerificationDisabled, 'warn')}>{data.accounts.deviceVerificationDisabled}</strong></li>
+            <li><span>Codes waiting</span><strong>{data.access.pendingChallenges}</strong></li>
+            <li><span>Failed sign-ins, 24 h</span><strong className={tone(data.securityEvents.failedLogins24h, 'warn')}>{data.securityEvents.failedLogins24h}</strong></li>
+            <li><span>Denied access, 24 h</span><strong className={tone(data.securityEvents.accessDenied24h, 'bad')}>{data.securityEvents.accessDenied24h}</strong></li>
+          </ul>
         </section>
 
-        <section className="sysops-panel">
-          <div className="sysops-panel-heading"><div><h2>Enforced controls</h2><p>Read-only values currently enforced by the server.</p></div></div>
-          <dl className="sysops-control-list">
-            <div><dt>New-device verification</dt><dd>{data.controls.newDeviceVerification ? 'Enabled' : 'Disabled'}</dd></div>
-            <div><dt>Account lockout</dt><dd>{data.controls.maximumFailedAttempts} failed attempts · {data.controls.lockoutMinutes} minutes</dd></div>
-            <div><dt>Concurrent sessions</dt><dd>Maximum {data.controls.maximumConcurrentSessions} per account</dd></div>
-            <div><dt>Web inactivity limit</dt><dd>{data.controls.webIdleMinutes} minutes</dd></div>
-            <div><dt>Document validation</dt><dd>{data.controls.acceptedDocumentTypes.join(', ')} · {data.controls.uploadLimitMb} MB maximum</dd></div>
-            <div><dt>Private file storage</dt><dd>{data.controls.storage}</dd></div>
-            <div><dt>Email provider</dt><dd>{data.controls.email}</dd></div>
-          </dl>
-        </section>
-
-        <section className="sysops-panel sysops-span">
-          <div className="sysops-panel-heading"><div><h2>Recent security events</h2><p>Failed operations are shown without credentials or sensitive payloads.</p></div><Link to="/admin/audit">Open audit trail</Link></div>
-          {data.recentSecurityEvents.length ? <div className="sysops-event-list">{data.recentSecurityEvents.map(event => <article key={event.id}><span className="sysops-event-mark danger" /><div><strong>{humanize(event.action)}</strong><span>{event.account} · {event.resource} · IP {event.ipAddress}</span></div><time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time></article>)}</div> : <div className="sysops-empty">No failed security operations are recorded.</div>}
-        </section>
-
-        <section className="sysops-panel sysops-span">
-          <div className="sysops-panel-heading"><div><h2>Email delivery queue</h2><p>Failed messages are listed under Email delivery.</p></div><Link to="/admin/reports">Export report</Link></div>
-          <div className="sysops-delivery-strip"><div><span>Pending</span><strong>{data.delivery.pending}</strong></div><div><span>Retrying</span><strong>{data.delivery.retrying}</strong></div><div><span>Failed</span><strong className={data.delivery.failed ? 'danger' : ''}>{data.delivery.failed}</strong></div><div><span>Delivered, 24h</span><strong>{data.delivery.delivered24h}</strong></div></div>
-          {data.recentDeliveryFailures.length > 0 && <div className="sysops-event-list compact">{data.recentDeliveryFailures.map(item => <article key={item.id}><span className="sysops-event-mark warning" /><div><strong>{humanize(item.kind)}</strong><span>{item.error || 'Delivery failed without a provider response.'}</span></div><span>{item.attempts} attempt{item.attempts === 1 ? '' : 's'}</span></article>)}</div>}
+        <section className="sap-card" aria-labelledby="so-controls">
+          <div className="sap-card__head"><h2 id="so-controls">Enforced rules</h2></div>
+          <ul className="sap-kv">
+            <li><span>New-device codes</span><strong className={data.controls.newDeviceVerification ? '' : 'is-bad'}>{data.controls.newDeviceVerification ? 'On' : 'Off'}</strong></li>
+            <li><span>Lockout</span><strong>{data.controls.maximumFailedAttempts} tries · {data.controls.lockoutMinutes} min</strong></li>
+            <li><span>Sessions per account</span><strong>{data.controls.maximumConcurrentSessions}</strong></li>
+            <li><span>Web idle sign-out</span><strong>{data.controls.webIdleMinutes} min</strong></li>
+            <li><span>Uploads</span><strong>{data.controls.acceptedDocumentTypes.join(', ')} · {data.controls.uploadLimitMb} MB</strong></li>
+            <li><span>File storage</span><strong>{data.controls.storage}</strong></li>
+            <li><span>Email provider</span><strong>{data.controls.email}</strong></li>
+          </ul>
         </section>
       </div>
-      <footer className="sysops-updated">Snapshot generated {new Date(data.generatedAt).toLocaleString()} · Environment: {data.environment}</footer>
+
+      <section className="sap-card" aria-labelledby="so-events">
+        <div className="sap-card__head"><h2 id="so-events">Recent security events</h2><Link to="/admin/audit" className="sap-link">Audit trail →</Link></div>
+        {data.recentSecurityEvents.length ? <ul className="sap-rows">{data.recentSecurityEvents.map(e => <li key={e.id} className="sap-row" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+          <div className="sap-who"><span className="sap-who__name">{humanize(e.action)}</span><span className="sap-who__line">{e.account} · {e.resource}</span><span className="sap-who__mono">{e.ipAddress}</span></div>
+          <span className="sap-pill is-bad no-dot">{when(e.timestamp)}</span>
+        </li>)}</ul> : <div className="sap-empty">No failed security operations.</div>}
+      </section>
+
+      <section className="sap-card" aria-labelledby="so-email">
+        <div className="sap-card__head"><h2 id="so-email">Email queue</h2><Link to="/admin/health?tab=email" className="sap-link">Email delivery →</Link></div>
+        <dl className="sap-facts">
+          <div className="sap-fact"><dt>Pending</dt><dd>{data.delivery.pending}</dd></div>
+          <div className="sap-fact"><dt>Retrying</dt><dd className={data.delivery.retrying ? 'is-warn' : ''}>{data.delivery.retrying}</dd></div>
+          <div className="sap-fact"><dt>Failed</dt><dd className={data.delivery.failed ? 'is-bad' : ''}>{data.delivery.failed}</dd></div>
+          <div className="sap-fact"><dt>Sent, 24 h</dt><dd className="is-ok">{data.delivery.delivered24h}</dd></div>
+        </dl>
+        {data.recentDeliveryFailures.length > 0 && <ul className="sap-rows" style={{ borderTop: '1px solid var(--sap-line)' }}>{data.recentDeliveryFailures.map(f => <li key={f.id} className="sap-row" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+          <div className="sap-who"><span className="sap-who__name">{humanize(f.kind)}</span><span className="sap-who__line">{f.error || 'No provider response'}</span></div>
+          <span className="sap-pill is-warn no-dot">{f.attempts} attempt{f.attempts === 1 ? '' : 's'}</span>
+        </li>)}</ul>}
+      </section>
     </> : null}
   </div>;
 };
