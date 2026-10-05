@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/admin/Sidebar';
 import { ToastContainer } from '../components/shared/ToastContainer';
 import { AppIcon } from '../components/common/AppIcon';
-import { PersonnelBottomNav } from '../components/personnel/PersonnelBottomNav';
 import { RouteContent } from '../routes/RouteContent';
+import '../components/personnel/personnel-phone.css';
 
 import type { Variants } from 'framer-motion';
 
@@ -54,7 +54,7 @@ export const PersonnelLayout: React.FC = () => {
   }, [location.pathname]);
 
   return (
-    <div className="shell-viewport-root">
+    <div className="shell-viewport-root personnel-shell">
       <PrivacyConsentGate />
       {/* Outer Centered Application Shell Frame */}
       <div className="app-shell-frame">
@@ -111,8 +111,6 @@ export const PersonnelLayout: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Sticky Bottom Navigation */}
-      <PersonnelBottomNav />
 
       <ToastContainer />
     </div>

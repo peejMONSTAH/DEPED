@@ -194,10 +194,11 @@ test('personnel page styles have no fixed minimum wider than a 320px phone', () 
   assert.match(src('pages/personnel/service-record.css'), /\.svc-table-wrap \{ overflow-x: auto;/);
 });
 
-test('the phone bar keeps four destinations so labels fit at 320px', () => {
-  const nav = src('components/personnel/PersonnelBottomNav.tsx');
-  assert.equal((nav.match(/\{ label: '/g) || []).length, 4);
-  assert.match(nav, /'\/personnel\/vacancies'/);
+test('on a phone, personnel navigation lives in the burger drawer (no bottom tab bar)', () => {
+  const layout = src('layouts/PersonnelLayout.tsx');
+  assert.doesNotMatch(layout, /PersonnelBottomNav/);
+  assert.match(layout, /aria-label="Open navigation menu"/);
+  assert.match(src('components/personnel/personnel-phone.css'), /\.personnel-shell \.shell-nav-link \{/);
 });
 
 // ── Annex C checklist dialog ───────────────────────────────────────────────

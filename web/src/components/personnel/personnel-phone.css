@@ -1,0 +1,50 @@
+/* Personnel portal on a phone: navigation lives only in the burger menu (no bottom tab bar), the menu
+   opens as a full-height drawer of large stacked cards, and page cards stack full width with larger
+   type for older users. Desktop is unchanged. */
+@media (max-width: 768px) {
+  /* No bottom bar any more: give the content its space back. */
+  .personnel-shell .workspace-main-content { padding-bottom: max(28px, env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* Top bar: a larger burger target */
+  .personnel-shell .mobile-menu-trigger { width: 48px !important; height: 48px !important; border-radius: 14px !important; }
+  .personnel-shell .mobile-topbar-action-btn { width: 48px !important; height: 48px !important; }
+  .personnel-shell .mobile-app-title { font-size: 1.1875rem !important; }
+
+  /* Drawer: full height, stacked item cards */
+  .personnel-shell .shell-sidebar { width: min(88vw, 380px) !important; max-width: none !important; background: #F4F8F5 !important; }
+  .personnel-shell .shell-sidebar-header { padding: 22px 20px 12px !important; }
+  .personnel-shell .shell-sidebar-nav { padding: 6px 16px 16px !important; }
+  .personnel-shell .nav-section-block { display: grid; gap: 10px; margin-bottom: 18px !important; }
+  .personnel-shell .nav-section-header { font-size: 0.875rem !important; letter-spacing: 0.1em !important; padding: 4px 4px 0 !important; }
+  .personnel-shell .shell-nav-link {
+    position: relative;
+    display: flex !important; align-items: center !important; gap: 14px !important;
+    min-height: 64px; padding: 10px 44px 10px 12px !important;
+    border-radius: 18px !important; background: #FFFFFF !important;
+    border: 1.5px solid #DCE6DE !important; box-shadow: 0 4px 14px rgba(23, 71, 46, 0.06) !important;
+    font-size: 1.125rem !important; font-weight: 700 !important; color: #1F3A2C !important;
+    margin: 0 !important;
+  }
+  .personnel-shell .shell-nav-link::after {
+    content: '›'; position: absolute; right: 18px; top: 50%; transform: translateY(-52%);
+    font-size: 1.75rem; font-weight: 400; color: #8AA596;
+  }
+  .personnel-shell .shell-nav-link .shell-nav-icon {
+    flex: none; width: 42px !important; height: 42px !important; padding: 11px; border-radius: 12px;
+    background: #E3EEE7; color: #17472E;
+  }
+  .personnel-shell .shell-nav-link.active-pill { background: #17472E !important; border-color: #17472E !important; color: #FFFFFF !important; }
+  .personnel-shell .shell-nav-link.active-pill::after { color: rgba(255, 255, 255, 0.8); }
+  .personnel-shell .shell-nav-link.active-pill .shell-nav-icon { background: rgba(255, 255, 255, 0.16); color: #FFFFFF; }
+  .personnel-shell .shell-nav-link:focus-visible { outline: 3px solid #2F7D52 !important; outline-offset: 2px; }
+  .personnel-shell .shell-nav-link .lime-badge-pill,
+  .personnel-shell .shell-nav-link .lavender-badge-pill { margin-left: auto; font-size: 0.9375rem !important; padding: 2px 10px !important; }
+
+  /* Page cards: stacked, full width, larger type */
+  .personnel-shell .page-transition-container { font-size: 1.0625rem; }
+  .personnel-shell .page-transition-container :is(.card, .soft-card, .bento-card, section[class*="card"], div[class*="-card"]):not([class*="avatar"]):not([class*="badge"]) {
+    border-radius: 20px;
+  }
+  .personnel-shell .page-transition-container :is(button, a[class*="btn"], .btn) { min-height: 48px; }
+  .personnel-shell .page-transition-container :is(input, select, textarea) { font-size: 1.0625rem !important; min-height: 48px; }
+}
