@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eminence HRIS Schema</title>
+<style>
+body{margin:0;padding:24px;background:#fff;font:11px/1.35 Arial,Helvetica,sans-serif;color:#222}
+.note{display:inline-block;border:1px solid #e6d98a;background:#fffbe0;padding:6px 10px;margin-bottom:18px}
+.wrap{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.grp{border:1px solid rgba(0,0,0,.12);padding:0 14px 16px;position:relative}
+.grp>h2{margin:0 -14px 12px;font:normal 10px Arial;color:#333;background:rgba(0,0,0,.08);width:110px;padding:3px 6px}
+.tables{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:14px}
+.t{width:200px;background:#fff;border:1px solid #7f9cc0;border-radius:6px;box-shadow:2px 3px 4px rgba(0,0,0,.25);overflow:hidden}
+.t h3{margin:0;padding:4px 6px;font:bold 11px Arial;color:#123;background:linear-gradient(#b7cfe9,#8fb0d6);display:flex;align-items:center;gap:5px}
+.t h3:before{content:"";width:10px;height:9px;border:1px solid #456;background:#eef4fb}
+.t h3:after{content:"▼";margin-left:auto;font-size:8px;color:#345}
+.t ul{list-style:none;margin:0;padding:3px 0}
+.t li{padding:1px 6px 1px 20px;position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t li:before{content:"";position:absolute;left:7px;top:5px;width:6px;height:6px;transform:rotate(45deg);background:#9fc3e6;border:1px solid #5d8bb8}
+.t li.pk:before{content:"🔑";transform:none;background:none;border:0;top:0;left:4px;font-size:9px}
+.t li.fk:before{background:#e87b7b;border-color:#a33}
+.t li.nn:before{background:#4f8fd0}
+.t li span{color:#555}
+.t .ix{background:linear-gradient(#cfd6de,#b4bec9);color:#fff;padding:2px 6px;font-size:10px;display:flex}
+.t .ix:after{content:"▶";margin-left:auto;color:#667;font-size:8px}
+.g1{background:#c9eab8}.g2{background:#fdf0c4}.g3{background:#cdf4f8}.g4{background:#f5cdf8}.g5{background:#ebcfc7}.g6{background:#d6e4fb}
+.legend{margin-top:22px;display:flex;gap:18px;color:#444}
+.legend i{display:inline-block;width:7px;height:7px;transform:rotate(45deg);margin-right:5px;border:1px solid}
+</style></head><body>
+<div class="note">Database schema of Eminence HRIS — Digital 201 (PostgreSQL, October 2026)<br>Source: backend/prisma/schema.prisma + migrations · 24 tables · 15 enum types</div>
+<div class="wrap" id="root"></div>
+<div class="legend"><span>🔑 Primary key</span><span><i style="background:#e87b7b;border-color:#a33"></i>Foreign key</span><span><i style="background:#4f8fd0;border-color:#5d8bb8"></i>Not null</span><span><i style="background:#9fc3e6;border-color:#5d8bb8"></i>Nullable</span></div>
+<script>
+// [name, type, flag] flag: p=PK, f=FK(not null), F=FK nullable, n=not null, ''=nullable
+const G=[
+["Users & access","g1",[
+ [["users",[["id","SERIAL","p"],["email","CITEXT","n"],["password_hash","TEXT","n"],["role_id","INT","f"],["account_status","AccountStatus","n"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"],["last_login","TIMESTAMP(3)"],["failed_login_attempts","INT","n"],["must_change_password","BOOLEAN","n"],["locked_until","TIMESTAMP(3)"],["device_verification","BOOLEAN","n"]]],
+  ["roles",[["id","SERIAL","p"],["name","UserRole","n"],["description","TEXT"]]]],
+ [["refresh_tokens",[["id","SERIAL","p"],["token","TEXT","n"],["client","TEXT","n"],["last_used_at","TIMESTAMP(3)","n"],["user_id","INT","f"],["expires_at","TIMESTAMP(3)","n"],["created_at","TIMESTAMP(3)","n"],["revoked","BOOLEAN","n"]]],
+  ["trusted_devices",[["id","SERIAL","p"],["user_id","INT","f"],["token_hash","TEXT","n"],["label","TEXT","n"],["ip_address","TEXT"],["created_at","TIMESTAMP(3)","n"],["last_used_at","TIMESTAMP(3)","n"],["expires_at","TIMESTAMP(3)","n"],["revoked_at","TIMESTAMP(3)"]]]],
+ [["login_challenges",[["id","SERIAL","p"],["user_id","INT","f"],["token_hash","TEXT","n"],["code_hash","TEXT","n"],["label","TEXT","n"],["ip_address","TEXT"],["attempts","INT","n"],["last_sent_at","TIMESTAMP(3)","n"],["expires_at","TIMESTAMP(3)","n"],["consumed_at","TIMESTAMP(3)"],["created_at","TIMESTAMP(3)","n"]]],
+  ["used_magic_tokens",[["id","SERIAL","p"],["jti","TEXT","n"],["user_id","INT","n"],["used_at","TIMESTAMP(3)","n"],["expires_at","TIMESTAMP(3)","n"]]],
+  ["privacy_consents",[["id","SERIAL","p"],["user_id","INT","f"],["notice_version","TEXT","n"],["accepted_at","TIMESTAMP(3)","n"],["ip_address","TEXT"],["user_agent","TEXT"]]]],
+ [["account_creation_requests",[["id","SERIAL","p"],["requested_by_user_id","INT","f"],["first_name","TEXT","n"],["last_name","TEXT","n"],["middle_name","TEXT"],["suffix","TEXT"],["email","CITEXT","n"],["birth_date","TIMESTAMP(3)"],["gender","Gender"],["civil_status","CivilStatus"],["contact_number","TEXT"],["address","TEXT"],["role","UserRole","n"],["designation","TEXT","n"],["school","TEXT"],["district","TEXT"],["initial_password","TEXT","n"],["date_hired","TIMESTAMP(3)"],["pds_original_file_name","TEXT"],["pds_storage_path","TEXT"],["pds_mime_type","TEXT"],["pds_file_size","INT"],["status","AccountRequestStatus","n"],["rejection_reason","TEXT"],["created_user_id","INT","F"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]]
+]],
+["Personnel (201 file)","g2",[
+ [["personnel",[["id","SERIAL","p"],["user_id","INT","f"],["employee_id","TEXT","n"],["first_name","TEXT","n"],["last_name","TEXT","n"],["middle_name","TEXT"],["suffix","TEXT"],["birth_date","TIMESTAMP(3)"],["gender","Gender"],["civil_status","CivilStatus"],["contact_number","TEXT"],["address","TEXT"],["school","CITEXT"],["district","CITEXT"],["designation","TEXT","n"],["date_hired","TIMESTAMP(3)"],["appointment_status","AppointmentStatus"],["status","PersonnelStatus","n"],["plantilla_item_id","INT","F"],["profile_complete","BOOLEAN","n"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]],
+ [["personnel_files",[["id","SERIAL","p"],["personnel_id","INT","f"],["document_type_id","TEXT","n"],["document_type_name","TEXT","n"],["original_file_name","TEXT"],["stored_file_name","TEXT"],["storage_path","TEXT"],["mime_type","TEXT"],["file_size","INT"],["is_required","BOOLEAN","n"],["issue_date","DATE"],["expiration_date","DATE"],["remarks","TEXT"],["status","PersonnelDocumentStatus","n"],["rejection_reason","TEXT"],["reviewed_at","TIMESTAMP(3)"],["reviewed_by_user_id","INT","F"],["replaces_document_id","INT","F"],["ocr_extracted_data_json","JSONB"],["ocr_confidence_score","FLOAT8"],["ocr_status","TEXT"],["ocr_processed_at","TIMESTAMP(3)"],["ocr_error_message","TEXT"],["deleted_at","TIMESTAMP(3)"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]],
+ [["plantilla_items",[["id","SERIAL","p"],["item_number","TEXT","n"],["position_title","TEXT","n"],["salary_grade","INT","n"],["department","TEXT","n"],["division","TEXT","n"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]],
+  ["career_history_entries",[["id","SERIAL","p"],["personnel_id","INT","f"],["event_type","CareerEventType","n"],["event_date","TIMESTAMP(3)","n"],["details_json","JSONB"],["document_id","INT","F"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]]
+]],
+["Promotions","g4",[
+ [["promotion_cycles",[["id","SERIAL","p"],["name","TEXT","n"],["type","PromotionCycleType","n"],["start_date","TIMESTAMP(3)","n"],["end_date","TIMESTAMP(3)","n"],["status","PromotionCycleStatus","n"],["rules_configuration_json","JSONB"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]],
+ [["promotion_applications",[["id","SERIAL","p"],["applicant_number","TEXT"],["personnel_id","INT","f"],["promotion_cycle_id","INT","f"],["status","PromotionApplicationStatus","n"],["application_date","TIMESTAMP(3)","n"],["final_rank","INT"],["score_details_json","JSONB"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]]
+]],
+["Transactions & documents","g6",[
+ [["transactions",[["id","SERIAL","p"],["personnel_id","INT","f"],["transaction_type_id","INT","f"],["status","TransactionStatus","n"],["submission_date","TIMESTAMP(3)"],["validation_date","TIMESTAMP(3)"],["approval_date","TIMESTAMP(3)"],["remarks","TEXT"],["current_assignee_id","INT","F"],["resubmission_count","INT","n"],["stage_entered_at","TIMESTAMP(3)"],["escalated_at","TIMESTAMP(3)"],["escalation_reviewed_at","TIMESTAMP(3)"],["deficiency_deadline","TIMESTAMP(3)"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]],
+  ["transaction_types",[["id","SERIAL","p"],["name","TEXT","n"],["description","TEXT"]]]],
+ [["uploaded_documents",[["id","SERIAL","p"],["transaction_id","INT","f"],["requirement_template_id","INT","f"],["storage_path","TEXT","n"],["file_name","TEXT","n"],["file_size","INT"],["mime_type","TEXT"],["file_hash","TEXT"],["uploaded_by_user_id","INT","f"],["upload_date","TIMESTAMP(3)","n"],["status","DocumentStatus","n"],["ocr_extracted_data_json","JSONB"],["ocr_confidence_score","FLOAT8"],["corrected_ocr_data_json","JSONB"],["validation_notes","TEXT"],["validated_by_user_id","INT","F"],["validation_date","TIMESTAMP(3)"],["is_duplicate","BOOLEAN","n"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]]],
+ [["requirement_templates",[["id","SERIAL","p"],["transaction_type_id","INT","f"],["name","TEXT","n"],["description","TEXT"],["is_mandatory","BOOLEAN","n"],["expected_data_type","TEXT","n"],["ocr_fields_json","JSONB"],["created_at","TIMESTAMP(3)","n"],["updated_at","TIMESTAMP(3)","n"]]],
+  ["document_revisions",[["id","TEXT (uuid)","p"],["document_id","INT","f"],["snapshot","JSONB","n"],["created_at","TIMESTAMP(3)","n"]]],
+  ["form_drafts",[["transaction_id","INT","p"],["template_id","TEXT","p"],["version","TEXT","n"],["payload","JSONB","n"],["updated_at","TIMESTAMP(3)","n"]]]]
+]],
+["Audit & notifications","g3",[
+ [["validation_logs",[["id","SERIAL","p"],["entity_type","TEXT","n"],["entity_id","INT","n"],["action","TEXT","n"],["details_json","JSONB"],["user_id","INT","f"],["ip_address","TEXT"],["user_agent","TEXT"],["status","TEXT","n"],["timestamp","TIMESTAMP(3)","n"],["category","TEXT"],["severity","TEXT"],["outcome","TEXT"],["action_label","TEXT"],["target_type","TEXT"],["target_id","INT"],["target_reference","TEXT"],["actor_email","TEXT"],["actor_role","TEXT"],["actor_station","TEXT"],["client_source","TEXT"],["request_id","TEXT"],["failure_reason","TEXT"],["record_hash","TEXT"],["previous_hash","TEXT"],["hash_version","INT"]]]],
+ [["notifications",[["id","SERIAL","p"],["user_id","INT","f"],["message","TEXT","n"],["type","NotificationType","n"],["is_read","BOOLEAN","n"],["created_at","TIMESTAMP(3)","n"],["related_entity_id","INT"],["related_entity_type","TEXT"]]]]
+]],
+["Maintenance","g5",[
+ [["workflow_outbox",[["id","TEXT (uuid)","p"],["event_key","TEXT","n"],["kind","TEXT","n"],["payload","JSONB","n"],["attempts","INT","n"],["available_at","TIMESTAMP(3)","n"],["processed_at","TIMESTAMP(3)"],["last_error","TEXT"],["created_at","TIMESTAMP(3)","n"]]]],
+ [["backup_runs",[["id","SERIAL","p"],["run_key","TEXT","n"],["kind","TEXT","n"],["status","TEXT","n"],["started_at","TIMESTAMP(3)"],["finished_at","TIMESTAMP(3)"],["size_bytes","BIGINT"],["encrypted","BOOLEAN"],["manifest_verified","BOOLEAN"],["missing_objects","INT"],["object_count","INT"],["retention_days","INT"],["error","TEXT"],["source","TEXT"],["reported_at","TIMESTAMP(3)","n"]]]]
+]]];
+const cls={p:"pk",f:"fk",F:"fk",n:"nn"};
+document.getElementById("root").innerHTML=G.map(([title,c,cols])=>
+ `<section class="grp ${c}"><h2>${title}</h2><div class="tables">`+
+ cols.map(col=>`<div class="col">`+col.map(([n,f])=>
+  `<div class="t"><h3>${n}</h3><ul>`+f.map(([a,b,k=""])=>`<li class="${cls[k]||""}">${a} <span>${b}</span></li>`).join("")+`</ul><div class="ix">Indexes</div></div>`).join("")+`</div>`).join("")+
+ `</div></section>`).join("");
+</script></body></html>
