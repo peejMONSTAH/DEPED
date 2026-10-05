@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertTriangle } from 'lucide-react';
+import { Digital201Logo } from '../../components/common/Digital201Logo';
+import '../../components/login/login.css';
+import '../../components/login/split-login.css';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { authApi } from '../../api/auth.api';
 import { homePathFor } from '../../auth/permissions';
-import './auth-access.css';
 
 /** Mirrors backend validatePasswordComplexity; the server re-checks on submit. */
 const MIN_LENGTH = 6;
@@ -57,86 +59,100 @@ export const SetupAccount: React.FC = () => {
   };
 
   return (
-    <div className="access-page">
-      <div className="access-page__shell">
-        <header className="access-page__brand" aria-label="Digital 201">
-          <span className="access-page__brand-mark">201</span>
-          <span><strong>Digital 201</strong><small>Personnel records portal</small></span>
-        </header>
-        <main className="access-card">
-          <div className="access-card__icon" aria-hidden="true"><KeyRound size={23} /></div>
-          <p className="access-card__eyebrow">Account activation</p>
-          <h1>Set your password</h1>
-          <p className="access-card__intro">Create a password to replace the temporary one. Once saved, you will be signed in automatically.</p>
+    <div className="neuro-login-viewport split-login">
+      <main className="split-login-frame">
+        <section className="split-login-panel" aria-labelledby="setup-heading">
+          <div className="split-login-inner">
+            <div className="split-login-brand">
+              <img src="/depedlogo.png" alt="Department of Education" className="split-login-seal" />
+              <Digital201Logo variant="wordmark" size="md" tone="light" showTag />
+            </div>
+            <header className="split-login-header">
+              <h1 id="setup-heading">Set your password</h1>
+              <p>Choose your own password. You will be signed in right after.</p>
+            </header>
 
-        {error && (
-          <div className="access-card__error" role="alert">
-            <AlertTriangle size={18} aria-hidden="true" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {linkUnusable ? (
-          <div className="access-card__recovery">
-            <p>This link can no longer be used. If you have a temporary password from your AO II or System Administrator, you can sign in with it and change it there. Otherwise, ask them for a new setup link.</p>
-            <Link to="/login" className="access-card__submit">Go to sign in</Link>
-          </div>
-        ) : (
-          <form className="access-card__form" onSubmit={handleSubmit} noValidate>
-            <div className="access-card__field">
-              <label htmlFor="setup-password">New password</label>
-              <div className="access-card__password-row">
-                <input
-                  id="setup-password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  aria-describedby="setup-password-hint"
-                  aria-invalid={tooShort}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="access-card__visibility"
-                  onClick={() => setShowPassword(v => !v)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword}
-                >
-                  {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                </button>
+            {error && (
+              <div className="split-login-error" role="alert">
+                <AlertTriangle size={18} aria-hidden="true" style={{ flex: 'none' }} /> <span>{error}</span>
               </div>
-              <p id="setup-password-hint" className={tooShort ? 'access-card__hint is-error' : 'access-card__hint'}>
-                At least {MIN_LENGTH} characters. Do not reuse the temporary password.
-              </p>
-            </div>
+            )}
 
-            <div className="access-card__field">
-              <label htmlFor="setup-confirm">Confirm new password</label>
-              <input
-                id="setup-confirm"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="new-password"
-                value={confirm}
-                onChange={e => setConfirm(e.target.value)}
-                aria-invalid={mismatch}
-                aria-describedby={mismatch ? 'setup-confirm-error' : undefined}
-              />
-              {mismatch && (
-                <p id="setup-confirm-error" className="access-card__hint is-error">The passwords do not match.</p>
-              )}
-            </div>
+            {linkUnusable ? (
+              <div className="split-login-form">
+                <p className="split-login-help" style={{ textAlign: 'left' }}>
+                  This link can no longer be used. Sign in with a temporary password if you have one, or ask your AO II or System Administrator for a new link.
+                </p>
+                <Link to="/login" className="split-login-submit" style={{ textDecoration: 'none' }}>Go to sign in</Link>
+              </div>
+            ) : (
+              <form className="split-login-form" onSubmit={handleSubmit} noValidate>
+                <div className="split-login-field">
+                  <label className="split-login-label" htmlFor="setup-password">New password</label>
+                  <span className="split-login-input">
+                    <input
+                      id="setup-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      placeholder={`At least ${MIN_LENGTH} characters`}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      aria-describedby="setup-password-hint"
+                      aria-invalid={tooShort}
+                      autoFocus
+                    />
+                    <button type="button" className="split-login-reveal"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword} onClick={() => setShowPassword(v => !v)}>
+                      {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                    </button>
+                  </span>
+                  <span id="setup-password-hint" className={`split-login-hint${tooShort ? ' is-error' : ''}`}>
+                    {tooShort ? `Use at least ${MIN_LENGTH} characters.` : 'Do not reuse the temporary password.'}
+                  </span>
+                </div>
 
-            <button type="submit" className="access-card__submit" disabled={!canSubmit}>
-              {submitting && <Loader2 size={18} className="spin" aria-hidden="true" />}
-              {submitting ? 'Saving…' : 'Set password and sign in'}
-            </button>
-          </form>
-        )}
-          <p className="access-card__footer">Opened this page by mistake? <Link to="/login">Return to sign in</Link></p>
-        </main>
-        <p className="access-page__security">Use this link only if you requested access to Digital 201. Never share it or your password.</p>
-      </div>
+                <div className="split-login-field">
+                  <label className="split-login-label" htmlFor="setup-confirm">Confirm password</label>
+                  <span className="split-login-input">
+                    <input
+                      id="setup-confirm"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      placeholder="Type it again"
+                      value={confirm}
+                      onChange={e => setConfirm(e.target.value)}
+                      aria-invalid={mismatch}
+                      aria-describedby={mismatch ? 'setup-confirm-error' : undefined}
+                    />
+                  </span>
+                  {mismatch && <span id="setup-confirm-error" className="split-login-hint is-error">The passwords do not match.</span>}
+                </div>
+
+                <button type="submit" className="split-login-submit" disabled={!canSubmit}>
+                  {submitting && <Loader2 size={18} className="spin" aria-hidden="true" />}
+                  {submitting ? 'Saving…' : 'Set password and sign in'}
+                </button>
+              </form>
+            )}
+            <p className="split-login-help"><Link to="/login" className="split-login-link">Back to sign in</Link></p>
+            <p className="split-login-help">Never share this link or your password.</p>
+          </div>
+        </section>
+
+        <aside className="split-login-art" aria-hidden="true">
+          <picture>
+            <source srcSet="/brand/sdo-koronadal-building.webp" type="image/webp" />
+            <img className="split-login-photo" src="/brand/sdo-koronadal-building.jpg" alt="" width={1732} height={908} decoding="async" />
+          </picture>
+          <span className="split-login-scrim" />
+          <div className="split-login-caption">
+            <span className="split-login-caption__kicker">Account activation</span>
+            <strong>Welcome to Digital 201</strong>
+            <span>Your 201 file, applications and service record in one place.</span>
+          </div>
+        </aside>
+      </main>
     </div>
   );
 };

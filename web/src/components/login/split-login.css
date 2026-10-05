@@ -297,3 +297,8 @@
 .split-login-link { background: none; border: 0; padding: 6px 0; font: inherit; font-size: 0.9375rem; font-weight: 700; color: var(--sl-green, #2F7D52); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .split-login-link:disabled { color: var(--sl-muted); cursor: default; text-decoration: none; }
 .split-login-link:focus-visible { outline: 3px solid var(--sl-gold); outline-offset: 2px; border-radius: 4px; }
+
+/* Field hint under an input (Set password) */
+.split-login-hint { display: block; margin-top: 6px; font-size: 0.875rem; color: var(--sl-muted, #5f6f64); }
+.split-login-hint.is-error { color: #A1263A; font-weight: 600; }
+.split-login-error { display: flex; align-items: flex-start; gap: 8px; }
