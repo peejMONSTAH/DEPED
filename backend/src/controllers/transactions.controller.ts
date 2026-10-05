@@ -20,7 +20,7 @@ import { canAccessTransaction, transactionAccessFilter } from '../utils/transact
 import { denyOutOfScope } from '../utils/access-denial.util';
 import { transactionCompliance } from '../utils/transaction-compliance.util';
 import { lockTransaction, workflowConflict } from '../utils/transaction-lock.util';
-import { awaitingWhereFor, describeReview, eligibleApproverIds, hrmoValidationLaneWhere, loadReviewContext, reviewerLabel } from '../utils/transaction-review.util';
+import { awaitingWhereFor, describeReview, eligibleApproverIds, fallbackApprovalIds, hrmoValidationLaneWhere, loadReviewContext, reviewerLabel } from '../utils/transaction-review.util';
 
 const ADMIN_ROLES = ['SYSTEM_ADMIN', 'AO_II', 'HRMO'];
 export const transactionEvents = new EventEmitter();
@@ -157,7 +157,8 @@ export const getTransactions = async (req: Request, res: Response) => {
 
   // Review queues. "Awaiting me" is decided in one place (awaitingWhereFor) so the list,
   // its counts and the notices agree: AO II validates, HRMO validates its own lane and
-  // approves files it did not validate, and the System Administrator reviews nothing.
+  // approves files it did not validate, and the System Administrator sees only the
+  // fallback approvals no HRMO can give.
   const awaiting: any = await awaitingWhereFor(req.user);
   const queue = String((req.query as any).queue || '').toLowerCase();
   if (queue === 'awaiting' || queue === 'oldest') statusCondition = awaiting;
@@ -165,6 +166,10 @@ export const getTransactions = async (req: Request, res: Response) => {
   // HRMO's own validation queue: files waiting for a first check in the HRMO lane.
   if (queue === 'validation' && req.user?.role === 'HRMO') {
     statusCondition = { AND: [{ status: 'PENDING_VALIDATION' }, await hrmoValidationLaneWhere()] };
+  }
+  // The System Administrator's fallback approvals: narrow by design.
+  if (queue === 'fallback') {
+    statusCondition = req.user?.role === 'SYSTEM_ADMIN' ? { id: { in: await fallbackApprovalIds() } } : { id: -1 };
   }
   // HRMO's validation lane in every status, so Returned and Done lists are complete too.
   if (String((req.query as any).lane || '').toLowerCase() === 'validation' && req.user?.role === 'HRMO') {
@@ -1036,11 +1041,13 @@ export const validateTransaction = async (req: Request, res: Response) => {
           await tx.notification.createMany({
             data: admins.map(a => ({
               userId: a.id,
-              message: `Transaction #${id} (${txTypeName}) for ${applicantName} was validated by ${vLabel}, but no other HRMO can give the final approval. Add or reactivate an HRMO account so it can be approved.`,
+              message: `Fallback approval needed: ${vLabel} validated Transaction #${id} (${txTypeName}) for ${applicantName}, and no other HRMO can approve it (independent approval). You may give the final approval from Fallback approvals.`,
               type: 'WARNING' as const,
+              relatedEntityId: id,
+              relatedEntityType: 'ApprovalFallback',
             })),
           });
-          approvalRecipients = { kind: 'NONE', count: 0 };
+          approvalRecipients = { kind: 'SYSTEM_ADMIN', count: admins.length };
           notifyUserNotifications(admins.map(a => a.id));
         }
       }
@@ -1061,8 +1068,8 @@ export const validateTransaction = async (req: Request, res: Response) => {
     ? `TRX-${id} was disqualified. The applicant was told the reason and can reopen it to correct the documents.`
     : hasDeficiencies
       ? `TRX-${id} was returned to the applicant for correction. It comes back to ${vLabel} when they resubmit.`
-      : approvalRecipients.kind === 'NONE' && hrDirectEnabled()
-        ? `TRX-${id} is validated, but no other HRMO can give the final approval. The System Administrator was asked to add or reactivate an HRMO.`
+      : approvalRecipients.kind === 'SYSTEM_ADMIN'
+        ? `TRX-${id} is validated. No other HRMO can approve it, so the System Administrator was asked for the fallback approval.`
         : `TRX-${id} is validated and now waits for final approval by ${hrDirectEnabled() ? 'a different HRMO' : 'HRMO'}${approvalRecipients.count ? ` (${approvalRecipients.count} notified)` : ''}. You no longer need to act on it.`;
   sendSuccess(res, { id, status: newStatus, validationDate: new Date(), nextOwner: isRejected || hasDeficiencies ? 'APPLICANT' : approvalRecipients.kind, notifiedReviewers: approvalRecipients.count }, moved);
 };

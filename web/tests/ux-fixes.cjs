@@ -127,8 +127,8 @@ test('every transaction status has readable text and empty states never show an 
   assert.equal(humanizeEnum('SOME_NEW_STATUS'), 'Some new status');
   const queue = src('pages/admin/TransactionQueue.tsx');
   assert.doesNotMatch(queue, /category=\{statusFilter\}/);
-  assert.match(queue, /title=\{transactionEmptyTitle\(statusFilter\)\}/);
-  assert.match(queue, /label: 'Show All Transactions'/, 'a reset action remains');
+  assert.match(queue, /transactionEmptyTitle\(statusFilter\)/);
+  assert.ok(queue.includes('>Show all</button>'), 'a reset action remains');
   assert.match(src('components/common/SmartEmptyState.tsx'), /humanizeEnum\(category\)/);
 });
 

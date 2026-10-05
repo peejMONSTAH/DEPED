@@ -220,3 +220,10 @@
 .sap.sap .sap-select { width: auto !important; flex: 0 1 auto; max-width: 100%; margin: 0 !important; }
 @media (max-width: 760px) { .sap.sap .sap-select { width: 100% !important; flex: 1 1 100%; } }
 .sap-card__head--stack { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 16px; }
+
+/* Active filter chips */
+.sap-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sap-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 14px; border-radius: 999px; background: #E9F0EB; font-weight: 700; font-size: 1rem; color: var(--sap-deep); }
+.sap.sap .sap-chip button { all: unset; cursor: pointer; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; }
+.sap.sap .sap-chip button:hover { background: #D5E3D9; }
+.sap.sap .sap-chip button:focus-visible { outline: 3px solid var(--sap-green); }

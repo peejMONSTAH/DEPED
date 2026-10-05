@@ -19,8 +19,8 @@ test('each admin page reads its own API and shows loading, error and empty state
     assert.match(page, /aria-busy="true"/, `${file} loading state`);
     assert.match(page, /set\w+\(null\)/, `${file} clears data on failure instead of keeping stale or sample data`);
   }
-  assert.match(src('pages/admin/AccessSessions.tsx'), /sysops-empty/);
-  assert.match(src('pages/admin/EmailDelivery.tsx'), /sysops-empty/);
+  assert.match(src('pages/admin/AccessSessions.tsx'), /sap-empty/);
+  assert.match(src('pages/admin/EmailDelivery.tsx'), /sap-empty/);
 });
 
 test('destructive admin actions ask for confirmation and a reason', () => {

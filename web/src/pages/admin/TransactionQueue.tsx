@@ -243,7 +243,7 @@ export const TransactionQueue: React.FC = () => {
         ) : transactions.length === 0 ? (
           <div className="sap-empty">
             {search ? <>No results for “{search}”. <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => setSearch('')}>Clear search</button></>
-              : statusFilter !== 'All' ? <>{transactionEmptyTitle(statusFilter)}. <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => { setStatusFilter('All'); setPage(1); }}>Show all</button></>
+              : statusFilter !== 'All' ? <>{transactionEmptyTitle(statusFilter)} <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => { setStatusFilter('All'); setPage(1); }}>Show all</button></>
               : queue ? 'Nothing needs your action.' : 'No transactions yet.'}
           </div>
         ) : (

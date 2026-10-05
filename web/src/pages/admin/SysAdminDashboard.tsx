@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { humanizeEnum } from '../../constants/transactionStatus';
 import { SystemExceptions } from './SystemExceptions';
+import { FallbackApprovals } from './FallbackApprovals';
 import './sysadmin-dashboard.css';
 
 interface Props {
@@ -34,6 +35,7 @@ export const SysAdminDashboard: React.FC<Props> = p => {
   return (
     <div className="sad">
       <SystemExceptions />
+      <FallbackApprovals />
 
       <section className="sad-kpis" aria-label="Accounts at a glance">
         <Link to="/admin/credentials" className="sad-kpi">

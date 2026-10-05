@@ -486,12 +486,12 @@ export const PersonnelManagement: React.FC = () => {
               <input type="search" placeholder="Search name, employee ID or position" value={search} onChange={e => setSearch(e.target.value)} />
             </label>
             <div className="sap-filters" role="group" aria-label="Location filters">
-              <select aria-label="District" className="sap-select" value={districtFilter}
+              <select aria-label="Filter by district" className="sap-select" value={districtFilter}
                 onChange={e => { const next = e.target.value; setDistrictFilter(next); setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS)); }}>
                 <option value="ALL">All districts</option>
                 {DEPED_KORONADAL_DISTRICTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
               </select>
-              <select aria-label="School" className="sap-select" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+              <select aria-label="Filter by school" className="sap-select" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
                 <option value="ALL">All schools</option>
                 {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => <option key={school} value={school}>{school}</option>)}
               </select>

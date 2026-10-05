@@ -584,17 +584,26 @@ export const PlantillaManagement: React.FC = () => {
             </div>
           </div>
           <div className="sap-filters" role="group" aria-label="Location filters">
-            <select aria-label="District" className="sap-select" value={districtFilter}
+            <select aria-label="Filter by district" className="sap-select" value={districtFilter}
               onChange={e => { const next = e.target.value; setDistrictFilter(next); setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS)); }}>
               <option value="ALL">All districts</option>
               {DEPED_KORONADAL_DISTRICTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
-            <select aria-label="School" className="sap-select" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+            <select aria-label="Filter by school" className="sap-select" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
               <option value="ALL">All schools</option>
               {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => <option key={school} value={school}>{school}</option>)}
             </select>
-            {activeFilterChips.length > 0 && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={resetFilters}><X size={17} aria-hidden="true" /> Clear filters</button>}
           </div>
+          {activeFilterChips.length > 0 && (
+            <div className="sap-chips" aria-label="Active filters">
+              {activeFilterChips.map(chip => (
+                <span key={chip.key} className="sap-chip">{chip.label}
+                  <button type="button" onClick={chip.clear} aria-label={`Remove filter: ${chip.label}`}><X size={15} aria-hidden="true" /></button>
+                </span>
+              ))}
+              <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={resetFilters}>Clear filters</button>
+            </div>
+          )}
         </div>
 
         {loading ? (
