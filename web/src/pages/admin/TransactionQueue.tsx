@@ -3,8 +3,7 @@ import { ModalOverlay } from '../../components/common/ModalOverlay';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../../components/shared/StatusBadge';
-import { SkeletonTable, SkeletonBox } from '../../components/common/Skeleton';
-import { SmartEmptyState } from '../../components/common/SmartEmptyState';
+import { SkeletonBox } from '../../components/common/Skeleton';
 import { transactionEmptyTitle, transactionStatusLabel } from '../../constants/transactionStatus';
 import { AppIcon } from '../../components/common/AppIcon';
 import { transactionsApi } from '../../api/transactions.api';
@@ -13,7 +12,9 @@ import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
 import type { Transaction } from '../../types';
-import { clickableRow } from '../../a11y/clickable';
+import { activateOnKey } from '../../a11y/clickable';
+import { Search, ChevronRight } from 'lucide-react';
+import './sysadmin-pages.css';
 import { LoadFailure, StaleNotice, PartialNotice } from '../../components/common/LoadFailure';
 import { ReviewNotice } from '../../components/common/ReviewNotice';
 
@@ -194,339 +195,97 @@ export const TransactionQueue: React.FC = () => {
     approved: queueCounts.approved ?? 0,
   }), [queueCounts, totalItems]);
 
-  return (
-    <div className="animate-fade-in">
-      {/* Topbar */}
-      <div className="topbar">
-        <h1 className="topbar-title" style={{ margin: 0 }}>Transaction Queue</h1>
-      </div>
+  const dash = listFailed && !listLoadedAt;
+  const openTx = (tx: Transaction) => { setSelectedTx(tx); navigate(`/admin/transactions/${tx.id}`); loadTransactionDetail(tx.id); };
+  const txTone = (s: string) => (['APPROVED', 'COMPLETED'].includes(s) ? 'is-ok' : ['REJECTED', 'DISQUALIFIED'].includes(s) ? 'is-bad' : ['DEFICIENCY', 'RETURNED', 'FOR_APPROVAL', 'PENDING_VALIDATION'].includes(s) ? 'is-warn' : 'is-muted');
 
-      <div className="page-content">
-        {/* Quick Stats Chips */}
-        <div className="tq-header-chips">
-          <div className="tq-stat-chip">
-            <span style={{ color: 'var(--color-text-muted)' }}>Total In Queue:</span>
-            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.total}</span>
-          </div>
-          <div className="tq-stat-chip">
-            <span className="tq-pill-dot dot-ao2" />
-            <span>Waiting for validation:</span>
-            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.pendingAO2}</span>
-          </div>
-          <div className="tq-stat-chip">
-            <span className="tq-pill-dot dot-hrmo" />
-            <span>Waiting for final approval:</span>
-            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.pendingHRMO}</span>
-          </div>
-          <div className="tq-stat-chip">
-            <span className="tq-pill-dot dot-approved" />
-            <span>Approved Records:</span>
-            <span className="tq-stat-val">{listFailed && !listLoadedAt ? '–' : stats.approved}</span>
+  return (
+    <div className="sap animate-fade-in">
+      <header className="sap-head"><h1>Transaction queue</h1></header>
+
+      <section className="sap-stats" aria-label="Queue summary">
+        <div className="sap-stat"><span className="sap-stat__label">In the queue</span><span className="sap-stat__num">{dash ? '–' : stats.total}</span></div>
+        <div className={`sap-stat${stats.pendingAO2 ? ' is-warn' : ''}`}><span className="sap-stat__label">Waiting for validation</span><span className="sap-stat__num">{dash ? '–' : stats.pendingAO2}</span></div>
+        <div className={`sap-stat${stats.pendingHRMO ? ' is-warn' : ''}`}><span className="sap-stat__label">Waiting for final approval</span><span className="sap-stat__num">{dash ? '–' : stats.pendingHRMO}</span></div>
+        <div className="sap-stat"><span className="sap-stat__label">Approved</span><span className="sap-stat__num">{dash ? '–' : stats.approved}</span></div>
+      </section>
+
+      <section className="sap-card">
+        <div className="sap-card__head sap-card__head--stack">
+          <form onSubmit={handleSearchSubmit} className="sap-toolbar" role="search">
+            <label className="sap-search">
+              <Search size={20} aria-hidden="true" />
+              <span className="sr-only">Search transactions</span>
+              <input type="search" placeholder="Search name, employee ID or type" value={search}
+                onChange={e => { setSearch(e.target.value); if (!e.target.value) setPage(1); }} />
+            </label>
+            <div className="sap-seg" role="group" aria-label="Review queues">
+              {([['awaiting', 'Needs my action', queueCounts.awaitingMyReview], ['resubmitted', 'Resubmitted', queueCounts.resubmitted], ['oldest', 'Oldest first', undefined]] as const).map(([id, label, count]) => (
+                <button key={id} type="button" aria-pressed={queue === id} onClick={() => { setQueue(queue === id ? '' : id); setPage(1); }}>
+                  {label}{count !== undefined && <b className={count ? 'is-warn' : ''}>{count ?? '…'}</b>}
+                </button>
+              ))}
+            </div>
+          </form>
+          <div className="sap-seg" role="group" aria-label="Filter by status" style={{ justifySelf: 'start' }}>
+            {FILTER_TABS.map(tab => (
+              <button key={tab.id} type="button" aria-pressed={!queue && statusFilter === tab.id}
+                onClick={() => { setQueue(''); setStatusFilter(tab.id); setPage(1); }}>{tab.label}</button>
+            ))}
           </div>
         </div>
 
-        {/* Toolbar: Search and Filter Pills */}
-        <div className="tq-toolbar">
-          {/* Integrated Search Input */}
-          <form onSubmit={handleSearchSubmit} className="tq-search-box">
-            <span className="tq-search-icon">
-              <AppIcon name="search" size={16} />
-            </span>
-            <input
-              aria-label="Search by personnel, employee ID, or transaction type"
-              type="text"
-              className="tq-search-input"
-              style={{ paddingLeft: '44px' }}
-              placeholder="Search by personnel, employee ID, or transaction type…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                type="button"
-                className="tq-search-clear"
-                onClick={() => {
-                  setSearch('');
-                  setPage(1);
-                }}
-                title="Clear search"
-              >
-                ×
-              </button>
-            )}
-          </form>
-
-          {/* Clean Segmented Filter Pills (NO DUPLICATES) */}
-          <div className="tq-filter-pills-row" role="group" aria-label="Review queues">
-            {([['awaiting', `Needs my action (${queueCounts.awaitingMyReview ?? '…'})`], ['resubmitted', `Returned and resubmitted (${queueCounts.resubmitted ?? '…'})`], ['oldest', 'Oldest waiting']] as const).map(([id, label]) => (
-              <button key={id} type="button" className={`tq-filter-pill ${queue === id ? 'is-active' : ''}`} aria-pressed={queue === id}
-                onClick={() => { setQueue(id); setPage(1); }}>
-                <span>{label}</span>
-              </button>
-            ))}
+        {listFailed && listLoadedAt && <div className="sap-card__body"><StaleNotice what="the transaction queue" since={listLoadedAt} onRetry={() => void retryList()} retrying={retrying} /></div>}
+        {isLoading ? (
+          <div className="sap-card__body" aria-busy="true" style={{ display: 'grid', gap: 12 }}>{[0, 1, 2, 3].map(i => <div key={i} className="sap-skel" />)}</div>
+        ) : dash ? (
+          <div className="sap-card__body"><LoadFailure what="the transaction queue" onRetry={() => void retryList()} retrying={retrying} /></div>
+        ) : transactions.length === 0 ? (
+          <div className="sap-empty">
+            {search ? <>No results for “{search}”. <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => setSearch('')}>Clear search</button></>
+              : statusFilter !== 'All' ? <>{transactionEmptyTitle(statusFilter)}. <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => { setStatusFilter('All'); setPage(1); }}>Show all</button></>
+              : queue ? 'Nothing needs your action.' : 'No transactions yet.'}
           </div>
-          <div className="tq-filter-pills-row" role="group" aria-label="Filter by status">
-            {FILTER_TABS.map(tab => {
-              const isActive = !queue && statusFilter === tab.id;
+        ) : (
+          <ul className="sap-rows">
+            {transactions.map(tx => {
+              const initials = tx.personnel ? `${tx.personnel.firstName?.[0] || ''}${tx.personnel.lastName?.[0] || ''}`.toUpperCase() : '?';
+              const fullName = tx.personnel ? `${tx.personnel.firstName} ${tx.personnel.lastName}` : 'Personnel';
+              const isPromotion = (tx as any).isPromotion || tx.transactionType?.name?.toLowerCase().includes('promotion');
+              const when = queue && (tx as any).waitingSince ? waitingFor((tx as any).waitingSince)
+                : tx.submissionDate || (tx as any).createdAt ? new Date(tx.submissionDate || (tx as any).createdAt).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not submitted';
               return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`tq-filter-pill ${isActive ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setQueue('');
-                    setStatusFilter(tab.id);
-                    setPage(1);
-                  }}
-                >
-                  <span className={`tq-pill-dot ${tab.dotClass}`} />
-                  <span>{tab.label}</span>
-                </button>
+                <li key={tx.id} className="sap-row is-click" tabIndex={0} onClick={() => openTx(tx)} onKeyDown={activateOnKey<HTMLLIElement>(() => openTx(tx))}>
+                  <span className="sap-avatar">{initials}</span>
+                  <div className="sap-who">
+                    <span className="sap-who__name">{fullName}{isPromotion && <span className="sap-tag">Promotion</span>}</span>
+                    <span className="sap-who__line">{tx.transactionType?.name || 'Transaction'} · {tx.personnel?.designation || 'Personnel'}</span>
+                    <span className="sap-who__mono">TRX-{tx.id}{tx.personnel?.employeeId ? ` · ${tx.personnel.employeeId}` : ''} · {when}</span>
+                  </div>
+                  <span className={`sap-pill ${txTone(tx.status)}`}>{transactionStatusLabel(tx.status)}</span>
+                  <div className="sap-row__actions" onClick={e => e.stopPropagation()}>
+                    {tx.status === 'PENDING_VALIDATION' && (tx as any).review?.canValidate && (
+                      <Link to={`/admin/documents?txId=${tx.id}`} className="sap-btn sap-btn--primary sap-btn--sm">Validate</Link>
+                    )}
+                    {tx.status === 'FOR_APPROVAL' && (tx as any).review?.canApprove && (
+                      <Link to={`/admin/approvals?txId=${tx.id}`} className="sap-btn sap-btn--primary sap-btn--sm">Approve</Link>
+                    )}
+                    <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => openTx(tx)}>View <ChevronRight size={17} aria-hidden="true" /></button>
+                  </div>
+                </li>
               );
             })}
-          </div>
-        </div>
-
-        {/* Table / Empty / Skeleton State */}
-        {listFailed && listLoadedAt && <StaleNotice what="the transaction queue" since={listLoadedAt} onRetry={() => void retryList()} retrying={retrying} />}
-        {isLoading ? (
-          <SkeletonTable rows={6} columns={7} />
-        ) : listFailed && !listLoadedAt ? (
-          <LoadFailure what="the transaction queue" onRetry={() => void retryList()} retrying={retrying} />
-        ) : transactions.length === 0 ? (
-          search ? (
-            <SmartEmptyState
-              type="no-search-results"
-              query={search}
-              primaryAction={{
-                label: 'Clear Search',
-                onClick: () => setSearch(''),
-                icon: 'search',
-              }}
-              secondaryAction={statusFilter !== 'All' ? {
-                label: 'Reset Status Filter',
-                onClick: () => {
-                  setStatusFilter('All');
-                  setPage(1);
-                },
-              } : undefined}
-            />
-          ) : statusFilter !== 'All' ? (
-            <SmartEmptyState
-              type="no-filter-match"
-              title={transactionEmptyTitle(statusFilter)}
-              description={`Filter: ${FILTER_TABS.find(tab => tab.id === statusFilter)?.label ?? transactionStatusLabel(statusFilter)}. Other statuses may still have transactions.`}
-              primaryAction={{
-                label: 'Show All Transactions',
-                onClick: () => {
-                  setStatusFilter('All');
-                  setPage(1);
-                },
-              }}
-            />
-          ) : (
-            <SmartEmptyState
-              type="queue-cleared"
-              title={queue ? 'Nothing needs your action' : 'No transactions found'}
-              description="The list loaded correctly and is empty."
-            />
-          )
-        ) : (
-          <div className="table-wrapper bento-card" style={{ padding: 0, margin: 0 }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th style={{ width: '110px' }}>ID</th>
-                  <th>Personnel</th>
-                  <th>Employee ID</th>
-                  <th>Transaction Type</th>
-                  <th>Status</th>
-                  <th>Submitted</th>
-                  <th style={{ textAlign: 'right', paddingRight: '24px' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map(tx => {
-                  const initials = tx.personnel
-                    ? `${tx.personnel.firstName?.[0] || ''}${tx.personnel.lastName?.[0] || ''}`.toUpperCase()
-                    : 'EP';
-                  const fullName = tx.personnel
-                    ? `${tx.personnel.firstName} ${tx.personnel.lastName}`
-                    : 'DepEd Personnel';
-                  const isPromotion =
-                    (tx as any).isPromotion ||
-                    tx.transactionType?.name?.toLowerCase().includes('promotion');
-
-                  return (
-                    <tr
-                      key={tx.id}
-                      style={{ cursor: 'pointer' }}
-                      {...clickableRow(() => {
-                        setSelectedTx(tx);
-                        navigate(`/admin/transactions/${tx.id}`);
-                        loadTransactionDetail(tx.id);
-                      })}
-                    >
-                      {/* ID Badge */}
-                      <td>
-                        <span className="tq-trx-id-badge">TRX-{tx.id}</span>
-                      </td>
-
-                      {/* Personnel Info Cell */}
-                      <td>
-                        <div className="tq-personnel-cell">
-                          <div className="tq-personnel-avatar">{initials}</div>
-                          <div className="tq-personnel-info">
-                            <span className="tq-personnel-name">{fullName}</span>
-                            <span className="tq-personnel-desc">
-                              {tx.personnel?.designation || 'Division Personnel'}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Employee ID */}
-                      <td
-                        className="tabular-nums"
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: 14,
-                          color: '#4B5563',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {tx.personnel?.employeeId || '—'}
-                      </td>
-
-                      {/* Transaction Type */}
-                      <td>
-                        <div style={{ fontWeight: 600, color: '#1f3a2c' }}>
-                          {tx.transactionType?.name || 'Standard Request'}
-                        </div>
-                        {isPromotion && (
-                          <div style={{ marginTop: 3 }}>
-                            <span
-                              className="badge"
-                              style={{
-                                background: 'rgba(139, 92, 246, 0.12)',
-                                color: '#A07A1F',
-                                border: '1px solid rgba(139, 92, 246, 0.25)',
-                                fontWeight: 700,
-                                fontSize: 13,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                padding: '2px 8px',
-                              }}
-                            >
-                              <AppIcon name="promotions" size={11} color="#A07A1F" />
-                              Promotion Cycle
-                            </span>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Status Badge */}
-                      <td>
-                        <StatusBadge status={tx.status} />
-                      </td>
-
-                      {/* Submission Date */}
-                      <td
-                        className="tabular-nums"
-                        style={{ color: '#6B7280', fontSize: 14 }}
-                      >
-                        {queue && (tx as any).waitingSince
-                          ? waitingFor((tx as any).waitingSince)
-                          : tx.submissionDate || (tx as any).createdAt
-                          ? new Date(
-                              tx.submissionDate || (tx as any).createdAt
-                            ).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })
-                          : 'Not submitted'}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ textAlign: 'right', paddingRight: '24px' }}>
-                        <div
-                          className="tq-action-group"
-                          style={{ justifyContent: 'flex-end' }}
-                        >
-                          <button
-                            type="button"
-                            className="tq-btn-view"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTx(tx);
-                              navigate(`/admin/transactions/${tx.id}`);
-                              loadTransactionDetail(tx.id);
-                            }}
-                          >
-                            View
-                          </button>
-
-                          {tx.status === 'PENDING_VALIDATION' && (tx as any).review?.canValidate && (
-                              <Link
-                                to={`/admin/documents?txId=${tx.id}`}
-                                className="tq-btn-action"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Validate
-                              </Link>
-                            )}
-
-                          {tx.status === 'FOR_APPROVAL' && (tx as any).review?.canApprove && (
-                            <Link
-                              to={`/admin/approvals?txId=${tx.id}`}
-                              className="tq-btn-action"
-                              style={{ background: '#16A34A' }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Approve
-                            </Link>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          </ul>
         )}
 
-        {/* Pagination */}
         {totalPages > 1 && (
-          <div className="pagination" style={{ marginTop: 20 }}>
-            <button
-              className="pagination-btn"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              ‹
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button
-                key={p}
-                className={`pagination-btn ${p === page ? 'active' : ''}`}
-                onClick={() => setPage(p)}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              className="pagination-btn"
-              disabled={page === totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              ›
-            </button>
+          <div className="sap-pager">
+            <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</button>
+            <span>Page {page} of {totalPages}</span>
+            <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Transaction Dossier & Details Modal */}
       {selectedTx && (

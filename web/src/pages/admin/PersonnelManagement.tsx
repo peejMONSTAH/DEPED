@@ -13,7 +13,9 @@ import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 import apiClient from '../../api/client';
 import { accessDeniedMessage, isAccessDenied } from '../../api/access';
 import { getAllPages } from '../../api/pagination';
-import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit, ChevronRight } from 'lucide-react';
+import { Copy, Check, ExternalLink, ShieldCheck, Award, Building2, MapPin, Phone, Mail, User, Calendar, Briefcase, FileText, CheckCircle2, AlertCircle, X, Edit, ChevronRight, Search, Upload, UserPlus } from 'lucide-react';
+import { activateOnKey } from '../../a11y/clickable';
+import './sysadmin-pages.css';
 import { usePending } from '../../hooks/usePending';
 import { useWorkflowFeatures } from '../../api/features';
 import { SeatHandoverDialog } from './SeatHandoverDialog';
@@ -51,6 +53,7 @@ export const PersonnelManagement: React.FC = () => {
   const { user } = useAuthContext();
   const { addToast } = useToast();
   const [personnel, setPersonnel] = useState<PersonnelItem[]>([]);
+  const [profileFilter, setProfileFilter] = useState<'ALL' | 'INCOMPLETE'>('ALL');
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [districtFilter, setDistrictFilter] = useState('ALL');
@@ -439,170 +442,94 @@ export const PersonnelManagement: React.FC = () => {
     return { ...row, document, status: document?.status || 'NOT_SUBMITTED' };
   }) : [];
 
+  const loaded = personnel.filter(p => !p.isCredentialFallback);
+  const incompleteCount = loaded.filter(p => !p.profileComplete).length;
+  const shown = profileFilter === 'INCOMPLETE' ? filtered.filter(p => !p.isCredentialFallback && !p.profileComplete) : filtered;
+  const stationOf = (p: PersonnelItem) => (['SYSTEM_ADMIN', 'HRMO'].includes(p.user?.role?.name || '')
+    ? 'Schools Division Office'
+    : [p.school || p.plantillaItem?.department || p.address?.split(',')[0], p.district || p.plantillaItem?.division].filter(Boolean).join(' · '));
+
   return (
-    <div className="animate-fade-in">
-      <div className="topbar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <h1 className="topbar-title" style={{ margin: 0 }}>Personnel Records Management</h1>
-          {user?.role === 'AO_II' ? (
-            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
-              <AppIcon name="school" size={13} /> {user?.personnel?.school ? `Administrative Officer II - ${user.personnel.school}${user.personnel.district ? ` (${user.personnel.district})` : ''}` : ((user as any).designation || user.lastName || 'Assigned School')}
-            </span>
-          ) : user?.role === 'HRMO' ? (
-            <span className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.8125rem', fontWeight: 600 }}>
-              <AppIcon name="settings" size={13} /> SDO Koronadal City
-            </span>
-          ) : null}
+    <div className="sap animate-fade-in">
+      <header className="sap-head">
+        <div className="sap-head__title">
+          <h1>Personnel</h1>
+          {user?.role === 'AO_II' && user?.personnel?.school && <span className="sap-tag">{user.personnel.school}</span>}
         </div>
-        <div className="topbar-actions">
-          {canManage && (
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)} style={{ marginRight: 8 }}>
-              Import
-            </button>
-          )}
-          {canManage && (
-            <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
-              Add Personnel
-            </button>
-          )}
-          {showImport && <PersonnelImportModal onClose={() => setShowImport(false)} onImported={() => { void fetchPersonnel(); }} />}
-        </div>
-      </div>
-
-      <div className="page-content">
-        {loadError && <div className="alert alert-danger" role="alert">{loadError} <button type="button" className="btn btn-secondary btn-sm" onClick={() => void fetchPersonnel()}>Retry</button></div>}
-        <div className="filter-row" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className="search-bar" style={{ flex: '1 1 280px', maxWidth: 400 }}>
-            <span className="search-icon" style={{ display: 'flex', alignItems: 'center' }}>
-              <AppIcon name="search" size={14} color="var(--color-text-muted)" />
-            </span>
-            <input 
-              aria-label="Search by name, employee ID, designation"
-              type="text" 
-              className="search-input"
-              style={{ paddingLeft: '44px' }}
-              placeholder="Search by name, employee ID, designation…" 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+        {canManage && (
+          <div className="sap-head__actions">
+            <button type="button" className="sap-btn sap-btn--ghost" onClick={() => setShowImport(true)}><Upload size={18} aria-hidden="true" /> Import</button>
+            <button type="button" className="sap-btn sap-btn--primary" onClick={() => setShowAddModal(true)}><UserPlus size={18} aria-hidden="true" /> Add personnel</button>
           </div>
+        )}
+        {showImport && <PersonnelImportModal onClose={() => setShowImport(false)} onImported={() => { void fetchPersonnel(); }} />}
+      </header>
 
-          <div role="group" aria-label="Location filters" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              aria-label="Filter by district"
-              className="form-control"
-              value={districtFilter}
-              onChange={(e) => {
-                const next = e.target.value;
-                setDistrictFilter(next);
-                setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS));
-              }}
-              style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
-            >
-              <option value="ALL">All Districts</option>
-              {DEPED_KORONADAL_DISTRICTS.map(d => (
-                <option key={d.name} value={d.name}>{d.name}</option>
-              ))}
-            </select>
+      {loadError && <div className="sap-strip is-bad" role="alert"><span>{loadError}</span><button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => void fetchPersonnel()}>Retry</button></div>}
 
-            <select
-              aria-label="Filter by school"
-              className="form-control"
-              value={schoolFilter}
-              onChange={(e) => setSchoolFilter(e.target.value)}
-              style={{ width: 'auto', minWidth: '200px', maxWidth: '100%', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
-            >
-              <option value="ALL">{districtFilter === 'ALL' ? 'All Schools' : `All Schools in ${districtFilter}`}</option>
-              {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => (
-                <option key={school} value={school}>{school}</option>
-              ))}
-            </select>
+      <section className="sap-stats" aria-label="Personnel summary">
+        <div className="sap-stat"><span className="sap-stat__label">Personnel</span><span className="sap-stat__num">{personnel.length}</span></div>
+        <div className="sap-stat"><span className="sap-stat__label">Active</span><span className="sap-stat__num">{loaded.filter(p => p.status === 'ACTIVE').length}</span></div>
+        <button type="button" aria-pressed={profileFilter === 'INCOMPLETE'} onClick={() => setProfileFilter(f => (f === 'INCOMPLETE' ? 'ALL' : 'INCOMPLETE'))}
+          className={`sap-stat sap-stat--btn${profileFilter === 'INCOMPLETE' ? ' is-on' : ''}${incompleteCount ? ' is-warn' : ''}`}>
+          <span className="sap-stat__label">Incomplete profiles</span><span className="sap-stat__num">{incompleteCount}</span>
+        </button>
+      </section>
 
-            {(districtFilter !== 'ALL' || schoolFilter !== 'ALL') && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  setDistrictFilter('ALL');
-                  setSchoolFilter('ALL');
-                }}
-                style={{ fontSize: '0.8125rem' }}
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="table-wrapper personnel-records-table-wrapper">
-          <table className="table personnel-records-table table-cards">
-            <thead>
-              <tr>
-                <th>Employee ID</th>
-                <th>Full Name</th>
-                <th>Assigned Station & District</th>
-                <th>Designation</th>
-                <th>Plantilla Item</th>
-                <th>Status</th>
-                <th>Profile Complete</th>
-                <th className="personnel-records-action-cell">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && !loadError ? (
-                <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-muted)' }}>
-                    No personnel records found. Click "Add Personnel" above to create employee accounts for Teaching and Non-Teaching personnel.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map(p => (
-                  <tr key={p.id}>
-                    <td data-label="Employee ID" style={{ fontFamily: 'var(--font-mono)' }}>{p.employeeId}</td>
-                    <td data-label="Full Name" style={{ fontWeight: 600 }}>{personnelDisplayName(p, p.user?.role?.name)}</td>
-                    <td data-label="Station & District">
-                      {['SYSTEM_ADMIN', 'HRMO'].includes(p.user?.role?.name || '') ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="settings" size={12} /> SDO Koronadal City
-                          </span>
-                          <span style={{ fontSize: 13, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            Schools Division Office
-                          </span>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-primary-light)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="school" size={12} /> {p.school || p.plantillaItem?.department || p.address?.split(',')[0] || 'Assigned School'}
-                          </span>
-                          <span style={{ fontSize: 13, color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <AppIcon name="location" size={12} /> {p.district || p.plantillaItem?.division || (p.address?.includes('District') ? p.address.split(',').slice(1).join(',').trim() : (p.address?.includes(',') ? p.address.split(',').slice(1).join(',').trim() : 'District Station'))}
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    <td data-label="Designation">{p.designation}</td>
-                    <td data-label="Plantilla Item" style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-                      {p.isCredentialFallback ? 'Details not loaded' : p.plantillaItem ? `${p.plantillaItem.itemNumber} (SG ${p.plantillaItem.salaryGrade})` : 'P-Unassigned'}
-                    </td>
-                    <td data-label="Status">{p.isCredentialFallback ? 'Not loaded' : <StatusBadge status={p.status} />}</td>
-                    <td data-label="Profile">
-                      {p.isCredentialFallback ? 'Not loaded' : <span className={`badge ${p.profileComplete ? 'badge-approved' : 'badge-deficiency'}`}>
-                        {p.profileComplete ? 'Complete' : 'Incomplete'}
-                      </span>}
-                    </td>
-                    <td data-label="Action" className="personnel-records-action-cell">
-                      <button className="btn btn-ghost btn-sm personnel-view-details-btn" onClick={() => handleSelectPersonnel(p)}>
-                        View <ChevronRight size={15} aria-hidden="true" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+      <section className="sap-card">
+        <div className="sap-card__head sap-card__head--stack">
+          <h2>Records <small>{shown.length === personnel.length ? personnel.length : `${shown.length} of ${personnel.length}`}</small></h2>
+          <div className="sap-toolbar">
+            <label className="sap-search">
+              <Search size={20} aria-hidden="true" />
+              <span className="sr-only">Search personnel</span>
+              <input type="search" placeholder="Search name, employee ID or position" value={search} onChange={e => setSearch(e.target.value)} />
+            </label>
+            <div className="sap-filters" role="group" aria-label="Location filters">
+              <select aria-label="District" className="sap-select" value={districtFilter}
+                onChange={e => { const next = e.target.value; setDistrictFilter(next); setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS)); }}>
+                <option value="ALL">All districts</option>
+                {DEPED_KORONADAL_DISTRICTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+              </select>
+              <select aria-label="School" className="sap-select" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+                <option value="ALL">All schools</option>
+                {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => <option key={school} value={school}>{school}</option>)}
+              </select>
+              {(districtFilter !== 'ALL' || schoolFilter !== 'ALL' || profileFilter !== 'ALL' || search) && (
+                <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => { setDistrictFilter('ALL'); setSchoolFilter('ALL'); setProfileFilter('ALL'); setSearch(''); }}>Clear filters</button>
               )}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
-      </div>
+
+        {shown.length === 0 && !loadError ? (
+          <div className="sap-empty">{personnel.length ? 'No personnel match.' : 'No personnel yet.'}</div>
+        ) : (
+          <ul className="sap-rows">
+            {shown.map(p => {
+              const name = personnelDisplayName(p, p.user?.role?.name);
+              const open = () => handleSelectPersonnel(p);
+              return (
+                <li key={p.id} className="sap-row is-click" tabIndex={0} onClick={open} onKeyDown={activateOnKey<HTMLLIElement>(open)}>
+                  <span className="sap-avatar">{`${p.firstName?.[0] || ''}${p.lastName?.[0] || ''}`.toUpperCase()}</span>
+                  <div className="sap-who">
+                    <span className="sap-who__name">{name}</span>
+                    <span className="sap-who__line">{p.designation}{stationOf(p) ? ` · ${stationOf(p)}` : ''}</span>
+                    <span className="sap-who__mono">{p.employeeId} · {p.isCredentialFallback ? 'Details not loaded' : p.plantillaItem ? `${p.plantillaItem.itemNumber} · SG ${p.plantillaItem.salaryGrade}` : 'No plantilla item'}</span>
+                  </div>
+                  <div className="sap-pills">
+                    {!p.isCredentialFallback && <span className={`sap-pill ${p.status === 'ACTIVE' ? 'is-ok' : 'is-muted'}`}>{humanizeEnum(p.status)}</span>}
+                    {!p.isCredentialFallback && !p.profileComplete && <span className="sap-pill is-warn">Incomplete profile</span>}
+                  </div>
+                  <div className="sap-row__actions" onClick={e => e.stopPropagation()}>
+                    <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={open}>View <ChevronRight size={17} aria-hidden="true" /></button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* Details Side Panel Modal */}
       {selected && (() => {

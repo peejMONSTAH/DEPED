@@ -9,10 +9,10 @@ import { AppIcon } from '../../components/common/AppIcon';
 import { playSuccessChime } from '../../utils/sound.utils';
 import apiClient from '../../api/client';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
-import { SkeletonStats, SkeletonList } from '../../components/common/Skeleton';
-import { SmartEmptyState } from '../../components/common/SmartEmptyState';
-import { clickable } from '../../a11y/clickable';
+import { activateOnKey } from '../../a11y/clickable';
 import './return-sheet.css';
+import './sysadmin-pages.css';
+import { Search, Download, Check, CircleCheck, TriangleAlert } from 'lucide-react';
 import { LoadFailure, StaleNotice, PartialNotice } from '../../components/common/LoadFailure';
 import { ReviewNotice, reviewerName } from '../../components/common/ReviewNotice';
 import type { ReviewState } from '../../components/common/ReviewNotice';
@@ -399,381 +399,82 @@ export const TransactionApproval: React.FC = () => {
     }
   };
 
+  const TABS = [
+    ['FOR_APPROVAL', 'To approve', forApprovalList.length],
+    ['APPROVED', 'Approved', approvedList.length],
+    ['RETURNED', 'Returned', returnedList.length],
+    ['REJECTED', 'Rejected', rejectedList.length],
+    ['ALL', 'All', approvals.length],
+  ] as const;
+
   return (
-    <div className="animate-fade-in">
-      {/* Topbar */}
-      <div className="topbar">
-        <h1 className="topbar-title" style={{ margin: 0 }}>Approvals</h1>
-        <div className="topbar-actions flex items-center gap-2">
-          {selectedTxIds.length > 0 && canApprove && (
-            <>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={handleBulkExportPdf}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <AppIcon name="download" size={14} /> Download dossier files
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleBulkApprove}
-                disabled={isSubmitting}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <AppIcon name="check" size={14} /> Approve {selectedTxIds.length} Selected
-              </button>
-            </>
-          )}
-          <span className={forApprovalList.length > 0 ? 'badge badge-pending' : 'badge badge-approved'}>
-            {loadFailed && !loadedAt ? 'Could not load' : forApprovalList.length > 0 ? `${forApprovalList.length} Awaiting Approval` : 'Nothing awaiting approval'}
-          </span>
-        </div>
-      </div>
-
-      <div className="page-content" style={{ paddingBottom: '60px' }}>
-        {/* Top 4 Metric Overview Cards */}
-        {loading ? (
-          <SkeletonStats count={4} columns={4} />
-        ) : (
-          <div className="compliance-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', marginBottom: '20px' }}>
-            <div className="compliance-stat-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '12px',
-                  background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B'
-                }}>
-                  <AppIcon name="pending" size={20} color="#F59E0B" />
-                </div>
-                <span style={{
-                  fontSize: 13, fontWeight: 800, color: forApprovalList.length > 0 ? '#F59E0B' : '#10B981',
-                  background: forApprovalList.length > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                  padding: '2px 8px', borderRadius: 9999
-                }}>
-                  {forApprovalList.length > 0 ? 'ACTION REQUIRED' : 'CLEARED'}
-                </span>
-              </div>
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
-                  {forApprovalList.length}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
-                  Awaiting Final Approval
-                </div>
-              </div>
-            </div>
-
-            <div className="compliance-stat-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '12px',
-                  background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981'
-                }}>
-                  <AppIcon name="approved" size={20} color="#10B981" />
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#10B981', background: 'rgba(16, 185, 129, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
-                  201 UPDATED
-                </span>
-              </div>
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
-                  {approvedList.length}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
-                  Certified & Approved
-                </div>
-              </div>
-            </div>
-
-            <div className="compliance-stat-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: '12px',
-                  background: 'rgba(249, 115, 22, 0.15)', border: '1px solid rgba(249, 115, 22, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F97316'
-                }}>
-                  <AppIcon name="returned" size={20} color="#F97316" />
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#F97316', background: 'rgba(249, 115, 22, 0.12)', padding: '2px 8px', borderRadius: 9999 }}>
-                  CORRECTIONS
-                </span>
-              </div>
-              <div>
-                <div style={{ fontSize: '1.9rem', fontWeight: 800, color: 'var(--color-text-primary)', lineHeight: 1.1, marginBottom: 4 }}>
-                  {returnedList.length}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>
-                  Returned by HRMO
-                </div>
-              </div>
-            </div>
-
+    <div className="sap animate-fade-in">
+      <header className="sap-head">
+        <h1>Approvals</h1>
+        {selectedTxIds.length > 0 && canApprove && (
+          <div className="sap-head__actions">
+            <button type="button" className="sap-btn sap-btn--ghost" onClick={handleBulkExportPdf}><Download size={18} aria-hidden="true" /> Download files</button>
+            <button type="button" className="sap-btn sap-btn--primary" onClick={handleBulkApprove} disabled={isSubmitting}><Check size={18} aria-hidden="true" /> Approve {selectedTxIds.length} selected</button>
           </div>
         )}
+      </header>
 
-        {/* Segmented Pill Tabs */}
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          background: 'var(--glass-bg-subtle)',
-          backdropFilter: 'var(--glass-blur)',
-          WebkitBackdropFilter: 'var(--glass-blur)',
-          border: '1px solid var(--glass-border)',
-          borderRadius: '9999px',
-          padding: '4px',
-          gap: '4px',
-          marginBottom: '20px',
-          boxShadow: 'var(--glass-shadow)',
-          flexWrap: 'wrap'
-        }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('FOR_APPROVAL')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '9999px',
-              border: 'none',
-              background: activeTab === 'FOR_APPROVAL' ? 'var(--color-primary)' : 'transparent',
-              color: activeTab === 'FOR_APPROVAL' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.2s ease',
-              boxShadow: activeTab === 'FOR_APPROVAL' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
-            }}
-          >
-            <AppIcon name="pending" size={14} color={activeTab === 'FOR_APPROVAL' ? 'currentColor' : undefined} />
-            <span>To approve ({forApprovalList.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('APPROVED')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '9999px',
-              border: 'none',
-              background: activeTab === 'APPROVED' ? 'var(--color-primary)' : 'transparent',
-              color: activeTab === 'APPROVED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.2s ease',
-              boxShadow: activeTab === 'APPROVED' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
-            }}
-          >
-            <AppIcon name="approved" size={14} color={activeTab === 'APPROVED' ? 'currentColor' : undefined} />
-            <span>Approved ({approvedList.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('RETURNED')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '9999px',
-              border: 'none',
-              background: activeTab === 'RETURNED' ? 'var(--color-primary)' : 'transparent',
-              color: activeTab === 'RETURNED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.2s ease',
-              boxShadow: activeTab === 'RETURNED' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
-            }}
-          >
-            <AppIcon name="returned" size={14} color={activeTab === 'RETURNED' ? 'currentColor' : undefined} />
-            <span>Returned ({returnedList.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('REJECTED')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '9999px',
-              border: 'none',
-              background: activeTab === 'REJECTED' ? 'var(--color-primary)' : 'transparent',
-              color: activeTab === 'REJECTED' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.2s ease',
-              boxShadow: activeTab === 'REJECTED' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
-            }}
-          >
-            <AppIcon name="error" size={14} color={activeTab === 'REJECTED' ? 'currentColor' : undefined} />
-            <span>Rejected ({rejectedList.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('ALL')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '9999px',
-              border: 'none',
-              background: activeTab === 'ALL' ? 'var(--color-primary)' : 'transparent',
-              color: activeTab === 'ALL' ? 'var(--color-text-inverse)' : 'var(--color-text-secondary)',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.2s ease',
-              boxShadow: activeTab === 'ALL' ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
-            }}
-          >
-            <span>All ({approvals.length})</span>
-          </button>
-        </div>
-
-        {/* Filter & Search Controls */}
-        <div className="compliance-filter-bar" style={{ marginTop: 0, marginBottom: '20px' }}>
-          <div className="search-bar" style={{ flex: '1 1 320px', maxWidth: 420 }}>
-            <span className="search-icon">
-              <AppIcon name="search" size={15} color="var(--color-text-muted)" />
-            </span>
-            <input
-              aria-label="Search by personnel, ID, or TRX number"
-              type="text"
-              className="search-input"
-              style={{ paddingLeft: '44px' }}
-              placeholder="Search by personnel, ID, or TRX number…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                type="button"
-                className="tq-search-clear"
-                onClick={() => setSearch('')}
-                title="Clear search"
-              >
-                &times;
-              </button>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {[
-              { label: 'All Categories', value: 'ALL' },
-              { label: 'Teaching', value: 'TEACHING' },
-              { label: 'Non-Teaching', value: 'NON_TEACHING' },
-              { label: 'Promotion Cycle', value: 'PROMOTION' },
-            ].map(cat => (
-              <button
-                key={cat.value}
-                type="button"
-                onClick={() => setCategoryFilter(cat.value)}
-                className={`tq-filter-pill ${categoryFilter === cat.value ? 'is-active' : ''}`}
-              >
-                <span>{cat.label}</span>
+      <div className="sap-stack">
+        {loading ? (
+          <div className="sap-stats" aria-busy="true">{[0, 1, 2].map(i => <div key={i} className="sap-skel" />)}</div>
+        ) : (
+          <section className="sap-stats" aria-label="Approvals by status">
+            {TABS.slice(0, 3).map(([key, label, count]) => (
+              <button key={key} type="button" aria-pressed={activeTab === key} onClick={() => setActiveTab(key)}
+                className={`sap-stat sap-stat--btn${activeTab === key ? ' is-on' : ''}${key === 'FOR_APPROVAL' && count ? ' is-warn' : ''}`}>
+                <span className="sap-stat__label">{key === 'FOR_APPROVAL' ? 'Waiting for final approval' : key === 'APPROVED' ? 'Approved' : 'Returned for correction'}</span>
+                <span className="sap-stat__num">{loadFailed && !loadedAt ? '–' : count}</span>
               </button>
             ))}
-          </div>
-        </div>
+          </section>
+        )}
 
-        {/* Master-Detail Layout */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: selected ? 'var(--layout-master-detail, minmax(0, 1fr) minmax(300px, 520px))' : 'minmax(0, 1fr)',
-          gap: '24px',
-          alignItems: 'start'
-        }}>
-          {/* Main Transaction List Container */}
+        <section className="sap-card">
+          <div className="sap-card__head sap-card__head--stack">
+            <div className="sap-seg" role="group" aria-label="Status" style={{ justifySelf: 'start' }}>
+              {TABS.map(([key, label, count]) => (
+                <button key={key} type="button" aria-pressed={activeTab === key} onClick={() => setActiveTab(key)}>{label} <b className={key === 'FOR_APPROVAL' && count ? 'is-warn' : ''}>{count}</b></button>
+              ))}
+            </div>
+            <div className="sap-toolbar">
+              <label className="sap-search">
+                <Search size={20} aria-hidden="true" />
+                <span className="sr-only">Search approvals</span>
+                <input type="search" placeholder="Search name, ID or TRX number" value={search} onChange={e => setSearch(e.target.value)} />
+              </label>
+              <div className="sap-seg" role="group" aria-label="Category">
+                {([['ALL', 'All'], ['TEACHING', 'Teaching'], ['NON_TEACHING', 'Non-teaching'], ['PROMOTION', 'Promotion']] as const).map(([v, l]) => (
+                  <button key={v} type="button" aria-pressed={categoryFilter === v} onClick={() => setCategoryFilter(v)}>{l}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="sap-md" style={{ gridTemplateColumns: selected ? 'minmax(0, 1fr) minmax(320px, 520px)' : 'minmax(0, 1fr)' }}>
           <div>
             {loadFailed && loadedAt && <StaleNotice what="the approvals queue" since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
             {loading ? (
-              <SkeletonList count={4} />
+              <div style={{ display: 'grid', gap: 12 }} aria-busy="true">{[0, 1, 2].map(i => <div key={i} className="sap-skel" style={{ height: 120 }} />)}</div>
             ) : loadFailed && !loadedAt ? (
               <LoadFailure what="the approvals queue" onRetry={() => void retry()} retrying={retrying} />
             ) : displayList.length === 0 ? (
-              search ? (
-                <SmartEmptyState
-                  type="no-search-results"
-                  query={search}
-                  primaryAction={{
-                    label: 'Clear Search',
-                    onClick: () => setSearch(''),
-                    icon: 'search',
-                  }}
-                  secondaryAction={{
-                    label: 'Show All Categories',
-                    onClick: () => setCategoryFilter('ALL'),
-                  }}
-                />
-              ) : categoryFilter !== 'ALL' ? (
-                <SmartEmptyState
-                  type="no-filter-match"
-                  category={categoryFilter}
-                  primaryAction={{
-                    label: 'Reset Category Filter',
-                    onClick: () => setCategoryFilter('ALL'),
-                  }}
-                />
-              ) : activeTab === 'FOR_APPROVAL' ? (
-                <SmartEmptyState
-                  type="queue-cleared"
-                  primaryAction={
-                    approvedList.length > 0
-                      ? {
-                          label: `View Approved History (${approvedList.length})`,
-                          onClick: () => setActiveTab('APPROVED'),
-                          icon: 'approved',
-                        }
-                      : undefined
-                  }
-                  secondaryAction={{
-                    label: 'Refresh Queue',
-                    onClick: fetchApprovals,
-                  }}
-                />
-              ) : activeTab === 'REJECTED' ? (
-                <SmartEmptyState
-                  type="no-records"
-                  title="No Rejected Transactions"
-                  secondaryAction={{
-                    label: 'Back to Pending Queue',
-                    onClick: () => setActiveTab('FOR_APPROVAL'),
-                  }}
-                />
-              ) : activeTab === 'RETURNED' ? (
-                <SmartEmptyState
-                  type="deficiency-cleared"
-                  secondaryAction={{
-                    label: 'Back to Pending Queue',
-                    onClick: () => setActiveTab('FOR_APPROVAL'),
-                  }}
-                />
-              ) : (
-                <SmartEmptyState
-                  type="no-records"
-                  title="No Certified Approvals Yet"
-                  primaryAction={{
-                    label: 'View Awaiting Approvals',
-                    onClick: () => setActiveTab('FOR_APPROVAL'),
-                  }}
-                />
-              )
+              <div className="sap-card sap-empty">
+                <CircleCheck size={40} aria-hidden="true" style={{ color: 'var(--sap-green)', display: 'block', margin: '0 auto 10px' }} />
+                {search ? `No results for “${search}”.` : categoryFilter !== 'ALL' ? 'Nothing in this category.' : activeTab === 'FOR_APPROVAL' ? 'Nothing waiting for approval.' : activeTab === 'REJECTED' ? 'Nothing rejected.' : activeTab === 'RETURNED' ? 'Nothing returned.' : 'Nothing approved yet.'}
+                <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {search && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => setSearch('')}>Clear search</button>}
+                  {!search && categoryFilter !== 'ALL' && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => setCategoryFilter('ALL')}>All categories</button>}
+                  {!search && categoryFilter === 'ALL' && activeTab === 'FOR_APPROVAL' && approvedList.length > 0 && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => setActiveTab('APPROVED')}>See {approvedList.length} approved</button>}
+                </div>
+              </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <ul className="sap-cards">
                 {displayList.map(tx => {
                   const isSelected = selected?.id === tx.id;
                   const isPending = tx.status === 'FOR_APPROVAL';
@@ -784,162 +485,46 @@ export const TransactionApproval: React.FC = () => {
                   // directly, so it must not read as 'AO validated'.
                   const isEscalatedUnvalidated = (tx.resubmissionCount ?? 0) >= 3 && tx.status === 'FOR_APPROVAL';
                   const isRejected = tx.status === 'REJECTED';
-
+                  const tone = isApproved ? 'is-ok' : isRejected ? 'is-bad' : 'is-warn';
+                  const open = () => handleOpenTransactionDetails(tx);
                   return (
-                    <div
-                      key={tx.id}
-                      className="card"
-                      style={{
-                        cursor: 'pointer',
-                        padding: '16px 20px',
-                        borderRadius: '16px',
-                        background: isSelected ? 'var(--color-bg-hover)' : 'var(--glass-bg)',
-                        backdropFilter: 'var(--glass-blur)',
-                        WebkitBackdropFilter: 'var(--glass-blur)',
-                        border: `1.5px solid ${isSelected ? 'var(--color-primary)' : 'var(--glass-border)'}`,
-                        boxShadow: isSelected ? '0 8px 24px rgba(0, 0, 0, 0.08)' : 'var(--glass-shadow)',
-                        transition: 'all 0.2s ease',
-                        marginBottom: 0
-                      }}
-                      {...clickable<HTMLDivElement>(
-                        () => handleOpenTransactionDetails(tx),
-                        `Open ${tx.personnelName}'s ${tx.transactionType} details`,
+                    <li key={tx.id} className={`sap-txcard${isSelected ? ' is-selected' : ''}`} tabIndex={0} onClick={open} onKeyDown={activateOnKey<HTMLLIElement>(open)}>
+                      <div className="sap-txcard__top">
+                        {isPending && tx.review?.canApprove && (
+                          <input className="sap-check" type="checkbox" aria-label={`Select ${tx.personnelName} for bulk approval`}
+                            checked={selectedTxIds.includes(tx.id)} onChange={e => toggleSelectTx(tx.id, e as unknown as React.MouseEvent)} onClick={e => e.stopPropagation()} />
+                        )}
+                        <span className="sap-avatar">{tx.personnelName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()}</span>
+                        <div className="sap-who">
+                          <span className="sap-who__name">{tx.personnelName}<span className="sap-tag">{tx.personnelCategory}</span>{tx.isPromotion && <span className="sap-tag">Promotion</span>}</span>
+                          <span className="sap-who__line">{tx.currentPosition}</span>
+                          <span className="sap-who__mono">TRX-{tx.id} · {tx.employeeId}</span>
+                        </div>
+                        <span className={`sap-pill ${tone}`}>{isApproved ? 'Approved' : isRejected ? 'Rejected' : isReturned ? 'Returned' : 'For final approval'}</span>
+                      </div>
+                      {isEscalatedUnvalidated && (
+                        <div className="sap-txcard__warn"><TriangleAlert size={18} aria-hidden="true" /> Reached the correction limit without validation. Check the documents yourself.</div>
                       )}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          {isPending && tx.review?.canApprove && (
-                            <input
-                              aria-label={`Select ${tx.personnelName}'s ${tx.transactionType} for bulk approval`}
-                              type="checkbox"
-                              checked={selectedTxIds.includes(tx.id)}
-                              onChange={e => toggleSelectTx(tx.id, e as unknown as React.MouseEvent)}
-                              onClick={e => e.stopPropagation()}
-                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: 'var(--color-primary)' }}
-                            />
-                          )}
-
-                          <div style={{
-                            width: 40, height: 40, borderRadius: '50%',
-                            background: isApproved ? 'rgba(16, 185, 129, 0.15)' : isReturned ? 'rgba(249, 115, 22, 0.15)' : 'rgba(59, 130, 246, 0.15)',
-                            color: isApproved ? '#10B981' : isReturned ? '#F97316' : '#3F9265',
-                            fontWeight: 800, fontSize: 14,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                          }}>
-                            {tx.personnelName.substring(0, 2).toUpperCase()}
-                          </div>
-
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                              <span style={{
-                                fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700,
-                                background: 'var(--color-bg-secondary)', padding: '2px 8px', borderRadius: 6,
-                                border: '1px solid var(--color-border)', color: 'var(--color-text-primary)'
-                              }}>
-                                TRX-{tx.id}
-                              </span>
-                              <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--color-text-primary)' }}>
-                                {tx.personnelName}
-                              </span>
-                              <span className={tx.personnelCategory.includes('Teaching') ? 'badge badge-info' : 'badge badge-secondary'} style={{ fontSize: 13 }}>
-                                {tx.personnelCategory}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-                              ID: <strong className="font-mono">{tx.employeeId}</strong> &bull; {tx.currentPosition}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                          {tx.isPromotion && (
-                            <span className="badge" style={{
-                              background: 'rgba(139, 92, 246, 0.15)', color: '#C79A2E',
-                              border: '1px solid rgba(139, 92, 246, 0.3)', fontWeight: 700, fontSize: 13,
-                              display: 'inline-flex', alignItems: 'center', gap: 4
-                            }}>
-                              <AppIcon name="promotions" size={12} color="#C79A2E" /> Promotion
-                            </span>
-                          )}
-                          {isEscalatedUnvalidated && (
-                            <span
-                              className="badge badge-warning"
-                              title="Reached the correction limit and skipped the usual validation. Verify the documents yourself before approving."
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            >
-                              <AppIcon name="warning" size={12} />
-                              ESCALATED — NOT VALIDATED
-                            </span>
-                          )}
-                          <span className={
-                            isApproved ? 'badge badge-approved' :
-                            isRejected ? 'badge badge-danger' :
-                            isReturned ? 'badge badge-warning' :
-                            'badge badge-pending'
-                          }>
-                            {isApproved
-                              ? 'APPROVED (201 SYNCED)'
-                              : isRejected
-                                ? 'REJECTED — NO RESUBMISSION'
-                                : isReturned
-                                  ? 'RETURNED FOR CORRECTION'
-                                  : 'FOR FINAL APPROVAL'}
-                          </span>
-                        </div>
+                      <dl className="sap-txcard__facts">
+                        <div><dt>Type</dt><dd>{tx.transactionType}</dd></div>
+                        <div><dt>Validated by</dt><dd>{tx.validatedBy}</dd></div>
+                        <div><dt>Validated</dt><dd>{tx.validatedDate}</dd></div>
+                        <div><dt>Documents</dt><dd>{tx.documents.length}</dd></div>
+                      </dl>
+                      <div className="sap-row__actions" onClick={e => e.stopPropagation()}>
+                        {isPending && tx.review?.canApprove ? (
+                          <>
+                            <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => { open(); setShowReturnModal(true); }}>Return</button>
+                            <button type="button" className="sap-btn sap-btn--primary sap-btn--sm" onClick={() => handleApprove(tx)}><Check size={17} aria-hidden="true" /> Approve</button>
+                          </>
+                        ) : (
+                          <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={open}>{isPending ? 'View (another HRMO approves)' : 'View'}</button>
+                        )}
                       </div>
-
-                      {/* Details Grid */}
-                      <div style={{
-                        display: 'grid', gridTemplateColumns: 'var(--layout-columns-4, repeat(4, 1fr))', gap: 10,
-                        fontSize: 13, background: 'var(--color-bg-secondary)',
-                        padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--color-border)',
-                        marginBottom: 12
-                      }}>
-                        <div><span style={{ color: 'var(--color-text-secondary)' }}>Type:</span> <strong>{tx.transactionType}</strong></div>
-                        <div><span style={{ color: 'var(--color-text-secondary)' }}>Validated By:</span> <strong>{tx.validatedBy}</strong></div>
-                        <div><span style={{ color: 'var(--color-text-secondary)' }}>Validated:</span> <strong>{tx.validatedDate}</strong></div>
-                        <div><span style={{ color: 'var(--color-text-secondary)' }}>Documents:</span> <strong>{tx.documents.length} verified</strong></div>
-                      </div>
-
-                      {/* Action Bar */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
-                          Open to review &rarr;
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-                          {isPending && tx.review?.canApprove ? (
-                            <>
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => { handleOpenTransactionDetails(tx); setShowReturnModal(true); }}
-                              >
-                                Return
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleApprove(tx)}
-                              >
-                                Approve & Sign
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => handleOpenTransactionDetails(tx)}
-                            >
-                              {isPending ? 'Inspect (not yours to approve)' : 'Inspect Dossier'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </div>
 

@@ -4,13 +4,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuthContext } from '../../contexts/AuthContext';
-import { AppIcon } from '../../components/common/AppIcon';
 import apiClient from '../../api/client';
 import { accessDeniedMessage, isAccessDenied } from '../../api/access';
 import { useRealtimeTransactions } from '../../hooks/useRealtimeTransactions';
-import { StatusBadge } from '../../components/shared/StatusBadge';
-import { SkeletonTable } from '../../components/common/Skeleton';
-import { SmartEmptyState } from '../../components/common/SmartEmptyState';
+import { transactionStatusLabel } from '../../constants/transactionStatus';
+import { RefreshCw, CircleCheck } from 'lucide-react';
+import './sysadmin-pages.css';
 import { LoadFailure, StaleNotice } from '../../components/common/LoadFailure';
 import type { ReviewState } from '../../components/common/ReviewNotice';
 
@@ -235,87 +234,62 @@ export const DocumentValidation: React.FC = () => {
   };
 
   return (
-    <div className="animate-fade-in">
-      <div className="topbar">
-        <div>
-          <h1 className="topbar-title" style={{ margin: 0 }}>Document validation</h1>
-          <p className="dv-lede">{user?.role === 'HRMO'
-            ? "Validate non-teaching files, and teaching files from a station with no AO II. Then pass each one on for final approval by a different HRMO, or return it."
-            : "Check each person's uploaded files, then pass them on for final approval or return them for correction."}</p>
-        </div>
-      </div>
+    <div className="sap animate-fade-in">
+      <header className="sap-head">
+        <h1>Document validation</h1>
+        <button type="button" className="sap-btn sap-btn--ghost" onClick={() => void fetchPendingTransactions()}><RefreshCw size={18} aria-hidden="true" /> Refresh</button>
+      </header>
 
-      <div className="page-content">
-        <nav className="dv-tabs" aria-label="Validation lists">
-          {tabs.map(t => (
-            <button key={t.key} type="button" aria-current={activeTab === t.key ? 'page' : undefined} onClick={() => setActiveTab(t.key)}>
-              {t.label}<span className="dv-tabs__count">{loadFailed && !loadedAt ? '–' : t.count}</span>
-            </button>
-          ))}
-        </nav>
+      <section className="sap-stats" aria-label="Validation summary">
+        {tabs.map(t => (
+          <button key={t.key} type="button" className={`sap-stat sap-stat--btn${activeTab === t.key ? ' is-on' : ''}${t.key === 'PENDING' && t.count ? ' is-warn' : ''}`} aria-pressed={activeTab === t.key} onClick={() => setActiveTab(t.key)}>
+            <span className="sap-stat__label">{t.label}</span>
+            <span className="sap-stat__num">{loadFailed && !loadedAt ? '–' : t.count}</span>
+          </button>
+        ))}
+      </section>
 
-        {loadFailed && loadedAt && <StaleNotice what="the validation lists" since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
+      {loadFailed && loadedAt && <StaleNotice what="the validation lists" since={loadedAt} onRetry={() => void retry()} retrying={retrying} />}
+      <section className="sap-card" aria-label={tabs.find(t => t.key === activeTab)?.label}>
         {loading ? (
-          <SkeletonTable rows={4} columns={4} />
+          <div className="sap-card__body" aria-busy="true" style={{ display: 'grid', gap: 12 }}>{[0, 1, 2].map(i => <div key={i} className="sap-skel" />)}</div>
         ) : loadFailed && !loadedAt ? (
-          <LoadFailure what="the validation lists" onRetry={() => void retry()} retrying={retrying} />
+          <div className="sap-card__body"><LoadFailure what="the validation lists" onRetry={() => void retry()} retrying={retrying} /></div>
         ) : currentList.length === 0 ? (
-          <div className="dv-empty">
-            <SmartEmptyState
-              type={activeTab === 'PENDING' ? 'queue-cleared' : activeTab === 'DEFICIENCY' ? 'deficiency-cleared' : 'no-records'}
-              title={activeTab === 'PENDING' ? 'Nothing to review' : activeTab === 'DEFICIENCY' ? 'Nothing returned' : 'Nothing validated yet'}
-              description={
-                activeTab === 'PENDING'
-                  ? (user?.role === 'HRMO' ? 'Files waiting for HRMO validation appear here as soon as they are sent. The list loaded correctly and is empty.' : 'New submissions from your school appear here as soon as they are sent. The list loaded correctly and is empty.')
-                  : activeTab === 'DEFICIENCY'
-                  ? 'Files returned for correction wait here until the person resubmits.'
-                  : 'Files that were validated, approved or closed are listed here.'
-              }
-              primaryAction={activeTab !== 'PENDING' && pending.length > 0
-                ? { label: `Review ${pending.length} waiting`, onClick: () => setActiveTab('PENDING'), icon: 'pending' }
-                : undefined}
-              secondaryAction={{ label: 'Refresh', onClick: fetchPendingTransactions }}
-            />
+          <div className="sap-empty">
+            <CircleCheck size={40} aria-hidden="true" style={{ color: 'var(--sap-green)', display: 'block', margin: '0 auto 10px' }} />
+            {activeTab === 'PENDING' ? 'Nothing to review.' : activeTab === 'DEFICIENCY' ? 'Nothing returned.' : 'Nothing validated yet.'}
+            {activeTab !== 'PENDING' && pending.length > 0 && <div style={{ marginTop: 14 }}><button type="button" className="sap-btn sap-btn--primary sap-btn--sm" onClick={() => setActiveTab('PENDING')}>Review {pending.length} waiting</button></div>}
           </div>
         ) : (
-          <ul className="dv-list">
+          <ul className="sap-rows">
             {currentList.map(tx => {
               const target = tx.promotionDetails?.targetPosition;
               const complete = tx.complianceScore >= 100;
+              const canReview = activeTab === 'PENDING' && tx.review?.canValidate !== false;
               return (
-                <li key={tx.id} className="dv-row">
-                  <div className="dv-row__who">
-                    <strong className="dv-row__name">{tx.personnelName}</strong>
-                    <span className="dv-row__move">
+                <li key={tx.id} className="sap-row">
+                  <span className="sap-avatar">{tx.personnelName.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()}</span>
+                  <div className="sap-who">
+                    <span className="sap-who__name">{tx.personnelName}{tx.isPromotion && <span className="sap-tag">Promotion</span>}</span>
+                    <span className="sap-who__line">
                       {tx.currentPosition || tx.personnelCategory}
-                      {tx.isPromotion && target && target !== tx.currentPosition && <> <span aria-hidden="true">›</span> <b>{target}</b></>}
+                      {tx.isPromotion && target && target !== tx.currentPosition && <> → <b>{target}</b></>}
                     </span>
-                    <span className="dv-row__meta">
-                      {tx.isPromotion ? 'Promotion' : tx.transactionType} · TRX-{tx.id} · {tx.employeeId}
-                    </span>
+                    <span className="sap-who__mono">TRX-{tx.id} · {tx.employeeId}</span>
+                    {activeTab === 'DEFICIENCY' ? <span className="sap-who__line" style={{ color: 'var(--sap-warn)' }}>{tx.remarks || 'Returned for correction.'}</span>
+                      : activeTab === 'HISTORY' && tx.review ? <span className="sap-who__line">{tx.review.summary}</span>
+                      : <span className="sap-files" aria-label={`Files ${tx.complianceScore}% complete`}>
+                          <span className="sap-files__bar"><i className={complete ? 'is-ok' : ''} style={{ width: `${Math.min(100, tx.complianceScore)}%` }} /></span>
+                          <b className={complete ? 'is-ok' : ''}>{tx.complianceScore}%</b>
+                        </span>}
                   </div>
-
-                  {activeTab === 'DEFICIENCY' ? (
-                    <p className="dv-row__note">{tx.remarks || 'Returned for correction.'}</p>
-                  ) : activeTab === 'HISTORY' && tx.review ? (
-                    <p className="dv-row__note">{tx.review.summary}</p>
-                  ) : (
-                    <div className="dv-row__files" aria-label={`Files ${tx.complianceScore}% complete`}>
-                      <span className={`dv-row__pct ${complete ? 'is-complete' : ''}`}>{tx.complianceScore}%</span>
-                      <span className="dv-row__label">{complete ? 'All required files in' : 'Files missing'}</span>
-                      <span className="dv-meter"><span style={{ width: `${Math.min(100, tx.complianceScore)}%` }} /></span>
-                    </div>
-                  )}
-
-                  <div className="dv-row__when">
-                    {activeTab === 'HISTORY'
-                      ? <StatusBadge status={tx.status} />
-                      : <><span>Waiting</span><strong>{waitingFor(tx.submittedAt)}</strong></>}
-                  </div>
-
-                  <div className="dv-row__act">
-                    <button className={`btn btn-sm ${activeTab === 'PENDING' && tx.review?.canValidate !== false ? 'btn-primary' : 'btn-secondary'} dv-btn`} onClick={() => handleOpenTransactionDetails(tx)}>
-                      {activeTab === 'PENDING' && tx.review?.canValidate !== false ? 'Review files' : 'Open'}
+                  {activeTab === 'HISTORY'
+                    ? <span className={`sap-pill ${['APPROVED', 'COMPLETED'].includes(tx.status) ? 'is-ok' : tx.status === 'REJECTED' ? 'is-bad' : 'is-muted'}`}>{transactionStatusLabel(tx.status)}</span>
+                    : <span className="sap-pill is-muted no-dot" title="Time waiting">{waitingFor(tx.submittedAt)}</span>}
+                  <div className="sap-row__actions">
+                    <button type="button" className={`sap-btn sap-btn--sm ${canReview ? 'sap-btn--primary' : 'sap-btn--ghost'}`} onClick={() => handleOpenTransactionDetails(tx)}>
+                      {canReview ? 'Review files' : 'Open'}
                     </button>
                   </div>
                 </li>
@@ -323,16 +297,16 @@ export const DocumentValidation: React.FC = () => {
             })}
           </ul>
         )}
+      </section>
 
-        {/* AO II review: the actual uploaded files, one verdict per document */}
-        {selected && (
-          <TransactionReviewModal
-            txId={Number(selected.id)}
-            onClose={handleCloseModal}
-            onDecided={() => { void fetchPendingTransactions(); handleCloseModal(); }}
-          />
-        )}
-      </div>
+      {/* Review: the actual uploaded files, one verdict per document */}
+      {selected && (
+        <TransactionReviewModal
+          txId={Number(selected.id)}
+          onClose={handleCloseModal}
+          onDecided={() => { void fetchPendingTransactions(); handleCloseModal(); }}
+        />
+      )}
     </div>
   );
 };

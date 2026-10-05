@@ -96,3 +96,18 @@ a.sad-kpi:focus-visible { outline: 3px solid var(--sad-green); outline-offset: 2
 .sad .sad-tabs button.is-on { background: var(--sad-deep) !important; color: #fff !important; }
 .sad .sad-tabs button:not(.is-on):hover { background: #E2EBE5 !important; }
 .sad .sxe .btn { font-size: 1rem !important; padding: 10px 20px !important; }
+
+/* HRMO / AO II dashboard additions */
+.sad-kpis--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sad-kpi__label { display: inline-flex; align-items: center; gap: 8px; }
+.sad-meter { display: block; height: 10px; border-radius: 999px; background: #EDF2EE; overflow: hidden; margin-top: 4px; }
+.sad-meter i { display: block; height: 100%; border-radius: inherit; background: var(--sad-green); }
+.sad-meter.is-gold i { background: var(--sad-gold); }
+.sad-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; align-items: end; height: 190px; padding: 12px 4px 0; }
+.sad-week__col { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 8px; height: 100%; }
+.sad-week__val { font-size: 1.125rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sad-week__track { width: 100%; max-width: 44px; height: 100%; border-radius: 12px; background: rgba(255, 255, 255, .08); display: flex; align-items: flex-end; overflow: hidden; }
+.sad-week__track i { display: block; width: 100%; border-radius: 12px; background: #F0C95A; }
+.sad-week__day { font-size: 1rem; font-weight: 700; color: rgba(255, 255, 255, .75); }
+@media (max-width: 1280px) { .sad-kpis--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sad-kpis--four .sad-kpi--roles { grid-column: auto; } }
+@media (max-width: 640px) { .sad-kpis--four { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .sad-kpis--four .sad-kpi { padding: 18px; } }

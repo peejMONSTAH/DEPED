@@ -1,6 +1,5 @@
-import { transactionStatusLabel } from '../../constants/transactionStatus';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { AppIcon } from '../../components/common/AppIcon';
@@ -14,6 +13,7 @@ import { AccountSetupModal } from '../../components/common/AccountSetupModal';
 import { clickable } from '../../a11y/clickable';
 import { notificationPromotionPath } from '../../promotions/deepLink';
 import { SysAdminDashboard } from './SysAdminDashboard';
+import { StaffDashboard } from './StaffDashboard';
 
 type TransactionItem = {
   id: string;
@@ -45,7 +45,6 @@ export const AdminDashboard: React.FC = () => {
   const [nonTeachingCount, setNonTeachingCount] = useState<number>(0);
   const [totalTransactions, setTotalTransactions] = useState<number>(0);
   const [pendingQueue, setPendingQueue] = useState<number>(0);
-  const [approvedCount, setApprovedCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
   // SysAdmin Dedicated State
@@ -114,7 +113,6 @@ export const AdminDashboard: React.FC = () => {
       } else {
         setTotalTransactions(data.totalTransactions);
         setPendingQueue(data.pendingQueue);
-        setApprovedCount(data.approvedCount);
         setTotalPersonnel(data.totalPersonnel);
         setTeachingCount(data.teachingCount);
         setNonTeachingCount(data.nonTeachingCount);
@@ -227,9 +225,6 @@ export const AdminDashboard: React.FC = () => {
     year: 'numeric'
   }).format(new Date());
 
-  // Dynamic percentages calculated strictly from database numbers
-  const teachingPercent = totalPersonnel > 0 ? ((teachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
-  const nonTeachingPercent = totalPersonnel > 0 ? ((nonTeachingCount / totalPersonnel) * 100).toFixed(1) + '%' : '0%';
 
   const activeAccountsCount = summary?.active ?? '—';
   const accountsRequiringAction = summary?.requiringAction ?? 0;
@@ -526,284 +521,17 @@ export const AdminDashboard: React.FC = () => {
         /* ═══════════════════════════════════════════════════════════════
            HRMO / AO_II VIEW: WORKFORCE INTELLIGENCE & 201 TRANSACTIONS
         ═══════════════════════════════════════════════════════════════ */
-        <>
-          {/* ─── 3. HRMIS METRICS ROW (Strict Database Numbers) ─────────── */}
-          <div className="metrics-grid-row">
-            {/* Metric 1: Total Personnel (DB) */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">TOTAL PERSONNEL</span>
-                <span className="metric-lime-pill">ACTIVE</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : totalPersonnel.toLocaleString()}</div>
-                <div className="metric-footer-note">Division Active Records</div>
-              </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-dot-matrix">
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot active-dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                  <span className="dot" />
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 2: Teaching Personnel (DB) */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">TEACHING</span>
-                <span className="metric-lavender-pill">{teachingPercent}</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : teachingCount}</div>
-                <div className="metric-footer-note">Licensed Faculty</div>
-              </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-bar-visualizer">
-                  <div className="bar-fill fill-lavender" style={{ width: teachingPercent }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 3: Non-Teaching Personnel (DB) */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">STAFF</span>
-                <span className="metric-gray-pill">{nonTeachingPercent}</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : nonTeachingCount}</div>
-                <div className="metric-footer-note">Administrative Support</div>
-              </div>
-              <div className="metric-bottom-slot">
-                <div className="metric-bar-visualizer">
-                  <div className="bar-fill fill-charcoal" style={{ width: nonTeachingPercent }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 5: Pending Review (DB) */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">PENDING REVIEW</span>
-                <span className="metric-lavender-pill">ACTION REQ</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num text-purple">{loading ? '...' : pendingQueue}</div>
-                <div className="metric-footer-note">Awaiting Validation</div>
-              </div>
-              <div className="metric-bottom-slot" />
-            </div>
-          </div>
-
-          {/* ─── 4. ASYMMETRIC MAIN GRID (2:1 Ratio Layout) ────────────── */}
-          <div className="asymmetric-main-grid">
-            
-            {/* Left Column: Recent Transactions Queue (DB Driven) */}
-            <div className="soft-card table-card-large">
-              <div className="card-header-flex">
-                <h3 className="card-heading-title" style={{ margin: 0 }}>Recent Transactions Queue</h3>
-                <Link to="/admin/transactions" className="view-all-link">
-                  <span>View Queue</span>
-                  <span className="arrow">→</span>
-                </Link>
-              </div>
-
-              <div className="editorial-table-wrapper">
-                <table className="editorial-table">
-                  <thead>
-                    <tr>
-                      <th>REF NO.</th>
-                      <th>PERSONNEL</th>
-                      <th>TRANSACTION TYPE</th>
-                      <th>STATUS</th>
-                      <th style={{ textAlign: 'right' }}>DATE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTransactions.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>
-                          {loading ? 'Fetching database records...' : 'No recent transactions found in database.'}
-                        </td>
-                      </tr>
-                    ) : (
-                      recentTransactions.map((tx) => (
-                        <tr key={tx.id}>
-                          <td className="code-cell">{tx.id}</td>
-                          <td>
-                            <div className="table-user-cell">
-                              <div className="user-initials-badge">{tx.avatar}</div>
-                              <span className="user-full-name">{tx.employee}</span>
-                            </div>
-                          </td>
-                          <td className="type-cell">{tx.type}</td>
-                          <td>
-                            <span className={`status-pill ${tx.status === 'APPROVED' ? 'status-lime' : 'status-lavender'}`}>
-                              {transactionStatusLabel(tx.status)}
-                            </span>
-                          </td>
-                          <td className="date-cell" style={{ textAlign: 'right' }}>{tx.date}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Right Column: DARK FEATURE CARD (Database Overview) */}
-            <div className="dark-feature-card">
-              <div className="dark-card-top-tag">
-                <span className="dark-tag-dot" />
-                <span>WEEKLY TRANSACTION ACTIVITY</span>
-              </div>
-
-              <div className="dark-card-metric-section">
-                <div className="dark-big-num">{loading ? '...' : totalTransactions}</div>
-                <div className="dark-big-sub">Total Transactions This Week</div>
-              </div>
-
-              {/* Graphic Bar Matrix – Live from DB */}
-              <div className="dark-graphic-chart">
-                {(() => {
-                  const maxCount = Math.max(...weeklyStats.map(ws => ws.count), 1);
-                  return weeklyStats.map((ws) => {
-                    const barHeight = ws.count > 0 ? Math.max((ws.count / maxCount) * 100, 8) : 0;
-                    return (
-                      <div className="graphic-bar-col" key={ws.day}>
-                        <div className="bar-top-value">{ws.count}</div>
-                        <div className="bar-fill-track">
-                          <div
-                            className={`bar-fill-inner ${ws.count > 0 ? 'fill-lime' : 'fill-lavender'}`}
-                            style={{ height: `${barHeight}%` }}
-                          />
-                        </div>
-                        <div className="bar-day-label">{ws.day}</div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-
-              <div className="dark-card-bottom-info">
-                <div className="dark-info-row">
-                  <span className="info-label">Active Personnel</span>
-                  <span className="info-val">{loading ? '...' : totalPersonnel}</span>
-                </div>
-                <div className="dark-info-row">
-                  <span className="info-label">Pending Queue</span>
-                  <span className="info-val">{loading ? '...' : pendingQueue}</span>
-                </div>
-                <div className="dark-info-row">
-                  <span className="info-label">Database Sync Status</span>
-                  <span className="info-val lime-text">Live Connected</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ─── 5. QUICK MANAGEMENT ACTIONS (Bento Cards Row) ─────────── */}
-          <div className="quick-actions-section">
-            <h3 className="section-title">Quick Management Actions</h3>
-
-            <div className="bento-actions-grid">
-              {user?.role === 'SYSTEM_ADMIN' ? (
-                <>
-                  {/* SysAdmin Action 1: Create Credentials */}
-                  <Link to="/admin/credentials" className="action-bento-link">
-                    <div className="soft-card bento-action-card">
-                      <div className="bento-icon-badge badge-lime-bg">
-                        <AppIcon name="credentials" size={20} color="#1f3a2c" />
-                      </div>
-                      <h4 className="bento-card-title">User Accounts & Credentials</h4>
-                      <p className="bento-card-desc">
-                        Manage system logins, provision station accounts, and distribute secure credentials.
-                      </p>
-                    </div>
-                  </Link>
-
-                  {/* SysAdmin Action 2: Audit Trail */}
-                  <Link to="/admin/audit" className="action-bento-link">
-                    <div className="soft-card bento-action-card">
-                      <div className="bento-icon-badge badge-purple-bg">
-                        <AppIcon name="audit" size={20} color="#1f3a2c" />
-                      </div>
-                      <h4 className="bento-card-title">Security & Audit Logs</h4>
-                      <p className="bento-card-desc">
-                        Inspect immutable system audit trail and track administrative operations.
-                      </p>
-                    </div>
-                  </Link>
-
-                  {/* SysAdmin Action 3: Settings & Roles */}
-                  <Link to="/admin/settings" className="action-bento-link">
-                    <div className="soft-card bento-action-card">
-                      <div className="bento-icon-badge badge-charcoal-bg">
-                        <AppIcon name="settings" size={20} color="#FFFFFF" />
-                      </div>
-                      <h4 className="bento-card-title">System Settings & Security</h4>
-                      <p className="bento-card-desc">
-                        Configure system parameters, RBAC roles, and authentication security.
-                      </p>
-                    </div>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  {/* Action 1: Create Credentials */}
-                  <Link to="/admin/credentials" className="action-bento-link">
-                    <div className="soft-card bento-action-card">
-                      <div className="bento-icon-badge badge-lime-bg">
-                        <AppIcon name="credentials" size={20} color="#1f3a2c" />
-                      </div>
-                      <h4 className="bento-card-title">Create Accounts & Credentials</h4>
-                      <p className="bento-card-desc">
-                        Onboard new division personnel and distribute secure digital login credentials.
-                      </p>
-                    </div>
-                  </Link>
-
-                  {/* Action 2: Document Validation (AO II) / Compliance (HRMO) */}
-                  <Link to={user?.role === 'AO_II' ? '/admin/documents' : '/admin/compliance'} className="action-bento-link">
-                    <div className="soft-card bento-action-card">
-                      <div className="bento-icon-badge badge-purple-bg">
-                        <AppIcon name={user?.role === 'AO_II' ? 'validation' : 'compliance'} size={20} color="#1f3a2c" />
-                      </div>
-                      <h4 className="bento-card-title">{user?.role === 'AO_II' ? 'Document Validation (AO II)' : 'Compliance & YOS'}</h4>
-                      <p className="bento-card-desc">
-                        {user?.role === 'AO_II'
-                          ? 'Review and certify submitted 201 appointment document packages and qualifications.'
-                          : 'Monitor statutory compliance, loyalty milestones, and years of service records.'}
-                      </p>
-                    </div>
-                  </Link>
-
-                  {/* Action 3: Personnel Master List */}
-                  <Link to="/admin/personnel" className="action-bento-link">
-                    <div className="soft-card bento-action-card">
-                      <div className="bento-icon-badge badge-charcoal-bg">
-                        <AppIcon name="personnel" size={20} color="#FFFFFF" />
-                      </div>
-                      <h4 className="bento-card-title">Personnel Master List</h4>
-                      <p className="bento-card-desc">
-                        Access and manage all employee digital 201 Personal Data Sheets (PDS) and service records.
-                      </p>
-                    </div>
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </>
+        <StaffDashboard
+          loading={loading}
+          role={user?.role}
+          personnel={totalPersonnel}
+          teaching={teachingCount}
+          nonTeaching={nonTeachingCount}
+          pending={pendingQueue}
+          weekTotal={totalTransactions}
+          weekly={weeklyStats}
+          recent={recentTransactions}
+        />
       )}
 
       {/* Account Setup Modal for profile, password & preference editing */}

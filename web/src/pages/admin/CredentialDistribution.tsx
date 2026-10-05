@@ -753,7 +753,7 @@ export const CredentialDistribution: React.FC = () => {
       )}
 
       <section className="sap-card" aria-labelledby="acc-title">
-        <div className="sap-card__head" style={{ display: 'grid', gap: 16 }}>
+        <div className="sap-card__head sap-card__head--stack">
           <h2 id="acc-title">Accounts <small>{filteredUsers.length === displayedUsers.length ? displayedUsers.length : `${filteredUsers.length} of ${displayedUsers.length}`}</small></h2>
           <div className="sap-toolbar">
             <label className="sap-search">

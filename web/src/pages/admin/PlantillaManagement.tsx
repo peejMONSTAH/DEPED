@@ -14,25 +14,8 @@ import {
   getAutoSalaryGrade,
 } from '../../constants/depedData';
 import { matchesLocation, schoolAfterDistrictChange, schoolOptionsFor } from '../../utils/plantillaFilters';
-import {
-  Building2,
-  Users,
-  Search,
-  Plus,
-  Trash2,
-  Edit,
-  UserCheck,
-  UserMinus,
-  Sparkles,
-  TrendingUp,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  Award,
-  ArrowRight,
-  RefreshCw,
-  X,
-} from 'lucide-react';
+import { Building2, Users, Search, Plus, Trash2, Edit, UserCheck, UserMinus, Sparkles, TrendingUp, CheckCircle2, AlertCircle, HelpCircle, Award, ArrowRight, RefreshCw, X, Briefcase } from 'lucide-react';
+import './sysadmin-pages.css';
 import { clickable } from '../../a11y/clickable';
 
 interface OccupantPersonnel {
@@ -554,573 +537,114 @@ export const PlantillaManagement: React.FC = () => {
     );
   }, [personnelList, assignSearchQuery]);
 
-  return (
-    <div className="page-container" style={{ padding: '24px 32px', maxWidth: '1600px', margin: '0 auto' }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
-            <span className="badge badge-info" style={{ fontSize: '0.8125rem', fontWeight: 800, letterSpacing: '0.5px' }}>
-              DEPED DBM AUTHORIZED INVENTORY
-            </span>
-            <span className="badge badge-neutral" style={{ fontSize: '0.8125rem', fontWeight: 700 }}>
-              SDO Koronadal City
-            </span>
-          </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--color-text-primary)', margin: 0, letterSpacing: '-0.5px' }}>
-            Plantilla Items & Occupant Registry
-          </h1>
-        </div>
+  const STAT_TILES = [
+    ['ALL', 'Plantilla items', stats.totalItems, ''],
+    ['OCCUPIED', 'Filled', stats.occupiedItems, ''],
+    ['VACANT', 'Vacant', stats.vacantItems, stats.vacantItems ? ' is-warn' : ''],
+    ['OPEN_RANKING', 'In a promotion cycle', stats.openForRanking, ''],
+  ] as const;
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={fetchPlantillas}
-            title="Refresh inventory"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
+  return (
+    <div className="sap animate-fade-in">
+      <header className="sap-head">
+        <h1>Plantilla</h1>
+        <div className="sap-head__actions">
+          <button type="button" className="sap-btn sap-btn--ghost" onClick={fetchPlantillas} disabled={loading}>
+            <RefreshCw size={18} className={loading ? 'sap-spin' : ''} aria-hidden="true" /> Refresh
           </button>
           {isAdmin && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleOpenAdd}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontWeight: 800,
-                background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
-                color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
-                border: 'none',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              }}
-            >
-              <Plus size={16} aria-hidden="true" />
-              Add Plantilla Item
-            </button>
+            <button type="button" className="sap-btn sap-btn--primary" onClick={handleOpenAdd}><Plus size={18} aria-hidden="true" /> Add item</button>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* KPI Overview Metrics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid var(--color-border)' }}>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-            Total Authorized Items
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--color-text-primary)', lineHeight: 1 }}>
-            {stats.totalItems}
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '6px' }}>
-            Official DBM Division Plantilla
-          </div>
-        </div>
+      <section className="sap-stats" aria-label="Plantilla summary">
+        {STAT_TILES.map(([key, label, count, tone]) => (
+          <button key={key} type="button" aria-pressed={statusFilter === key} onClick={() => setStatusFilter(key as any)}
+            className={`sap-stat sap-stat--btn${statusFilter === key ? ' is-on' : ''}${tone}`}>
+            <span className="sap-stat__label">{label}</span>
+            <span className="sap-stat__num">{count}{key === 'OCCUPIED' && stats.totalItems > 0 && <small> {Math.round((stats.occupiedItems / stats.totalItems) * 100)}%</small>}</span>
+          </button>
+        ))}
+      </section>
 
-        <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(16, 185, 129, 0.3)', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.05)' : '#F0FDF4' }}>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-            Filled (Occupied) Positions
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#10B981', lineHeight: 1 }}>
-            {stats.occupiedItems}
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: '#059669', marginTop: '6px' }}>
-            {stats.totalItems > 0 ? Math.round((stats.occupiedItems / stats.totalItems) * 100) : 0}% Active Personnel Occupancy
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(245, 158, 11, 0.3)', background: theme === 'dark' ? 'rgba(245, 158, 11, 0.05)' : '#FFFBEB' }}>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-            Vacant Positions (Availability)
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#F59E0B', lineHeight: 1 }}>
-            {stats.vacantItems}
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: '#D97706', marginTop: '6px' }}>
-            {stats.availabilityRate}% Ready for Comparative Assessment
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '18px 20px', borderRadius: '14px', border: '1px solid rgba(59, 130, 246, 0.3)', background: theme === 'dark' ? 'rgba(59, 130, 246, 0.05)' : '#EEF7F1' }}>
-          <div style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#2F7D52', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
-            Open for Merit Ranking
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#3F9265', lineHeight: 1 }}>
-            {stats.openForRanking}
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: '#2F7D52', marginTop: '6px' }}>
-            Active Promotion Cycle Linked
-          </div>
-        </div>
-      </div>
-
-      {/* Filters and Search Bar */}
-      <div className="card" style={{ padding: '16px 20px', borderRadius: '14px', marginBottom: '20px', border: '1px solid var(--color-border)' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Keyword Search */}
-          <div style={{ flex: '1 1 320px', position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }} />
-            <input
-              aria-label="Search item number, position title, school, occupant name, or employee ID"
-              type="text"
-              className="form-control has-icon-left"
-              placeholder="Search item number, position title, school, occupant name, or employee ID…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                height: '42px',
-                paddingLeft: '38px',
-                paddingRight: searchQuery ? '36px' : '14px',
-                borderRadius: '10px',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-bg-secondary)',
-                color: 'var(--color-text-primary)',
-                fontSize: '0.875rem',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--color-text-muted)',
-                  cursor: 'pointer',
-                  padding: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-                title="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Status Filter */}
-          <select
-            aria-label="Filter by status"
-            className="form-control"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
-          >
-            <option value="ALL">All Statuses ({plantillas.length})</option>
-            <option value="VACANT">Vacant Only ({plantillas.filter(p => !p.occupiedByPersonnel && !p.isOccupied).length})</option>
-            <option value="OCCUPIED">Occupied Only ({plantillas.filter(p => Boolean(p.occupiedByPersonnel ?? p.isOccupied)).length})</option>
-            <option value="OPEN_RANKING">Open for Ranking ({plantillas.filter(p => p.isOpenForRanking).length})</option>
-          </select>
-
-          {/* Track Filter */}
-          <select
-            aria-label="Filter by track"
-            className="form-control"
-            value={trackFilter}
-            onChange={(e) => setTrackFilter(e.target.value as any)}
-            style={{ width: 'auto', minWidth: '150px', height: '42px', borderRadius: '10px', fontSize: '0.875rem' }}
-          >
-            <option value="ALL">All Tracks</option>
-            <option value="TEACHING">Teaching Track</option>
-            <option value="NON_TEACHING">Non-Teaching Track</option>
-          </select>
-
-          {/* Location: district narrows the school list */}
-          <div role="group" aria-label="Location filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <select
-              aria-label="Filter by district"
-              className="form-control"
-              value={districtFilter}
-              onChange={(e) => {
-                const next = e.target.value;
-                setDistrictFilter(next);
-                setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS));
-              }}
-              style={{ width: 'auto', minWidth: '160px', height: '42px', borderRadius: '10px', fontSize: '0.9375rem' }}
-            >
-              <option value="ALL">All Districts</option>
-              {DEPED_KORONADAL_DISTRICTS.map(d => (
-                <option key={d.name} value={d.name}>{d.name}</option>
+      <section className="sap-card">
+        <div className="sap-card__head sap-card__head--stack">
+          <h2>Items <small>{filteredPlantillas.length === plantillas.length ? plantillas.length : `${filteredPlantillas.length} of ${plantillas.length}`}</small></h2>
+          <div className="sap-toolbar">
+            <label className="sap-search">
+              <Search size={20} aria-hidden="true" />
+              <span className="sr-only">Search plantilla</span>
+              <input type="search" placeholder="Search item number, position, school or name" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </label>
+            <div className="sap-seg" role="group" aria-label="Track">
+              {([['ALL', 'All'], ['TEACHING', 'Teaching'], ['NON_TEACHING', 'Non-teaching']] as const).map(([v, l]) => (
+                <button key={v} type="button" aria-pressed={trackFilter === v} onClick={() => setTrackFilter(v as any)}>{l}</button>
               ))}
+            </div>
+          </div>
+          <div className="sap-filters" role="group" aria-label="Location filters">
+            <select aria-label="District" className="sap-select" value={districtFilter}
+              onChange={e => { const next = e.target.value; setDistrictFilter(next); setSchoolFilter(current => schoolAfterDistrictChange(current, next, DEPED_KORONADAL_DISTRICTS)); }}>
+              <option value="ALL">All districts</option>
+              {DEPED_KORONADAL_DISTRICTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
             </select>
-            <select
-              aria-label="Filter by school"
-              className="form-control"
-              value={schoolFilter}
-              onChange={(e) => setSchoolFilter(e.target.value)}
-              style={{ width: 'auto', minWidth: '200px', maxWidth: '100%', height: '42px', borderRadius: '10px', fontSize: '0.9375rem' }}
-            >
-              <option value="ALL">{districtFilter === 'ALL' ? 'All schools' : `All schools in ${districtFilter}`}</option>
-              {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => (
-                <option key={school} value={school}>{school}</option>
-              ))}
+            <select aria-label="School" className="sap-select" value={schoolFilter} onChange={e => setSchoolFilter(e.target.value)}>
+              <option value="ALL">All schools</option>
+              {schoolOptionsFor(districtFilter, DEPED_KORONADAL_DISTRICTS).map(school => <option key={school} value={school}>{school}</option>)}
             </select>
+            {activeFilterChips.length > 0 && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={resetFilters}><X size={17} aria-hidden="true" /> Clear filters</button>}
           </div>
         </div>
 
-        {activeFilterChips.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }} aria-label="Active filters">
-            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text-secondary)' }}>Active filters:</span>
-            {activeFilterChips.map(chip => (
-              <span key={chip.key} className="badge badge-neutral" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.875rem', padding: '4px 10px' }}>
-                {chip.label}
-                <button
-                  type="button"
-                  onClick={chip.clear}
-                  aria-label={`Remove filter: ${chip.label}`}
-                  style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', padding: 2 }}
-                >
-                  <X size={13} aria-hidden="true" />
-                </button>
-              </span>
-            ))}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={resetFilters} style={{ fontSize: '0.875rem' }}>
-              Reset Filters
-            </button>
+        {loading ? (
+          <div className="sap-card__body" aria-busy="true" style={{ display: 'grid', gap: 12 }}>{[0, 1, 2].map(i => <div key={i} className="sap-skel" />)}</div>
+        ) : filteredPlantillas.length === 0 ? (
+          <div className="sap-empty">
+            <Building2 size={40} aria-hidden="true" style={{ display: 'block', margin: '0 auto 10px', color: 'var(--sap-muted)' }} />
+            {plantillas.length === 0 ? 'No plantilla items yet.' : 'No items match.'}
+            <div style={{ marginTop: 14, display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {activeFilterChips.length > 0 && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={resetFilters}>Clear filters</button>}
+              {isAdmin && plantillas.length === 0 && <button type="button" className="sap-btn sap-btn--primary sap-btn--sm" onClick={handleOpenAdd}><Plus size={17} aria-hidden="true" /> Add item</button>}
+            </div>
           </div>
+        ) : (
+          <ul className="sap-rows">
+            {filteredPlantillas.map(item => {
+              const isTeacher = item.positionTitle.toLowerCase().includes('teacher');
+              const occupant = item.occupiedByPersonnel;
+              const isOccupied = Boolean(occupant);
+              const inCycle = item.isOpenForRanking && item.activePromotionCycle;
+              return (
+                <li key={item.id} className="sap-row sap-row--plantilla">
+                  <span className={`sap-avatar${occupant ? '' : ' is-icon'}`}>{occupant ? `${occupant.firstName?.[0] || ''}${occupant.lastName?.[0] || ''}` : <Briefcase size={24} aria-hidden="true" />}</span>
+                  <div className="sap-who">
+                    <span className="sap-who__name">{item.positionTitle}<span className="sap-tag">SG {item.salaryGrade}</span><span className="sap-tag">{isTeacher ? 'Teaching' : 'Non-teaching'}</span></span>
+                    <span className="sap-who__line">{[item.department, item.division].filter(Boolean).join(' · ')}</span>
+                    <span className="sap-who__mono">{item.itemNumber}</span>
+                    <span className="sap-who__line">
+                      {occupant
+                        ? <><UserCheck size={17} aria-hidden="true" style={{ verticalAlign: '-3px' }} /> <b>{occupant.firstName} {occupant.lastName}</b> · {occupant.employeeId}</>
+                        : inCycle ? <button type="button" className="sap-inline-link" onClick={() => navigate('/admin/promotions')}>In cycle: {item.activePromotionCycle!.name}</button>
+                        : 'No one assigned'}
+                    </span>
+                  </div>
+                  <span className={`sap-pill ${isOccupied ? 'is-ok' : inCycle ? 'is-muted' : 'is-warn'}`}>{isOccupied ? 'Filled' : inCycle ? 'In cycle' : 'Vacant'}</span>
+                  <div className="sap-row__actions">
+                    {!isOccupied && (inCycle
+                      ? <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => navigate('/admin/promotions')}><TrendingUp size={17} aria-hidden="true" /> View cycle</button>
+                      : <button type="button" className="sap-btn sap-btn--primary sap-btn--sm" onClick={() => handleOpenForRanking(item)}><Sparkles size={17} aria-hidden="true" /> Start promotion</button>)}
+                    {isHR && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm" onClick={() => handleOpenAssign(item)}><UserCheck size={17} aria-hidden="true" /> {isOccupied ? 'Change' : 'Assign'}</button>}
+                    {isHR && isOccupied && <button type="button" className="sap-btn sap-btn--danger sap-btn--sm" onClick={() => handleVacateItem(item)}><UserMinus size={17} aria-hidden="true" /> Vacate</button>}
+                    {isAdmin && <button type="button" className="sap-btn sap-btn--ghost sap-btn--sm sap-btn--icon" onClick={() => handleOpenEdit(item)} aria-label={`Edit ${item.itemNumber}`} title="Edit"><Edit size={18} aria-hidden="true" /></button>}
+                    {isAdmin && !isOccupied && <button type="button" className="sap-btn sap-btn--danger sap-btn--sm sap-btn--icon" onClick={() => handleDeleteItem(item)} aria-label={`Delete ${item.itemNumber}`} title="Delete"><Trash2 size={18} aria-hidden="true" /></button>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
-      </div>
-
-      {/* Main Plantilla Items Table with Detailed Occupant View */}
-      <div className="card" style={{ borderRadius: '16px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg-tertiary)' }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-            Plantilla Items List ({filteredPlantillas.length} position{filteredPlantillas.length === 1 ? '' : 's'})
-          </div>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-            Showing {filteredPlantillas.length} of {plantillas.length} records
-          </div>
-        </div>
-
-        <div className="table-responsive">
-          <table className="table" style={{ margin: 0 }}>
-            <thead>
-              <tr style={{ background: 'var(--color-bg-card)', borderBottom: '2px solid var(--color-border)' }}>
-                <th style={{ width: '18%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  Item Code / Plantilla No.
-                </th>
-                <th style={{ width: '20%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  Authorized Title & Grade
-                </th>
-                <th style={{ width: '20%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  School Station / Assignment
-                </th>
-                <th style={{ width: '26%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
-                  Assigned Personnel (Occupant)
-                </th>
-                <th style={{ width: '16%', padding: '12px 16px', fontSize: '0.8125rem', fontWeight: 800, color: 'var(--color-text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '48px', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px auto' }} />
-                    <div>Loading Plantilla Inventory…</div>
-                  </td>
-                </tr>
-              ) : filteredPlantillas.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '72px 24px', textAlign: 'center' }}>
-                    <div style={{
-                      width: '64px',
-                      height: '64px',
-                      borderRadius: '50%',
-                      background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#FFFFFF',
-                      border: '1px solid var(--color-border)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: '16px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.03)',
-                    }}>
-                      <Building2 size={30} style={{ color: 'var(--color-text-muted)' }} />
-                    </div>
-                    <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text-primary)', marginBottom: '6px' }}>
-                      No Plantilla Items Found
-                    </div>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', margin: '0 0 20px 0', maxWidth: '440px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.55 }}>
-                      {plantillas.length === 0
-                        ? 'No plantilla items have been registered yet. HR (HRMO) can register official items using the button below.'
-                        : 'No items match your active filters. Try adjusting your search query, status, or district filters.'}
-                    </p>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {activeFilterChips.length > 0 && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={resetFilters}
-                          style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '8px 18px', borderRadius: '10px' }}
-                        >
-                          Reset Filters
-                        </button>
-                      )}
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={handleOpenAdd}
-                          style={{
-                            fontSize: '0.8125rem',
-                            fontWeight: 700,
-                            padding: '8px 18px',
-                            borderRadius: '10px',
-                            background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
-                            color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
-                            border: 'none',
-                          }}
-                        >
-                          Add Plantilla Item
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredPlantillas.map((item) => {
-                  const isTeacher = item.positionTitle.toLowerCase().includes('teacher');
-                  const occupant = item.occupiedByPersonnel;
-                  const isOccupied = Boolean(occupant);
-
-                  return (
-                    <tr key={item.id} style={{ borderBottom: '1px solid var(--color-border)', transition: 'background-color 0.15s' }}>
-                      {/* Item Code */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ fontFamily: 'monospace', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                          {item.itemNumber}
-                        </div>
-                        <div style={{ marginTop: '4px' }}>
-                          {isOccupied ? (
-                            <span className="badge badge-neutral" style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#059669', background: theme === 'dark' ? 'rgba(16, 185, 129, 0.15)' : '#DCFCE7' }}>
-                              ● OCCUPIED
-                            </span>
-                          ) : (
-                            <span className="badge badge-warning" style={{ fontSize: '0.8125rem', fontWeight: 800, color: '#D97706', background: theme === 'dark' ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7' }}>
-                              ● VACANT (AVAILABLE)
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Position Title & SG */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)' }}>
-                          {item.positionTitle}
-                        </div>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '4px' }}>
-                          <span className="badge badge-outline" style={{ fontSize: '0.8125rem', fontWeight: 800 }}>
-                            SG {item.salaryGrade}
-                          </span>
-                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                            {isTeacher ? 'Teaching Track' : 'Non-Teaching Track'}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Station / School */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-                          {item.department}
-                        </div>
-                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                          {item.division}
-                        </div>
-                      </td>
-
-                      {/* Occupant Details (WHOM IS ASSIGNED) */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle' }}>
-                        {occupant ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '50%',
-                              background: theme === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#DDF0E3',
-                              color: '#2F7D52',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 800,
-                              fontSize: '0.8125rem',
-                              flexShrink: 0,
-                            }}>
-                              {occupant.firstName?.[0]}{occupant.lastName?.[0]}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {occupant.firstName} {occupant.lastName}
-                              </div>
-                              <div style={{ fontSize: '0.8125rem', fontFamily: 'monospace', color: 'var(--color-text-muted)' }}>
-                                {occupant.employeeId} • {occupant.designation || 'Active Staff'}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>
-                              <span>— Unassigned (Vacant) —</span>
-                            </div>
-                            <div style={{ marginTop: '3px' }}>
-                              {item.isOpenForRanking && item.activePromotionCycle ? (
-                                <span
-                                  className="badge badge-info"
-                                  style={{ fontSize: '0.8125rem', fontWeight: 700, padding: '2px 8px', cursor: 'pointer' }}
-                                  {...clickable<HTMLSpanElement>(() => navigate('/admin/promotions'), 'View promotion ranking for this cycle')}
-                                  title="Active cycle — click to view promotion ranking"
-                                >
-                                  🎯 Open in: {item.activePromotionCycle.name?.slice(0, 24)}…
-                                </span>
-                              ) : (
-                                <span className="badge badge-neutral" style={{ fontSize: '0.8125rem', fontWeight: 600, padding: '2px 8px' }}>
-                                  Ready for Ranking
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '14px 16px', verticalAlign: 'middle', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-                          {/* Vacant Actions */}
-                          {!isOccupied ? (
-                            <>
-                              {item.isOpenForRanking && item.activePromotionCycle ? (
-                                <button
-                                  type="button"
-                                  className="btn btn-outline btn-xs"
-                                  onClick={() => navigate('/admin/promotions')}
-                                  title={`Active in ranking cycle: ${item.activePromotionCycle.name}. Click to view ranking.`}
-                                  style={{
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 700,
-                                    padding: '4px 10px',
-                                    borderRadius: '8px',
-                                    borderColor: '#3F9265',
-                                    color: '#2F7D52',
-                                    background: theme === 'dark' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.08)',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                  }}
-                                >
-                                  <TrendingUp size={12} />
-                                  View Ranking
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn btn-primary btn-xs"
-                                  onClick={() => handleOpenForRanking(item)}
-                                  title="Open this vacant plantilla for active merit promotion"
-                                  style={{
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 800,
-                                    padding: '4px 10px',
-                                    borderRadius: '8px',
-                                    background: theme === 'dark' ? '#E3C36A' : '#1f3a2c',
-                                    color: theme === 'dark' ? '#1f3a2c' : '#FFFFFF',
-                                    border: 'none',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                  }}
-                                >
-                                  <Sparkles size={12} />
-                                  Open for Ranking
-                                </button>
-                              )}
-
-                              {isHR && (
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary btn-xs"
-                                  onClick={() => handleOpenAssign(item)}
-                                  title="Directly assign an active personnel occupant"
-                                  style={{ fontSize: '0.8125rem', padding: '4px 8px' }}
-                                >
-                                  <UserCheck size={12} />
-                                  Assign
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            /* Occupied Actions */
-                            isHR && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary btn-xs"
-                                  onClick={() => handleOpenAssign(item)}
-                                  title="Change assigned personnel occupant"
-                                  style={{ fontSize: '0.8125rem', padding: '4px 8px' }}
-                                >
-                                  <UserCheck size={12} />
-                                  Change Occupant
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-xs"
-                                  onClick={() => handleVacateItem(item)}
-                                  title="Vacate this plantilla item and unbind current occupant"
-                                  style={{ color: '#EF4444', fontSize: '0.8125rem', padding: '4px 8px' }}
-                                >
-                                  <UserMinus size={12} />
-                                  Vacate
-                                </button>
-                              </>
-                            )
-                          )}
-
-                          {/* Edit / Delete */}
-                          {isAdmin && (
-                            <>
-                              <button
-                                type="button"
-                                className="btn btn-ghost btn-xs"
-                                onClick={() => handleOpenEdit(item)}
-                                title="Edit Plantilla Item Details"
-                                style={{ padding: '4px 6px' }}
-                              >
-                                <Edit size={13} />
-                              </button>
-                              {!isOccupied && (
-                                <button
-                                  type="button"
-                                  className="btn btn-ghost btn-xs"
-                                  onClick={() => handleDeleteItem(item)}
-                                  title="Delete Plantilla Item"
-                                  style={{ color: '#EF4444', padding: '4px 6px' }}
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </section>
 
       {/* MODAL 1: ADD / EDIT PLANTILLA ITEM */}
       {showAddModal && (
