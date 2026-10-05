@@ -129,7 +129,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  await completeSignIn(user, req, res);
+  // Hand the accepted token back so the client files it under this account. A browser or phone
+  // trusted before tokens were kept per account holds it only in its shared slot, which the next
+  // account to verify there overwrites; echoing it lets the client keep it for this account.
+  const trustedToken = config.deviceVerification.enabled && user.deviceVerification && typeof req.body.deviceToken === 'string' ? req.body.deviceToken : undefined;
+  await completeSignIn(user, req, res, trustedToken ? { deviceToken: trustedToken } : {});
 };
 
 const displayName = (user: any) =>
