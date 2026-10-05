@@ -53,7 +53,9 @@ export async function getDashboardSummary(req: Request, res: Response) {
       db.transaction.count({ where: { AND: [where, { status: { in: ['APPROVED', 'COMPLETED'] } }] } }),
       db.personnel.count({ where: personnelWhere }),
       db.personnel.count({ where: { AND: [personnelWhere, { user: { role: { name: 'TEACHING_PERSONNEL' } } }] } }),
-      db.personnel.count({ where: { AND: [personnelWhere, { user: { role: { name: 'NON_TEACHING_PERSONNEL' } } }] } }),
+      // Workforce classification is not the access role: AO II and HRMO are
+      // non-teaching personnel, while retaining their administrative permissions.
+      db.personnel.count({ where: { AND: [personnelWhere, { user: { role: { name: { in: ['NON_TEACHING_PERSONNEL', 'AO_II', 'HRMO'] } } } }] } }),
     ]);
     const weeklyStats = await Promise.all(days.map(async (day, i) => {
       const dayFilter = { AND: [where, { createdAt: { gte: new Date(start.getTime() + i * 86400000), lt: new Date(start.getTime() + (i + 1) * 86400000) } }] };

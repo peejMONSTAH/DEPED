@@ -42,6 +42,7 @@ export const StaffDashboard: React.FC<Props> = p => {
           <span className="sad-kpi__label"><Briefcase size={20} aria-hidden="true" /> Non-teaching</span>
           <span className="sad-kpi__num">{n(p.nonTeaching)}<small> {pct(p.nonTeaching, p.personnel)}%</small></span>
           <span className="sad-meter is-gold" aria-hidden="true"><i style={{ width: `${pct(p.nonTeaching, p.personnel)}%` }} /></span>
+          <span className="sad-kpi__meta">Includes AO II and HRMO</span>
         </Link>
         <Link to={queueLink} className={`sad-kpi${p.pending > 0 ? ' is-warn' : ''}`}>
           <span className="sad-kpi__label"><Inbox size={20} aria-hidden="true" /> Waiting for review</span>

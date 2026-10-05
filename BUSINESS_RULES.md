@@ -6,7 +6,7 @@
 
 **BR-01:** A personnel account must be created by the System Administrator before the individual can access the system. AO II cannot create accounts; they can only distribute credentials.
 
-**BR-02:** Each personnel record must be linked to exactly one role (Teaching Personnel or Non-Teaching Personnel) and cannot change roles without System Administrator intervention.
+**BR-02:** Each personnel account has one access role, managed by the System Administrator. Workforce classification is separate from access permissions: **AO II and HRMO are non-teaching personnel**, alongside accounts with the Non-Teaching Personnel role. Dashboard non-teaching counts must include all three roles within the viewer's authorized scope. This classification must not change administrative permissions, review routing, or school assignments.
 
 **BR-03:** Personnel credentials (username and temporary password) must be distributed by AO II and must be changed by the user on first login.
 
