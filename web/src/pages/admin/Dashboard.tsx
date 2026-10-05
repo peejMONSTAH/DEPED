@@ -1,4 +1,4 @@
-import { humanizeEnum, transactionStatusLabel } from '../../constants/transactionStatus';
+import { transactionStatusLabel } from '../../constants/transactionStatus';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -13,7 +13,7 @@ import { personnelDisplayName } from '../../utils/personnel-display';
 import { AccountSetupModal } from '../../components/common/AccountSetupModal';
 import { clickable } from '../../a11y/clickable';
 import { notificationPromotionPath } from '../../promotions/deepLink';
-import { SystemExceptions } from './SystemExceptions';
+import { SysAdminDashboard } from './SysAdminDashboard';
 
 type TransactionItem = {
   id: string;
@@ -55,7 +55,6 @@ export const AdminDashboard: React.FC = () => {
   const [totalUsersCount, setTotalUsersCount] = useState<number>(0);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [totalAuditCount, setTotalAuditCount] = useState<number>(0);
-  const [sysAdminViewTab, setSysAdminViewTab] = useState<'USERS' | 'REQUESTS'>('USERS');
 
   // Topbar Notification & Settings dropdown states
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
@@ -235,7 +234,6 @@ export const AdminDashboard: React.FC = () => {
   const activeAccountsCount = summary?.active ?? '—';
   const accountsRequiringAction = summary?.requiringAction ?? 0;
   const roleCounts: Record<string, number> = summary?.roleCounts || {};
-  const representedRoleCount = Object.values(roleCounts).filter(count => count > 0).length;
   const roleDistributionSummary = [
     ['Admin', roleCounts.SYSTEM_ADMIN || 0],
     ['AO II', roleCounts.AO_II || 0],
@@ -510,399 +508,20 @@ export const AdminDashboard: React.FC = () => {
         /* ═══════════════════════════════════════════════════════════════
            SYSADMIN SOLE VIEW: USER PROVISIONING & SYSTEM GOVERNANCE
         ═══════════════════════════════════════════════════════════════ */
-        <>
-          <SystemExceptions />
-          {/* ─── 3. SYSADMIN METRICS ROW ──────────────────────────────── */}
-          <div className="metrics-grid-row">
-            {/* Metric 1: Active Accounts */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">ACTIVE ACCOUNTS</span>
-                <span className="metric-lime-pill">USABLE</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : activeAccountsCount}</div>
-                <div className="metric-footer-note">Can currently access Digital 201</div>
-              </div>
-              <div className="metric-bottom-slot metric-context-note">
-                {loading ? '' : `${activeAccountsCount} of ${totalUsersCount} provisioned`}
-              </div>
-            </div>
-
-            {/* Metric 2: Pending Account Requests */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">PROVISIONING QUEUE</span>
-                <span className="metric-lavender-pill">
-                  {pendingRequestsCount > 0 ? `${pendingRequestsCount} PENDING` : 'CLEARED'}
-                </span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num text-purple">{loading ? '...' : pendingRequestsCount}</div>
-                <div className="metric-footer-note">Awaiting Admin Provisioning</div>
-              </div>
-              <div className="metric-bottom-slot metric-context-note">{summary ? `${summary.pendingDistribution} accounts awaiting distribution` : '—'}</div>
-            </div>
-
-            {/* Metric 3: Accounts Requiring Action */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">REQUIRES ACTION</span>
-                <span className={accountsRequiringAction > 0 ? 'metric-action-pill' : 'metric-lime-pill'}>
-                  {accountsRequiringAction > 0 ? 'REVIEW' : 'CLEAR'}
-                </span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : accountsRequiringAction}</div>
-                <div className="metric-footer-note">Access restrictions or incomplete profiles</div>
-              </div>
-              <div className="metric-bottom-slot metric-context-note">{summary ? `${summary.passwordChanges} password changes · ${summary.incompleteProfiles} incomplete profiles` : '—'}</div>
-            </div>
-
-            {/* Metric 4: Role Distribution */}
-            <div className="soft-card metric-card">
-              <div className="metric-card-top">
-                <span className="metric-label">ROLE DISTRIBUTION</span>
-                <span className="metric-gray-pill">{representedRoleCount} ROLES</span>
-              </div>
-              <div className="metric-card-body">
-                <div className="metric-value-num">{loading ? '...' : totalUsersCount}</div>
-                <div className="metric-footer-note">Provisioned accounts by system role</div>
-              </div>
-              <div className="metric-role-breakdown" aria-label="Account distribution by role">
-                {roleDistributionSummary.map(([label, count]) => (
-                  <div className="metric-role-item" key={String(label)}>
-                    <span>{label}</span>
-                    <strong>{count}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ─── 4. ASYMMETRIC MAIN GRID (2:1 Ratio Layout) ────────── */}
-          <div className="asymmetric-main-grid provisioning-main-grid">
-            {/* Left Column: User Provisioning & Account Registry */}
-            <div className="soft-card table-card-large">
-              <div className="card-header-flex">
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <h3 className="card-heading-title" style={{ margin: 0 }}>User Accounts & Provisioning Queue</h3>
-                    <div style={{ display: 'inline-flex', background: 'var(--color-surface)', borderRadius: 8, padding: 2, border: '1px solid var(--border-subtle)' }}>
-                      <button
-                        type="button"
-                        onClick={() => setSysAdminViewTab('USERS')}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          borderRadius: 6,
-                          background: sysAdminViewTab === 'USERS' ? 'var(--color-primary)' : 'transparent',
-                          color: sysAdminViewTab === 'USERS' ? '#000' : 'inherit',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Accounts ({summary ? totalUsersCount : '—'})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSysAdminViewTab('REQUESTS')}
-                        style={{
-                          padding: '4px 10px',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          borderRadius: 6,
-                          background: sysAdminViewTab === 'REQUESTS' ? 'var(--color-primary)' : 'transparent',
-                          color: sysAdminViewTab === 'REQUESTS' ? '#000' : 'inherit',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                        }}
-                      >
-                        <span>Requests</span>
-                        {pendingRequestsCount > 0 && (
-                          <span style={{ background: '#EF4444', color: '#fff', padding: '1px 5px', borderRadius: 9999, fontSize: 13 }}>
-                            {pendingRequestsCount}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <Link to="/admin/credentials" className="view-all-link">
-                  <span>Manage Credentials</span>
-                  <span className="arrow">→</span>
-                </Link>
-              </div>
-
-              <div className="editorial-table-wrapper">
-                {sysAdminViewTab === 'USERS' ? (
-                  <table className="editorial-table">
-                    <thead>
-                      <tr>
-                        <th>USER / PERSONNEL</th>
-                        <th>EMAIL ADDRESS</th>
-                        <th>SYSTEM ROLE</th>
-                        <th>STATUS</th>
-                        <th style={{ textAlign: 'right' }}>DATE CREATED</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {usersList.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>
-                            {loading ? 'Fetching provisioned accounts...' : 'No provisioned user accounts found.'}
-                          </td>
-                        </tr>
-                      ) : (
-                        usersList.slice(0, 7).map((u: any) => {
-                          const initials = u.personnel
-                            ? `${u.personnel.firstName?.[0] || ''}${u.personnel.lastName?.[0] || ''}`.toUpperCase()
-                            : (u.email?.[0] || 'U').toUpperCase();
-                          const name = u.personnel
-                            ? `${u.personnel.firstName} ${u.personnel.lastName}`
-                            : u.email.split('@')[0];
-                          const roleLabel =
-                            u.role === 'TEACHING_PERSONNEL' ? 'Teaching Faculty' :
-                            u.role === 'NON_TEACHING_PERSONNEL' ? 'Non-Teaching' :
-                            u.role === 'HRMO' ? 'HRMO Officer' :
-                            u.role === 'AO_II' ? 'AO II (School)' :
-                            u.role === 'SYSTEM_ADMIN' ? 'System Admin' : u.role;
-                          return (
-                            <tr key={u.id}>
-                              <td>
-                                <div className="table-user-cell">
-                                  <div className="user-initials-badge">{initials}</div>
-                                  <div>
-                                    <span className="user-full-name">{name}</span>
-                                    {u.personnel?.employeeId && (
-                                      <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{u.personnel.employeeId}</div>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="code-cell">{u.email}</td>
-                              <td>
-                                <span
-                                  style={{
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    padding: '2px 8px',
-                                    borderRadius: 6,
-                                    background: u.role === 'SYSTEM_ADMIN' ? 'rgba(239, 68, 68, 0.15)' : u.role === 'HRMO' ? 'rgba(215, 248, 74, 0.15)' : 'var(--color-surface)',
-                                    color: u.role === 'SYSTEM_ADMIN' ? '#EF4444' : 'inherit',
-                                    border: '1px solid var(--border-subtle)',
-                                  }}
-                                >
-                                  {roleLabel}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`status-pill ${u.accountStatus === 'ACTIVE' ? 'status-lime' : 'status-lavender'}`}>
-                                  {u.accountStatus || 'ACTIVE'}
-                                </span>
-                              </td>
-                              <td className="date-cell" style={{ textAlign: 'right' }}>
-                                {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="editorial-table">
-                    <thead>
-                      <tr>
-                        <th>APPLICANT / NAME</th>
-                        <th>EMAIL</th>
-                        <th>REQUESTED ROLE</th>
-                        <th>STATUS</th>
-                        <th style={{ textAlign: 'right' }}>ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accountRequests.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: '#6B7280', fontSize: '14px' }}>
-                            No pending account creation requests.
-                          </td>
-                        </tr>
-                      ) : (
-                        accountRequests.slice(0, 7).map((req: any) => (
-                          <tr key={req.id}>
-                            <td>
-                              <div className="table-user-cell">
-                                <div className="user-initials-badge">
-                                  {`${req.firstName?.[0] || ''}${req.lastName?.[0] || ''}`.toUpperCase()}
-                                </div>
-                                <span className="user-full-name">{`${req.firstName} ${req.lastName}`}</span>
-                              </div>
-                            </td>
-                            <td className="code-cell">{req.email}</td>
-                            <td className="type-cell">{humanizeEnum(req.role)}</td>
-                            <td>
-                              <span className={`status-pill ${req.status === 'APPROVED' ? 'status-lime' : req.status === 'REJECTED' ? 'status-rose' : 'status-lavender'}`}>
-                                {humanizeEnum(req.status)}
-                              </span>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>
-                              <Link
-                                to="/admin/credentials"
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  color: 'var(--color-primary)',
-                                  textDecoration: 'none',
-                                }}
-                              >
-                                Review & Provision →
-                              </Link>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: DARK FEATURE CARD (System Audit Trail & Security Health) */}
-            <div className="dark-feature-card">
-              <div className="dark-card-top-tag">
-                <span className="dark-tag-dot" />
-                <span>SECURITY AUDIT TRAIL</span>
-              </div>
-
-              <div className="dark-card-metric-section">
-                <div className="dark-big-num">{loading ? '...' : totalAuditCount}</div>
-                <div className="dark-big-sub">Total Audit Trail Events Logged</div>
-              </div>
-
-              {/* Recent Audit Events List */}
-              <div style={{ margin: '16px 0', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
-                {recentAuditLogs.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', padding: '12px 0' }}>
-                    No recent security audit logs recorded.
-                  </div>
-                ) : (
-                  recentAuditLogs.slice(0, 5).map((log: any) => (
-                    <div
-                      key={log.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 10px',
-                        borderRadius: 8,
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        fontSize: 13,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                        <span
-                          style={{
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            background: 'rgba(215, 248, 74, 0.2)',
-                            color: '#E3C36A',
-                            letterSpacing: '0.04em',
-                          }}
-                        >
-                          {log.action?.split('_')[0] || 'EVENT'}
-                        </span>
-                        <span
-                          style={{
-                            color: 'rgba(255,255,255,0.85)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 130,
-                          }}
-                          title={log.userEmail || 'System'}
-                        >
-                          {log.userEmail ? log.userEmail.split('@')[0] : 'System'}
-                        </span>
-                      </div>
-                      <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, flexShrink: 0 }}>
-                        {formatTimeAgo(log.timestamp)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="dark-card-bottom-info">
-                <div className="dark-info-row">
-                  <span className="info-label">Active Accounts</span>
-                  <span className="info-val">{loading ? '...' : totalUsersCount}</span>
-                </div>
-                <div className="dark-info-row">
-                  <span className="info-label">Pending Requests</span>
-                  <span className="info-val">{loading ? '...' : pendingRequestsCount}</span>
-                </div>
-                <div className="dark-info-row">
-                  <span className="info-label">Security monitoring</span>
-                  <span className="info-val lime-text">Audit enabled</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ─── 5. QUICK MANAGEMENT ACTIONS (SysAdmin Dedicated) ─────── */}
-          <div className="quick-actions-section">
-            <h3 className="section-title">System Administration & Provisioning Controls</h3>
-
-            <div className="bento-actions-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))' }}>
-              {/* Action 1: Provision Accounts */}
-              <Link to="/admin/credentials" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-lime-bg">
-                    <AppIcon name="credentials" size={20} color="#1f3a2c" />
-                  </div>
-                  <h4 className="bento-card-title">User Provisioning & Credentials</h4>
-                  <p className="bento-card-desc">
-                    Provision new accounts, approve creation requests, and distribute secure access credentials.
-                  </p>
-                </div>
-              </Link>
-
-              {/* Action 2: Audit Logs */}
-              <Link to="/admin/audit" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-purple-bg">
-                    <AppIcon name="audit" size={20} color="#1f3a2c" />
-                  </div>
-                  <h4 className="bento-card-title">Security Audit & System Logs</h4>
-                  <p className="bento-card-desc">
-                    Audit system access trails, data modifications, login records, and administrative actions.
-                  </p>
-                </div>
-              </Link>
-
-              {/* Action 3: System Settings */}
-              <Link to="/admin/settings" className="action-bento-link">
-                <div className="soft-card bento-action-card">
-                  <div className="bento-icon-badge badge-charcoal-bg">
-                    <AppIcon name="settings" size={20} color="#FFFFFF" />
-                  </div>
-                  <h4 className="bento-card-title">System Settings & Security</h4>
-                  <p className="bento-card-desc">
-                    Review account access, enforced safeguards, active sessions, and delivery failures.
-                  </p>
-                </div>
-              </Link>
-            </div>
-          </div>
-        </>
+        <SysAdminDashboard
+          loading={loading}
+          summary={summary}
+          activeAccounts={activeAccountsCount}
+          totalUsers={totalUsersCount}
+          pendingRequests={pendingRequestsCount}
+          requiringAction={accountsRequiringAction}
+          roles={roleDistributionSummary}
+          users={usersList}
+          requests={accountRequests}
+          auditLogs={recentAuditLogs}
+          auditTotal={totalAuditCount}
+          timeAgo={formatTimeAgo}
+        />
       ) : (
         /* ═══════════════════════════════════════════════════════════════
            HRMO / AO_II VIEW: WORKFORCE INTELLIGENCE & 201 TRANSACTIONS

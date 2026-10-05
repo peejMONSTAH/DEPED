@@ -1,0 +1,98 @@
+/* System Administrator dashboard. Type is a step larger than the rest of the app: most users are older adults. */
+.sad { --sad-deep: #17472E; --sad-green: #2F7D52; --sad-gold: #D4A017; --sad-warn: #B45309; --sad-bad: #A1263A;
+  display: grid; gap: 24px; padding: 0 36px 36px; font-size: 1.0625rem; color: var(--color-text-primary); }
+.sad .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Needs attention, restyled here */
+.sad .sxe { margin: 0; border-radius: 20px; padding: 20px 24px; }
+.sad .sxe h2 { font-size: 1.375rem; margin-bottom: 12px; }
+.sad .sxe li strong { font-size: 1.0625rem; }
+.sad .sxe li .btn { font-size: 1rem; padding: 10px 18px; }
+.sad .sxe.is-clear { display: flex; align-items: center; gap: 14px; background: #EEF7F1; border-color: #BFDCCB; }
+.sad .sxe.is-clear h2 { margin: 0; font-size: 1.25rem; color: var(--sad-deep); }
+.sad .sxe__ok { width: 40px; height: 40px; border-radius: 50%; background: var(--sad-green); color: #fff; display: grid; place-items: center; font-size: 1.25rem; font-weight: 800; flex: none; }
+
+/* KPI tiles */
+.sad-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.5fr); gap: 18px; }
+.sad-kpi { display: flex; flex-direction: column; gap: 10px; padding: 24px 26px; border-radius: 20px; background: var(--color-bg-card); border: 1px solid var(--color-border);
+  text-decoration: none; color: inherit; transition: border-color .15s, box-shadow .15s, transform .15s; min-width: 0; }
+a.sad-kpi:hover { border-color: var(--sad-green); box-shadow: 0 10px 28px rgba(23, 71, 46, .1); transform: translateY(-2px); }
+a.sad-kpi:focus-visible { outline: 3px solid var(--sad-green); outline-offset: 2px; }
+.sad-kpi__label { font-size: 1.125rem; font-weight: 700; color: var(--color-text-secondary); }
+.sad-kpi__num { font-size: 3.5rem; line-height: 1; font-weight: 800; letter-spacing: -.03em; color: var(--sad-deep); font-variant-numeric: tabular-nums; }
+.sad-kpi__num small { font-size: 1.5rem; font-weight: 700; color: var(--color-text-secondary); letter-spacing: 0; }
+.sad-kpi__meta { font-size: 1rem; font-weight: 600; color: var(--color-text-secondary); }
+.sad-kpi.is-warn { border-color: #F2C27A; background: #FFF8EB; }
+.sad-kpi.is-warn .sad-kpi__num { color: var(--sad-warn); }
+.sad-rolebar { display: flex; gap: 3px; height: 14px; border-radius: 999px; overflow: hidden; background: #EDF2EE; }
+.sad-rolebar span { min-width: 6px; }
+.sad-roles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 22px; }
+.sad-roles li { display: flex; align-items: center; gap: 8px; font-size: 1.0625rem; font-weight: 600; }
+.sad-roles i { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.sad-roles strong { margin-left: auto; font-size: 1.1875rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Main row */
+.sad-main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr); gap: 18px; align-items: start; }
+.sad-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 20px; overflow: hidden; }
+.sad-card__head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 22px 26px; border-bottom: 1px solid var(--color-border); }
+.sad h2 { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em; }
+.sad-tabs { display: inline-flex; padding: 4px; gap: 4px; border-radius: 999px; background: #EEF3EF; }
+.sad-tabs button { border: 0; background: transparent; border-radius: 999px; padding: 9px 18px; font: inherit; font-size: 1.0625rem; font-weight: 700; color: var(--color-text-secondary); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.sad-tabs button.is-on { background: var(--sad-deep); color: #fff; }
+.sad-tabs b { font-weight: 800; opacity: .8; }
+.sad-tabs b.is-alert { opacity: 1; background: var(--sad-bad); color: #fff; border-radius: 999px; padding: 0 8px; font-size: .9375rem; }
+.sad-tabs button:focus-visible { outline: 3px solid var(--sad-green); outline-offset: 2px; }
+.sad-link { margin-left: auto; font-size: 1.0625rem; font-weight: 700; color: var(--sad-green); text-decoration: none; white-space: nowrap; }
+.sad-link:hover { text-decoration: underline; }
+.sad-table-wrap { overflow-x: auto; }
+.sad-table { width: 100%; border-collapse: collapse; font-size: 1.0625rem; }
+.sad-table th { text-align: left; font-size: 1rem; font-weight: 700; color: var(--color-text-secondary); padding: 14px 26px; background: #F7FAF8; }
+.sad-table td { padding: 16px 26px; border-top: 1px solid var(--color-border); vertical-align: middle; }
+.sad-table tbody tr:hover { background: #F7FAF8; }
+.sad-table .r { text-align: right; }
+.sad-person { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.sad-person div { display: grid; min-width: 0; }
+.sad-person strong { font-size: 1.125rem; font-weight: 700; }
+.sad-person span { font-size: 1rem; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+.sad-avatar { width: 44px; height: 44px; border-radius: 50%; background: #E3EEE7; color: var(--sad-deep); font-weight: 800; font-size: 1rem; display: grid; place-items: center; flex: none; }
+.sad-status { display: inline-block; padding: 6px 14px; border-radius: 999px; font-size: 1rem; font-weight: 700; }
+.sad-status.is-ok { background: #E1F3E7; color: #1E6B40; }
+.sad-status.is-wait { background: #FFF1D6; color: #8A5A00; }
+.sad-status.is-bad { background: #FDE8E6; color: var(--sad-bad); }
+.sad-muted { color: var(--color-text-secondary); }
+.sad-empty { text-align: center; padding: 40px 26px !important; color: var(--color-text-secondary); }
+
+/* Audit card */
+.sad-audit { background: linear-gradient(160deg, #1D5A3A, #123A26); color: #fff; border-radius: 20px; padding: 24px 26px; display: grid; gap: 18px; }
+.sad-audit header { display: flex; align-items: center; }
+.sad-audit h2 { color: #fff; }
+.sad-link--light { color: #F0C95A; }
+.sad-audit__num { font-size: 3.5rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 10px; }
+.sad-audit__num small { font-size: 1.25rem; font-weight: 600; color: rgba(255, 255, 255, .75); letter-spacing: 0; }
+.sad-audit__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sad-audit__list li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .07); font-size: 1.0625rem; }
+.sad-audit__tag { padding: 3px 10px; border-radius: 8px; background: rgba(240, 201, 90, .2); color: #F0C95A; font-weight: 800; font-size: .9375rem; flex: none; }
+.sad-audit__who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.sad-audit__list time { margin-left: auto; color: rgba(255, 255, 255, .7); font-size: 1rem; flex: none; }
+.sad-audit__empty { color: rgba(255, 255, 255, .75); }
+
+@media (max-width: 1280px) { .sad-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .sad-kpi--roles { grid-column: 1 / -1; } }
+@media (max-width: 1080px) { .sad-main { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .sad { padding: 0 16px 24px; gap: 16px; } }
+@media (max-width: 640px) {
+  .sad-kpis { grid-template-columns: 1fr; }
+  .sad-kpi__num { font-size: 2.75rem; }
+  .sad-card__head { padding: 18px; } .sad-link { margin-left: 0; }
+  .sad-table th, .sad-table td { padding: 14px 16px; }
+}
+
+/* index.css forces table, heading and button styles with !important; these keep the dashboard's larger type. */
+.sad .sad-table th { font-size: 1rem !important; letter-spacing: 0 !important; text-transform: none !important; padding: 14px 26px !important; background: #F7FAF8 !important; }
+.sad .sad-table th.r { text-align: right !important; }
+.sad .sad-table td { font-size: 1.0625rem !important; padding: 16px 26px !important; border-bottom: 0 !important; }
+.sad .sad-audit h2 { color: #fff !important; }
+.sad .sad-card h2, .sad .sxe h2 { font-size: 1.5rem !important; }
+.sad .sad-tabs button { padding: 9px 18px !important; font-size: 1.0625rem !important; border: 0 !important; background: transparent !important; color: var(--color-text-secondary) !important; box-shadow: none !important; transform: none !important; }
+.sad .sad-tabs button.is-on { background: var(--sad-deep) !important; color: #fff !important; }
+.sad .sad-tabs button:not(.is-on):hover { background: #E2EBE5 !important; }
+.sad .sxe .btn { font-size: 1rem !important; padding: 10px 20px !important; }
