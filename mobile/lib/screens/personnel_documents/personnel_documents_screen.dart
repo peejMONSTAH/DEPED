@@ -86,7 +86,8 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
         builder: (ctx) => DocumentPreviewScreen(
           document: doc,
           documentService: _documentService,
-          onReplaceRequested: () => _openAddDocumentSheet(documentToReplace: doc),
+          onReplaceRequested: () =>
+              _openAddDocumentSheet(documentToReplace: doc),
           onDeleteRequested: () => _confirmDeleteDocument(doc),
         ),
       ),
@@ -236,12 +237,22 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
               AppSpace.lg,
               AppSpace.lg,
               // Clear the action button, and the dashboard nav bar on top of it.
-              widget.embedded ? 190 : 110,
+              AppSpace.xxl,
             ),
             children: [
               // Top Summary Hero Card
               _buildSummaryHeroCard(),
               const SizedBox(height: 16),
+              if (!emptyStateOffersAdd) ...[
+                Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      onPressed: () => _openAddDocumentSheet(),
+                      icon: const Icon(LucideIcons.plus, size: 18),
+                      label: const Text('Add document'),
+                    )),
+                const SizedBox(height: 16),
+              ],
 
               // Search Bar
               Container(
@@ -297,24 +308,6 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
           ),
         ),
       ),
-      floatingActionButton: emptyStateOffersAdd
-          ? null
-          : Padding(
-              // Clear the dashboard's floating nav bar when shown as a tab.
-              padding: EdgeInsets.only(bottom: widget.embedded ? 104 : 0),
-              child: FloatingActionButton.extended(
-                onPressed: () => _openAddDocumentSheet(),
-                backgroundColor: AppTheme.brandDark,
-                foregroundColor: Colors.white,
-                elevation: 2,
-                icon: const Icon(LucideIcons.plus, size: 18),
-                label: Text('Add document',
-                    style: AppText.caption.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    )),
-              ),
-            ),
     );
   }
 
@@ -329,7 +322,9 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
             isDateInPast(d.expirationDate!))
         .length;
     final expiringSoon = _documents.where((d) {
-      if (!d.hasFile || d.expirationDate == null || isDateInPast(d.expirationDate!)) {
+      if (!d.hasFile ||
+          d.expirationDate == null ||
+          isDateInPast(d.expirationDate!)) {
         return false;
       }
       final dt = DateTime.tryParse(d.expirationDate!);
@@ -403,7 +398,9 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
         .length;
 
     final expiringSoonCount = _documents.where((d) {
-      if (!d.hasFile || d.expirationDate == null || isDateInPast(d.expirationDate!)) {
+      if (!d.hasFile ||
+          d.expirationDate == null ||
+          isDateInPast(d.expirationDate!)) {
         return false;
       }
       final dt = DateTime.tryParse(d.expirationDate!);
@@ -464,57 +461,22 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(doc.documentTypeName,
-                                style: AppText.heading),
-                          ),
-                          if (doc.isRequired) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color:
-                                    AppTheme.primaryLight.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'REQUIRED',
-                                style: GoogleFonts.inter(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppTheme.primaryLight,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        doc.hasFile && doc.originalFileName.isNotEmpty
-                            ? doc.originalFileName
-                            : 'No file attached',
-                        style: AppText.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpace.sm),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(doc.documentTypeName, style: AppText.heading),
+              const SizedBox(height: AppSpace.sm),
+              Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.sm, children: [
                 _buildStatusChip(doc),
-              ],
-            ),
+                if (doc.isRequired) const StatusPill(label: 'Required'),
+              ]),
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                  doc.hasFile && doc.originalFileName.isNotEmpty
+                      ? doc.originalFileName
+                      : 'No file attached',
+                  style: AppText.caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
+            ]),
             if (doc.rejectionReason != null &&
                 doc.rejectionReason!.trim().isNotEmpty) ...[
               const SizedBox(height: AppSpace.sm),
@@ -542,10 +504,11 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
               runSpacing: AppSpace.sm,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                MetaItem(
-                  icon: LucideIcons.calendar,
-                  label: 'Uploaded ${formatDate(doc.uploadedAt)}',
-                ),
+                if (doc.hasFile)
+                  MetaItem(
+                    icon: LucideIcons.calendar,
+                    label: 'Uploaded ${formatDate(doc.uploadedAt)}',
+                  ),
                 if (doc.expirationDate != null)
                   MetaItem(
                     icon: expired
@@ -568,9 +531,13 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
             const SizedBox(height: AppSpace.md),
             const Divider(height: 1, thickness: 1, color: AppTheme.lightBorder),
             const SizedBox(height: AppSpace.sm),
-            Row(
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              alignment: WrapAlignment.end,
               children: [
-                if (doc.hasFile && doc.status != PersonnelDocumentStatus.APPROVED)
+                if (doc.hasFile &&
+                    doc.status != PersonnelDocumentStatus.APPROVED)
                   TextButton.icon(
                     onPressed: () => _confirmDeleteDocument(doc),
                     icon: const Icon(LucideIcons.trash2,
@@ -583,7 +550,6 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                       ),
                     ),
                   ),
-                const Spacer(),
                 if (doc.hasFile) ...[
                   OutlinedButton(
                     onPressed: () =>
@@ -614,10 +580,10 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
   Widget _buildStatusChip(PersonnelDocument doc) {
     final expired =
         doc.expirationDate != null && isDateInPast(doc.expirationDate!);
-    final dt =
-        doc.expirationDate != null ? DateTime.tryParse(doc.expirationDate!) : null;
-    final diffDays =
-        dt != null ? dt.difference(DateTime.now()).inDays : 999;
+    final dt = doc.expirationDate != null
+        ? DateTime.tryParse(doc.expirationDate!)
+        : null;
+    final diffDays = dt != null ? dt.difference(DateTime.now()).inDays : 999;
     final expiringSoon =
         doc.hasFile && !expired && diffDays >= 0 && diffDays <= 60;
 

@@ -11,7 +11,8 @@ class VerifyDeviceDialog extends StatefulWidget {
   final AuthService authService;
   final DeviceVerificationRequired challenge;
 
-  const VerifyDeviceDialog({super.key, required this.authService, required this.challenge});
+  const VerifyDeviceDialog(
+      {super.key, required this.authService, required this.challenge});
 
   @override
   State<VerifyDeviceDialog> createState() => _VerifyDeviceDialogState();
@@ -53,12 +54,21 @@ class _VerifyDeviceDialogState extends State<VerifyDeviceDialog> {
       setState(() => _error = 'Enter the 6-digit code from your email.');
       return;
     }
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final user = await widget.authService.verifyDevice(widget.challenge.challengeToken, code);
+      final user = await widget.authService
+          .verifyDevice(widget.challenge.challengeToken, code);
       if (mounted) Navigator.of(context).pop(user);
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString().replaceAll('Exception: ', ''); _codeCtrl.clear(); });
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+          _codeCtrl.clear();
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -67,15 +77,20 @@ class _VerifyDeviceDialogState extends State<VerifyDeviceDialog> {
   Future<void> _resend() async {
     setState(() => _error = null);
     try {
-      final wait = await widget.authService.resendCode(widget.challenge.challengeToken);
+      final wait =
+          await widget.authService.resendCode(widget.challenge.challengeToken);
       _startCountdown(wait);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('A new code was sent to ${widget.challenge.maskedEmail}.')),
+          SnackBar(
+              content: Text(
+                  'A new code was sent to ${widget.challenge.maskedEmail}.')),
         );
       }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      if (mounted) {
+        setState(() => _error = e.toString().replaceAll('Exception: ', ''));
+      }
     }
   }
 
@@ -85,18 +100,21 @@ class _VerifyDeviceDialogState extends State<VerifyDeviceDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Padding(
+      child: SingleChildScrollView(
+          child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Check your email', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const Text('Check your email',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(
               'This phone is new to your account, so we sent a 6-digit code to ${widget.challenge.maskedEmail}. '
               'You will not be asked again on this phone for 30 days.',
-              style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF55615A)),
+              style: const TextStyle(
+                  fontSize: 14, height: 1.4, color: Color(0xFF55615A)),
             ),
             const SizedBox(height: 18),
             TextField(
@@ -105,36 +123,52 @@ class _VerifyDeviceDialogState extends State<VerifyDeviceDialog> {
               enabled: !_busy,
               keyboardType: TextInputType.number,
               autofillHints: const [AutofillHints.oneTimeCode],
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6)
+              ],
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, letterSpacing: 10),
+              style: const TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: 4),
               decoration: InputDecoration(
                 hintText: '000000',
                 errorText: _error,
                 errorMaxLines: 3,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onChanged: (v) { if (v.length == 6 && !_busy) _verify(); },
+              onChanged: (v) {
+                if (v.length == 6 && !_busy) _verify();
+              },
               onSubmitted: (_) => _verify(),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 50,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 50),
               child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: green, shape: const StadiumBorder()),
+                style: FilledButton.styleFrom(
+                    backgroundColor: green, shape: const StadiumBorder()),
                 onPressed: _busy ? null : _verify,
                 child: _busy
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Verify and sign in', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Verify and sign in',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800, fontSize: 16)),
               ),
             ),
             const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
               children: [
                 TextButton(
                   onPressed: _resendIn > 0 || _busy ? null : _resend,
-                  child: Text(_resendIn > 0 ? 'New code in ${_resendIn}s' : 'Send a new code'),
+                  child: Text(_resendIn > 0
+                      ? 'New code in ${_resendIn}s'
+                      : 'Send a new code'),
                 ),
                 TextButton(
                   onPressed: _busy ? null : () => Navigator.of(context).pop(),
@@ -144,7 +178,7 @@ class _VerifyDeviceDialogState extends State<VerifyDeviceDialog> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

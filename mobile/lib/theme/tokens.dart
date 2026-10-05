@@ -33,7 +33,7 @@ abstract final class AppRadius {
   static const double md = 12;
 
   /// Cards and sheets.
-  static const double lg = 16;
+  static const double lg = 20;
 
   /// Fully rounded (avatars, pills, the nav bar).
   static const double pill = 999;

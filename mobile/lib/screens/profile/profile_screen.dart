@@ -142,195 +142,27 @@ class ProfileScreen extends StatelessWidget {
       backgroundColor: AppTheme.lightBgCard,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 120.0),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Hero Profile Header Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(22.0),
-              decoration: BoxDecoration(
-                color: AppTheme.lightBgCard,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.lightBorder),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Avatar Circle with Soft Accent Ring
-                      Stack(
-                        children: [
-                          Container(
-                            width: 68,
-                            height: 68,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppTheme.primaryLight.withOpacity(0.08),
-                              border: Border.all(
-                                  color: AppTheme.primaryLight, width: 2),
-                            ),
-                            child: Center(
-                              child: Text(
-                                initials,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppTheme.primaryLight,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.emeraldGreen,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Center(
-                                child: Icon(LucideIcons.check,
-                                    size: 13, color: Colors.white),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 16),
-                      // Name & Primary Title
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              p.fullName.isNotEmpty
-                                  ? p.fullName
-                                  : 'Personnel Staff',
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textPrimary,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.02,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              p.positionTitle,
-                              style: GoogleFonts.plusJakartaSans(
-                                color: AppTheme.textSecondary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Tag Row
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primaryLight.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                        color: AppTheme.primaryLight
-                                            .withOpacity(0.25)),
-                                  ),
-                                  child: Text(
-                                    p.salaryGrade == null
-                                        ? 'SG not recorded'
-                                        : (p.stepIncrement == null
-                                            ? 'SG ${p.salaryGrade}'
-                                            : 'SG ${p.salaryGrade} · Step ${p.stepIncrement}'),
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: AppTheme.primaryLight,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.lightSurface,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border:
-                                        Border.all(color: AppTheme.lightBorder),
-                                  ),
-                                  child: Text(
-                                    humanizeEnum(p.personnelType),
-                                    style: GoogleFonts.plusJakartaSans(
-                                      color: AppTheme.textSecondary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  const Divider(color: AppTheme.lightBorder, height: 1),
-                  const SizedBox(height: 14),
-
-                  // Quick Metadata Bar with Copyable Employee ID
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      InkWell(
-                        onTap: () => _copyToClipboard(
-                            context, p.employeeId, 'Employee ID'),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.lightSurface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.lightBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(LucideIcons.idCard,
-                                  size: 14, color: AppTheme.primaryLight),
-                              const SizedBox(width: 6),
-                              Text(
-                                p.employeeId,
-                                style: GoogleFonts.jetBrainsMono(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(LucideIcons.copy,
-                                  size: 12, color: AppTheme.textMuted),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const StatusPill(
-                          label: 'Active record', tone: AppStatusTone.success),
-                    ],
-                  ),
-                ],
-              ),
+            PersonnelHero(
+              name: p.fullName,
+              initials: initials,
+              role: humanizeEnum(p.personnelType, fallback: 'Personnel'),
+              position: p.positionTitle,
+              station: p.stationName,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpace.md),
+            Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      _copyToClipboard(context, p.employeeId, 'Employee ID'),
+                  icon: const Icon(LucideIcons.copy, size: 16),
+                  label: Text(p.employeeId, style: AppText.mono),
+                )),
+            const SizedBox(height: AppSpace.lg),
 
             // Section 1: Personal Information
             _buildSectionCard(
@@ -482,30 +314,24 @@ class ProfileScreen extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 4,
-            child: Text(label, style: AppText.caption),
-          ),
-          const SizedBox(width: AppSpace.md),
-          Expanded(
-            flex: 6,
-            child: InkWell(
-              onTap: onCopy,
-              borderRadius: AppRadius.smAll,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: Text(value, style: valueStyle)),
-                  if (onCopy != null) ...[
-                    const SizedBox(width: AppSpace.xs),
-                    const Icon(LucideIcons.copy,
-                        size: 13, color: AppTheme.textMuted),
-                  ],
+          Text(label, style: AppText.caption),
+          const SizedBox(height: AppSpace.xs),
+          InkWell(
+            onTap: onCopy,
+            borderRadius: AppRadius.smAll,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: Text(value, style: valueStyle)),
+                if (onCopy != null) ...[
+                  const SizedBox(width: AppSpace.xs),
+                  const Icon(LucideIcons.copy,
+                      size: 13, color: AppTheme.textMuted),
                 ],
-              ),
+              ],
             ),
           ),
         ],

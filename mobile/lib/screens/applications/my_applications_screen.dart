@@ -7,6 +7,7 @@ import '../../models/user_model.dart';
 import '../../services/api_service.dart';
 import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
 import '../../utils/errors.dart';
 import '../promotions/promotion_checklist_screen.dart';
 import '../transactions/checklist_upload_screen.dart';
@@ -147,10 +148,10 @@ class _MyApplicationsScreenState extends State<MyApplicationsScreen> {
       onRefresh: _load,
       color: AppTheme.primaryLight,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
-          Text('My Applications', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+          Text('Applications', style: AppText.display),
           const SizedBox(height: 4),
           Text(needsAction > 0 ? '$needsAction need your action' : 'Track your promotion applications and appointments.',
               style: GoogleFonts.inter(fontSize: 13, color: needsAction > 0 ? _red : AppTheme.textSecondary, fontWeight: needsAction > 0 ? FontWeight.w700 : FontWeight.w400)),

@@ -8,19 +8,21 @@ class AppTheme {
   // ═══════════════════════════════════════════════════════════════════
 
   // Brand Accent Colors
-  static const Color accentLime = Color(0xFFE3C36A);       // Pastel gold accent
+  static const Color accentLime = Color(0xFFE3C36A); // Pastel gold accent
   static const Color accentLimeHover = Color(0xFFD4B052);
-  static const Color accentLavender = Color(0xFFA8DDBB);   // Pastel green
-  static const Color brandDark = Color(0xFF1F3A2C);        // Deep green
+  static const Color accentLavender = Color(0xFFA8DDBB); // Pastel green
+  static const Color brandDark = Color(0xFF1F3A2C); // Deep green
 
   // Backgrounds & Surfaces (Pure Light Mode)
-  static const Color lightBg = Color(0xFFEEF5EF);          // Light Slate background
-  static const Color lightBgWorkspace = Color(0xFFE8EFE9); // Secondary workspace background
-  static const Color lightBgSecondary = Color(0xFFFFFFFF); // Pure white header / surface
-  static const Color lightBgCard = Color(0xFFFFFFFF);      // Pure white cards
-  static const Color lightSurface = Color(0xFFF7FAF6);     // Subtle contrast fill
-  static const Color lightBorder = Color(0xFFDCE6DE);      // Crisp border
-  static const Color lightBorderSubtle = Color(0xFFEEF5EF);// Subtle divider
+  static const Color lightBg = Color(0xFFF3F5F0); // Warm, quiet canvas
+  static const Color lightBgWorkspace =
+      Color(0xFFE8EFE9); // Secondary workspace background
+  static const Color lightBgSecondary =
+      Color(0xFFFFFFFF); // Pure white header / surface
+  static const Color lightBgCard = Color(0xFFFFFFFF); // Pure white cards
+  static const Color lightSurface = Color(0xFFF7FAF6); // Subtle contrast fill
+  static const Color lightBorder = Color(0xFFDCE6DE); // Crisp border
+  static const Color lightBorderSubtle = Color(0xFFEEF5EF); // Subtle divider
 
   // Aliases for backwards compatibility with existing screens
   static const Color darkBg = lightBg;
@@ -32,20 +34,22 @@ class AppTheme {
   static const Color darkBorderSubtle = lightBorderSubtle;
 
   // Typography Colors (High-Contrast Light Theme)
-  static const Color textPrimary = Color(0xFF1F3A2C);      // Deep green
-  static const Color textSecondary = Color(0xFF4F6356);    // Mid Charcoal
-  static const Color textMuted = Color(0xFF5B6B60);        // Subtle Slate
-  static const Color textInverse = Color(0xFFFFFFFF);      // White on dark buttons/chips
+  static const Color textPrimary = Color(0xFF1F3A2C); // Deep green
+  static const Color textSecondary = Color(0xFF4F6356); // Mid Charcoal
+  static const Color textMuted = Color(0xFF5B6B60); // Subtle Slate
+  static const Color textInverse =
+      Color(0xFFFFFFFF); // White on dark buttons/chips
 
   // Status Colors (Matching DepEd Corporate Web Tokens)
   static const Color statusDraft = Color(0xFF5B6B60);
-  static const Color statusPending = Color(0xFFD97706);    // Amber
-  static const Color statusValidated = Color(0xFF2F7D52);  // Brand green
-  static const Color statusApproved = Color(0xFF10B981);   // Emerald Green
-  static const Color statusReturned = Color(0xFFDC2626);   // Red
+  static const Color statusPending = Color(0xFFD97706); // Amber
+  static const Color statusValidated = Color(0xFF2F7D52); // Brand green
+  static const Color statusApproved =
+      Color(0xFF24764E); // Readable green status text
+  static const Color statusReturned = Color(0xFFDC2626); // Red
 
   // Aliases for backwards compatibility with existing screens
-  static const Color primaryLight = Color(0xFF2F7D52);     // Brand green
+  static const Color primaryLight = Color(0xFF2F7D52); // Brand green
   static const Color primaryBlue = Color(0xFF2F7D52);
   static const Color primaryDark = brandDark;
   static const Color emeraldGreen = statusApproved;
@@ -56,7 +60,8 @@ class AppTheme {
 
   // Pure Light Theme
   static ThemeData get lightTheme {
-    final baseTextTheme = GoogleFonts.plusJakartaSansTextTheme(ThemeData.light().textTheme);
+    final baseTextTheme =
+        GoogleFonts.plusJakartaSansTextTheme(ThemeData.light().textTheme);
 
     return ThemeData(
       useMaterial3: true,
@@ -140,8 +145,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle: GoogleFonts.plusJakartaSans(color: textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelStyle: GoogleFonts.plusJakartaSans(
+            color: textSecondary, fontSize: 13, fontWeight: FontWeight.w500),
         hintStyle: GoogleFonts.plusJakartaSans(color: textMuted, fontSize: 13),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -196,10 +203,20 @@ class AppTheme {
         space: 24,
       ),
       textTheme: baseTextTheme.copyWith(
-        titleLarge: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: textPrimary, letterSpacing: -0.02),
-        titleMedium: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700, color: textPrimary, letterSpacing: -0.01),
-        bodyLarge: GoogleFonts.plusJakartaSans(fontSize: 15, color: textPrimary),
-        bodyMedium: GoogleFonts.plusJakartaSans(fontSize: 13, color: textSecondary),
+        titleLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: textPrimary,
+            letterSpacing: -0.02),
+        titleMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
+            letterSpacing: -0.01),
+        bodyLarge:
+            GoogleFonts.plusJakartaSans(fontSize: 15, color: textPrimary),
+        bodyMedium:
+            GoogleFonts.plusJakartaSans(fontSize: 13, color: textSecondary),
         bodySmall: GoogleFonts.plusJakartaSans(fontSize: 13, color: textMuted),
       ),
     );

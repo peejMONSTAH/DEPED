@@ -83,9 +83,11 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.lightBgCard,
         borderRadius: AppRadius.lgAll,
-        border: borderColor == null
-            ? AppSurface.hairline
-            : Border.all(color: borderColor!, width: 1),
+        border: Border.all(color: borderColor ?? AppTheme.lightBorderSubtle),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x061F3A2C), blurRadius: 16, offset: Offset(0, 4))
+        ],
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -101,6 +103,66 @@ class AppCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The identity anchor, with natural-height text for long names and stations.
+class PersonnelHero extends StatelessWidget {
+  const PersonnelHero(
+      {super.key,
+      required this.name,
+      required this.initials,
+      required this.role,
+      required this.position,
+      required this.station});
+  final String name, initials, role, position, station;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: AppTheme.brandDark,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                    color: AppTheme.accentLime,
+                    borderRadius: BorderRadius.circular(14)),
+                alignment: Alignment.center,
+                child: Text(initials, style: AppText.heading)),
+            const SizedBox(width: 14),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text('YOUR PERSONNEL WORKSPACE',
+                      style: AppText.micro
+                          .copyWith(color: AppTheme.accentLime, fontSize: 10)),
+                  const SizedBox(height: 6),
+                  Text(name,
+                      style: AppText.display.copyWith(color: Colors.white)),
+                ])),
+          ]),
+          const SizedBox(height: 20),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF335844),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(role,
+                    style: AppText.caption.copyWith(color: Colors.white))),
+            Text(position, style: AppText.body.copyWith(color: Colors.white)),
+          ]),
+          const SizedBox(height: 12),
+          Text(station,
+              style: AppText.caption.copyWith(color: const Color(0xFFD0DED3))),
+        ]),
+      );
 }
 
 /// A section heading. Optional trailing widget sits on the right.
@@ -119,22 +181,25 @@ class SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: AppText.heading,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 360 ||
+          MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: AppText.heading),
+          if (trailing != null) ...[
+            const SizedBox(height: AppSpace.sm),
+            trailing!
+          ],
+        ]);
+      }
+      return Row(children: [
+        Expanded(child: Text(title, style: AppText.heading)),
         if (trailing != null) ...[
           const SizedBox(width: AppSpace.sm),
-          trailing!,
+          Flexible(child: trailing!)
         ],
-      ],
-    );
+      ]);
+    });
   }
 }
 
@@ -169,10 +234,11 @@ class StatusPill extends StatelessWidget {
             Icon(icon, size: 12, color: tone.foreground),
             const SizedBox(width: AppSpace.xs),
           ],
-          Text(
+          Flexible(
+              child: Text(
             label,
             style: AppText.micro.copyWith(color: tone.foreground),
-          ),
+          )),
         ],
       ),
     );

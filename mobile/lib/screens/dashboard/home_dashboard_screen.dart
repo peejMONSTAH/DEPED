@@ -16,6 +16,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../utils/display.dart';
 import '../../widgets/ui_kit.dart';
+import '../../widgets/personnel_navigation.dart';
 import '../../widgets/eminence_logo.dart';
 import '../../widgets/status_badge.dart';
 import '../applications/my_applications_screen.dart';
@@ -47,7 +48,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   /// My Applications: promotion applications and appointment transactions,
   /// where returned documents are replaced and resubmitted.
   static const int _applicationsTabIndex = 5;
-  bool _isStretched = false;
   late final ProfileService _profileService;
   late final TransactionService _transactionService;
   late final RealtimeService _realtimeService;
@@ -78,7 +78,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     LocalNotificationService.instance.init();
     _loadData();
     _initRealtimeListeners();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensurePrivacyConsent());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _ensurePrivacyConsent());
   }
 
   /// Asks the person to read the Privacy Notice once. Declining means signing out.
@@ -96,7 +97,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, a1, a2) => const LoginScreen(),
-        transitionsBuilder: (_, a1, a2, child) => FadeTransition(opacity: a1, child: child),
+        transitionsBuilder: (_, a1, a2, child) =>
+            FadeTransition(opacity: a1, child: child),
       ),
     );
   }
@@ -366,7 +368,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     ];
 
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
         backgroundColor: AppTheme.darkBgSecondary,
@@ -406,193 +408,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           const SizedBox(width: AppSpace.xs),
         ],
       ),
-      body: NotificationListener<ScrollNotification>(
-        onNotification: (ScrollNotification notification) {
-          if (notification is ScrollUpdateNotification) {
-            if (notification.scrollDelta != null) {
-              if (notification.scrollDelta! > 3 && !_isStretched) {
-                setState(() => _isStretched = true);
-              } else if (notification.scrollDelta! < -3 && _isStretched) {
-                setState(() => _isStretched = false);
-              }
-            }
-          }
-          return false;
-        },
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryLight))
-            : ContentWidth(child: pages[_currentIndex]),
-      ),
-      bottomNavigationBar: _buildLiquidGlassNavBar(),
-    );
-  }
-
-  /// Floating liquid-glass navigation bar.
-  Widget _buildLiquidGlassNavBar() {
-    return SafeArea(
-      child: ContentWidth(
-        shrinkWrapHeight: true,
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.fromLTRB(_isStretched ? 6 : 14, 0,
-              _isStretched ? 6 : 14, _isStretched ? 6 : 12),
-          child: Row(
-            children: [
-              // Personnel transactions are assigned by the AO/HRMO workflow.
-              // The navigation therefore contains no manual transaction action.
-              Expanded(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  // Tall enough for a two-line label ("Service Record").
-                  height: _isStretched ? 76 : 72,
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBgCard,
-                    borderRadius: BorderRadius.circular(_isStretched ? 36 : 32),
-                    border: Border.all(color: AppTheme.lightBorder, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      // Labels mirror the website sidebar so the same
-                      // destination is called the same thing on every surface.
-                      _buildNavTabItem(
-                          index: 0, icon: LucideIcons.home, label: 'Home'),
-                      _buildNavTabItem(
-                          index: 2,
-                          icon: LucideIcons.folderOpen,
-                          label: '201 Files'),
-                      // Opens CareerTimelineScreen, which the sidebar calls
-                      // Service Record - not My Transactions.
-                      _buildNavTabItem(
-                          index: _applicationsTabIndex,
-                          icon: LucideIcons.clipboardList,
-                          label: 'Applications'),
-                      _buildNavTabItem(
-                          index: 3,
-                          icon: LucideIcons.award,
-                          label: 'Service'),
-                      // Profile sits at the far right. The index is the page
-                      // it opens, not its position in this row.
-                      _buildNavTabItem(
-                          index: 1,
-                          icon: LucideIcons.userCheck,
-                          label: 'Profile'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavTabItem({
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _currentIndex == index;
-    final color = isSelected ? AppTheme.primaryLight : AppTheme.textMuted;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _currentIndex = index),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isSelected
-                          ? AppTheme.primaryLight.withOpacity(0.12)
-                          : Colors.transparent,
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 20,
-                      color: color,
-                    ),
-                  ),
-                  if (index == _alertsTabIndex && _unreadCount > 0)
-                    Positioned(
-                      top: -4,
-                      right: -6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF85149),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white, width: 1.5),
-                        ),
-                        constraints:
-                            const BoxConstraints(minWidth: 16, minHeight: 16),
-                        child: Center(
-                          child: Text(
-                            _unreadCount > 99 ? '99+' : '$_unreadCount',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              // Sidebar labels are two words. Wrapping to a second line keeps
-              // them readable; scaleDown on a single line would shrink
-              // "My Documents" to roughly 8px inside a 320px five-tab bar.
-              // scaleDown is kept as the floor for the longest single word.
-              // A one-word label ("Applications") must never break mid-word:
-              // keep it on one line and shrink it slightly if the tab is narrow.
-              if (!label.contains(' '))
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      height: 1.15,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: color,
-                    ),
-                  ),
-                )
-              else
-                Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    height: 1.15,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: color,
-                  ),
-                ),
-            ],
-          ),
-        ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryLight))
+          : ContentWidth(child: pages[_currentIndex]),
+      bottomNavigationBar: PersonnelNavigation(
+        index: _currentIndex,
+        onChanged: (index) => setState(() => _currentIndex = index),
       ),
     );
   }
@@ -606,7 +428,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
         color: AppTheme.primaryLight,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
-              AppSpace.lg, AppSpace.lg, AppSpace.lg, 100),
+              AppSpace.xl, AppSpace.xl, AppSpace.xl, AppSpace.xxl),
           children: [
             EmptyState(
               icon: LucideIcons.cloudOff,
@@ -651,7 +473,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       color: AppTheme.primaryLight,
       backgroundColor: AppTheme.darkBgCard,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         children: [
           // Shown only when a refresh failed and the card below is therefore a
           // saved copy, so nobody mistakes it for live data.
@@ -686,69 +508,17 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             const SizedBox(height: AppSpace.md),
           ],
 
-          // Personnel identity
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppTheme.lightSurface,
-                      ),
-                      child:
-                          Center(child: Text(initials, style: AppText.heading)),
-                    ),
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Welcome back', style: AppText.micro),
-                          const SizedBox(height: 2),
-                          Text(
-                            _profile?.fullName ??
-                                '${widget.user.firstName} ${widget.user.lastName}',
-                            style: AppText.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpace.md),
-                Wrap(
-                  spacing: AppSpace.md,
-                  runSpacing: AppSpace.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    StatusPill(
-                      label: humanizeEnum(
-                        _profile?.personnelType ?? widget.user.role.name,
-                        fallback: 'Personnel',
-                      ),
-                      tone: AppStatusTone.info,
-                    ),
-                    MetaItem(
-                      icon: LucideIcons.briefcase,
-                      label: _profile?.positionTitle ?? 'Position not recorded',
-                    ),
-                    MetaItem(
-                      icon: LucideIcons.building2,
-                      label: _profile?.stationName ?? 'Station not recorded',
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          PersonnelHero(
+            name: _profile?.fullName ??
+                '${widget.user.firstName ?? ''} ${widget.user.lastName ?? ''}'
+                    .trim(),
+            initials: initials,
+            role: humanizeEnum(_profile?.personnelType ?? widget.user.role.name,
+                fallback: 'Personnel'),
+            position: _profile?.positionTitle ?? 'Position not recorded',
+            station: _profile?.stationName ?? 'Station not recorded',
           ),
-          const SizedBox(height: AppSpace.md),
+          const SizedBox(height: AppSpace.xl),
 
           // The one place that says what to do next.
           _buildActionNeeded(),

@@ -44,7 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin({String? overrideEmail, String? overridePass, String? roleTag}) async {
+  void _handleLogin(
+      {String? overrideEmail, String? overridePass, String? roleTag}) async {
     final email = overrideEmail ?? _emailCtrl.text.trim();
     final pass = overridePass ?? _passCtrl.text.trim();
 
@@ -68,7 +69,8 @@ class _LoginScreenState extends State<LoginScreen> {
         final verified = await showDialog<UserModel>(
           context: context,
           barrierDismissible: false,
-          builder: (_) => VerifyDeviceDialog(authService: _authService, challenge: challenge),
+          builder: (_) => VerifyDeviceDialog(
+              authService: _authService, challenge: challenge),
         );
         if (verified == null) return;
         user = verified;
@@ -123,7 +125,8 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (_, a1, a2) => HomeDashboardScreen(user: user),
-            transitionsBuilder: (_, a1, a2, child) => FadeTransition(opacity: a1, child: child),
+            transitionsBuilder: (_, a1, a2, child) =>
+                FadeTransition(opacity: a1, child: child),
           ),
         );
       }
@@ -134,256 +137,157 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightBg,
-      body: Stack(
-        children: [
-          // Background ambient light grid aura
-          Positioned(
-            top: -60,
-            left: -60,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.primaryLight.withOpacity(0.08),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxHeight < 720 || constraints.maxWidth < 360;
-                final horizontalPadding = constraints.maxWidth < 400 ? 18.0 : 28.0;
-
-                return SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: horizontalPadding,
-                    vertical: isCompact ? 16.0 : 32.0,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight - (isCompact ? 32.0 : 64.0),
+      body: Stack(children: [
+        SafeArea(child: LayoutBuilder(builder: (context, constraints) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+            child: Center(
+                child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Align(
+                        alignment: Alignment.centerLeft,
+                        child: EminenceLogo(
+                            variant: EminenceLogoVariant.wordmark,
+                            size: EminenceLogoSize.md,
+                            showSubtitle: false)),
+                    const SizedBox(height: 36),
+                    Text('Your records.\nYour next step.',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 32,
+                            height: 1.12,
+                            letterSpacing: -1.2,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.brandDark)),
+                    const SizedBox(height: 12),
+                    Text(
+                        'The personnel workspace for the City Schools Division of Koronadal.',
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: AppTheme.textSecondary)),
+                    const SizedBox(height: 28),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24)),
+                      child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text('Sign in',
+                                  style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.brandDark)),
+                              const SizedBox(height: 6),
+                              const Text(
+                                  'Use the account issued by your school or HR office.',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      height: 1.5,
+                                      color: AppTheme.textSecondary)),
+                              const SizedBox(height: 24),
+                              TextFormField(
+                                controller: _emailCtrl,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.username],
+                                decoration: const InputDecoration(
+                                    labelText: 'Email address',
+                                    prefixIcon:
+                                        Icon(LucideIcons.mail, size: 20)),
+                                validator: (value) =>
+                                    value == null || value.isEmpty
+                                        ? 'Email is required'
+                                        : !value.contains('@')
+                                            ? 'Enter a valid email address'
+                                            : null,
+                              ),
+                              const SizedBox(height: 18),
+                              TextFormField(
+                                controller: _passCtrl,
+                                obscureText: _obscurePassword,
+                                autofillHints: const [AutofillHints.password],
+                                onFieldSubmitted: (_) {
+                                  if (!_isLoading) _handleLogin();
+                                },
+                                decoration: InputDecoration(
+                                    labelText: 'Password',
+                                    prefixIcon:
+                                        const Icon(LucideIcons.lock, size: 20),
+                                    suffixIcon: IconButton(
+                                        tooltip: _obscurePassword
+                                            ? 'Show password'
+                                            : 'Hide password',
+                                        onPressed: () => setState(() =>
+                                            _obscurePassword =
+                                                !_obscurePassword),
+                                        icon: Icon(
+                                            _obscurePassword
+                                                ? LucideIcons.eyeOff
+                                                : LucideIcons.eye,
+                                            size: 20))),
+                                validator: (value) =>
+                                    value == null || value.isEmpty
+                                        ? 'Password is required'
+                                        : null,
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed:
+                                    _isLoading ? null : () => _handleLogin(),
+                                child: _isLoading && _loadingRole == null
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2))
+                                    : const Text('Sign in to Digital 201'),
+                              ),
+                            ],
+                          )),
                     ),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Official Partnership Badge
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryLight.withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(999),
-                                  border: Border.all(color: AppTheme.primaryLight.withOpacity(0.2)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(LucideIcons.shieldCheck, size: 16, color: AppTheme.primaryLight),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Official DepEd Region XII & NDMU HRIS',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.primaryLight,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: isCompact ? 16 : 22),
-
-                            // Eminence Logo Hero Component
-                            Center(
-                              child: EminenceLogo(
-                                variant: EminenceLogoVariant.wordmark,
-                                size: isCompact ? EminenceLogoSize.md : EminenceLogoSize.lg,
-                                showSubtitle: false,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-
-                            Text(
-                              'City Schools Division of Koronadal City',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'Personnel Digital 201 Portal',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            SizedBox(height: isCompact ? 20 : 28),
-
-                            // Login Main Card (Light Container)
-                            Container(
-                              padding: EdgeInsets.all(isCompact ? 20.0 : 26.0),
-                              decoration: BoxDecoration(
-                                color: AppTheme.lightBgCard,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppTheme.lightBorder),
-                              ),
-                              child: Form(
-                                key: _formKey,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Personnel Sign In',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppTheme.textPrimary,
-                                        letterSpacing: -0.02,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'Enter your DepEd enterprise credentials to proceed.',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppTheme.textSecondary,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 22),
-
-                                    // DepEd Email
-                                    TextFormField(
-                                      controller: _emailCtrl,
-                                      keyboardType: TextInputType.emailAddress,
-                                      style: GoogleFonts.inter(
-                                        color: AppTheme.textPrimary,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        labelText: 'DepEd Email Address',
-                                        prefixIcon: Icon(LucideIcons.mail, size: 20, color: AppTheme.textMuted),
-                                      ),
-                                      validator: (val) {
-                                        if (val == null || val.isEmpty) return 'Email is required';
-                                        if (!val.contains('@')) return 'Enter a valid email address';
-                                        return null;
-                                      },
-                                    ),
-                                    const SizedBox(height: 18),
-
-                                    // Password Input
-                                    TextFormField(
-                                      controller: _passCtrl,
-                                      obscureText: _obscurePassword,
-                                      style: GoogleFonts.inter(
-                                        color: AppTheme.textPrimary,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      decoration: InputDecoration(
-                                        labelText: 'Password',
-                                        prefixIcon: const Icon(LucideIcons.lock, size: 20, color: AppTheme.textMuted),
-                                        suffixIcon: IconButton(
-                                          icon: Icon(
-                                            _obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye,
-                                            size: 20,
-                                            color: AppTheme.textMuted,
-                                          ),
-                                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                                        ),
-                                      ),
-                                      validator: (val) => val == null || val.isEmpty ? 'Password is required' : null,
-                                    ),
-                                    const SizedBox(height: 24),
-
-                                    // Submit Button
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed: _isLoading ? null : () => _handleLogin(),
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          backgroundColor: AppTheme.brandDark,
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                          elevation: 0,
-                                        ),
-                                        child: _isLoading && _loadingRole == null
-                                            ? const SizedBox(
-                                                height: 22,
-                                                width: 22,
-                                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                                              )
-                                            : Text(
-                                                'Sign In to 201 Portal',
-                                                style: GoogleFonts.plusJakartaSans(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Colors.white,
-                                                  letterSpacing: 0.1,
-                                                ),
-                                              ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(height: isCompact ? 16 : 24),
-                            Text(
-                              'City Schools Division of Koronadal',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Auth Welcome Overlay (Replicating Web AuthTransitionOverlay.tsx)
-          if (_showWelcomeOverlay) _buildWelcomeOverlay(),
-        ],
-      ),
+                    const SizedBox(height: 24),
+                    const Row(children: [
+                      Icon(LucideIcons.folderOpen,
+                          size: 18, color: AppTheme.primaryLight),
+                      SizedBox(width: 10),
+                      Expanded(
+                          child: Text(
+                              'Records, requirements and application updates.',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: AppTheme.textSecondary))),
+                    ]),
+                    const SizedBox(height: 12),
+                    Container(
+                        height: 3,
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                            widthFactor: 0.18,
+                            child: Container(color: AppTheme.accentLime))),
+                  ]),
+            )),
+          );
+        })),
+        if (_showWelcomeOverlay) _buildWelcomeOverlay(),
+      ]),
     );
   }
 
   Widget _buildWelcomeOverlay() {
     final fn = _welcomeUser?.firstName;
     final ln = _welcomeUser?.lastName;
-    final initials = (fn != null && fn.isNotEmpty && ln != null && ln.isNotEmpty)
-        ? '${fn[0]}${ln[0]}'.toUpperCase()
-        : 'P';
+    final initials =
+        (fn != null && fn.isNotEmpty && ln != null && ln.isNotEmpty)
+            ? '${fn[0]}${ln[0]}'.toUpperCase()
+            : 'P';
     final roleName = _welcomeUser?.role == UserRole.TEACHING_PERSONNEL
         ? 'Teaching Personnel'
         : 'Non-Teaching Personnel';
@@ -428,11 +332,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
 
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                    border: Border.all(
+                        color: const Color(0xFF10B981).withOpacity(0.4)),
                   ),
                   child: Text(
                     roleName,
@@ -458,14 +364,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   'Launching your DepEd 201 HRIS workspace...',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textSecondary),
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 24),
 
                 const SizedBox(
                   width: 32,
                   height: 32,
-                  child: CircularProgressIndicator(color: Color(0xFF10B981), strokeWidth: 3),
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF10B981), strokeWidth: 3),
                 ),
               ],
             ),

@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../services/career_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/tokens.dart';
 
 class CareerTimelineScreen extends StatefulWidget {
   const CareerTimelineScreen({Key? key}) : super(key: key);
@@ -59,10 +60,14 @@ class _CareerTimelineScreenState extends State<CareerTimelineScreen> {
               onRefresh: _loadCareerData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 110.0),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text('Service record', style: AppText.display),
+                  const SizedBox(height: 6),
+                  Text('Your official career history, in one place.', style: AppText.caption),
+                  const SizedBox(height: 24),
                   // Years of Service Banner Card
                   Container(
                     padding: const EdgeInsets.all(20.0),
