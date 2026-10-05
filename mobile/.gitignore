@@ -7,3 +7,4 @@ android/key.properties
 # Build artifacts - never commit binaries.
 *.apk
 *.aab
+android/.kotlin/

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,6 +16,8 @@ import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../utils/display.dart';
+import '../../utils/errors.dart';
+import '../../utils/personnel_notice_route.dart';
 import '../../widgets/ui_kit.dart';
 import '../../widgets/personnel_navigation.dart';
 import '../../widgets/eminence_logo.dart';
@@ -26,7 +29,7 @@ import '../career/career_timeline_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../personnel_documents/personnel_documents_screen.dart';
-import '../promotions/promotion_checklist_screen.dart';
+import '../promotions/vacancies_screen.dart';
 import '../transactions/checklist_upload_screen.dart';
 
 class HomeDashboardScreen extends StatefulWidget {
@@ -262,7 +265,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   Future<void> _handleApplyForCycle(Map<String, dynamic> cycle) async {
     final applied = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => PromotionChecklistScreen(
+        builder: (_) => VacancyDetailsScreen(
           cycle: cycle,
           user: widget.user,
           profile: _profile,
@@ -273,6 +276,70 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
     if (applied == true) {
       _loadData();
     }
+  }
+
+  Future<void> _openNotice(PersonnelNoticeRoute route) async {
+    try {
+      Widget? screen;
+      switch (route.kind) {
+        case PersonnelNoticeKind.vacancy:
+          screen = VacanciesScreen(
+              user: widget.user, profile: _profile, cycleId: route.id);
+        case PersonnelNoticeKind.application:
+          if (route.id == null && route.cycleId == null) {
+            setState(() => _currentIndex = _applicationsTabIndex);
+            return;
+          }
+          screen = Scaffold(
+              appBar: AppBar(title: const Text('Application details')),
+              body: MyApplicationsScreen(
+                  user: widget.user,
+                  profile: _profile,
+                  applicationId: route.id,
+                  cycleId: route.cycleId));
+        case PersonnelNoticeKind.document:
+          screen = PersonnelDocumentsScreen(documentId: route.id);
+        case PersonnelNoticeKind.transaction:
+          if (route.id == null || route.id! <= 0) {
+            throw StateError('This notice has no requirements attached.');
+          }
+          final transaction =
+              await _transactionService.getTransaction(route.id!);
+          screen = ChecklistUploadScreen(
+              transaction: transaction,
+              focusRequirementId: route.requirementId);
+        case PersonnelNoticeKind.profile:
+          setState(() => _currentIndex = 1);
+          return;
+        case PersonnelNoticeKind.service:
+          setState(() => _currentIndex = 3);
+          return;
+        case PersonnelNoticeKind.review:
+          await const MethodChannel('digital201/documents')
+              .invokeMethod<void>('openReview', {'path': route.webPath});
+          return;
+        case PersonnelNoticeKind.password:
+        case PersonnelNoticeKind.none:
+          return;
+      }
+      if (!mounted) return;
+      await Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => screen!));
+      if (mounted) _loadData();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(friendlyError(error,
+                fallback:
+                    'This record could not be opened. Try again or open the web portal.'))));
+      }
+    }
+  }
+
+  Future<void> _browseVacancies() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => VacanciesScreen(user: widget.user, profile: _profile)));
+    if (mounted) _loadData();
   }
 
   void _handleLogout() async {
@@ -360,6 +427,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
       const CareerTimelineScreen(),
       // Index 3 is the Service Record tab; notifications open it in place.
       NotificationsScreen(
+          onOpenNotice: _openNotice,
           onOpenServiceRecord: () => setState(() => _currentIndex = 3),
           onOpenApplications: () =>
               setState(() => _currentIndex = _applicationsTabIndex),
@@ -599,11 +667,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           const SizedBox(height: AppSpace.xl),
 
           // Open promotion & reclassification positions
+          OutlinedButton(
+              onPressed: _browseVacancies,
+              child: const Text('Browse vacancies')),
           if (_activeCycles.isNotEmpty) ...[
             SectionHeading(
               title: 'Open items',
               trailing: StatusPill(
-                label: pluralize(_activeCycles.length, 'cycle'),
+                label: pluralize(_activeCycles.length, 'open item'),
               ),
             ),
             const SizedBox(height: AppSpace.md),
@@ -693,7 +764,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: () => _handleApplyForCycle(cycle),
-                              child: const Text('Apply for position'),
+                              child: const Text('View vacancy'),
                             ),
                           )
                         else

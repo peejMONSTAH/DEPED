@@ -9,6 +9,7 @@ import '../../models/promotion_checklist_model.dart';
 import '../../models/user_model.dart';
 import '../../services/acquisition/document_acquisition_service.dart';
 import '../../services/api_service.dart';
+import '../../services/requirement_files.dart';
 import '../../services/personnel_document_service.dart';
 import '../../utils/display.dart';
 import '../personnel_documents/document_preview_screen.dart';
@@ -18,9 +19,11 @@ class PromotionChecklistScreen extends StatefulWidget {
   final Map<String, dynamic> cycle;
   final UserModel user;
   final PersonnelProfileModel? profile;
+
   /// Items of an application a reviewer returned (from /promotions/my-applications).
   /// When given, the checklist opens pre-filled for correction and resubmission.
   final List<Map<String, dynamic>>? resubmitItems;
+
   /// Who checks the requirements ('AO II' or 'HRMO'), as the server says.
   final String checker;
 
@@ -66,6 +69,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   bool _dataPrivacyConsentAgreed = false;
 
   bool _isSubmitting = false;
+  bool _isAcquiring = false;
   double _uploadProgress = 0.0;
   String _statusMessage = '';
 
@@ -106,13 +110,17 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
   /// Restores what was submitted before and marks what AO II returned.
   void _prefillResubmission(List<PromotionChecklistItem> items) {
-    final previous = {for (final p in widget.resubmitItems ?? const <Map<String, dynamic>>[]) p['code']?.toString(): p};
+    final previous = {
+      for (final p in widget.resubmitItems ?? const <Map<String, dynamic>>[])
+        p['code']?.toString(): p
+    };
     for (final item in items) {
       final p = previous[item.code];
       if (p == null || p['submitted'] != true) continue;
       final docId = p['personnelDocumentId'];
       item.isSubmitted = true;
-      item.existingDocumentId = docId is int ? docId : int.tryParse('${docId ?? ''}');
+      item.existingDocumentId =
+          docId is int ? docId : int.tryParse('${docId ?? ''}');
       item.attachedDocument = AcquiredDocument(
         name: (p['fileName'] ?? 'Previously submitted file').toString(),
         mimeType: 'application/pdf',
@@ -120,7 +128,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       );
       if (p['verificationStatus'] == 'INCOMPLETE') {
         final why = (p['verificationRemarks'] ?? '').toString().trim();
-        item.returnedReason = why.isEmpty ? 'Returned by ${widget.checker}' : why;
+        item.returnedReason =
+            why.isEmpty ? 'Returned by ${widget.checker}' : why;
       }
     }
   }
@@ -160,14 +169,17 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
 
   Future<void> _loadExisting201Documents() async {
     try {
-      final docs = await _personnelDocumentService.getDocuments(forceRefresh: true);
+      final docs =
+          await _personnelDocumentService.getDocuments(forceRefresh: true);
       if (mounted) {
-        setState(() => _existing201Documents = docs.where((d) => d.hasFile).toList());
+        setState(() =>
+            _existing201Documents = docs.where((d) => d.hasFile).toList());
       }
     } catch (_) {}
   }
 
   void _openAcquisitionModal(PromotionChecklistItem item) {
+    if (_isAcquiring || _isSubmitting) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -248,7 +260,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 icon: LucideIcons.fileUp,
                 iconColor: AppTheme.brandDark,
                 title: 'Upload from device',
-                subtitle: 'PDF, JPG, or PNG up to 10 MB',
+                subtitle:
+                    'Select multiple PDFs or images, up to 10 MB total. Combined into one attachment; replaces the current attachment.',
               ),
 
               // Option 3: Reuse a file already in My Documents. Always offered,
@@ -352,6 +365,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
           return;
         }
         await _uploadAcquiredDocument(item, doc);
+        if (!mounted) return;
         _showSuccessSnackBar(
             'Document scanned and attached for requirement (${item.code.toUpperCase()}).');
       }
@@ -362,8 +376,10 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   }
 
   Future<void> _pickFileForRequirement(PromotionChecklistItem item) async {
+    if (_isAcquiring || _isSubmitting) return;
+    setState(() => _isAcquiring = true);
     try {
-      final doc = await _acquisitionService.pickDocument();
+      final doc = await RequirementFiles.pick(item.title);
       if (doc != null && mounted) {
         final validation = _acquisitionService.validateDocument(doc);
         if (!validation.isValid) {
@@ -372,12 +388,18 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
           return;
         }
         await _uploadAcquiredDocument(item, doc);
+        if (!mounted) return;
         _showSuccessSnackBar(
             'File attached for requirement (${item.code.toUpperCase()}).');
       }
     } catch (e) {
-      _showErrorSnackBar(friendlyError(e,
-          fallback: 'That document could not be attached. Please try again.'));
+      if (mounted) {
+        _showErrorSnackBar(friendlyError(e,
+            fallback:
+                'That document could not be attached. Please try again.'));
+      }
+    } finally {
+      if (mounted) setState(() => _isAcquiring = false);
     }
   }
 
@@ -395,7 +417,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   void _attachExisting(PromotionChecklistItem item, PersonnelDocument d) {
     // The same file that was returned is not a correction: it would come back with the same problem.
     if (item.returnedReason != null && item.existingDocumentId == d.id) {
-      _showErrorSnackBar('That is the file ${widget.checker} returned. Choose or upload a new one.');
+      _showErrorSnackBar(
+          'That is the file ${widget.checker} returned. Choose or upload a new one.');
       return;
     }
     final wasReturned = item.returnedReason != null;
@@ -456,7 +479,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          final validDocs = _existing201Documents.where((d) => d.hasFile).toList();
+          final validDocs =
+              _existing201Documents.where((d) => d.hasFile).toList();
 
           final searchedDocs = query.trim().isEmpty
               ? validDocs
@@ -468,10 +492,12 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
                 }).toList();
 
           final recommended = searchedDocs
-              .where((d) => item.suggestedDocumentTypeIds.contains(d.documentTypeId))
+              .where((d) =>
+                  item.suggestedDocumentTypeIds.contains(d.documentTypeId))
               .toList();
           final others = searchedDocs
-              .where((d) => !item.suggestedDocumentTypeIds.contains(d.documentTypeId))
+              .where((d) =>
+                  !item.suggestedDocumentTypeIds.contains(d.documentTypeId))
               .toList();
           final displayList = [...recommended, ...others];
 
@@ -687,6 +713,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   }
 
   void _removeAttachment(PromotionChecklistItem item) {
+    if (_isAcquiring || _isSubmitting) return;
     setState(() {
       item.attachedDocument = null;
       item.isSubmitted = false;
@@ -696,7 +723,7 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
   }
 
   Future<void> _submitApplication() async {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _isAcquiring) return;
 
     if (widget.cycle['status'] == 'CANCELLED') {
       _showErrorSnackBar('This vacancy is closed to applications.');
@@ -713,9 +740,11 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
         .where((i) =>
             i.isMandatory && (!i.isSubmitted || i.attachedDocument == null))
         .toList();
-    final stillReturned = _checklistItems.where((i) => i.returnedReason != null).toList();
+    final stillReturned =
+        _checklistItems.where((i) => i.returnedReason != null).toList();
     if (stillReturned.isNotEmpty) {
-      _showErrorSnackBar('Replace the returned documents first (only these need a new file): '
+      _showErrorSnackBar(
+          'Replace the returned documents first (only these need a new file): '
           '${stillReturned.map((i) => 'Item ${i.code.toUpperCase()}').join(', ')}');
       return;
     }
@@ -728,14 +757,12 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
     }
 
     if (!_omnibusSwornAgreed) {
-      _showErrorSnackBar(
-          'Tick the certification of authenticity to continue.');
+      _showErrorSnackBar('Tick the certification of authenticity to continue.');
       return;
     }
 
     if (!_dataPrivacyConsentAgreed) {
-      _showErrorSnackBar(
-          'Tick the data privacy consent to continue.');
+      _showErrorSnackBar('Tick the data privacy consent to continue.');
       return;
     }
 
@@ -911,6 +938,9 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           children: [
             // Target Position Banner
+            if (_isAcquiring)
+              const LinearProgressIndicator(
+                  semanticsLabel: 'Preparing and saving requirement files'),
             _buildTargetPositionCard(),
             const SizedBox(height: 16),
 
@@ -1016,7 +1046,8 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _isSubmitting ? null : _submitApplication,
+                onPressed:
+                    _isSubmitting || _isAcquiring ? null : _submitApplication,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.brandDark,
                   foregroundColor: Colors.white,
@@ -1309,11 +1340,16 @@ class _PromotionChecklistScreenState extends State<PromotionChecklistScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(LucideIcons.triangleAlert, size: 16, color: Color(0xFFDC2626)),
+                  const Icon(LucideIcons.triangleAlert,
+                      size: 16, color: Color(0xFFDC2626)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Returned by ${widget.checker}: ${item.returnedReason}. Replace this document with a new file.',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF991B1B))),
+                    child: Text(
+                        'Returned by ${widget.checker}: ${item.returnedReason}. Replace this document with a new file.',
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF991B1B))),
                   ),
                 ],
               ),

@@ -14,7 +14,8 @@ import 'add_document_sheet.dart';
 import 'document_preview_screen.dart';
 
 class PersonnelDocumentsScreen extends StatefulWidget {
-  const PersonnelDocumentsScreen({Key? key, this.embedded = false})
+  const PersonnelDocumentsScreen(
+      {Key? key, this.embedded = false, this.documentId})
       : super(key: key);
 
   /// True when this screen is shown as a tab inside the dashboard rather than
@@ -22,6 +23,7 @@ class PersonnelDocumentsScreen extends StatefulWidget {
   /// floating navigation bar, so an embedded instance drops its own app bar and
   /// lifts the action button clear of the nav bar.
   final bool embedded;
+  final int? documentId;
 
   @override
   State<PersonnelDocumentsScreen> createState() =>
@@ -34,6 +36,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
 
   List<PersonnelDocument> _documents = [];
   bool _isLoading = true;
+  String? _loadError;
   String _selectedFilter = 'ALL';
   String _searchQuery = '';
 
@@ -43,23 +46,32 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
     final apiService = ApiService();
     _documentService = PersonnelDocumentService(apiService);
     _acquisitionService = DocumentAcquisitionService();
-    _loadDocuments();
+    _loadDocuments(forceRefresh: widget.documentId != null);
   }
 
   Future<void> _loadDocuments({bool forceRefresh = false}) async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       final docs =
           await _documentService.getDocuments(forceRefresh: forceRefresh);
       if (mounted) {
         setState(() {
-          _documents = docs;
+          _documents = widget.documentId == null
+              ? docs
+              : docs.where((d) => d.id == widget.documentId).toList();
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _loadError =
+              friendlyError(e, fallback: 'Your documents could not be loaded.');
+        });
       }
     }
   }
@@ -243,7 +255,7 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
               // Top Summary Hero Card
               _buildSummaryHeroCard(),
               const SizedBox(height: 16),
-              if (!emptyStateOffersAdd) ...[
+              if (!emptyStateOffersAdd && widget.documentId == null) ...[
                 Align(
                     alignment: Alignment.centerLeft,
                     child: FilledButton.icon(
@@ -290,6 +302,11 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
                         CircularProgressIndicator(color: AppTheme.primaryLight),
                   ),
                 ),
+              ] else if (_loadError != null) ...[
+                Text(_loadError!),
+                TextButton(
+                    onPressed: () => _loadDocuments(forceRefresh: true),
+                    child: const Text('Retry')),
               ] else if (docs.isEmpty) ...[
                 _buildEmptyState(),
               ] else ...[
@@ -646,11 +663,17 @@ class _PersonnelDocumentsScreenState extends State<PersonnelDocumentsScreen> {
     final filtered = _selectedFilter != 'ALL' || _searchQuery.isNotEmpty;
     return EmptyState(
       icon: LucideIcons.fileUp,
-      title: filtered ? 'Nothing matches that' : 'No documents yet',
-      message: filtered
-          ? 'Nothing matches. Clear the search or pick another filter.'
-          : 'Scan a document or upload a PDF to start.',
-      action: filtered
+      title: widget.documentId != null
+          ? 'This document is no longer available to your account'
+          : filtered
+              ? 'Nothing matches that'
+              : 'No documents yet',
+      message: widget.documentId != null
+          ? 'It may have been removed or replaced. Return to My 201 Files to refresh your records.'
+          : filtered
+              ? 'Nothing matches. Clear the search or pick another filter.'
+              : 'Scan a document or upload a PDF to start.',
+      action: filtered || widget.documentId != null
           ? null
           : ElevatedButton.icon(
               onPressed: () => _openAddDocumentSheet(),

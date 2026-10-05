@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
+import '../models/personnel_document_model.dart';
 import 'api_service.dart';
 
 class TransactionUnavailableException implements Exception {
@@ -92,11 +93,15 @@ class TransactionService {
       var totalPages = 1;
       do {
         final response = await _apiService.dio.get<dynamic>(
-          '/transactions/my-transactions', queryParameters: {'page': page, 'limit': 100},
+          '/transactions/my-transactions',
+          queryParameters: {'page': page, 'limit': 100},
         );
-        if (response.data?['data'] is! List) throw StateError('The server returned an invalid transaction list.');
+        if (response.data?['data'] is! List) {
+          throw StateError('The server returned an invalid transaction list.');
+        }
         list.addAll(response.data['data'] as List<dynamic>);
-        totalPages = (response.data['pagination']?['totalPages'] as num?)?.toInt() ?? 1;
+        totalPages =
+            (response.data['pagination']?['totalPages'] as num?)?.toInt() ?? 1;
         page++;
       } while (page <= totalPages);
       final remoteList = list
@@ -111,11 +116,13 @@ class TransactionService {
       return remoteList;
     } on DioException catch (error) {
       if (error.response != null) {
-        syncError = 'Unable to refresh transactions. Sign in again if your session expired.';
+        syncError =
+            'Unable to refresh transactions. Sign in again if your session expired.';
         rethrow;
       }
       isOffline = true;
-      syncError = 'Offline: displaying previously synchronized transactions. Reconnect before making changes.';
+      syncError =
+          'Offline: displaying previously synchronized transactions. Reconnect before making changes.';
       await _loadFromDiskIfEmpty();
       return List<TransactionModel>.from(_localStore);
     }
@@ -150,13 +157,23 @@ class TransactionService {
   }
 
   Future<void> uploadDocument(
-      int transactionId, int requirementId, String filePath) async {
+      int transactionId, int requirementId, String filePath,
+      {AcquiredDocument? document}) async {
     try {
       final formData = FormData.fromMap({
         'requirementId': requirementId,
-        'file': await MultipartFile.fromFile(filePath, contentType: DioMediaType.parse(
-          filePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : filePath.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg',
-        )),
+        'file': document != null
+            ? MultipartFile.fromBytes(document.bytes!,
+                filename: document.name,
+                contentType: DioMediaType.parse(document.mimeType))
+            : await MultipartFile.fromFile(filePath,
+                contentType: DioMediaType.parse(
+                  filePath.toLowerCase().endsWith('.pdf')
+                      ? 'application/pdf'
+                      : filePath.toLowerCase().endsWith('.png')
+                          ? 'image/png'
+                          : 'image/jpeg',
+                )),
       });
 
       await _apiService.dio.post<dynamic>(
@@ -176,7 +193,9 @@ class TransactionService {
   /// Returns the requirement names that were filled.
   Future<List<String>> autoAttachFrom201(int transactionId) async {
     try {
-      final res = await _apiService.dio.post<dynamic>('/transactions/$transactionId/documents/auto-attach', data: {});
+      final res = await _apiService.dio.post<dynamic>(
+          '/transactions/$transactionId/documents/auto-attach',
+          data: {});
       final body = res.data;
       final data = body is Map ? body['data'] : null;
       final list = data is Map ? data['attached'] as List? : null;
@@ -189,7 +208,8 @@ class TransactionService {
   /// Reopens a disqualified transaction so it can be corrected and submitted again.
   Future<void> reopenTransaction(int transactionId) async {
     try {
-      await _apiService.dio.post<dynamic>('/transactions/$transactionId/reopen', data: {});
+      await _apiService.dio
+          .post<dynamic>('/transactions/$transactionId/reopen', data: {});
     } on DioException catch (e) {
       final message =
           (e.response?.data is Map && e.response?.data['message'] != null)
@@ -220,12 +240,15 @@ class TransactionService {
   }
 
   Future<Map<String, dynamic>> getExtractionReview(int documentId) async {
-    final response = await _apiService.dio.get('/documents/$documentId/extraction-review');
+    final response =
+        await _apiService.dio.get('/documents/$documentId/extraction-review');
     return Map<String, dynamic>.from(response.data['data']);
   }
 
-  Future<void> confirmExtractionReview(int documentId, Map<String, String> fields, String version) async {
-    await _apiService.dio.put('/documents/$documentId/extraction-review', data: {'fields': fields, 'version': version});
+  Future<void> confirmExtractionReview(
+      int documentId, Map<String, String> fields, String version) async {
+    await _apiService.dio.put('/documents/$documentId/extraction-review',
+        data: {'fields': fields, 'version': version});
   }
 
   Future<int> submitTransaction(int transactionId,

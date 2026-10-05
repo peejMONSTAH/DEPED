@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/errors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:file_picker/file_picker.dart';
+import '../../services/requirement_files.dart';
 import '../../models/personnel_document_model.dart';
 import '../../models/transaction_model.dart';
 import '../../services/api_service.dart';
@@ -13,12 +13,13 @@ import '../../widgets/ui_kit.dart';
 import '../../utils/display.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/transaction_tracker_card.dart';
-import '../../widgets/resume_splash.dart';
 
 class ChecklistUploadScreen extends StatefulWidget {
   final TransactionModel transaction;
+  final int? focusRequirementId;
 
-  const ChecklistUploadScreen({Key? key, required this.transaction})
+  const ChecklistUploadScreen(
+      {Key? key, required this.transaction, this.focusRequirementId})
       : super(key: key);
 
   @override
@@ -46,7 +47,10 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
   /// 201 file as soon as the checklist opens.
   Future<void> _autoAttach() async {
     final s = _currentTx.status;
-    if (s != TransactionStatus.DRAFT && s != TransactionStatus.RETURNED_BY_AO2) return;
+    if (s != TransactionStatus.DRAFT &&
+        s != TransactionStatus.RETURNED_BY_AO2) {
+      return;
+    }
     final added = await _transactionService.autoAttachFrom201(_currentTx.id);
     if (!mounted || added.isEmpty) return;
     await _refreshTransaction();
@@ -245,17 +249,12 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
 
   void _pickAndUploadDocument(RequirementItemModel item) async {
     if (_isUploading || _isSubmitting) return;
-    final result = await ExternalActivity.run(() => FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-    ));
-    if (result == null || !mounted) return;
-    final filePath = result.files.single.path;
-    if (filePath == null) return;
     setState(() => _isUploading = true);
     try {
-      await _transactionService.uploadDocument(
-          _currentTx.id, item.id, filePath);
+      final document = await RequirementFiles.pick(item.documentName);
+      if (document == null || !mounted) return;
+      await _transactionService.uploadDocument(_currentTx.id, item.id, '',
+          document: document);
       await _refreshTransaction();
     } catch (error) {
       if (mounted) {
@@ -451,8 +450,23 @@ class _ChecklistUploadScreenState extends State<ChecklistUploadScreen> {
                   ],
                   const SizedBox(height: AppSpace.xl),
                   const SectionHeading(title: 'Requirements'),
+                  const Text(
+                      'Select one or more PDFs or images for each requirement. Multiple files are combined into one PDF (10 MB total). Uploading replaces that requirement’s current attachment.'),
                   const SizedBox(height: AppSpace.sm),
-                  for (final item in tx.requirements) ...[
+                  for (final item in [
+                    ...tx.requirements
+                  ]..sort((a, b) => a.id == b.id
+                      ? 0
+                      : a.id == widget.focusRequirementId
+                          ? -1
+                          : b.id == widget.focusRequirementId
+                              ? 1
+                              : tx.requirements
+                                  .indexOf(a)
+                                  .compareTo(tx.requirements.indexOf(b)))) ...[
+                    if (item.id == widget.focusRequirementId)
+                      const Text('Document linked from your notification',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     _RequirementCard(
                       item: item,
                       txReturned: returned,

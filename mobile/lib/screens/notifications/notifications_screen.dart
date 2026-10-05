@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/tokens.dart';
 import '../../utils/display.dart';
 import '../../utils/errors.dart';
+import '../../utils/personnel_notice_route.dart';
 import '../../widgets/ui_kit.dart';
 import '../auth/change_password_dialog.dart';
 import '../career/career_timeline_screen.dart';
@@ -22,12 +23,14 @@ class NotificationsScreen extends StatefulWidget {
   final VoidCallback? onOpenServiceRecord;
   final VoidCallback? onOpenApplications;
   final VoidCallback? onOpenDocuments;
+  final Future<void> Function(PersonnelNoticeRoute)? onOpenNotice;
 
   const NotificationsScreen(
       {Key? key,
       this.onOpenServiceRecord,
       this.onOpenApplications,
-      this.onOpenDocuments})
+      this.onOpenDocuments,
+      this.onOpenNotice})
       : super(key: key);
 
   @override
@@ -216,6 +219,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           IconData actionIcon = LucideIcons.arrowRight;
                           var destination = _NotificationDestination.none;
                           final lowerMsg = message.toLowerCase();
+                          final preciseRoute = personnelNoticeRoute(item);
 
                           // The record a notice is about decides where it opens;
                           // the wording is only a fallback for older notices.
@@ -276,6 +280,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 _NotificationDestination.serviceRecord;
                           }
 
+                          if (widget.onOpenNotice != null &&
+                              preciseRoute.kind !=
+                                  PersonnelNoticeKind.password) {
+                            actionLabel = preciseRoute.label;
+                          }
                           return Container(
                             margin: const EdgeInsets.only(bottom: AppSpace.md),
                             decoration: BoxDecoration(
@@ -356,6 +365,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                 setState(
                                                     () => _isNavigating = true);
                                                 try {
+                                                  if (widget.onOpenNotice !=
+                                                          null &&
+                                                      preciseRoute.kind !=
+                                                          PersonnelNoticeKind
+                                                              .password) {
+                                                    await widget.onOpenNotice!(
+                                                        preciseRoute);
+                                                    return;
+                                                  }
                                                   switch (destination) {
                                                     case _NotificationDestination
                                                           .password:
