@@ -974,19 +974,10 @@ export const MyDocuments: React.FC = () => {
               }}
               onClick={e => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800 }}>
-                  {modalTitle}
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => closeUploadModal()}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                  aria-label="Close dialog"
-                >
-                  <AppIcon name="close" size={18} />
-                </button>
-              </div>
+              {/* One dismiss control per dialog: Cancel in the footer (Escape works too). */}
+              <h3 style={{ margin: '0 0 16px', fontSize: '1.5rem', fontWeight: 800 }}>
+                {modalTitle}
+              </h3>
 
               {formError && (
                 <div

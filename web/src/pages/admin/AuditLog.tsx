@@ -69,7 +69,7 @@ const CATEGORIES = [
   { id: 'Documents', label: 'Document Operations', compactLabel: 'Documents' },
   { id: 'Transactions', label: 'Transactions', compactLabel: 'Transactions' },
   { id: 'Personnel records', label: 'Personnel 201 Files', compactLabel: '201 Files' },
-  { id: 'Promotions and ranking', label: 'Promotions & CAR', compactLabel: 'Promotions' },
+  { id: 'Promotions and assessment', label: 'Promotions & CAR', compactLabel: 'Promotions' },
   { id: 'Reports and exports', label: 'Reports & Exports', compactLabel: 'Exports' },
   { id: 'System configuration', label: 'System Operations', compactLabel: 'System' },
 ];

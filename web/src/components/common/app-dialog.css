@@ -1,0 +1,42 @@
+/* Shared dialog: solid, readable card with consistent spacing and footer actions on the right.
+   index.css styles buttons/headings with !important, so the few overrides below need it too. */
+.app-dialog {
+  width: min(94vw, 600px); max-height: min(88vh, 900px);
+  display: flex; flex-direction: column;
+  background: #FFFFFF; color: var(--color-text-primary, #1f3a2c);
+  border-radius: 24px; border: 1px solid #DCE6DE;
+  box-shadow: 0 30px 80px rgba(10, 40, 25, 0.35);
+  overflow: hidden; outline: none; font-size: 1.0625rem; line-height: 1.5;
+}
+.app-dialog--sm { width: min(94vw, 460px); }
+.app-dialog--lg { width: min(96vw, 860px); }
+.app-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 28px 16px; border-bottom: 1px solid #E6EDE8; }
+.app-dialog__titles { display: grid; gap: 6px; min-width: 0; }
+.app-dialog__kicker-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.app-dialog__kicker { font-size: 0.875rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #2F7D52; }
+.app-dialog__badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 0.9375rem; font-weight: 700; background: #EEF2EF; color: #46574C; }
+.app-dialog__badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.app-dialog__badge.is-ok { background: #E1F3E7; color: #1E6B40; }
+.app-dialog__badge.is-warn { background: #FFF4DE; color: #8A5A00; }
+.app-dialog__badge.is-bad { background: #FDE8E6; color: #A1263A; }
+.app-dialog .app-dialog__titles h2 { margin: 0 !important; font-size: 1.75rem !important; line-height: 1.15 !important; letter-spacing: -0.02em !important; font-weight: 800 !important; overflow-wrap: anywhere; }
+.app-dialog.app-dialog .app-dialog__x { flex: none; width: 44px; height: 44px; padding: 0 !important; border-radius: 50% !important; border: 1px solid #DCE6DE !important; background: #fff !important; color: #46574C !important; display: grid !important; place-items: center; box-shadow: none !important; }
+.app-dialog__body { padding: 20px 28px 24px; overflow-y: auto; display: grid; gap: 16px; }
+.app-dialog__body p { margin: 0; }
+.app-dialog__foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 16px 28px 22px; border-top: 1px solid #E6EDE8; background: #FAFCFA; }
+.app-dialog.app-dialog .app-dialog__foot .btn { min-height: 48px; padding: 12px 24px !important; font-size: 1.0625rem !important; }
+.app-dialog__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; border-radius: 16px; overflow: hidden; border: 1px solid #E6EDE8; background: #E6EDE8; }
+.app-dialog__facts > div { background: #F7FAF8; padding: 12px 16px; display: grid; gap: 2px; min-width: 0; }
+.app-dialog__facts dt { font-size: 0.9375rem; font-weight: 700; color: var(--color-text-secondary, #5f6f64); }
+.app-dialog__facts dd { margin: 0; font-size: 1.0625rem; font-weight: 800; overflow-wrap: anywhere; }
+.app-dialog__note { padding: 14px 16px; border-radius: 14px; background: #EEF7F1; border-left: 4px solid #2F7D52; }
+.app-dialog__note.is-warn { background: #FFF6E5; border-left-color: #D97706; }
+.app-dialog__muted { color: var(--color-text-secondary, #5f6f64); font-size: 1rem; }
+@media (max-width: 560px) {
+  .app-dialog { width: 100vw; max-height: 92dvh; border-radius: 24px 24px 0 0; align-self: flex-end; }
+  .app-dialog__head, .app-dialog__body, .app-dialog__foot { padding-left: 18px; padding-right: 18px; }
+  .app-dialog .app-dialog__titles h2 { font-size: 1.5rem !important; }
+  .app-dialog__facts { grid-template-columns: 1fr; }
+  .app-dialog__foot { padding-bottom: max(18px, env(safe-area-inset-bottom, 0px)); }
+  .app-dialog__foot .btn { flex: 1 1 0; }
+}

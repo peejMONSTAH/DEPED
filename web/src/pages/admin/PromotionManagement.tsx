@@ -1646,7 +1646,7 @@ export const PromotionManagement: React.FC = () => {
                       </div>
                     ) : (<>
                     <div className="cd-tabhead">
-                      <h3>Ranking</h3>
+                      <h3>Comparative Assessment Result</h3>
                       <div className="cd-tabhead__tools">
                         <label className="ci-search cd-search">
                           <Search size={15} aria-hidden="true" />

@@ -29,3 +29,5 @@
 .acd__steps li.is-done::before { background: #1F6B43; border-color: #1F6B43; }
 .acd__steps li.is-bad::before { background: #A1263A; border-color: #A1263A; }
 .acd__steps span { color: var(--color-text-muted); font-size: .8125rem; }
+/* index.css colours every button with !important; destructive actions stay red. */
+button.btn.acd__danger.acd__danger { color: #A1263A !important; border-color: #F1C2BD !important; background: #FFF7F6 !important; }

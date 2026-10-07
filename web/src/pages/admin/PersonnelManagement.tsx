@@ -1345,10 +1345,7 @@ export const PersonnelManagement: React.FC = () => {
                       <label className="form-label">Date Hired <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                       <input aria-label="Date Hired" type="date" className="form-input" max={todayDateInput()} value={newDateHired} onChange={e => setNewDateHired(e.target.value)} required />
                     </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Initial Password <span style={{ color: 'var(--color-danger)' }}>*</span></label>
-                      <input aria-label="Initial Password" type="text" className="form-input" value={newPassword} onChange={e => setNewPassword(e.target.value)} required />
-                    </div>
+                    {/* As in Accounts: the initial password is generated and the person sets their own from the setup email; nobody types it. */}
 
                     {/* District & School Assignment: Only applies to AO II & school-based personnel */}
                     {!['HRMO', 'SYSTEM_ADMIN'].includes(newCategory) && (

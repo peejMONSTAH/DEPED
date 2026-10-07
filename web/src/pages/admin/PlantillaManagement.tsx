@@ -271,7 +271,7 @@ export const PlantillaManagement: React.FC = () => {
     setSchoolFilter('ALL');
   };
 
-  const STATUS_FILTER_LABEL = { VACANT: 'Vacant only', OCCUPIED: 'Occupied only', OPEN_RANKING: 'Open for ranking' } as const;
+  const STATUS_FILTER_LABEL = { VACANT: 'Vacant only', OCCUPIED: 'Occupied only', OPEN_RANKING: 'In a promotion cycle' } as const;
   const activeFilterChips = [
     searchQuery.trim() && { key: 'search', label: `Search: "${searchQuery.trim()}"`, clear: () => setSearchQuery('') },
     statusFilter !== 'ALL' && { key: 'status', label: STATUS_FILTER_LABEL[statusFilter], clear: () => setStatusFilter('ALL') },
@@ -449,7 +449,7 @@ export const PlantillaManagement: React.FC = () => {
 
     const { confirmed } = await confirm({
       title: 'Vacate plantilla item',
-      message: `Vacate Plantilla Item '${item.itemNumber}' and unbind ${occupantName}? The item becomes Vacant and Ready for Ranking.`,
+      message: `Vacate Plantilla Item '${item.itemNumber}' and unbind ${occupantName}? The item becomes Vacant and ready for a promotion cycle.`,
       confirmLabel: 'Vacate item',
     });
     if (!confirmed) return;
@@ -472,14 +472,14 @@ export const PlantillaManagement: React.FC = () => {
     }
     if (item.isOpenForRanking && item.activePromotionCycle) {
       addToast(
-        `Plantilla Item '${item.itemNumber}' is already open in active ranking cycle: ${item.activePromotionCycle.name}`,
+        `Plantilla Item '${item.itemNumber}' is already in an active promotion cycle: ${item.activePromotionCycle.name}`,
         'INFO'
       );
       navigate('/admin/promotions');
       return;
     }
     setSelectedPlantillaForCycle(item);
-    setCycleName(`Ranking for Natural Vacancy: ${item.positionTitle} (${item.itemNumber})`);
+    setCycleName(`Promotion: ${item.positionTitle} (${item.itemNumber})`);
     setCycleStartDate(new Date().toISOString().split('T')[0]);
     setCycleEndDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
     setCycleMaxApplicants(10);
@@ -496,7 +496,7 @@ export const PlantillaManagement: React.FC = () => {
       const districtMatch = selectedPlantillaForCycle.division.includes('District 6') ? 'District 6' : 'District 1';
 
       const payload = {
-        name: cycleName.trim() || `Ranking for Natural Vacancy: ${selectedPlantillaForCycle.positionTitle}`,
+        name: cycleName.trim() || `Promotion: ${selectedPlantillaForCycle.positionTitle} (${selectedPlantillaForCycle.itemNumber})`,
         type: 'NATURAL_VACANCY',
         status: 'ACTIVE',
         startDate: cycleStartDate,
@@ -814,7 +814,7 @@ export const PlantillaManagement: React.FC = () => {
                           setFormPersonnelId('');
                         }}
                       />
-                      <span>Vacant (Available for Ranking & Appointment)</span>
+                      <span>Vacant (open for promotion or appointment)</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8125rem', cursor: 'pointer' }}>
                       <input
@@ -1138,7 +1138,7 @@ export const PlantillaManagement: React.FC = () => {
                 <div style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <AlertCircle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-primary)', lineHeight: 1.4 }}>
-                    <strong style={{ color: '#D97706' }}>Plantilla Open for Grab in Promotion Cycle:</strong> This item is currently tied to active promotion cycle <em>"{selectedPlantillaForAssign.activePromotionCycle?.name}"</em>. Direct manual assignment is locked to protect the official ranking and deliberation process.
+                    <strong style={{ color: '#D97706' }}>In an active promotion cycle:</strong> This item is currently tied to active promotion cycle <em>"{selectedPlantillaForAssign.activePromotionCycle?.name}"</em>. Direct manual assignment is locked while the promotion cycle and its Comparative Assessment Result are in progress.
                   </div>
                 </div>
               )}
@@ -1265,7 +1265,7 @@ export const PlantillaManagement: React.FC = () => {
                   Merit Selection & Promotion Launch
                 </div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--color-text-primary)' }}>
-                  Open Plantilla for Ranking
+                  Start a promotion cycle
                 </h3>
               </div>
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowLaunchCycleModal(false)}>
@@ -1366,7 +1366,7 @@ export const PlantillaManagement: React.FC = () => {
                   }}
                 >
                   <Sparkles size={14} />
-                  Launch Promotion Cycle
+                  Start promotion cycle
                 </button>
               </div>
             </form>

@@ -143,7 +143,7 @@ export const AdminNotifications: React.FC = () => {
     if (msg.includes('hrmo') || msg.includes('approval') || (user?.role === 'HRMO' && entity === 'transaction')) {
       return {
         path: txId ? `/admin/transactions/${txId}` : '/admin/approvals',
-        label: 'Open HRMO Approvals & Ranking',
+        label: 'Open HRMO Approvals',
         btnClass: 'btn-primary',
         badge: 'HRMO Approval',
         iconName: 'approvals' as const,

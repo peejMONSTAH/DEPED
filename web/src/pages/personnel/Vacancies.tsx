@@ -11,7 +11,7 @@ import { ApplicationChecklist } from './components/ApplicationChecklist';
 import { PromotionCycleItem } from './components/promotionCycle';
 import { sortVacancies, vacancyView, VacancyState } from './vacancyView';
 import { humanizeEnum } from '../../constants/transactionStatus';
-import { ModalOverlay } from '../../components/common/ModalOverlay';
+import { AppDialog, DialogFacts } from '../../components/common/AppDialog';
 import './vacancies.css';
 
 /** AO II notes on returned requirements of this person's application to one vacancy, by item code. */
@@ -143,22 +143,28 @@ export const Vacancies: React.FC = () => {
 
       {detailCycle && (() => {
         const view = vacancyView(detailCycle);
-        return <ModalOverlay onDismiss={() => setDetailCycle(null)} aria-label="Open item details">
-          <section className="modal" role="dialog" aria-modal="true" aria-label="Open item details" style={{ maxWidth: 640, width: 'min(94vw, 640px)', padding: 24, maxHeight: '85vh', overflowY: 'auto' }}>
-            <h2>{view.position}</h2>
-            <p>{detailCycle.name}</p>
-            <p><strong>Type:</strong> {humanizeEnum(detailCycle.type)}</p>
-            <p><strong>Application period:</strong> {new Date(detailCycle.startDate).toLocaleDateString('en-PH')} – {new Date(detailCycle.endDate).toLocaleDateString('en-PH')}</p>
-            <p>{view.status}</p>
-            {view.reason && <p>{view.reason}</p>}
-            {view.note && <p>{view.note}</p>}
-            <p>Viewing this open item does not submit an application. Choose Apply to review and upload the required documents.</p>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setDetailCycle(null)}>Close</button>
-              {view.action && <button type="button" className="btn btn-primary" onClick={() => { setOpenCycle(detailCycle); setDetailCycle(null); }}>{view.action.label}</button>}
-            </div>
-          </section>
-        </ModalOverlay>;
+        const fmt = (d: string) => new Date(d).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+        const tone = view.state === 'can-apply' || view.state === 'applied' ? 'ok' : view.state === 'not-eligible' ? 'bad' : view.state === 'not-checked' ? 'warn' : 'muted';
+        return <AppDialog
+          kicker="Open item"
+          badge={view.status}
+          badgeTone={tone}
+          title={view.position}
+          onClose={() => setDetailCycle(null)}
+          footer={<>
+            <button type="button" className="btn btn-secondary" onClick={() => setDetailCycle(null)}>Close</button>
+            {view.action && <button type="button" className="btn btn-primary" onClick={() => { setOpenCycle(detailCycle); setDetailCycle(null); }}>{view.action.label}</button>}
+          </>}
+        >
+          <DialogFacts items={[
+            ['Type', humanizeEnum(detailCycle.type)],
+            ['Apply between', `${fmt(detailCycle.startDate)} – ${fmt(detailCycle.endDate)}`],
+          ]} />
+          <p className="app-dialog__muted">{detailCycle.name}</p>
+          {view.reason && <p className={`app-dialog__note${view.state === 'not-eligible' || view.state === 'not-checked' ? ' is-warn' : ''}`}>{view.reason}</p>}
+          {view.note && <p className="app-dialog__note">{view.note}</p>}
+          {view.action?.kind === 'apply' && <p className="app-dialog__muted">Apply opens the checklist of required documents.</p>}
+        </AppDialog>;
       })()}
       {openCycle && (
         <ApplicationChecklist
