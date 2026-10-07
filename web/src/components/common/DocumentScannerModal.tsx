@@ -1,21 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  Camera,
-  X,
-  RotateCw,
-  Trash2,
-  Check,
-  Upload,
-  Loader2,
-  AlertCircle,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  SwitchCamera,
-} from 'lucide-react';
+import { X, RotateCw, Trash2, Crop, Image as ImageIcon, Loader2, AlertCircle, RefreshCw, SwitchCamera, Plus, Wand2, RotateCcw, Check } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { ModalPortal } from './ModalPortal';
-import { ModalOverlay } from './ModalOverlay';
+import { detectIn, quadDrift, renderPage, loadImage, FULL_QUAD, type Quad, type ScanFilter } from './scanner/vision';
 import './document-scanner-modal.css';
 
 export interface DocumentScannerModalProps {
@@ -25,585 +12,384 @@ export interface DocumentScannerModalProps {
   documentTypeName?: string;
 }
 
-export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({
-  isOpen,
-  onClose,
-  onScanComplete,
-  documentTypeName = 'Document',
-}) => {
+type Page = { id: number; original: string; quad: Quad; filter: ScanFilter; rotation: number; rendered: string | null };
+type Stage = 'camera' | 'review' | 'crop';
+
+const FILTERS: { key: ScanFilter; label: string }[] = [
+  { key: 'auto', label: 'Auto' }, { key: 'gray', label: 'Grayscale' }, { key: 'bw', label: 'Black & white' }, { key: 'none', label: 'Original' },
+];
+const PAGE_LIMIT = 20;
+/** The page must stay put this long before auto-capture fires (the app's "hold steady"). */
+const STEADY_MS = 1100;
+
+/**
+ * Web phone scanner, built to match the Android app's ML Kit document scanner (full mode): live page
+ * outline with automatic capture, corner crop, Auto / Grayscale / Black & white filters, rotate,
+ * retake, delete, gallery import and several pages, saved as one PDF.
+ */
+export const DocumentScannerModal: React.FC<DocumentScannerModalProps> = ({ isOpen, onClose, onScanComplete, documentTypeName = 'Document' }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nextId = useRef(1);
 
+  const [stage, setStage] = useState<Stage>('camera');
   const [currentStream, setCurrentStream] = useState<MediaStream | null>(null);
   const [cameraConnecting, setCameraConnecting] = useState(true);
   const [hasLiveFrames, setHasLiveFrames] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
-  const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0);
+  const [autoCapture, setAutoCapture] = useState(true);
+  const [liveQuad, setLiveQuad] = useState<Quad | null>(null);
+  const [steady, setSteady] = useState(0); // 0..1 progress of the hold-steady timer
+  const [flash, setFlash] = useState(false);
 
-  const [pages, setPages] = useState<string[]>([]);
-  const [activePageIndex, setActivePageIndex] = useState<number>(0);
-  const [compiling, setCompiling] = useState(false);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [active, setActive] = useState(0);
+  const [retakeIndex, setRetakeIndex] = useState<number | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [cropQuad, setCropQuad] = useState<Quad | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  // Stop all camera media tracks immediately
   const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        try {
-          track.stop();
-        } catch (_) {}
-      });
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      try {
-        videoRef.current.srcObject = null;
-      } catch (_) {}
-    }
-    setCurrentStream(null);
-    setHasLiveFrames(false);
+    streamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch { /* already stopped */ } });
+    streamRef.current = null;
+    if (videoRef.current) { try { videoRef.current.srcObject = null; } catch { /* detached */ } }
+    setCurrentStream(null); setHasLiveFrames(false); setLiveQuad(null); setSteady(0);
   }, []);
 
-  // Enumerate video devices for camera switching
-  const updateAvailableDevices = useCallback(async () => {
-    try {
-      if (!navigator.mediaDevices?.enumerateDevices) return;
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoInputs = devices.filter(d => d.kind === 'videoinput');
-      setAvailableDevices(videoInputs);
-    } catch (_) {}
-  }, []);
+  const startCamera = useCallback(async (preferredDeviceId?: string) => {
+    stopCamera(); setCameraError(null); setCameraConnecting(true);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError(window.isSecureContext === false ? 'The camera needs a secure connection (HTTPS).' : 'This browser cannot use the camera.');
+      setCameraConnecting(false); return;
+    }
+    const ladder: MediaStreamConstraints[] = [
+      preferredDeviceId ? { video: { deviceId: { exact: preferredDeviceId } }, audio: false }
+        : { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false },
+      preferredDeviceId ? { video: { deviceId: { ideal: preferredDeviceId } }, audio: false } : { video: { facingMode: 'environment' }, audio: false },
+      { video: true, audio: false },
+    ];
+    let lastError: any = null, stream: MediaStream | null = null;
+    for (const c of ladder) {
+      try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+      catch (err: any) { lastError = err; if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') break; }
+    }
+    if (!stream) {
+      const n = lastError?.name || '';
+      setCameraError(n === 'NotAllowedError' || n === 'PermissionDeniedError' ? 'Camera permission was denied. Allow the camera in your browser settings, or choose a photo from the gallery.'
+        : n === 'NotFoundError' ? 'No camera was found on this device.'
+        : n === 'NotReadableError' ? 'Another app is using the camera.'
+        : lastError?.message || 'The camera could not start.');
+      setCameraConnecting(false); return;
+    }
+    streamRef.current = stream; setCurrentStream(stream);
+    try { setAvailableDevices((await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput')); } catch { /* optional */ }
+  }, [stopCamera]);
 
-  // Request camera stream with constraint fallback ladder
-  const startCamera = useCallback(
-    async (preferredDeviceId?: string) => {
-      stopCamera();
-      setCameraError(null);
-      setCameraConnecting(true);
-      setHasLiveFrames(false);
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setCameraError(
-          window.isSecureContext === false
-            ? 'Camera access requires a secure connection (HTTPS or localhost).'
-            : 'Camera access is not supported on this browser.'
-        );
-        setCameraConnecting(false);
-        return;
-      }
-
-      const constraintsLadder: MediaStreamConstraints[] = [
-        preferredDeviceId
-          ? { video: { deviceId: { exact: preferredDeviceId } }, audio: false }
-          : {
-              video: {
-                facingMode: { ideal: 'environment' },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
-              audio: false,
-            },
-        preferredDeviceId
-          ? { video: { deviceId: { ideal: preferredDeviceId } }, audio: false }
-          : { video: { facingMode: 'environment' }, audio: false },
-        { video: true, audio: false },
-      ];
-
-      let lastError: any = null;
-      let acquiredStream: MediaStream | null = null;
-
-      for (const constraints of constraintsLadder) {
-        try {
-          acquiredStream = await navigator.mediaDevices.getUserMedia(constraints);
-          break;
-        } catch (err: any) {
-          lastError = err;
-          // If explicitly denied, do not continue trying weaker constraints
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            break;
-          }
-        }
-      }
-
-      if (!acquiredStream) {
-        const errorName = lastError?.name || '';
-        let msg = 'Unable to access device camera.';
-        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
-          msg = 'Camera permission was denied. Please allow camera access in your browser settings or use photo upload instead.';
-        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-          msg = 'No camera found on this device.';
-        } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
-          msg = 'Camera is already in use by another application or browser tab.';
-        } else if (lastError?.message) {
-          msg = lastError.message;
-        }
-
-        setCameraError(msg);
-        setCameraConnecting(false);
-        return;
-      }
-
-      streamRef.current = acquiredStream;
-      setCurrentStream(acquiredStream);
-      void updateAvailableDevices();
-    },
-    [stopCamera, updateAvailableDevices]
-  );
-
-  // Bind stream to video element when stream is ready and video element is mounted
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !currentStream) return;
-
-    video.srcObject = currentStream;
-    video.muted = true;
-    video.playsInline = true;
-
-    let isSubscribed = true;
-
-    const onMetadata = async () => {
-      if (!isSubscribed) return;
-      try {
-        await video.play();
-        setHasLiveFrames(true);
-        setCameraConnecting(false);
-      } catch (err: any) {
-        console.warn('Playback interrupted or autoplay blocked:', err);
-        // Retry play on user interaction if needed
-      }
-    };
-
-    video.addEventListener('loadedmetadata', onMetadata);
-    if (video.readyState >= 1) {
-      void onMetadata();
-    }
-
-    return () => {
-      isSubscribed = false;
-      video.removeEventListener('loadedmetadata', onMetadata);
-    };
+    const video = videoRef.current; if (!video || !currentStream) return;
+    video.srcObject = currentStream; video.muted = true; video.playsInline = true;
+    let live = true;
+    const onMeta = async () => { if (!live) return; try { await video.play(); setHasLiveFrames(true); setCameraConnecting(false); } catch { /* autoplay blocked until a tap */ } };
+    video.addEventListener('loadedmetadata', onMeta); if (video.readyState >= 1) void onMeta();
+    return () => { live = false; video.removeEventListener('loadedmetadata', onMeta); };
   }, [currentStream]);
 
-  // Frame watchdog: if stream is assigned but no nonzero dimensions arrive within 5s
   useEffect(() => {
     if (!currentStream || hasLiveFrames) return;
-    const timeoutId = setTimeout(() => {
-      const video = videoRef.current;
-      if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-        setCameraError('Camera preview could not start. Please ensure no other app is holding the camera, or choose a photo instead.');
-        setCameraConnecting(false);
-      }
-    }, 5000);
-
-    return () => clearTimeout(timeoutId);
+    const t = setTimeout(() => { const v = videoRef.current; if (!v || !v.videoWidth) { setCameraError('The camera preview did not start. Close other apps using the camera, or choose a photo.'); setCameraConnecting(false); } }, 5000);
+    return () => clearTimeout(t);
   }, [currentStream, hasLiveFrames]);
 
-  // Handle modal open/close, background tab changes, and body class
+  // Open / close: fresh session each time; the camera runs only on the camera stage.
   useEffect(() => {
     if (isOpen) {
       document.body.classList.add('has-scanner-open');
-      setPages([]);
-      setActivePageIndex(0);
-      setCompiling(false);
-      void startCamera();
-    } else {
-      document.body.classList.remove('has-scanner-open');
-      stopCamera();
-    }
-
-    return () => {
-      document.body.classList.remove('has-scanner-open');
-      stopCamera();
-    };
-  }, [isOpen, startCamera, stopCamera]);
-
-  // Stop camera when browser tab becomes hidden
+      setPages([]); setActive(0); setStage('camera'); setRetakeIndex(null); setBusy(null);
+    } else { document.body.classList.remove('has-scanner-open'); stopCamera(); }
+    return () => { document.body.classList.remove('has-scanner-open'); stopCamera(); };
+  }, [isOpen, stopCamera]);
   useEffect(() => {
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        stopCamera();
+    if (!isOpen) return;
+    if (stage === 'camera') void startCamera(availableDevices[currentDeviceIndex]?.deviceId);
+    else stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, stage]);
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') stopCamera(); else if (isOpen && stage === 'camera') void startCamera(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [isOpen, stage, startCamera, stopCamera]);
+
+  /** Adds a captured image as a page (or replaces the page being retaken) and opens it for review. */
+  const addPage = useCallback(async (original: string, detected: Quad | null) => {
+    setBusy('Preparing page…');
+    try {
+      const quad = detected ?? FULL_QUAD;
+      const rendered = await renderPage(original, quad, 'auto', 0);
+      setPages(prev => {
+        const page: Page = { id: nextId.current++, original, quad, filter: 'auto', rotation: 0, rendered };
+        if (retakeIndex !== null && prev[retakeIndex]) { const copy = [...prev]; copy[retakeIndex] = page; setActive(retakeIndex); return copy; }
+        setActive(prev.length); return [...prev, page];
+      });
+      setRetakeIndex(null); setStage('review');
+    } catch (e: any) { setCameraError(e?.message || 'The page could not be prepared.'); }
+    finally { setBusy(null); }
+  }, [retakeIndex]);
+
+  const capture = useCallback(() => {
+    const v = videoRef.current; if (!v || !v.videoWidth) return;
+    const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d')!.drawImage(v, 0, 0);
+    setFlash(true); setTimeout(() => setFlash(false), 180);
+    const quad = detectIn(c, c.width, c.height) ?? liveQuad;
+    void addPage(c.toDataURL('image/jpeg', 0.92), quad);
+  }, [addPage, liveQuad]);
+
+  // The loop calls capture through a ref: capture changes with every detected outline, and
+  // restarting the loop on each change would reset the hold-steady timer forever.
+  const captureRef = useRef(capture);
+  captureRef.current = capture;
+
+  // Live detection loop: draw the outline, and auto-capture once the page holds still.
+  useEffect(() => {
+    if (!isOpen || stage !== 'camera' || !hasLiveFrames) return;
+    let stop = false, last: Quad | null = null, steadySince = 0, timer = 0;
+    const tick = () => {
+      if (stop) return;
+      const v = videoRef.current;
+      if (v && v.videoWidth && !busy) {
+        const q = detectIn(v, v.videoWidth, v.videoHeight);
+        setLiveQuad(q);
+        const now = performance.now();
+        if (q && last && quadDrift(q, last) < 0.025) { if (!steadySince) steadySince = now; }
+        else steadySince = 0;
+        last = q;
+        const p = steadySince ? Math.min(1, (now - steadySince) / STEADY_MS) : 0;
+        setSteady(autoCapture ? p : 0);
+        if (autoCapture && p >= 1 && pages.length < PAGE_LIMIT) { steadySince = 0; last = null; captureRef.current(); return; }
       }
+      timer = window.setTimeout(tick, 140);
     };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  }, [stopCamera]);
+    tick();
+    return () => { stop = true; clearTimeout(timer); };
+  }, [isOpen, stage, hasLiveFrames, autoCapture, busy, pages.length]);
+
+  // Paint the detected outline over the video (object-fit: cover mapping).
+  useEffect(() => {
+    const cv = overlayRef.current, v = videoRef.current; if (!cv || !v) return;
+    const r = cv.getBoundingClientRect(); cv.width = r.width * devicePixelRatio; cv.height = r.height * devicePixelRatio;
+    const ctx = cv.getContext('2d'); if (!ctx) return;
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (!liveQuad || !v.videoWidth) return;
+    const scale = Math.max(cv.width / v.videoWidth, cv.height / v.videoHeight);
+    const ox = (cv.width - v.videoWidth * scale) / 2, oy = (cv.height - v.videoHeight * scale) / 2;
+    const pts = liveQuad.map(p => ({ x: ox + p.x * v.videoWidth * scale, y: oy + p.y * v.videoHeight * scale }));
+    ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
+    ctx.fillStyle = 'rgba(66, 196, 120, 0.22)'; ctx.fill();
+    ctx.lineWidth = 4 * devicePixelRatio; ctx.strokeStyle = '#4ADE80'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.fillStyle = '#FFFFFF'; pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 7 * devicePixelRatio, 0, Math.PI * 2); ctx.fill(); });
+  }, [liveQuad]);
 
   if (!isOpen) return null;
 
-  const handleSwitchCamera = () => {
-    if (availableDevices.length < 2) return;
-    const nextIdx = (currentDeviceIndex + 1) % availableDevices.length;
-    setCurrentDeviceIndex(nextIdx);
-    void startCamera(availableDevices[nextIdx].deviceId);
+  const page = pages[active];
+  const updatePage = async (patch: Partial<Page>) => {
+    if (!page) return;
+    const next = { ...page, ...patch };
+    setBusy('Updating…');
+    try { next.rendered = await renderPage(next.original, next.quad, next.filter, next.rotation); setPages(prev => prev.map((p, i) => (i === active ? next : p))); }
+    finally { setBusy(null); }
+  };
+  const deletePage = () => {
+    setPages(prev => { const copy = prev.filter((_, i) => i !== active); setActive(Math.max(0, Math.min(active, copy.length - 1))); if (!copy.length) setStage('camera'); return copy; });
   };
 
-  const handleCapture = () => {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    const width = video.videoWidth || 1920;
-    const height = video.videoHeight || 1080;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0, width, height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    setPages(prev => {
-      const updated = [...prev, dataUrl];
-      setActivePageIndex(updated.length - 1);
-      return updated;
-    });
-  };
-
-  const handleRotateActivePage = () => {
-    if (pages.length === 0 || activePageIndex < 0 || activePageIndex >= pages.length) return;
-    const currentDataUrl = pages[activePageIndex];
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.height;
-      canvas.height = img.width;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((90 * Math.PI) / 180);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      const rotated = canvas.toDataURL('image/jpeg', 0.9);
-      setPages(prev => prev.map((p, idx) => (idx === activePageIndex ? rotated : p)));
-    };
-    img.src = currentDataUrl;
-  };
-
-  const handleDeleteActivePage = (idxToDelete: number, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setPages(prev => {
-      const updated = prev.filter((_, idx) => idx !== idxToDelete);
-      if (activePageIndex >= updated.length) {
-        setActivePageIndex(Math.max(0, updated.length - 1));
-      }
-      return updated;
-    });
-  };
-
-  const handleMovePage = (index: number, direction: 'left' | 'right') => {
-    const targetIndex = direction === 'left' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= pages.length) return;
-    setPages(prev => {
-      const copy = [...prev];
-      const temp = copy[index];
-      copy[index] = copy[targetIndex];
-      copy[targetIndex] = temp;
-      return copy;
-    });
-    setActivePageIndex(targetIndex);
-  };
-
-  const handleFallbackFilePick = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (file.type === 'application/pdf') {
-      stopCamera();
-      onScanComplete(file);
-      onClose();
-      return;
+  const onGalleryPick = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []); if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!files.length) return;
+    if (files.length === 1 && files[0].type === 'application/pdf') { stopCamera(); onScanComplete(files[0]); onClose(); return; }
+    for (const f of files.filter(f => f.type.startsWith('image/')).slice(0, PAGE_LIMIT - pages.length)) {
+      const url = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
+      const img = await loadImage(url);
+      // Re-encode through a canvas so every page is a JPEG the PDF can embed.
+      const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d')!.drawImage(img, 0, 0);
+      await addPage(c.toDataURL('image/jpeg', 0.92), detectIn(c, c.width, c.height));
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPages(prev => {
-          const updated = [...prev, reader.result as string];
-          setActivePageIndex(updated.length - 1);
-          return updated;
-        });
-      }
-    };
-    reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleCompleteScan = async () => {
-    if (pages.length === 0 || compiling) return;
-    setCompiling(true);
-
+  const save = async () => {
+    if (!pages.length || busy) return;
+    setBusy('Saving PDF…');
     try {
       const pdfDoc = await PDFDocument.create();
-
-      for (const pageDataUrl of pages) {
-        const imageBytes = await fetch(pageDataUrl).then(res => res.arrayBuffer());
-        const jpgImage = await pdfDoc.embedJpg(imageBytes);
-        const { width, height } = jpgImage.scale(1);
-
-        const page = pdfDoc.addPage([width, height]);
-        page.drawImage(jpgImage, {
-          x: 0,
-          y: 0,
-          width,
-          height,
-        });
+      for (const p of pages) {
+        const bytes = await fetch(p.rendered || p.original).then(r => r.arrayBuffer());
+        const jpg = await pdfDoc.embedJpg(bytes);
+        // A4-width pages like the app's PDF output, keeping each page's own proportions.
+        const w = 595.28, h = (jpg.height / jpg.width) * w;
+        pdfDoc.addPage([w, h]).drawImage(jpg, { x: 0, y: 0, width: w, height: h });
       }
-
       const pdfBytes = await pdfDoc.save();
       const safeName = `${documentTypeName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_scanned_${Date.now()}.pdf`;
-      const cleanBuffer = pdfBytes.buffer.slice(
-        pdfBytes.byteOffset,
-        pdfBytes.byteOffset + pdfBytes.byteLength
-      ) as ArrayBuffer;
-      const compiledFile = new File([cleanBuffer], safeName, { type: 'application/pdf' });
-
+      // Copy out exactly this view of the bytes (pdf-lib may hand back a view into a larger buffer).
+      const cleanBuffer = pdfBytes.buffer.slice(pdfBytes.byteOffset, pdfBytes.byteOffset + pdfBytes.byteLength) as ArrayBuffer;
       stopCamera();
-      onScanComplete(compiledFile);
+      onScanComplete(new File([cleanBuffer], safeName, { type: 'application/pdf' }));
       onClose();
     } catch (err: any) {
-      alert(`Could not compile scanned pages into PDF: ${err.message || 'Unknown error'}`);
-    } finally {
-      setCompiling(false);
-    }
+      setCameraError(`The PDF could not be made: ${err?.message || 'unknown error'}`);
+    } finally { setBusy(null); }
   };
+
+  const hint = !hasLiveFrames ? 'Starting camera…' : liveQuad ? (autoCapture ? (steady > 0.05 ? 'Hold still…' : 'Document found') : 'Tap the shutter') : 'Looking for a document…';
 
   return (
     <ModalPortal>
-      <ModalOverlay onDismiss={onClose}>
-        <div
-          className="doc-scanner-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Scan ${documentTypeName}`}
-        >
-          {/* Header */}
-          <div className="doc-scanner-header">
-            <h2 className="doc-scanner-title">
-              <Camera size={20} color="#3f9265" />
-              <span>Document Scanner: {documentTypeName}</span>
-            </h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {availableDevices.length > 1 && !cameraError && (
-                <button
-                  type="button"
-                  className="doc-scanner-switch-btn"
-                  onClick={handleSwitchCamera}
-                  aria-label="Switch camera"
-                  title="Switch camera"
-                >
-                  <SwitchCamera size={18} />
-                </button>
-              )}
-              <button
-                type="button"
-                className="doc-scanner-close"
-                onClick={onClose}
-                aria-label="Close scanner"
-                title="Close scanner"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
+      <div className="dsx" role="dialog" aria-modal="true" aria-label={`Scan ${documentTypeName}`}>
+        <input ref={fileInputRef} type="file" accept="image/*,application/pdf" multiple hidden onChange={e => void onGalleryPick(e)} />
 
-          {/* Body */}
-          <div className="doc-scanner-body">
-            <div className="doc-scanner-viewport">
-              {/* The video element is persistently mounted so videoRef.current is always valid */}
-              <video
-                ref={videoRef}
-                className="doc-scanner-video"
-                playsInline
-                autoPlay
-                muted
-              />
+        {stage === 'camera' && (
+          <>
+            <header className="dsx-top">
+              <button type="button" className="dsx-icon" onClick={() => (pages.length ? setStage('review') : onClose())} aria-label={pages.length ? 'Back to pages' : 'Close scanner'}><X size={24} /></button>
+              <div className="dsx-seg" role="group" aria-label="Capture mode">
+                <button type="button" aria-pressed={autoCapture} onClick={() => setAutoCapture(true)}>Auto</button>
+                <button type="button" aria-pressed={!autoCapture} onClick={() => setAutoCapture(false)}>Manual</button>
+              </div>
+              {availableDevices.length > 1 ? (
+                <button type="button" className="dsx-icon" aria-label="Switch camera" onClick={() => { const i = (currentDeviceIndex + 1) % availableDevices.length; setCurrentDeviceIndex(i); void startCamera(availableDevices[i].deviceId); }}><SwitchCamera size={22} /></button>
+              ) : <span className="dsx-icon dsx-icon--ghost" />}
+            </header>
 
-              {hasLiveFrames && !cameraError && (
-                <>
-                  <div className="doc-scanner-guide">
-                    <div className="doc-scanner-guide-corner doc-scanner-guide-tl" />
-                    <div className="doc-scanner-guide-corner doc-scanner-guide-tr" />
-                    <div className="doc-scanner-guide-corner doc-scanner-guide-bl" />
-                    <div className="doc-scanner-guide-corner doc-scanner-guide-br" />
-                  </div>
-                  <div className="doc-scanner-tip">
-                    Align document within the frame and hold steady
-                  </div>
-                </>
-              )}
-
-              {cameraConnecting && !cameraError && (
-                <div className="doc-scanner-loading-overlay">
-                  <Loader2 size={36} className="spin" color="#3f9265" />
-                  <p style={{ margin: '8px 0 0', fontWeight: 600, fontSize: '0.9rem' }}>
-                    Starting camera…
-                  </p>
-                </div>
-              )}
-
+            <div className="dsx-stage">
+              <video ref={videoRef} className="dsx-video" playsInline autoPlay muted />
+              <canvas ref={overlayRef} className="dsx-overlay" aria-hidden="true" />
+              {flash && <div className="dsx-flash" />}
+              {!cameraError && <div className={`dsx-hint${liveQuad ? ' is-found' : ''}`} role="status">{hint}</div>}
+              {cameraConnecting && !cameraError && <div className="dsx-center"><Loader2 size={40} className="spin" /></div>}
               {cameraError && (
-                <div className="doc-scanner-fallback-banner">
-                  <AlertCircle size={44} color="#f59e0b" />
-                  <p style={{ margin: 0, fontWeight: 700, fontSize: '1.05rem' }}>
-                    Camera unavailable
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', maxWidth: 400 }}>
-                    {cameraError}
-                  </p>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => void startCamera()}
-                    >
-                      <RefreshCw size={15} /> Retry camera
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload size={15} /> Upload photo instead
-                    </button>
+                <div className="dsx-center dsx-error">
+                  <AlertCircle size={44} />
+                  <strong>Camera unavailable</strong>
+                  <span>{cameraError}</span>
+                  <div className="dsx-row">
+                    <button type="button" className="dsx-pill" onClick={() => void startCamera()}><RefreshCw size={18} /> Try again</button>
+                    <button type="button" className="dsx-pill is-primary" onClick={() => fileInputRef.current?.click()}><ImageIcon size={18} /> Choose from gallery</button>
                   </div>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Captured Pages Thumbnail Tray */}
-          {pages.length > 0 && (
-            <div className="doc-scanner-tray">
-              <span style={{ fontSize: '0.8125rem', color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>
-                {pages.length} {pages.length === 1 ? 'Page' : 'Pages'}:
-              </span>
-              {pages.map((imgUrl, idx) => (
-                <div
-                  key={idx}
-                  className={`doc-scanner-thumb ${idx === activePageIndex ? 'active' : ''}`}
-                  onClick={() => setActivePageIndex(idx)}
-                >
-                  <img src={imgUrl} alt={`Page ${idx + 1}`} />
-                  <span className="doc-scanner-thumb-badge">{idx + 1}</span>
-                  <div className="doc-scanner-thumb-actions">
-                    <button
-                      type="button"
-                      className="doc-scanner-thumb-btn"
-                      onClick={e => handleDeleteActivePage(idx, e)}
-                      title="Delete page"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Bottom Bar Controls */}
-          <div className="doc-scanner-controls">
-            {/* Row 1: Capture & Tool Controls */}
-            <div className="doc-scanner-capture-row">
-              {/* Left Tools: Add photo & Rotate */}
-              <div className="doc-scanner-left-tools">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  capture="environment"
-                  style={{ display: 'none' }}
-                  onChange={handleFallbackFilePick}
-                />
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm doc-scanner-tool-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Add photo from gallery or file"
-                >
-                  <Upload size={14} /> <span>Add photo</span>
+            <footer className="dsx-bottom">
+              <button type="button" className="dsx-icon dsx-icon--lg" onClick={() => fileInputRef.current?.click()} aria-label="Import from gallery"><ImageIcon size={26} /></button>
+              <button type="button" className="dsx-shutter" onClick={capture} disabled={!hasLiveFrames || !!busy || pages.length >= PAGE_LIMIT} aria-label="Capture page"
+                style={{ ['--p' as any]: steady }}>
+                <span />
+              </button>
+              {pages.length ? (
+                <button type="button" className="dsx-thumb" onClick={() => setStage('review')} aria-label={`Review ${pages.length} page${pages.length === 1 ? '' : 's'}`}>
+                  <img src={pages[pages.length - 1].rendered || pages[pages.length - 1].original} alt="" />
+                  <b>{pages.length}</b>
                 </button>
+              ) : <span className="dsx-icon dsx-icon--lg dsx-icon--ghost" />}
+            </footer>
+          </>
+        )}
 
-                {pages.length > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm doc-scanner-tool-btn"
-                    onClick={handleRotateActivePage}
-                    title="Rotate selected page"
-                  >
-                    <RotateCw size={14} /> <span>Rotate</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Center Shutter Button: distinct tap target */}
-              <div className="doc-scanner-shutter-container">
-                {hasLiveFrames && !cameraError && (
-                  <button
-                    type="button"
-                    className="doc-scanner-shutter-btn"
-                    onClick={handleCapture}
-                    title="Capture document page"
-                    aria-label="Capture page"
-                  >
-                    <Camera size={26} color="#3f9265" />
-                  </button>
-                )}
-              </div>
-
-              {/* Right Tools: Page reorder controls */}
-              <div className="doc-scanner-right-tools">
-                {pages.length > 1 && (
-                  <div className="doc-scanner-page-nav">
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm doc-scanner-nav-btn"
-                      onClick={() => handleMovePage(activePageIndex, 'left')}
-                      disabled={activePageIndex === 0}
-                      title="Move page left"
-                      aria-label="Move page left"
-                    >
-                      <ChevronLeft size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm doc-scanner-nav-btn"
-                      onClick={() => handleMovePage(activePageIndex, 'right')}
-                      disabled={activePageIndex === pages.length - 1}
-                      title="Move page right"
-                      aria-label="Move page right"
-                    >
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
+        {stage === 'review' && page && (
+          <>
+            <header className="dsx-top">
+              <button type="button" className="dsx-icon" onClick={onClose} aria-label="Discard and close"><X size={24} /></button>
+              <span className="dsx-title">Page {active + 1} of {pages.length}</span>
+              <button type="button" className="dsx-save" onClick={() => void save()} disabled={!!busy}>Save</button>
+            </header>
+            <div className="dsx-stage dsx-stage--review">
+              <img className="dsx-page" src={page.rendered || page.original} alt={`Page ${active + 1}`} />
             </div>
-
-            {/* Row 2: Dedicated Completion Action (no overlap with shutter) */}
-            {pages.length > 0 && (
-              <div className="doc-scanner-completion-row">
-                <button
-                  type="button"
-                  className="btn btn-primary doc-scanner-use-doc-btn"
-                  onClick={handleCompleteScan}
-                  disabled={compiling}
-                >
-                  {compiling ? (
-                    <>
-                      <Loader2 size={18} className="spin" /> Compiling Document ({pages.length})…
-                    </>
-                  ) : (
-                    <>
-                      <Check size={18} /> Use Document ({pages.length})
-                    </>
-                  )}
-                </button>
+            {showFilters && (
+              <div className="dsx-filters" role="group" aria-label="Filter">
+                {FILTERS.map(f => <button key={f.key} type="button" aria-pressed={page.filter === f.key} onClick={() => void updatePage({ filter: f.key })}>{f.label}</button>)}
               </div>
             )}
-          </div>
-        </div>
-      </ModalOverlay>
+            <div className="dsx-strip" aria-label="Pages">
+              {pages.map((p, i) => (
+                <button key={p.id} type="button" className={`dsx-strip__item${i === active ? ' is-on' : ''}`} onClick={() => setActive(i)} aria-label={`Page ${i + 1}`} aria-current={i === active}>
+                  <img src={p.rendered || p.original} alt="" /><b>{i + 1}</b>
+                </button>
+              ))}
+              {pages.length < PAGE_LIMIT && <button type="button" className="dsx-strip__add" onClick={() => { setRetakeIndex(null); setStage('camera'); }} aria-label="Add page"><Plus size={26} /></button>}
+            </div>
+            <nav className="dsx-tools" aria-label="Page tools">
+              <button type="button" onClick={() => { setRetakeIndex(null); setStage('camera'); }}><Plus size={22} /><span>Add</span></button>
+              <button type="button" onClick={() => { setRetakeIndex(active); setStage('camera'); }}><RotateCcw size={22} /><span>Retake</span></button>
+              <button type="button" onClick={() => { setCropQuad(page.quad); setStage('crop'); }}><Crop size={22} /><span>Crop</span></button>
+              <button type="button" onClick={() => void updatePage({ rotation: (page.rotation + 1) % 4 })}><RotateCw size={22} /><span>Rotate</span></button>
+              <button type="button" aria-pressed={showFilters} onClick={() => setShowFilters(s => !s)}><Wand2 size={22} /><span>Filter</span></button>
+              <button type="button" onClick={deletePage}><Trash2 size={22} /><span>Delete</span></button>
+            </nav>
+          </>
+        )}
+
+        {stage === 'crop' && page && cropQuad && (
+          <CropStage src={page.original} quad={cropQuad} onChange={setCropQuad}
+            onCancel={() => setStage('review')}
+            onAuto={async () => { const img = await loadImage(page.original); setCropQuad(detectIn(img, img.naturalWidth, img.naturalHeight) ?? FULL_QUAD); }}
+            onFull={() => setCropQuad([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }])}
+            onApply={async () => { await updatePage({ quad: cropQuad }); setStage('review'); }} />
+        )}
+
+        {busy && <div className="dsx-busy" role="status"><Loader2 size={30} className="spin" /><span>{busy}</span></div>}
+      </div>
     </ModalPortal>
   );
 };
 
-export default DocumentScannerModal;
+/** Four draggable corners over the original photo, like the app's crop screen. */
+const CropStage: React.FC<{ src: string; quad: Quad; onChange: (q: Quad) => void; onCancel: () => void; onAuto: () => void; onFull: () => void; onApply: () => void }> = ({ src, quad, onChange, onCancel, onAuto, onFull, onApply }) => {
+  const boxRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<number | null>(null);
+  const move = (e: React.PointerEvent) => {
+    if (drag.current === null || !boxRef.current) return;
+    const r = boxRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+    const next = quad.map((p, i) => (i === drag.current ? { x, y } : p)) as Quad;
+    onChange(next);
+  };
+  const pts = quad.map(p => `${p.x * 100},${p.y * 100}`).join(' ');
+  return (
+    <>
+      <header className="dsx-top">
+        <button type="button" className="dsx-icon" onClick={onCancel} aria-label="Cancel crop"><X size={24} /></button>
+        <span className="dsx-title">Crop</span>
+        <button type="button" className="dsx-save" onClick={onApply}><Check size={20} /> Apply</button>
+      </header>
+      <div className="dsx-stage dsx-stage--review">
+        <div className="dsx-crop" ref={boxRef} onPointerMove={move} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
+          <img src={src} alt="Page to crop" draggable={false} />
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <polygon points={pts} />
+          </svg>
+          {quad.map((p, i) => (
+            <button key={i} type="button" className="dsx-handle" style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
+              aria-label={['Top-left corner', 'Top-right corner', 'Bottom-right corner', 'Bottom-left corner'][i]}
+              onPointerDown={e => { drag.current = i; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); }}
+              onPointerMove={move} onPointerUp={() => { drag.current = null; }}
+              onKeyDown={e => {
+                const step = 0.01, d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+                if (!d) return; e.preventDefault();
+                onChange(quad.map((q, j) => (j === i ? { x: Math.max(0, Math.min(1, q.x + d[0])), y: Math.max(0, Math.min(1, q.y + d[1])) } : q)) as Quad);
+              }} />
+          ))}
+        </div>
+      </div>
+      <nav className="dsx-tools dsx-tools--two" aria-label="Crop tools">
+        <button type="button" onClick={onAuto}><Wand2 size={22} /><span>Detect edges</span></button>
+        <button type="button" onClick={onFull}><Crop size={22} /><span>Whole photo</span></button>
+      </nav>
+    </>
+  );
+};
