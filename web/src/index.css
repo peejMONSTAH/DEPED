@@ -4639,3 +4639,30 @@ tr:hover td {
 }
 .modal-overlay :is(button.modal-close, button[aria-label^="Close"], button[aria-label^="close"], button[title^="Close"]):not(.sap-btn):hover { background: #F1F5F2 !important; color: #17472E !important; }
 .modal-overlay :is(button.modal-close, button[aria-label^="Close"], button[aria-label^="close"], button[title^="Close"]):not(.sap-btn) svg { color: currentColor !important; stroke: currentColor; }
+
+/* One dialog header everywhere: plain white band, dark title, muted subtitle, divider below,
+   close at the right. Matches AppDialog; overrides the older gradient and tinted headers. */
+.modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head, .app-dialog__head) {
+  display: flex !important; align-items: center !important; justify-content: space-between; gap: 16px !important;
+  padding: 22px 28px 18px !important; margin: 0 !important;
+  background: #FFFFFF !important; background-image: none !important; color: #1F3A2C !important;
+  border: 0 !important; border-bottom: 1px solid #E6EDE8 !important; border-radius: 0 !important;
+  box-shadow: none !important; flex-shrink: 0;
+}
+.modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head) :is(h1, h2, h3) {
+  margin: 0 !important; font-size: 1.5rem !important; line-height: 1.2 !important; font-weight: 800 !important;
+  letter-spacing: -0.015em !important; color: #1F3A2C !important; background: none !important; -webkit-text-fill-color: currentColor !important;
+}
+.modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head) :is(h1, h2, h3) ~ p,
+.modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head) :is(h1, h2, h3) + :is(span, small) {
+  margin: 4px 0 0 !important; font-size: 1rem !important; color: #5F6F64 !important; font-weight: 500 !important;
+}
+.modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head) > :is(h1, h2, h3, div:not(:has(> button)):first-child) { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 560px) {
+  .modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head, .app-dialog__head) { padding: 18px 18px 14px !important; }
+  .modal-overlay :is(.dialog-head, .modal-header, .pi-head, .acd__head, .trv-head, .dossier-header, .doc-viewer-header, .annex-c-header, .pc-create__head) :is(h1, h2, h3) { font-size: 1.3rem !important; }
+}
+/* For dialogs whose card carries its own 24px padding: the header band still runs edge to edge. */
+.modal-overlay .dialog-head.dialog-head--inset { margin: -24px -24px 20px !important; }
+/* Dialogs built on .card get the solid white of every other dialog, not the page card's tint. */
+.modal-overlay > .card { background: #FFFFFF !important; backdrop-filter: none !important; }

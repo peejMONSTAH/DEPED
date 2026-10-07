@@ -869,20 +869,7 @@ export const CredentialDistribution: React.FC = () => {
             }}
           >
             {/* Header */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)',
-                borderBottom: '1px solid var(--color-border)',
-                padding: '20px 28px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981 0%, #2f7d52 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <AppIcon name="credentials" size={22} color="#fff" />
-              </div>
+            <div className="dialog-head">
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>
                   {isSysAdmin ? 'Create Account' : 'Request Account Creation'}
@@ -896,6 +883,7 @@ export const CredentialDistribution: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAddModal(false)}
+                aria-label="Close"
                 style={{ width: '34px', height: '34px', borderRadius: '10px', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '15px', fontWeight: 700, flexShrink: 0 }}
               >✕</button>
             </div>

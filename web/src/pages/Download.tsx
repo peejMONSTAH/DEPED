@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { Digital201Logo } from '../components/common/Digital201Logo';
 import './download.css';
 
-/** The hosted Android APK. The QR code below encodes the file page this link redirects to. */
-const APK_URL = 'https://tinyurl.com/Digital201';
+/** The hosted Android APK. The QR code below opens the same file page. */
+const APK_URL = 'https://www.mediafire.com/file/eg5ginw247u0h4m/Digital201-v1.1.1-20261005b.apk/file';
 
 /**
  * Real screenshots of the Android app, shown inside the phones. Add files under

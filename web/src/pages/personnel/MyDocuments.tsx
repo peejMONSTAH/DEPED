@@ -967,7 +967,7 @@ export const MyDocuments: React.FC = () => {
                 maxWidth: 520,
                 padding: 24,
                 borderRadius: 16,
-                background: 'var(--color-bg-card)',
+                background: '#FFFFFF',
                 border: '1px solid var(--color-border)',
                 maxHeight: '90vh',
                 overflowY: 'auto',
@@ -975,9 +975,9 @@ export const MyDocuments: React.FC = () => {
               onClick={e => e.stopPropagation()}
             >
               {/* One dismiss control per dialog: Cancel in the footer (Escape works too). */}
-              <h3 style={{ margin: '0 0 16px', fontSize: '1.5rem', fontWeight: 800 }}>
-                {modalTitle}
-              </h3>
+              <div className="dialog-head dialog-head--inset">
+                <h3>{modalTitle}</h3>
+              </div>
 
               {formError && (
                 <div

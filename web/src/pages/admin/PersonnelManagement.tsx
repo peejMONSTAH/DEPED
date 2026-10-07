@@ -1065,21 +1065,7 @@ export const PersonnelManagement: React.FC = () => {
             }}
           >
             {/* Header */}
-            <div
-              className="personnel-add-header"
-              style={{
-                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)',
-                borderBottom: '1px solid var(--color-border)',
-                padding: '20px 28px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, #10b981 0%, #2f7d52 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <AppIcon name="personnel" size={22} color="#fff" />
-              </div>
+            <div className="dialog-head">
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>Add New Employee Profile</h3>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: 0 }}>PDS CS Form 212 — Personal, contact, and employment information</p>

@@ -13,7 +13,7 @@ test('the download page is public and linked from the login page', () => {
 
 test('the page offers the APK link, the local QR and a web fallback, and collects nothing', () => {
   const s = src('pages/Download.tsx');
-  assert.match(s, /APK_URL = 'https:\/\/tinyurl\.com\/Digital201'/);
+  assert.match(s, /APK_URL = 'https:\/\/www\.mediafire\.com\/file\/eg5ginw247u0h4m\/Digital201-v1\.1\.1-20261005b\.apk\/file'/);
   assert.match(s, /Download Android APK/);
   assert.match(s, /src="\/brand\/digital201-apk-qr\.svg"/);
   assert.match(s, /alt="QR code that opens the Digital 201 Android APK download"/);
